@@ -1,0 +1,50 @@
+# Robots.txt for AWS Well-Architected Static Website
+# This file tells web crawlers which pages they can or cannot request from your site
+
+User-agent: *
+Allow: /
+
+# Sitemap location (update with your actual domain)
+Sitemap: https://example.com/sitemap.xml
+
+# Crawl delay to be respectful to servers
+Crawl-delay: 1
+
+# Disallow common admin/internal paths (if they exist)
+Disallow: /admin/
+Disallow: /private/
+Disallow: /.aws/
+Disallow: /terraform/
+
+# Allow access to CSS, JS, and images for proper rendering
+Allow: /css/
+Allow: /js/
+Allow: /images/
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.gif$
+Allow: /*.svg$
+Allow: /*.ico$
+
+# Common bot specific instructions
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+# Block aggressive crawlers that might cause high server load
+User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: AhrefsBot
+Crawl-delay: 10
+
+User-agent: MJ12bot
+Crawl-delay: 10
