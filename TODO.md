@@ -70,8 +70,8 @@
   - Manual triggers, artifact inheritance, comprehensive validation
   - Progressive deployment with approval gates
 
-- [ ] **Add security scanning automation (tfsec, Checkov, Trivy) with SARIF reporting**
-  - Integrate all three security scanners with GitHub Actions
+- [ ] **Add security scanning automation (Trivy, Checkov) with SARIF reporting**
+  - Integrate security scanners with GitHub Actions
   - Generate SARIF reports for security findings
   - Automated policy enforcement and compliance checking
 

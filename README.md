@@ -375,7 +375,6 @@ bash test/performance/lighthouse-test.sh
 # Security scanning
 trivy config terraform/
 checkov -d terraform/
-tfsec terraform/
 ```
 
 ## 🚀 Deployment
