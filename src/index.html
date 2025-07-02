@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AWS Well-Architected Static Website - Demonstrating serverless architecture patterns with S3, CloudFront, WAF, and comprehensive security">
+    <meta name="keywords" content="AWS, Well-Architected, Static Website, CloudFront, S3, WAF, Security, Performance">
+    <meta name="author" content="AWS Architecture Demo">
+    
+    <!-- Security Headers (additional to CloudFront Function) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="AWS Well-Architected Static Website">
+    <meta property="og:description" content="Enterprise-grade static website demonstrating AWS architectural best practices">
+    <meta property="og:url" content="https://example.com">
+    <meta property="og:site_name" content="AWS Architecture Demo">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AWS Well-Architected Static Website">
+    <meta name="twitter:description" content="Enterprise-grade static website demonstrating AWS architectural best practices">
+    
+    <title>AWS Well-Architected Static Website | Architecture Demo</title>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="css/styles.css" as="style">
+    <link rel="preload" href="js/main.js" as="script">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://example.com">
+</head>
+<body>
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Header -->
+    <header class="header" role="banner">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="logo">
+                    <span class="logo-icon">☁️</span>
+                    AWS Architecture Demo
+                </h1>
+                <nav class="nav" role="navigation" aria-label="Main navigation">
+                    <ul class="nav-list">
+                        <li><a href="#architecture">Architecture</a></li>
+                        <li><a href="#security">Security</a></li>
+                        <li><a href="#performance">Performance</a></li>
+                        <li><a href="#monitoring">Monitoring</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main" role="main">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1 class="hero-title">AWS Well-Architected Static Website</h1>
+                    <p class="hero-subtitle">
+                        Enterprise-grade serverless architecture demonstrating AWS best practices
+                        for security, reliability, performance, cost optimization, and operational excellence.
+                    </p>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <span class="stat-number">99.9%</span>
+                            <span class="stat-label">Uptime SLA</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">&lt;100ms</span>
+                            <span class="stat-label">Global Latency</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">~$30</span>
+                            <span class="stat-label">Monthly Cost</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Architecture Section -->
+        <section id="architecture" class="section architecture-section">
+            <div class="container">
+                <h2 class="section-title">Architecture Overview</h2>
+                <div class="architecture-grid">
+                    <div class="architecture-item">
+                        <div class="architecture-icon">🗄️</div>
+                        <h3>Amazon S3</h3>
+                        <p>Static content storage with versioning, encryption, and cross-region replication for 99.999999999% durability.</p>
+                        <ul class="feature-list">
+                            <li>Server-side encryption with KMS</li>
+                            <li>Intelligent tiering for cost optimization</li>
+                            <li>Cross-region replication for disaster recovery</li>
+                        </ul>
+                    </div>
+                    <div class="architecture-item">
+                        <div class="architecture-icon">🌐</div>
+                        <h3>Amazon CloudFront</h3>
+                        <p>Global content delivery network with 200+ edge locations providing sub-100ms latency worldwide.</p>
+                        <ul class="feature-list">
+                            <li>HTTP/2 and IPv6 support</li>
+                            <li>Gzip compression and caching optimization</li>
+                            <li>Custom security headers via CloudFront Functions</li>
+                        </ul>
+                    </div>
+                    <div class="architecture-item">
+                        <div class="architecture-icon">🛡️</div>
+                        <h3>AWS WAF</h3>
+                        <p>Web application firewall protecting against OWASP Top 10 threats with intelligent rate limiting.</p>
+                        <ul class="feature-list">
+                            <li>OWASP Core Rule Set protection</li>
+                            <li>IP reputation and geo-blocking</li>
+                            <li>Real-time metrics and logging</li>
+                        </ul>
+                    </div>
+                    <div class="architecture-item">
+                        <div class="architecture-icon">🔐</div>
+                        <h3>IAM & OIDC</h3>
+                        <p>GitHub Actions integration with OpenID Connect for secure, keyless deployments with least-privilege access.</p>
+                        <ul class="feature-list">
+                            <li>No long-lived AWS credentials</li>
+                            <li>Fine-grained permission policies</li>
+                            <li>Automated deployment workflows</li>
+                        </ul>
+                    </div>
+                    <div class="architecture-item">
+                        <div class="architecture-icon">📊</div>
+                        <h3>CloudWatch Monitoring</h3>
+                        <p>Comprehensive monitoring with custom dashboards, alarms, and automated cost tracking.</p>
+                        <ul class="feature-list">
+                            <li>Real-time performance metrics</li>
+                            <li>Automated alerting and notifications</li>
+                            <li>Cost budgets and optimization insights</li>
+                        </ul>
+                    </div>
+                    <div class="architecture-item">
+                        <div class="architecture-icon">🔄</div>
+                        <h3>CI/CD Pipeline</h3>
+                        <p>Automated deployment pipeline with security scanning, testing, and progressive rollout capabilities.</p>
+                        <ul class="feature-list">
+                            <li>Infrastructure as Code with OpenTofu</li>
+                            <li>Security scanning with Trivy and Checkov</li>
+                            <li>Automated testing and validation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Security Section -->
+        <section id="security" class="section security-section">
+            <div class="container">
+                <h2 class="section-title">Security Features</h2>
+                <div class="security-grid">
+                    <div class="security-item">
+                        <h3>🔒 Defense in Depth</h3>
+                        <p>Multiple layers of security controls protecting against various threat vectors.</p>
+                    </div>
+                    <div class="security-item">
+                        <h3>🛡️ OWASP Protection</h3>
+                        <p>AWS WAF configured with OWASP Top 10 rule sets and custom security policies.</p>
+                    </div>
+                    <div class="security-item">
+                        <h3>🔐 Encryption</h3>
+                        <p>End-to-end encryption with KMS keys for data at rest and TLS 1.2+ for data in transit.</p>
+                    </div>
+                    <div class="security-item">
+                        <h3>📝 Security Headers</h3>
+                        <p>Comprehensive security headers including CSP, HSTS, and XSS protection.</p>
+                    </div>
+                    <div class="security-item">
+                        <h3>🔍 Monitoring</h3>
+                        <p>Real-time security monitoring with automated threat detection and response.</p>
+                    </div>
+                    <div class="security-item">
+                        <h3>✅ Compliance</h3>
+                        <p>ASVS Level 1 & 2 compliance with enterprise security standards.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Section -->
+        <section id="performance" class="section performance-section">
+            <div class="container">
+                <h2 class="section-title">Performance Optimization</h2>
+                <div class="performance-metrics">
+                    <div class="metric-card">
+                        <div class="metric-value">A+</div>
+                        <div class="metric-label">Security Grade</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">100</div>
+                        <div class="metric-label">Lighthouse Score</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">&lt;2s</div>
+                        <div class="metric-label">Load Time</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">95%</div>
+                        <div class="metric-label">Cache Hit Rate</div>
+                    </div>
+                </div>
+                <div class="performance-features">
+                    <h3>Optimization Features</h3>
+                    <ul class="performance-list">
+                        <li>✅ HTTP/2 and HTTP/3 support for faster multiplexing</li>
+                        <li>✅ Gzip and Brotli compression for reduced bandwidth</li>
+                        <li>✅ Intelligent caching with edge locations worldwide</li>
+                        <li>✅ Resource preloading and lazy loading optimization</li>
+                        <li>✅ Progressive Web App (PWA) capabilities</li>
+                        <li>✅ Core Web Vitals optimization for SEO</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitoring Section -->
+        <section id="monitoring" class="section monitoring-section">
+            <div class="container">
+                <h2 class="section-title">Monitoring & Observability</h2>
+                <div class="monitoring-content">
+                    <div class="monitoring-feature">
+                        <h3>📊 Real-time Dashboards</h3>
+                        <p>Custom CloudWatch dashboards providing comprehensive visibility into website performance, security events, and cost metrics.</p>
+                    </div>
+                    <div class="monitoring-feature">
+                        <h3>🚨 Intelligent Alerting</h3>
+                        <p>Proactive monitoring with composite alarms, automated notifications, and escalation procedures for rapid incident response.</p>
+                    </div>
+                    <div class="monitoring-feature">
+                        <h3>💰 Cost Optimization</h3>
+                        <p>Automated cost tracking with budget alerts, resource optimization recommendations, and detailed cost breakdown analysis.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" role="contentinfo">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2024 AWS Architecture Demo. Built with AWS Well-Architected principles.</p>
+                <p>
+                    <small>
+                        Deployed with OpenTofu • Monitored with CloudWatch • Secured with WAF
+                        <br>
+                        Performance: <span id="performance-status">Excellent</span> • 
+                        Security: <span id="security-status">A+</span> • 
+                        Uptime: <span id="uptime-status">99.9%</span>
+                    </small>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="js/main.js" defer></script>
+    
+    <!-- Service Worker for PWA (optional) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(function(error) {
+                        console.log('ServiceWorker registration failed');
+                    });
+            });
+        }
+    </script>
+
+    <!-- Analytics placeholder (replace with your analytics) -->
+    <script>
+        // Analytics implementation would go here
+        // Example: Google Analytics, AWS Pinpoint, etc.
+        console.log('Website loaded successfully');
+    </script>
+</body>
+</html>
