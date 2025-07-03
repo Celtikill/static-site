@@ -1,0 +1,585 @@
+name: BUILD - Infrastructure and Website Preparation
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment for deployment'
+        required: false
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+        default: dev
+      force_build:
+        description: 'Force build even without changes'
+        required: false
+        type: boolean
+        default: false
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  security-events: write
+
+concurrency:
+  group: static-site-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-info:
+    name: Build Information
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      build_id: ${{ steps.generate-id.outputs.build_id }}
+      pr_number: ${{ github.event.pull_request.number || '' }}
+      has_changes: ${{ steps.detect-changes.outputs.has_changes }}
+      has_tf_changes: ${{ steps.detect-changes.outputs.has_tf_changes }}
+      has_content_changes: ${{ steps.detect-changes.outputs.has_content_changes }}
+      resolved_environment: ${{ steps.resolve-environment.outputs.resolved_environment }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Environment
+        id: resolve-environment
+        run: |
+          if [ -n "${{ github.event.inputs.environment }}" ]; then
+            RESOLVED_ENV="${{ github.event.inputs.environment }}"
+            ENV_SOURCE="Manual Input"
+          elif [ -n "${{ vars.DEFAULT_ENVIRONMENT }}" ]; then
+            RESOLVED_ENV="${{ vars.DEFAULT_ENVIRONMENT }}"
+            ENV_SOURCE="Repository Variable"
+          else
+            RESOLVED_ENV="dev"
+            ENV_SOURCE="Hardcoded Fallback"
+          fi
+          
+          echo "resolved_environment=$RESOLVED_ENV" >> $GITHUB_OUTPUT
+          echo "environment_source=$ENV_SOURCE" >> $GITHUB_OUTPUT
+          
+          echo "🏗️ **BUILD Phase Started**" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: $RESOLVED_ENV (Source: $ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate Build ID
+        id: generate-id
+        run: |
+          BUILD_ID="build-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "**Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
+
+      - name: Detect Changes
+        id: detect-changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ github.event.inputs.force_build }}" = "true" ]; then
+              HAS_CHANGES=1
+              HAS_TF_CHANGES=1
+              HAS_CONTENT_CHANGES=1
+              echo "🔧 Force build enabled - processing all changes" >> $GITHUB_STEP_SUMMARY
+            else
+              CHANGED_FILES=$(git diff --name-only origin/main...HEAD || echo "")
+              HAS_TF_CHANGES=$(echo "$CHANGED_FILES" | grep -E 'terraform/.*\.(tf|tfvars)$' | wc -l)
+              HAS_CONTENT_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^src/' | wc -l)
+              HAS_CHANGES=$(( HAS_TF_CHANGES + HAS_CONTENT_CHANGES ))
+              echo "🔧 Manual dispatch with change detection" >> $GITHUB_STEP_SUMMARY
+            fi
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
+            HAS_TF_CHANGES=$(echo "$CHANGED_FILES" | grep -E 'terraform/.*\.(tf|tfvars)$' | wc -l)
+            HAS_CONTENT_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^src/' | wc -l)
+            HAS_CHANGES=$(( HAS_TF_CHANGES + HAS_CONTENT_CHANGES ))
+          else
+            # Main branch push - assume all changes
+            HAS_CHANGES=1
+            HAS_TF_CHANGES=1
+            HAS_CONTENT_CHANGES=1
+          fi
+          
+          echo "has_changes=$HAS_CHANGES" >> $GITHUB_OUTPUT
+          echo "has_tf_changes=$HAS_TF_CHANGES" >> $GITHUB_OUTPUT
+          echo "has_content_changes=$HAS_CONTENT_CHANGES" >> $GITHUB_OUTPUT
+          
+          if [ "$HAS_CHANGES" -gt 0 ]; then
+            echo "✅ Changes detected - Terraform: $HAS_TF_CHANGES, Content: $HAS_CONTENT_CHANGES" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  infrastructure-validation:
+    name: Infrastructure Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build-info
+    if: needs.build-info.outputs.has_tf_changes > 0 || needs.build-info.outputs.has_changes > 0
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Infrastructure Tools
+        uses: ./.github/actions/setup-infrastructure
+        with:
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-role: ${{ secrets.AWS_ASSUME_ROLE }}
+
+      - name: OpenTofu Format Check
+        id: fmt
+        working-directory: terraform
+        run: |
+          echo "## 📝 OpenTofu Format Check" >> $GITHUB_STEP_SUMMARY
+          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if tofu fmt -check -recursive -diff > format-results.txt 2>&1; then
+            echo "✅ All files are properly formatted" >> $GITHUB_STEP_SUMMARY
+            echo "format_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Files need formatting. Run 'tofu fmt -recursive' to fix." >> $GITHUB_STEP_SUMMARY
+            echo '```diff' >> $GITHUB_STEP_SUMMARY
+            cat format-results.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "format_status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: OpenTofu Validation
+        id: validate
+        working-directory: terraform
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ OpenTofu Validation" >> $GITHUB_STEP_SUMMARY
+          
+          validation_errors=0
+          
+          find . -name "*.tf" -exec dirname {} \; | sort -u | grep -v '^.$' > module_dirs.txt
+          
+          while read dir; do
+            echo "Validating: $dir"
+            cd "$dir"
+            
+            if tofu init -backend=false > /dev/null 2>&1; then
+              if tofu validate > validate.out 2>&1; then
+                echo "✅ $dir - Valid" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "❌ $dir - Invalid" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                cat validate.out >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                validation_errors=$((validation_errors + 1))
+              fi
+            else
+              echo "⚠️ $dir - Could not initialize" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            cd - > /dev/null
+          done < module_dirs.txt
+          
+          if [ $validation_errors -eq 0 ]; then
+            echo "validation_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "validation_status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Infrastructure Plan
+        id: plan
+        working-directory: terraform
+        env:
+          TF_VAR_project_name: "${{ github.repository_owner }}-static-site"
+          TF_VAR_environment: ${{ needs.build-info.outputs.resolved_environment }}
+          TF_VAR_github_repository: ${{ github.repository }}
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Infrastructure Plan" >> $GITHUB_STEP_SUMMARY
+          
+          tofu init -backend=false
+          
+          if tofu plan -detailed-exitcode -out=plan.tfplan > plan.out 2>&1; then
+            PLAN_EXIT_CODE=$?
+            echo "plan-status=success" >> $GITHUB_OUTPUT
+          else
+            PLAN_EXIT_CODE=$?
+            echo "plan-status=error" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "exit-code=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "✅ No infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "📝 Infrastructure changes detected:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tofu show -no-color plan.tfplan | head -50 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Plan failed:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat plan.out >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Plan Artifact
+        if: steps.plan.outputs.exit-code == '2'
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: terraform-plan-${{ needs.build-info.outputs.build_id }}
+          path: terraform/plan.tfplan
+          retention-days: 7
+
+  security-scanning:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build-info
+    strategy:
+      matrix:
+        scanner: [tfsec, checkov, trivy]
+      fail-fast: false
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Initialize Security Scan
+        run: |
+          echo "## 🔒 Security Scan Results (${{ matrix.scanner }})" >> $GITHUB_STEP_SUMMARY
+          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Scanner**: ${{ matrix.scanner }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run tfsec
+        if: matrix.scanner == 'tfsec'
+        uses: aquasecurity/tfsec-action@b466648d6e39e7c75324f25d83891162a721f2d6 # v1.0.3
+        with:
+          working_directory: terraform
+          additional_args: --format sarif --out tfsec.sarif --soft-fail
+
+      - name: Upload tfsec SARIF
+        if: matrix.scanner == 'tfsec' && always()
+        uses: github/codeql-action/upload-sarif@afb54ba388a7dca6ecae48f608c4ff05ff4cc77a # v3.25.15
+        with:
+          sarif_file: tfsec.sarif
+
+      - name: Run Checkov
+        if: matrix.scanner == 'checkov'
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov.sarif
+          soft_fail: true
+
+      - name: Upload Checkov SARIF
+        if: matrix.scanner == 'checkov' && always()
+        uses: github/codeql-action/upload-sarif@afb54ba388a7dca6ecae48f608c4ff05ff4cc77a # v3.25.15
+        with:
+          sarif_file: checkov.sarif
+
+      - name: Run Trivy Config Scan
+        if: matrix.scanner == 'trivy'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'terraform'
+          format: 'sarif'
+          output: 'trivy.sarif'
+          exit-code: '0'
+
+      - name: Upload Trivy SARIF
+        if: matrix.scanner == 'trivy' && always()
+        uses: github/codeql-action/upload-sarif@afb54ba388a7dca6ecae48f608c4ff05ff4cc77a # v3.25.15
+        with:
+          sarif_file: trivy.sarif
+
+      - name: Generate Scanner Summary
+        if: always()
+        id: scanner-summary
+        run: |
+          scanner_issues=0
+          scanner_file="${{ matrix.scanner }}.sarif"
+          
+          if [ -f "$scanner_file" ]; then
+            scanner_issues=$(jq '.runs[0].results | length' "$scanner_file" 2>/dev/null || echo "0")
+            echo "### 🔒 ${{ matrix.scanner }} Results" >> $GITHUB_STEP_SUMMARY
+            echo "- **Issues found**: $scanner_issues" >> $GITHUB_STEP_SUMMARY
+            
+            if [ "$scanner_issues" -gt 0 ]; then
+              echo "- **Sample issues**:" >> $GITHUB_STEP_SUMMARY
+              jq -r '.runs[0].results[] | "  - " + .message.text' "$scanner_file" 2>/dev/null | head -3 >> $GITHUB_STEP_SUMMARY || true
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "scanner_issues=$scanner_issues" >> $GITHUB_OUTPUT
+
+      - name: Upload Security Results
+        if: always()
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: ${{ needs.build-info.outputs.build_id }}-security-${{ matrix.scanner }}
+          path: ${{ matrix.scanner }}.sarif
+          retention-days: 7
+
+  website-build:
+    name: Website Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: build-info
+    if: needs.build-info.outputs.has_content_changes > 0 || needs.build-info.outputs.has_changes > 0
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Validate Website Content
+        run: |
+          echo "## 🌐 Website Content Validation" >> $GITHUB_STEP_SUMMARY
+          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          content_errors=0
+          
+          # Check required files exist
+          required_files=("src/index.html" "src/404.html" "src/robots.txt")
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ $file missing" >> $GITHUB_STEP_SUMMARY
+              content_errors=$((content_errors + 1))
+            fi
+          done
+          
+          # Validate HTML syntax
+          if command -v tidy >/dev/null 2>&1; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### HTML Validation" >> $GITHUB_STEP_SUMMARY
+            for html_file in src/*.html; do
+              if [ -f "$html_file" ]; then
+                if tidy -q -e "$html_file" 2>/dev/null; then
+                  echo "✅ $html_file - Valid HTML" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "⚠️ $html_file - HTML warnings/errors" >> $GITHUB_STEP_SUMMARY
+                fi
+              fi
+            done
+          fi
+          
+          # Check for security issues in HTML
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security Validation" >> $GITHUB_STEP_SUMMARY
+          
+          if grep -r "javascript:" src/ >/dev/null 2>&1; then
+            echo "⚠️ Found javascript: URLs in content" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No javascript: URLs found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if grep -r "onclick\|onload\|onerror" src/ >/dev/null 2>&1; then
+            echo "⚠️ Found inline event handlers" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No inline event handlers found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ $content_errors -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Content validation failed with $content_errors errors" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Content validation passed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Create Website Archive
+        run: |
+          echo "### 📦 Creating Website Archive" >> $GITHUB_STEP_SUMMARY
+          
+          # Create optimized build
+          mkdir -p build
+          cp -r src/* build/
+          
+          # Add build metadata
+          cat > build/build-info.json << EOF
+          {
+            "build_id": "${{ needs.build-info.outputs.build_id }}",
+            "commit_sha": "${{ github.sha }}",
+            "build_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "environment": "${{ needs.build-info.outputs.resolved_environment }}",
+            "repository": "${{ github.repository }}"
+          }
+          EOF
+          
+          # Create archive
+          tar -czf website-${{ needs.build-info.outputs.build_id }}.tar.gz -C build .
+          
+          echo "✅ Website archive created: website-${{ needs.build-info.outputs.build_id }}.tar.gz" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Website Artifact
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: website-${{ needs.build-info.outputs.build_id }}
+          path: |
+            build/
+            website-${{ needs.build-info.outputs.build_id }}.tar.gz
+          retention-days: 30
+
+  cost-estimation:
+    name: Cost Estimation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: build-info
+    outputs:
+      estimated_cost: ${{ steps.calculate-cost.outputs.estimated_cost }}
+      cost_summary: ${{ steps.calculate-cost.outputs.cost_summary }}
+    steps:
+      - name: Calculate Infrastructure Costs
+        id: calculate-cost
+        run: |
+          echo "## 💰 Infrastructure Cost Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ needs.build-info.outputs.resolved_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Static monthly costs for static website infrastructure (USD)
+          S3_COST=0.25          # 1GB storage, 10K requests
+          CLOUDFRONT_COST=8.50  # 100GB transfer, 1M requests
+          ROUTE53_COST=0.90     # 1 hosted zone, 1M queries
+          WAF_COST=6.00         # 1 Web ACL, 1M requests
+          CLOUDWATCH_COST=2.50  # 10 metrics, 1GB logs
+          DATA_TRANSFER_COST=9.00 # 100GB outbound
+          
+          # Cross-region replication for production
+          if [ "${{ needs.build-info.outputs.resolved_environment }}" = "prod" ]; then
+            S3_REPLICATION_COST=0.03
+            TOTAL_COST=$(echo "$S3_COST + $CLOUDFRONT_COST + $ROUTE53_COST + $WAF_COST + $CLOUDWATCH_COST + $DATA_TRANSFER_COST + $S3_REPLICATION_COST" | bc -l)
+          else
+            S3_REPLICATION_COST=0.00
+            TOTAL_COST=$(echo "$S3_COST + $CLOUDFRONT_COST + $ROUTE53_COST + $WAF_COST + $CLOUDWATCH_COST + $DATA_TRANSFER_COST" | bc -l)
+          fi
+          
+          ANNUAL_COST=$(echo "$TOTAL_COST * 12" | bc -l)
+          
+          # Format to 2 decimal places
+          TOTAL_COST=$(printf "%.2f" $TOTAL_COST)
+          ANNUAL_COST=$(printf "%.2f" $ANNUAL_COST)
+          
+          echo "### 📊 Cost Breakdown" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Storage**: \$${S3_COST} (1GB storage, 10K requests)" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront CDN**: \$${CLOUDFRONT_COST} (100GB transfer, 1M requests)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Route 53 DNS**: \$${ROUTE53_COST} (1 hosted zone, 1M queries)" >> $GITHUB_STEP_SUMMARY
+          echo "- **AWS WAF**: \$${WAF_COST} (1 Web ACL, 1M requests)" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudWatch**: \$${CLOUDWATCH_COST} (10 metrics, 1GB logs)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Data Transfer**: \$${DATA_TRANSFER_COST} (100GB outbound)" >> $GITHUB_STEP_SUMMARY
+          if [ "$S3_REPLICATION_COST" != "0.00" ]; then
+            echo "- **S3 Cross-Region Replication**: \$${S3_REPLICATION_COST}" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 💰 **Total Monthly Cost: \$${TOTAL_COST}**" >> $GITHUB_STEP_SUMMARY
+          echo "**Estimated Annual Cost: \$${ANNUAL_COST}**" >> $GITHUB_STEP_SUMMARY
+          
+          echo "estimated_cost=$TOTAL_COST" >> $GITHUB_OUTPUT
+          echo "cost_summary=\$${TOTAL_COST}/month (\$${ANNUAL_COST}/year)" >> $GITHUB_OUTPUT
+
+  pr-comment:
+    name: PR Comment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build-info, infrastructure-validation, security-scanning, website-build, cost-estimation]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Find Existing Comment
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '## 🏗️ BUILD Phase Results'
+
+      - name: Create or Update PR Comment
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
+          body: |
+            ## 🏗️ BUILD Phase Results
+            
+            **Build ID:** `${{ needs.build-info.outputs.build_id }}`
+            **Environment:** ${{ needs.build-info.outputs.resolved_environment }}
+            
+            ### Status Summary
+            - **Infrastructure Validation:** ${{ needs.infrastructure-validation.result == 'success' && '✅ Passed' || needs.infrastructure-validation.result == 'skipped' && 'ℹ️ Skipped' || '❌ Failed' }}
+            - **Security Scanning:** ${{ needs.security-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }}
+            - **Website Build:** ${{ needs.website-build.result == 'success' && '✅ Passed' || needs.website-build.result == 'skipped' && 'ℹ️ Skipped' || '❌ Failed' }}
+            - **Cost Analysis:** ${{ needs.cost-estimation.result == 'success' && '✅ Completed' || '❌ Failed' }}
+            
+            ${{ needs.cost-estimation.outputs.cost_summary && format('**💰 Cost Estimate:** {0}', needs.cost-estimation.outputs.cost_summary) || '' }}
+            
+            ### Changes Detected
+            - **Infrastructure Changes:** ${{ needs.build-info.outputs.has_tf_changes > 0 && '✅ Yes' || '➖ None' }}
+            - **Content Changes:** ${{ needs.build-info.outputs.has_content_changes > 0 && '✅ Yes' || '➖ None' }}
+            
+            <details>
+            <summary>📋 View Details</summary>
+            
+            Check the **Actions** tab for:
+            - Detailed infrastructure validation results
+            - Security scanning reports (SARIF format)
+            - Website build artifacts and validation
+            - Cost analysis breakdown
+            </details>
+            
+            ---
+            *Generated by BUILD workflow*
+
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [build-info, infrastructure-validation, security-scanning, website-build, cost-estimation]
+    if: always()
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "## 🏗️ BUILD Phase Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ needs.build-info.outputs.resolved_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Infrastructure Validation**: ${{ needs.infrastructure-validation.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Scanning**: ${{ needs.security-scanning.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Website Build**: ${{ needs.website-build.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cost Estimation**: ${{ needs.cost-estimation.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Determine overall success
+          INFRASTRUCTURE_OK="${{ needs.infrastructure-validation.result }}"
+          SECURITY_OK="${{ needs.security-scanning.result }}"
+          WEBSITE_OK="${{ needs.website-build.result }}"
+          
+          if [ "$INFRASTRUCTURE_OK" = "success" ] || [ "$INFRASTRUCTURE_OK" = "skipped" ]; then
+            if [ "$SECURITY_OK" = "success" ] && ([ "$WEBSITE_OK" = "success" ] || [ "$WEBSITE_OK" = "skipped" ]); then
+              echo "✅ **BUILD Phase Successful**" >> $GITHUB_STEP_SUMMARY
+              echo "➡️ **Next Phase**: TEST (will be triggered automatically)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **BUILD Phase Failed**" >> $GITHUB_STEP_SUMMARY
+              echo "Please review the failed jobs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ **BUILD Phase Failed**" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed jobs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
+          fi

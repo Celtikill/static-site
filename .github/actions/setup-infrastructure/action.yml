@@ -1,0 +1,101 @@
+name: 'Setup Infrastructure Tools'
+description: 'Sets up OpenTofu, AWS CLI, and other infrastructure tools with security best practices'
+
+inputs:
+  aws-region:
+    description: 'AWS region for deployment'
+    required: true
+    default: 'us-east-1'
+  aws-role:
+    description: 'AWS IAM role to assume'
+    required: true
+  opentofu-version:
+    description: 'OpenTofu version to install'
+    required: false
+    default: '1.6.2'
+
+outputs:
+  aws-account-id:
+    description: 'AWS Account ID'
+    value: ${{ steps.aws-info.outputs.account-id }}
+  opentofu-version:
+    description: 'Installed OpenTofu version'
+    value: ${{ steps.tofu-setup.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+      with:
+        role-to-assume: ${{ inputs.aws-role }}
+        role-session-name: github-actions-${{ github.run_id }}
+        aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: false
+
+    - name: Get AWS Account Information
+      id: aws-info
+      shell: bash
+      run: |
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+        echo "✅ Connected to AWS Account: $ACCOUNT_ID" >> $GITHUB_STEP_SUMMARY
+
+    - name: Setup OpenTofu
+      id: tofu-setup
+      shell: bash
+      run: |
+        TOFU_VERSION="${{ inputs.opentofu-version }}"
+        
+        # Download and install OpenTofu with checksum verification
+        echo "Installing OpenTofu v$TOFU_VERSION..."
+        
+        # Download OpenTofu
+        curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" -o tofu.zip
+        
+        # Download and verify checksum
+        curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" -o checksums.txt
+        
+        # Verify the checksum
+        if grep "tofu_${TOFU_VERSION}_linux_amd64.zip" checksums.txt | sha256sum -c -; then
+          echo "✅ Checksum verification passed"
+        else
+          echo "❌ Checksum verification failed"
+          exit 1
+        fi
+        
+        # Extract and install
+        unzip -q tofu.zip
+        sudo mv tofu /usr/local/bin/
+        sudo chmod +x /usr/local/bin/tofu
+        
+        # Verify installation
+        INSTALLED_VERSION=$(tofu version -json | jq -r '.terraform_version')
+        echo "version=$INSTALLED_VERSION" >> $GITHUB_OUTPUT
+        echo "✅ OpenTofu v$INSTALLED_VERSION installed successfully" >> $GITHUB_STEP_SUMMARY
+        
+        # Cleanup
+        rm -f tofu.zip checksums.txt
+
+    - name: Install Additional Tools
+      shell: bash
+      run: |
+        echo "Installing additional tools..."
+        
+        # Install jq and bc for calculations
+        sudo apt-get update -qq
+        sudo apt-get install -y jq bc curl wget unzip
+        
+        # Install HTML Tidy for content validation
+        sudo apt-get install -y tidy
+        
+        echo "✅ Additional tools installed" >> $GITHUB_STEP_SUMMARY
+
+    - name: Verify Tool Versions
+      shell: bash
+      run: |
+        echo "## 🔧 Tool Versions" >> $GITHUB_STEP_SUMMARY
+        echo "- **OpenTofu**: $(tofu version | head -1)" >> $GITHUB_STEP_SUMMARY
+        echo "- **AWS CLI**: $(aws --version)" >> $GITHUB_STEP_SUMMARY
+        echo "- **jq**: $(jq --version)" >> $GITHUB_STEP_SUMMARY
+        echo "- **bc**: $(bc --version | head -1)" >> $GITHUB_STEP_SUMMARY
