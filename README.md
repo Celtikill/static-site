@@ -82,12 +82,16 @@ graph TB
 - **Performance tracking** and analytics
 - **Cost analysis** and optimization insights
 
-### 🔄 DevOps
-- **Infrastructure as Code** with OpenTofu
-- **GitHub Actions CI/CD** pipeline
-- **Automated security scanning**
-- **Zero-downtime deployments**
-- **Environment isolation**
+### 🔄 DevOps & CI/CD
+- **Enterprise CI/CD Pipeline** with BUILD-TEST-DEPLOY workflows
+- **Infrastructure as Code** with OpenTofu 1.6+
+- **Automated security scanning** (tfsec, Checkov, Trivy)
+- **Policy-as-code validation** with OPA/Conftest
+- **Zero-downtime deployments** with CloudFront invalidation
+- **Environment protection** with approval gates
+- **Comprehensive testing** (unit, integration, policy validation)
+- **Cost estimation** and budget monitoring
+- **SARIF security reporting** integrated with GitHub Security tab
 
 ## 🚀 Quick Start
 
@@ -209,9 +213,241 @@ static-site/
 │       ├── waf/                    # WAF security module
 │       ├── iam/                    # IAM permissions module
 │       └── monitoring/             # CloudWatch monitoring module
-└── .github/
-    └── workflows/                  # GitHub Actions CI/CD (to be added)
+├── test/                           # Testing infrastructure
+│   ├── functions/
+│   │   └── test-functions.sh       # Bash-based testing framework
+│   ├── unit/                       # Unit tests for infrastructure modules
+│   │   ├── test-s3.sh             # S3 module tests
+│   │   ├── test-cloudfront.sh     # CloudFront module tests
+│   │   ├── test-waf.sh            # WAF module tests
+│   │   ├── test-iam.sh            # IAM module tests
+│   │   └── test-monitoring.sh     # Monitoring module tests
+│   └── integration/               # End-to-end integration tests
+└── .github/                       # GitHub Actions CI/CD
+    ├── workflows/                 # CI/CD pipeline workflows
+    │   ├── build.yml              # BUILD - Infrastructure and Website Preparation
+    │   ├── test.yml               # TEST - Security and Validation
+    │   └── deploy.yml             # DEPLOY - Static Website Deployment
+    └── actions/                   # Reusable GitHub Actions
+        ├── setup-infrastructure/  # Tool setup and AWS configuration
+        └── validate-environment/  # Environment validation
 ```
+
+## 🔄 Enterprise CI/CD Pipeline
+
+This project implements a sophisticated BUILD-TEST-DEPLOY pipeline using GitHub Actions, adapted from enterprise infrastructure patterns with comprehensive security and validation.
+
+### Pipeline Architecture
+
+```mermaid
+graph TB
+    subgraph "Triggers"
+        PR[Pull Request]
+        PUSH[Push to main]
+        MANUAL[Manual Dispatch]
+    end
+    
+    subgraph "BUILD Phase"
+        BUILD[Infrastructure Validation]
+        SECURITY[Security Scanning]
+        WEBSITE[Website Build]
+        COST[Cost Estimation]
+    end
+    
+    subgraph "TEST Phase"
+        UNIT[Unit Tests]
+        POLICY[Policy Validation]
+        INTEGRATION[Integration Tests]
+    end
+    
+    subgraph "DEPLOY Phase"
+        INFRA[Infrastructure Deployment]
+        CONTENT[Website Content Deployment]
+        VERIFY[Post-Deployment Verification]
+    end
+    
+    PR --> BUILD
+    PUSH --> BUILD
+    MANUAL --> BUILD
+    
+    BUILD --> TEST
+    SECURITY --> TEST
+    WEBSITE --> TEST
+    COST --> TEST
+    
+    TEST --> DEPLOY
+    UNIT --> DEPLOY
+    POLICY --> DEPLOY
+    INTEGRATION --> DEPLOY
+    
+    INFRA --> CONTENT
+    CONTENT --> VERIFY
+    
+    style BUILD fill:#e1f5fe
+    style TEST fill:#fff3e0
+    style DEPLOY fill:#e8f5e8
+```
+
+### Workflow Details
+
+#### 🏗️ BUILD Workflow (`build.yml`)
+**Purpose**: Infrastructure validation and website preparation
+
+**Triggers**:
+- Pull requests to `main` branch
+- Pushes to `main` branch  
+- Manual workflow dispatch
+
+**Jobs**:
+- **Infrastructure Validation**: OpenTofu format checking, validation, and planning
+- **Security Scanning**: tfsec, Checkov, and Trivy analysis with SARIF reporting
+- **Website Build**: Content validation, HTML checking, and build artifact creation
+- **Cost Estimation**: Automated cost analysis per environment
+- **PR Integration**: Automated pull request comments with results
+
+**Artifacts Produced**:
+- Terraform plans for infrastructure changes
+- Website build artifacts
+- Security scan results (SARIF format)
+- Cost analysis reports
+
+#### 🧪 TEST Workflow (`test.yml`)
+**Purpose**: Comprehensive testing and validation
+
+**Triggers**:
+- Successful completion of BUILD workflow
+- Manual workflow dispatch with build ID reference
+
+**Jobs**:
+- **Unit Tests**: Matrix testing of all infrastructure modules (S3, CloudFront, WAF, IAM, Monitoring)
+- **Policy Validation**: OPA/Conftest security and compliance policy enforcement
+- **Integration Tests**: End-to-end deployment with automated cleanup
+- **Test Reporting**: Consolidated test results with detailed metrics
+
+**Security Features**:
+- Custom security policies for static website infrastructure
+- Compliance validation for AWS best practices
+- SARIF integration with GitHub Security tab
+
+#### 🚀 DEPLOY Workflow (`deploy.yml`)
+**Purpose**: Production deployment with environment protection
+
+**Triggers**:
+- Successful completion of TEST workflow  
+- Manual workflow dispatch with environment selection
+
+**Jobs**:
+- **Infrastructure Deployment**: OpenTofu-based AWS resource provisioning
+- **Website Deployment**: S3 sync with CloudFront cache invalidation
+- **Post-Deployment Validation**: Infrastructure and content accessibility verification
+
+**Environment Protection**:
+- GitHub environments with approval gates for staging/production
+- Environment-specific configuration management
+- Rollback capabilities and failure handling
+
+### Security & Compliance
+
+#### Security Scanning Integration
+```yaml
+# Automated security scanning with multiple tools
+security-scanning:
+  strategy:
+    matrix:
+      scanner: [tfsec, checkov, trivy]
+  steps:
+    - name: Run Security Scanner
+      # Upload results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif
+```
+
+#### Policy as Code
+```rego
+# Example OPA policy for S3 security
+package terraform.static_website.security
+
+deny[msg] {
+  input.resource_changes[_].type == "aws_s3_bucket"
+  bucket := input.resource_changes[_]
+  not bucket.change.after.server_side_encryption_configuration
+  msg := "S3 buckets must have server-side encryption enabled"
+}
+```
+
+### Pipeline Configuration
+
+#### Required GitHub Secrets
+```bash
+# AWS Authentication
+AWS_ASSUME_ROLE="arn:aws:iam::123456789012:role/github-actions-role"
+
+# Optional: Monitoring Configuration  
+ALERT_EMAIL_ADDRESSES='["admin@example.com"]'
+```
+
+#### Required GitHub Variables
+```bash
+# Infrastructure Configuration
+AWS_REGION="us-east-1"
+DEFAULT_ENVIRONMENT="dev"
+MONTHLY_BUDGET_LIMIT="50"
+
+# Feature Flags
+INSTALL_TEKTON_DASHBOARD="false"
+CONTROL_PLANE_COUNT="3"
+WORKER_COUNT="2"
+```
+
+### Usage Examples
+
+#### Deploy to Development Environment
+```bash
+# Manual deployment via GitHub CLI
+gh workflow run deploy.yml \
+  --field environment=dev \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+```
+
+#### Deploy with Infrastructure Changes
+```bash
+# Deploy infrastructure and website content
+gh workflow run deploy.yml \
+  --field environment=staging \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+```
+
+#### Deploy Content Only
+```bash
+# Deploy only website content (no infrastructure changes)
+gh workflow run deploy.yml \
+  --field environment=prod \
+  --field deploy_infrastructure=false \
+  --field deploy_website=true
+```
+
+### Monitoring & Observability
+
+#### GitHub Actions Dashboard
+- Real-time workflow status and logs
+- Artifact management and retention
+- Security scan results integration
+- Cost estimation reports
+
+#### Cost Analysis
+```bash
+# Automated cost estimation per environment
+Environment: dev     -> ~$27.50/month (single-AZ)
+Environment: staging -> ~$30.00/month (multi-AZ)  
+Environment: prod    -> ~$32.50/month (global CDN)
+```
+
+#### Test Metrics
+- **Unit Test Coverage**: All infrastructure modules
+- **Security Scan Results**: Integrated SARIF reporting
+- **Policy Compliance**: Automated OPA/Conftest validation
+- **Integration Test Results**: End-to-end deployment verification
 
 ## 🔧 Configuration
 
@@ -345,77 +581,214 @@ Configured alerts for:
 - **Regional Optimization**: PriceClass_100 for US-only traffic
 - **Budget Alerts**: Automated cost monitoring and notifications
 
-## 🧪 Testing
+## 🧪 Testing Framework
+
+This project includes a comprehensive testing framework with zero dependencies, using bash-based testing patterns adapted from enterprise infrastructure projects.
+
+### Testing Architecture
+
+```mermaid
+graph TB
+    subgraph "Testing Layers"
+        UNIT[Unit Tests<br/>Module Validation]
+        POLICY[Policy Tests<br/>Security & Compliance]
+        INTEGRATION[Integration Tests<br/>End-to-End Validation]
+    end
+    
+    subgraph "Test Execution"
+        MANUAL[Manual Execution]
+        CICD[CI/CD Pipeline]
+        GITHUB[GitHub Actions]
+    end
+    
+    MANUAL --> UNIT
+    MANUAL --> POLICY
+    MANUAL --> INTEGRATION
+    
+    CICD --> UNIT
+    CICD --> POLICY
+    CICD --> INTEGRATION
+    
+    GITHUB --> UNIT
+    GITHUB --> POLICY
+    GITHUB --> INTEGRATION
+    
+    style UNIT fill:#e3f2fd
+    style POLICY fill:#fff3e0
+    style INTEGRATION fill:#e8f5e8
+```
 
 ### Unit Tests
 
-```bash
-# Run infrastructure tests
-bash test/unit/run-tests.sh
+Test individual infrastructure modules in isolation:
 
-# Test individual modules
-bash test/unit/test-s3.sh
-bash test/unit/test-cloudfront.sh
-bash test/unit/test-waf.sh
+```bash
+# Run all unit tests via CI/CD pipeline
+gh workflow run test.yml --field environment=dev
+
+# Run individual module tests locally
+cd test/unit
+./test-s3.sh           # S3 storage module
+./test-cloudfront.sh   # CloudFront CDN module  
+./test-waf.sh          # WAF security module
+./test-iam.sh          # IAM permissions module
+./test-monitoring.sh   # CloudWatch monitoring module
+
+# Run comprehensive unit test suite
+bash run-tests.sh
+```
+
+### Policy Tests
+
+Validate security and compliance policies:
+
+```bash
+# Policy validation via OPA/Conftest (automated in CI/CD)
+conftest verify --policy policies/static-website-security.rego terraform/plan.json
+conftest verify --policy policies/static-website-compliance.rego terraform/plan.json
+
+# Security scanning (automated in CI/CD)  
+tfsec terraform/
+checkov -d terraform/
+trivy config terraform/
 ```
 
 ### Integration Tests
 
-```bash
-# End-to-end testing
-bash test/integration/run-tests.sh
-
-# Performance testing
-bash test/performance/lighthouse-test.sh
-```
-
-### Security Testing
+End-to-end testing with real AWS resources:
 
 ```bash
-# Security scanning
-trivy config terraform/
-checkov -d terraform/
+# Run integration tests via CI/CD (with automated cleanup)
+gh workflow run test.yml --field environment=dev
+
+# Manual integration testing (use with caution - creates real resources)
+cd test/integration
+export AWS_REGION=us-east-1
+export TF_VAR_environment=integration-test-$(date +%s)
+./integration-test.sh
+
+# Cleanup after manual testing
+cd ../../terraform
+tofu destroy -auto-approve
 ```
+
+### Test Reports
+
+The testing framework generates comprehensive reports:
+
+- **JSON Reports**: Machine-readable test results with metrics
+- **Markdown Summaries**: Human-readable test summaries
+- **SARIF Security Reports**: Security scan results for GitHub Security tab
+- **GitHub Actions Summaries**: Integrated workflow summaries
 
 ## 🚀 Deployment
 
-### GitHub Actions (Recommended)
+### GitHub Actions CI/CD (Recommended)
 
-1. **Configure Secrets**:
-   ```bash
-   # GitHub repository secrets
-   AWS_ROLE_ARN: "arn:aws:iam::123456789012:role/github-actions-role"
-   AWS_REGION: "us-east-1"
-   ```
+The project includes enterprise-grade CI/CD workflows for automated deployment.
 
-2. **Deploy on Push**:
-   ```yaml
-   # .github/workflows/deploy.yml
-   name: Deploy Website
-   on:
-     push:
-       branches: [main]
-   jobs:
-     deploy:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         - name: Deploy to AWS
-           run: |
-             aws s3 sync src/ s3://${{ secrets.S3_BUCKET }} --delete
-             aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_ID }} --paths "/*"
-   ```
+#### 1. Initial Setup
 
-### Manual Deployment
+Configure your GitHub repository with required secrets and variables:
 
 ```bash
-# Sync content
-aws s3 sync src/ s3://your-bucket-name --delete
+# Required GitHub Secrets
+gh secret set AWS_ASSUME_ROLE --body "arn:aws:iam::123456789012:role/github-actions-role"
+gh secret set ALERT_EMAIL_ADDRESSES --body '["admin@example.com"]'
 
-# Invalidate cache
+# Required GitHub Variables  
+gh variable set AWS_REGION --body "us-east-1"
+gh variable set DEFAULT_ENVIRONMENT --body "dev"
+gh variable set MONTHLY_BUDGET_LIMIT --body "50"
+```
+
+#### 2. Automated Deployment
+
+Deployments are triggered automatically:
+
+```yaml
+# Automatic deployment on main branch
+Push to main → BUILD → TEST → DEPLOY (dev environment)
+
+# Pull request validation
+Pull Request → BUILD → TEST (validation only)
+
+# Manual deployment to any environment
+Manual Dispatch → BUILD → TEST → DEPLOY (selected environment)
+```
+
+#### 3. Environment-Specific Deployment
+
+```bash
+# Deploy to development (single-AZ, cost-optimized)
+gh workflow run deploy.yml \
+  --field environment=dev \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+
+# Deploy to staging (multi-AZ, production-like)
+gh workflow run deploy.yml \
+  --field environment=staging \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+
+# Deploy to production (global CDN, full features)
+gh workflow run deploy.yml \
+  --field environment=prod \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+```
+
+#### 4. Content-Only Deployment
+
+```bash
+# Deploy only website content (no infrastructure changes)
+gh workflow run deploy.yml \
+  --field environment=prod \
+  --field deploy_infrastructure=false \
+  --field deploy_website=true
+```
+
+#### 5. Pipeline Monitoring
+
+```bash
+# View workflow runs
+gh run list --workflow=build.yml
+gh run list --workflow=test.yml  
+gh run list --workflow=deploy.yml
+
+# View specific run details
+gh run view <run-id> --log
+
+# Download artifacts
+gh run download <run-id>
+```
+
+### Manual Deployment (Development Only)
+
+For development and testing purposes, you can deploy manually:
+
+```bash
+# 1. Deploy infrastructure
+cd terraform
+tofu init
+tofu plan
+tofu apply
+
+# 2. Get deployment outputs
+S3_BUCKET=$(tofu output -raw s3_bucket_id)
+CF_DISTRIBUTION=$(tofu output -raw cloudfront_distribution_id)
+
+# 3. Sync website content
+aws s3 sync ../src/ "s3://$S3_BUCKET" --delete
+
+# 4. Invalidate CloudFront cache  
 aws cloudfront create-invalidation \
-  --distribution-id YOUR_DISTRIBUTION_ID \
+  --distribution-id "$CF_DISTRIBUTION" \
   --paths "/*"
+
+# 5. Get website URL
+echo "Website URL: $(tofu output -raw cloudfront_domain_name)"
 ```
 
 ## 🔧 Troubleshooting

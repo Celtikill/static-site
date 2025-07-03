@@ -49,38 +49,149 @@ graph TB
     BUD --> CW
 ```
 
-### CI/CD Pipeline Architecture
+### Enterprise CI/CD Pipeline Architecture
 
 ```mermaid
-graph LR
-    subgraph "Source Control"
-        GH[GitHub Repository]
-        GHA[GitHub Actions]
+graph TB
+    subgraph "Triggers & Events"
+        PR[Pull Request]
+        PUSH[Push to main]
+        MANUAL[Manual Dispatch]
     end
     
-    subgraph "Build & Test"
-        BT[Build & Test<br/>Static Assets]
-        SEC[Security Scanning<br/>Trivy/Checkov]
+    subgraph "BUILD Phase - Infrastructure Preparation"
+        subgraph "Validation"
+            FMT[OpenTofu Format]
+            VALIDATE[Infrastructure Validation]
+            PLAN[Terraform Planning]
+        end
+        subgraph "Security"
+            TFSEC[tfsec Scanning]
+            CHECKOV[Checkov Analysis]
+            TRIVY[Trivy Config Scan]
+        end
+        subgraph "Content"
+            HTML[HTML Validation]
+            CONTENT[Content Security]
+            BUILD[Website Build]
+        end
+        subgraph "Analysis"
+            COST[Cost Estimation]
+            DOCS[Documentation]
+        end
     end
     
-    subgraph "Deploy"
-        S3D[S3 Deploy<br/>Sync Assets]
-        CFI[CloudFront<br/>Invalidation]
+    subgraph "TEST Phase - Comprehensive Validation"
+        subgraph "Unit Testing"
+            UT_S3[S3 Module Tests]
+            UT_CF[CloudFront Tests]
+            UT_WAF[WAF Tests]
+            UT_IAM[IAM Tests]
+            UT_MON[Monitoring Tests]
+        end
+        subgraph "Policy Validation"
+            OPA[OPA/Conftest Policies]
+            SECURITY_POL[Security Policies]
+            COMPLIANCE[Compliance Checks]
+        end
+        subgraph "Integration"
+            DEPLOY_TEST[Test Deployment]
+            E2E[End-to-End Tests]
+            CLEANUP[Automated Cleanup]
+        end
     end
     
-    subgraph "Validate"
-        HT[Health Tests<br/>Lighthouse/WAVE]
-        MON[Monitoring<br/>Setup]
+    subgraph "DEPLOY Phase - Production Deployment"
+        subgraph "Infrastructure"
+            INFRA_DEPLOY[Infrastructure Deployment]
+            POST_VALID[Post-Deploy Validation]
+        end
+        subgraph "Content Deployment"
+            S3_SYNC[S3 Content Sync]
+            CF_INVALIDATE[CloudFront Invalidation]
+            VERIFY[Website Verification]
+        end
+        subgraph "Environment Protection"
+            DEV_ENV[Development]
+            STAGING_ENV[Staging - Approval Gate]
+            PROD_ENV[Production - Approval Gate]
+        end
     end
     
-    GH --> GHA
-    GHA --> BT
-    BT --> SEC
-    SEC --> S3D
-    S3D --> CFI
-    CFI --> HT
-    HT --> MON
+    subgraph "Monitoring & Reporting"
+        SARIF[SARIF Security Reports]
+        ARTIFACTS[Build Artifacts]
+        SUMMARY[Workflow Summaries]
+        NOTIFICATIONS[PR Comments/Notifications]
+    end
+    
+    PR --> BUILD
+    PUSH --> BUILD
+    MANUAL --> BUILD
+    
+    BUILD --> TEST
+    TEST --> DEPLOY
+    
+    FMT --> VALIDATE
+    VALIDATE --> PLAN
+    
+    TFSEC --> SARIF
+    CHECKOV --> SARIF
+    TRIVY --> SARIF
+    
+    HTML --> CONTENT
+    CONTENT --> BUILD
+    
+    UT_S3 --> E2E
+    UT_CF --> E2E
+    UT_WAF --> E2E
+    UT_IAM --> E2E
+    UT_MON --> E2E
+    
+    OPA --> COMPLIANCE
+    SECURITY_POL --> COMPLIANCE
+    
+    DEPLOY_TEST --> E2E
+    E2E --> CLEANUP
+    
+    INFRA_DEPLOY --> POST_VALID
+    POST_VALID --> S3_SYNC
+    S3_SYNC --> CF_INVALIDATE
+    CF_INVALIDATE --> VERIFY
+    
+    DEV_ENV --> STAGING_ENV
+    STAGING_ENV --> PROD_ENV
+    
+    BUILD --> ARTIFACTS
+    TEST --> SUMMARY
+    DEPLOY --> NOTIFICATIONS
+    
+    style BUILD fill:#e1f5fe
+    style TEST fill:#fff3e0
+    style DEPLOY fill:#e8f5e8
+    style SARIF fill:#ffebee
 ```
+
+#### Pipeline Features
+
+**Enterprise Security**:
+- All GitHub Actions pinned to commit SHAs for supply chain security
+- Comprehensive input validation and sanitization
+- SARIF reporting integration with GitHub Security tab
+- Multi-scanner security analysis (tfsec, Checkov, Trivy)
+- Policy-as-code validation with OPA/Conftest
+
+**Workflow Orchestration**:
+- Artifact inheritance between BUILD → TEST → DEPLOY phases
+- Matrix strategy testing for parallel module validation
+- Environment-specific configuration management
+- Automated failure handling and cleanup procedures
+
+**Quality Assurance**:
+- Unit testing for all infrastructure modules
+- Integration testing with real AWS resources
+- Cost estimation and budget monitoring
+- Comprehensive test reporting with metrics
 
 ## Well-Architected Framework Implementation
 
@@ -89,15 +200,27 @@ graph LR
 **Rationale**: Automated operations reduce human error and improve consistency¹
 
 **Implementation**:
-- GitHub Actions CI/CD pipeline with automated testing
-- Infrastructure as Code using OpenTofu (Terraform)
-- Automated security scanning with Trivy and Checkov
-- CloudWatch dashboards for operational visibility
+- **Enterprise CI/CD Pipeline**: BUILD-TEST-DEPLOY workflow with comprehensive automation
+- **Infrastructure as Code**: OpenTofu (Terraform) with comprehensive validation and planning
+- **Automated Testing**: Unit tests, integration tests, and policy validation with matrix strategies
+- **Security Integration**: Multi-scanner analysis (tfsec, Checkov, Trivy) with SARIF reporting
+- **Environment Management**: Automated environment-specific deployments with approval gates
+- **Cost Monitoring**: Automated cost estimation and budget tracking per environment
+- **Quality Gates**: Comprehensive validation before production deployment
+
+**Advanced Features**:
+- **Artifact Management**: Build artifacts inherited across pipeline phases
+- **Policy as Code**: OPA/Conftest security and compliance validation
+- **Zero-Dependency Testing**: Bash-based testing framework eliminating external dependencies
+- **Failure Handling**: Automated cleanup and rollback procedures
+- **Observability**: Detailed workflow summaries and GitHub Actions integration
 
 **Benefits**:
-- Reduces deployment time from hours to minutes
-- Eliminates manual configuration drift
-- Provides audit trail for all changes
+- Reduces deployment time from hours to minutes with full validation
+- Eliminates manual configuration drift with automated policy enforcement
+- Provides comprehensive audit trail with security event tracking
+- Enables confident deployments with extensive testing and validation
+- Supports multiple environments with automated promotion workflows
 
 ### 2. Security
 
