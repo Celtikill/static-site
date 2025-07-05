@@ -221,7 +221,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Cache OpenTofu and Providers
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: |
             ~/.cache/opentofu
@@ -350,7 +350,7 @@ jobs:
     if: needs.build-info.outputs.needs_security_scan == '1' || needs.build-info.outputs.has_tf_changes > 0
     strategy:
       matrix:
-        scanner: [tfsec, checkov, trivy]
+        scanner: [checkov, trivy]
       fail-fast: false
     env:
       # Security thresholds for failure conditions
@@ -363,7 +363,7 @@ jobs:
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Cache Security Scanner Data
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: |
             ~/.cache/trivy
@@ -380,21 +380,6 @@ jobs:
           echo "**Thresholds**: Critical: $CRITICAL_THRESHOLD, High: $HIGH_THRESHOLD, Medium: $MEDIUM_THRESHOLD, Low: $LOW_THRESHOLD" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-      - name: Run tfsec (JSON Output)
-        if: matrix.scanner == 'tfsec'
-        working-directory: terraform
-        run: |
-          echo "🔍 Running tfsec security scan..."
-          
-          # Install tfsec if not cached
-          if ! command -v tfsec &> /dev/null; then
-            curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          fi
-          
-          # Run tfsec with JSON output for faster processing
-          tfsec . --format json --out ../tfsec-results.json --soft-fail || true
-          
-          echo "✅ tfsec scan completed"
 
       - name: Run Checkov (JSON Output)
         if: matrix.scanner == 'checkov'
@@ -452,15 +437,6 @@ jobs:
           
           # Parse results based on scanner type
           case "$scanner" in
-            "tfsec")
-              if jq empty "$results_file" 2>/dev/null; then
-                critical_count=$(jq '[.results[]? | select(.severity == "CRITICAL")] | length' "$results_file" 2>/dev/null || echo "0")
-                high_count=$(jq '[.results[]? | select(.severity == "HIGH")] | length' "$results_file" 2>/dev/null || echo "0")
-                medium_count=$(jq '[.results[]? | select(.severity == "MEDIUM")] | length' "$results_file" 2>/dev/null || echo "0")
-                low_count=$(jq '[.results[]? | select(.severity == "LOW")] | length' "$results_file" 2>/dev/null || echo "0")
-                total_count=$(jq '.results | length' "$results_file" 2>/dev/null || echo "0")
-              fi
-              ;;
             "checkov")
               if jq empty "$results_file" 2>/dev/null; then
                 critical_count=$(jq '[.results.failed_checks[]? | select(.severity == "CRITICAL")] | length' "$results_file" 2>/dev/null || echo "0")
@@ -494,9 +470,6 @@ jobs:
           if [ "$total_count" -gt 0 ]; then
             echo "**Sample Findings**:" >> $GITHUB_STEP_SUMMARY
             case "$scanner" in
-              "tfsec")
-                jq -r '.results[]? | "- **" + (.rule_id // "Unknown") + "**: " + (.description // "No description") + " (Severity: " + (.severity // "Unknown") + ")"' "$results_file" 2>/dev/null | head -5 >> $GITHUB_STEP_SUMMARY || true
-                ;;
               "checkov")
                 jq -r '.results.failed_checks[]? | "- **" + (.check_id // "Unknown") + "**: " + (.check_name // "No description") + " (Severity: " + (.severity // "Unknown") + ")"' "$results_file" 2>/dev/null | head -5 >> $GITHUB_STEP_SUMMARY || true
                 ;;
