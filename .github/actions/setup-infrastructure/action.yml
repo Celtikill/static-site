@@ -41,9 +41,17 @@ runs:
         echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
         echo "✅ Connected to AWS Account: $ACCOUNT_ID" >> $GITHUB_STEP_SUMMARY
 
+    - name: Cache OpenTofu Binary
+      uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+      id: cache-tofu
+      with:
+        path: /usr/local/bin/tofu
+        key: opentofu-${{ inputs.opentofu-version }}-${{ runner.os }}
+
     - name: Setup OpenTofu
       id: tofu-setup
       shell: bash
+      if: steps.cache-tofu.outputs.cache-hit != 'true'
       run: |
         TOFU_VERSION="${{ inputs.opentofu-version }}"
         
@@ -69,13 +77,16 @@ runs:
         sudo mv tofu /usr/local/bin/
         sudo chmod +x /usr/local/bin/tofu
         
-        # Verify installation
-        INSTALLED_VERSION=$(tofu version -json | jq -r '.terraform_version')
-        echo "version=$INSTALLED_VERSION" >> $GITHUB_OUTPUT
-        echo "✅ OpenTofu v$INSTALLED_VERSION installed successfully" >> $GITHUB_STEP_SUMMARY
-        
         # Cleanup
         rm -f tofu.zip checksums.txt
+
+    - name: Verify OpenTofu Installation
+      shell: bash
+      run: |
+        # Verify installation (works whether cached or newly installed)
+        INSTALLED_VERSION=$(tofu version -json | jq -r '.terraform_version')
+        echo "version=$INSTALLED_VERSION" >> $GITHUB_OUTPUT
+        echo "✅ OpenTofu v$INSTALLED_VERSION ready" >> $GITHUB_STEP_SUMMARY
 
     - name: Install Additional Tools
       shell: bash

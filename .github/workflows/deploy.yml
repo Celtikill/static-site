@@ -63,7 +63,13 @@ jobs:
       deploy_infrastructure: ${{ steps.generate-id.outputs.deploy_infrastructure }}
       deploy_website: ${{ steps.generate-id.outputs.deploy_website }}
       test_success: ${{ steps.check-test.outputs.test_success }}
+      has_tf_changes: ${{ steps.detect-changes.outputs.has_tf_changes }}
+      has_content_changes: ${{ steps.detect-changes.outputs.has_content_changes }}
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
       - name: Check TEST Status
         id: check-test
         if: github.event_name == 'workflow_run' && github.event.inputs.skip_test_check != 'true'
@@ -163,12 +169,60 @@ jobs:
           echo "**Deploy Infrastructure**: $DEPLOY_INFRASTRUCTURE" >> $GITHUB_STEP_SUMMARY
           echo "**Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
 
+      - name: Detect Changes
+        id: detect-changes
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔍 **Analyzing Changes for Deployment Optimization**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get changed files
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # For workflow_run events, get files from the triggering commit
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          else
+            # For other events, compare with main branch
+            CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null || echo "")
+          fi
+          
+          echo "Changed files: $CHANGED_FILES"
+          
+          # Categorize changes
+          HAS_TF_CHANGES=0
+          HAS_CONTENT_CHANGES=0
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            # Check for infrastructure changes
+            if echo "$CHANGED_FILES" | grep -qE '^terraform/.*\.(tf|tfvars)$'; then
+              HAS_TF_CHANGES=1
+            fi
+            
+            # Check for content changes
+            if echo "$CHANGED_FILES" | grep -qE '^src/'; then
+              HAS_CONTENT_CHANGES=1
+            fi
+          else
+            # No changes detected, deploy everything if forced
+            if [ "${{ github.event.inputs.deploy_infrastructure }}" = "true" ]; then
+              HAS_TF_CHANGES=1
+            fi
+            if [ "${{ github.event.inputs.deploy_website }}" = "true" ]; then
+              HAS_CONTENT_CHANGES=1
+            fi
+          fi
+          
+          echo "has_tf_changes=$HAS_TF_CHANGES" >> $GITHUB_OUTPUT
+          echo "has_content_changes=$HAS_CONTENT_CHANGES" >> $GITHUB_OUTPUT
+          
+          echo "**Infrastructure Changes**: $HAS_TF_CHANGES" >> $GITHUB_STEP_SUMMARY
+          echo "**Content Changes**: $HAS_CONTENT_CHANGES" >> $GITHUB_STEP_SUMMARY
+
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     needs: deploy-info
-    if: needs.deploy-info.outputs.deploy_infrastructure == 'true'
+    if: needs.deploy-info.outputs.deploy_infrastructure == 'true' && (needs.deploy-info.outputs.has_tf_changes == '1' || github.event.inputs.deploy_infrastructure == 'true')
     environment: ${{ needs.deploy-info.outputs.target_environment }}
     outputs:
       deployment_outputs: ${{ steps.deploy.outputs.deployment_outputs }}
@@ -179,6 +233,18 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Cache Infrastructure Dependencies
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cache/terraform
+            terraform/.terraform
+            terraform/.terraform.lock.hcl
+          key: deploy-infra-${{ runner.os }}-${{ needs.deploy-info.outputs.target_environment }}-${{ hashFiles('terraform/*.tf', 'terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            deploy-infra-${{ runner.os }}-${{ needs.deploy-info.outputs.target_environment }}-
+            deploy-infra-${{ runner.os }}-
 
       - name: Validate Environment
         uses: ./.github/actions/validate-environment
@@ -237,7 +303,7 @@ jobs:
           }
           trap cleanup EXIT
           
-          if timeout 25m tofu apply -auto-approve deployment.tfplan; then
+          if timeout 18m tofu apply -auto-approve deployment.tfplan; then
             echo "✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
             echo "deployment_status=success" >> $GITHUB_OUTPUT
             
@@ -323,9 +389,9 @@ jobs:
   deploy-website:
     name: Deploy Website Content
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     needs: [deploy-info, deploy-infrastructure]
-    if: needs.deploy-info.outputs.deploy_website == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    if: needs.deploy-info.outputs.deploy_website == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') && (needs.deploy-info.outputs.has_content_changes == '1' || github.event.inputs.deploy_website == 'true')
     environment: ${{ needs.deploy-info.outputs.target_environment }}
     outputs:
       website_url: ${{ steps.deploy-content.outputs.website_url }}
@@ -333,6 +399,17 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Cache Website Dependencies
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cache/terraform
+            terraform/.terraform
+          key: deploy-website-${{ runner.os }}-${{ needs.deploy-info.outputs.target_environment }}-${{ hashFiles('src/**/*') }}
+          restore-keys: |
+            deploy-website-${{ runner.os }}-${{ needs.deploy-info.outputs.target_environment }}-
+            deploy-website-${{ runner.os }}-
 
       - name: Setup Infrastructure
         uses: ./.github/actions/setup-infrastructure

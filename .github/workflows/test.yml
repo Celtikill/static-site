@@ -44,7 +44,15 @@ jobs:
       build_id: ${{ steps.generate-id.outputs.build_id }}
       build_success: ${{ steps.check-build.outputs.build_success }}
       resolved_environment: ${{ steps.resolve-environment.outputs.resolved_environment }}
+      has_tf_changes: ${{ steps.detect-changes.outputs.has_tf_changes }}
+      has_test_changes: ${{ steps.detect-changes.outputs.has_test_changes }}
+      skip_tests: ${{ steps.detect-changes.outputs.skip_tests }}
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+
       - name: Check BUILD Status
         id: check-build
         if: github.event_name == 'workflow_run' && github.event.inputs.skip_build_check != 'true'
@@ -96,6 +104,66 @@ jobs:
           echo "**Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "**Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
 
+      - name: Detect Changes
+        id: detect-changes
+        run: |
+          echo "🔍 **Analyzing Changes for Test Optimization**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get changed files
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            # For workflow_run events, get files from the triggering commit
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          else
+            # For other events, compare with main branch
+            CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null || echo "")
+          fi
+          
+          echo "Changed files: $CHANGED_FILES"
+          
+          # Categorize changes
+          HAS_TF_CHANGES=0
+          HAS_TEST_CHANGES=0
+          HAS_CODE_CHANGES=0
+          SKIP_TESTS=0
+          
+          if [ -n "$CHANGED_FILES" ]; then
+            # Check for infrastructure changes
+            if echo "$CHANGED_FILES" | grep -qE '^terraform/.*\.(tf|tfvars)$'; then
+              HAS_TF_CHANGES=1
+            fi
+            
+            # Check for test changes  
+            if echo "$CHANGED_FILES" | grep -qE '^test/'; then
+              HAS_TEST_CHANGES=1
+            fi
+            
+            # Check for code/config changes
+            if echo "$CHANGED_FILES" | grep -qE '^(src/|\.github/workflows/|\.github/actions/)'; then
+              HAS_CODE_CHANGES=1
+            fi
+            
+            # Skip tests if only documentation changes
+            if echo "$CHANGED_FILES" | grep -qE '\.(md|txt|rst)$' && \
+               ! echo "$CHANGED_FILES" | grep -qvE '\.(md|txt|rst)$'; then
+              SKIP_TESTS=1
+              echo "⚡ Only documentation changes detected - skipping tests" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            # No changes detected, run all tests
+            HAS_TF_CHANGES=1
+            HAS_TEST_CHANGES=1
+            HAS_CODE_CHANGES=1
+          fi
+          
+          echo "has_tf_changes=$HAS_TF_CHANGES" >> $GITHUB_OUTPUT
+          echo "has_test_changes=$HAS_TEST_CHANGES" >> $GITHUB_OUTPUT
+          echo "skip_tests=$SKIP_TESTS" >> $GITHUB_OUTPUT
+          
+          echo "**Infrastructure Changes**: $HAS_TF_CHANGES" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Changes**: $HAS_TEST_CHANGES" >> $GITHUB_STEP_SUMMARY
+          echo "**Skip Tests**: $SKIP_TESTS" >> $GITHUB_STEP_SUMMARY
+
       - name: Download BUILD Artifacts
         if: github.event_name == 'workflow_run'
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
@@ -107,8 +175,9 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     needs: test-info
+    if: needs.test-info.outputs.skip_tests != '1'
     strategy:
       matrix:
         module: [s3, cloudfront, waf, iam, monitoring]
@@ -116,6 +185,16 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Cache Test Dependencies
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cache/terraform
+            test/unit/test-results
+          key: test-deps-${{ runner.os }}-${{ matrix.module }}-${{ hashFiles('test/unit/*.sh') }}
+          restore-keys: |
+            test-deps-${{ runner.os }}-${{ matrix.module }}-
 
       - name: Setup Infrastructure
         uses: ./.github/actions/setup-infrastructure
@@ -252,8 +331,9 @@ jobs:
   policy-validation:
     name: Policy Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     needs: test-info
+    if: needs.test-info.outputs.skip_tests != '1' && needs.test-info.outputs.has_tf_changes == '1'
     steps:
       - name: Checkout Code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -453,12 +533,23 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     needs: [test-info, unit-tests, policy-validation]
-    if: success()
+    if: needs.test-info.outputs.skip_tests != '1' && (success() || needs.policy-validation.result == 'skipped')
     steps:
       - name: Checkout Code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Cache Integration Test Dependencies
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cache/terraform
+            terraform/.terraform
+            test/integration/test-results
+          key: integration-test-deps-${{ runner.os }}-${{ hashFiles('terraform/*.tf', 'test/integration/*.sh') }}
+          restore-keys: |
+            integration-test-deps-${{ runner.os }}-
 
       - name: Setup Infrastructure
         uses: ./.github/actions/setup-infrastructure
@@ -622,21 +713,42 @@ jobs:
           echo "**Build ID**: ${{ needs.test-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          echo "### 🔍 Test Results Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Unit Tests**: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Policy Validation**: ${{ needs.policy-validation.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Integration Tests**: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Final assessment
-          if [ "${{ needs.unit-tests.result }}" = "success" ] && \
-             [ "${{ needs.policy-validation.result }}" = "success" ] && \
-             [ "${{ needs.integration-tests.result }}" = "success" ]; then
-            echo "✅ **TEST Phase Successful**" >> $GITHUB_STEP_SUMMARY
+          # Check if tests were skipped
+          if [ "${{ needs.test-info.outputs.skip_tests }}" = "1" ]; then
+            echo "⚡ **Tests Skipped**: Only documentation changes detected" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **TEST Phase Successful** (no testing required)" >> $GITHUB_STEP_SUMMARY
             echo "➡️ **Next Phase**: DEPLOY (ready for deployment)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **TEST Phase Failed**" >> $GITHUB_STEP_SUMMARY
-            echo "Please review the failed tests and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
+            echo "### 🔍 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+            echo "- **Unit Tests**: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Policy Validation**: ${{ needs.policy-validation.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Integration Tests**: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Final assessment
+            UNIT_OK=false
+            POLICY_OK=false
+            INTEGRATION_OK=false
+            
+            if [ "${{ needs.unit-tests.result }}" = "success" ]; then
+              UNIT_OK=true
+            fi
+            
+            if [ "${{ needs.policy-validation.result }}" = "success" ] || [ "${{ needs.policy-validation.result }}" = "skipped" ]; then
+              POLICY_OK=true
+            fi
+            
+            if [ "${{ needs.integration-tests.result }}" = "success" ]; then
+              INTEGRATION_OK=true
+            fi
+            
+            if [ "$UNIT_OK" = true ] && [ "$POLICY_OK" = true ] && [ "$INTEGRATION_OK" = true ]; then
+              echo "✅ **TEST Phase Successful**" >> $GITHUB_STEP_SUMMARY
+              echo "➡️ **Next Phase**: DEPLOY (ready for deployment)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **TEST Phase Failed**" >> $GITHUB_STEP_SUMMARY
+              echo "Please review the failed tests and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
       - name: Upload Test Summary
