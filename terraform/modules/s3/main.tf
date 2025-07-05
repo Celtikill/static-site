@@ -4,8 +4,9 @@
 terraform {
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
+      source                = "hashicorp/aws"
+      version               = "~> 5.0"
+      configuration_aliases = [aws.replica]
     }
   }
 }
@@ -254,6 +255,30 @@ resource "aws_s3_bucket" "access_logs" {
   })
 }
 
+# Access logging bucket versioning
+resource "aws_s3_bucket_versioning" "access_logs" {
+  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket = aws_s3_bucket.access_logs[0].id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Access logging bucket encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "access_logs" {
+  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket = aws_s3_bucket.access_logs[0].id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = var.kms_key_id
+    }
+    bucket_key_enabled = true
+  }
+}
+
 # Access logging bucket public access block
 resource "aws_s3_bucket_public_access_block" "access_logs" {
   count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
@@ -272,6 +297,8 @@ resource "aws_s3_bucket_logging" "website" {
 
   target_bucket = var.access_logging_bucket != "" ? var.access_logging_bucket : aws_s3_bucket.access_logs[0].id
   target_prefix = "${var.access_logging_prefix}website/"
+
+  depends_on = [aws_s3_bucket.access_logs]
 }
 
 # Replica bucket access logging
@@ -282,4 +309,6 @@ resource "aws_s3_bucket_logging" "replica" {
 
   target_bucket = var.access_logging_bucket != "" ? var.access_logging_bucket : aws_s3_bucket.access_logs[0].id
   target_prefix = "${var.access_logging_prefix}replica/"
+
+  depends_on = [aws_s3_bucket.access_logs]
 }
