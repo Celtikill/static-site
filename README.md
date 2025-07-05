@@ -819,6 +819,145 @@ echo "Website URL: $(tofu output -raw cloudfront_domain_name)"
    aws logs filter-log-events --log-group-name /aws/wafv2/your-web-acl
    ```
 
+5. **GitHub Actions AWS Authentication Issues**:
+   ```bash
+   # Error: "Credentials could not be loaded, please check your action inputs"
+   # This indicates missing or incorrect OIDC setup
+   
+   # Verify GitHub secrets are configured
+   gh secret list
+   
+   # Check if AWS_ASSUME_ROLE secret exists and has correct ARN format
+   # Should be: arn:aws:iam::123456789012:role/github-actions-role
+   ```
+
+### AWS OIDC Setup for GitHub Actions
+
+If you're getting AWS authentication errors, you need to set up OIDC integration:
+
+#### 1. Create AWS OIDC Identity Provider
+
+```bash
+# Using AWS CLI
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --client-id-list sts.amazonaws.com
+
+# Get the provider ARN (save this for the next step)
+aws iam list-open-id-connect-providers
+```
+
+#### 2. Create IAM Role with Trust Policy
+
+Create a file `github-actions-trust-policy.json`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR-ACCOUNT-ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:YOUR-GITHUB-USERNAME/static-site:*"
+        }
+      }
+    }
+  ]
+}
+```
+
+Create the IAM role:
+
+```bash
+# Create the role
+aws iam create-role \
+  --role-name github-actions-static-site \
+  --assume-role-policy-document file://github-actions-trust-policy.json
+
+# Attach necessary permissions (adjust as needed for your use case)
+aws iam attach-role-policy \
+  --role-name github-actions-static-site \
+  --policy-arn arn:aws:iam::aws:policy/PowerUserAccess
+
+# Get the role ARN (you'll need this for GitHub secrets)
+aws iam get-role --role-name github-actions-static-site --query 'Role.Arn' --output text
+```
+
+#### 3. Configure GitHub Repository
+
+```bash
+# Set the AWS_ASSUME_ROLE secret with your role ARN
+gh secret set AWS_ASSUME_ROLE --body "arn:aws:iam::YOUR-ACCOUNT-ID:role/github-actions-static-site"
+
+# Set optional variables for better functionality
+gh variable set AWS_REGION --body "us-east-1"
+gh variable set DEFAULT_ENVIRONMENT --body "dev"
+gh variable set MONTHLY_BUDGET_LIMIT --body "50"
+
+# Optional: Set alert email for monitoring
+gh secret set ALERT_EMAIL_ADDRESSES --body '["your-email@example.com"]'
+```
+
+#### 4. Validate OIDC Setup
+
+Test your OIDC configuration:
+
+```bash
+# Test GitHub Actions locally (requires act tool)
+act -j infrastructure-validation
+
+# Or trigger a workflow manually to test
+gh workflow run build.yml
+
+# Check workflow logs for authentication success
+gh run list --workflow=build.yml
+gh run view --log
+```
+
+#### 5. Common OIDC Issues and Solutions
+
+**Issue**: `Error: Credentials could not be loaded`
+```bash
+# Solutions:
+# 1. Verify AWS_ASSUME_ROLE secret exists and has correct format
+gh secret list | grep AWS_ASSUME_ROLE
+
+# 2. Check IAM role trust policy allows your repository
+aws iam get-role --role-name github-actions-static-site --query 'Role.AssumeRolePolicyDocument'
+
+# 3. Ensure OIDC provider exists in your AWS account
+aws iam list-open-id-connect-providers
+```
+
+**Issue**: `Access denied when assuming role`
+```bash
+# Solutions:
+# 1. Verify role has necessary permissions
+aws iam list-attached-role-policies --role-name github-actions-static-site
+
+# 2. Check if role trust policy is too restrictive
+# Trust policy should allow your specific repository or use wildcards appropriately
+```
+
+**Issue**: `Invalid identity token`
+```bash
+# Solutions:
+# 1. Ensure OIDC provider thumbprint is correct
+# Current GitHub thumbprint: 6938fd4d98bab03faadb97b34396831e3780aea1
+
+# 2. Verify audience is set to 'sts.amazonaws.com'
+# 3. Check that workflow has 'id-token: write' permission
+```
+
 ### Debug Commands
 
 ```bash
@@ -832,6 +971,13 @@ tofu validate
 aws s3 ls
 aws cloudfront list-distributions
 aws wafv2 list-web-acls --scope CLOUDFRONT
+
+# Debug AWS authentication
+aws sts get-caller-identity
+
+# Test OIDC token (in GitHub Actions environment)
+curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+  "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com"
 ```
 
 ## 🤝 Contributing
