@@ -220,7 +220,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
-      - name: Cache OpenTofu and Providers
+      - name: Cache Terraform Providers and Modules
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: |
@@ -228,9 +228,9 @@ jobs:
             ~/.terraform.d/plugin-cache
             terraform/.terraform
             terraform/.terraform.lock.hcl
-          key: opentofu-${{ runner.os }}-${{ hashFiles('terraform/.terraform.lock.hcl', 'terraform/**/*.tf') }}
+          key: terraform-providers-${{ runner.os }}-${{ hashFiles('terraform/.terraform.lock.hcl', 'terraform/**/*.tf') }}
           restore-keys: |
-            opentofu-${{ runner.os }}-
+            terraform-providers-${{ runner.os }}-
 
       - name: Setup Infrastructure Tools
         uses: ./.github/actions/setup-infrastructure
