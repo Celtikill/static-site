@@ -104,27 +104,64 @@ runs:
         # Download and install OpenTofu with checksum verification
         echo "Installing OpenTofu v$TOFU_VERSION..."
         
-        # Download OpenTofu
-        curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_linux_amd64.zip" -o tofu.zip
+        # Download OpenTofu with original filename for checksum verification
+        TOFU_ZIP="tofu_${TOFU_VERSION}_linux_amd64.zip"
+        echo "Downloading OpenTofu: $TOFU_ZIP"
+        
+        if curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/${TOFU_ZIP}" -o "${TOFU_ZIP}"; then
+          echo "✅ OpenTofu binary downloaded successfully"
+          ls -la "${TOFU_ZIP}"
+        else
+          echo "❌ Failed to download OpenTofu binary"
+          exit 1
+        fi
         
         # Download and verify checksum
-        curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" -o checksums.txt
+        echo "Downloading checksum file..."
+        if curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" -o checksums.txt; then
+          echo "✅ Checksum file downloaded successfully"
+        else
+          echo "❌ Failed to download checksum file"
+          exit 1
+        fi
+        
+        # Debug: Show checksum file contents
+        echo "📋 Checksum file contents:"
+        grep "${TOFU_ZIP}" checksums.txt || echo "⚠️ No checksum found for ${TOFU_ZIP}"
         
         # Verify the checksum
-        if grep "tofu_${TOFU_VERSION}_linux_amd64.zip" checksums.txt | sha256sum -c -; then
+        echo "🔍 Verifying checksum..."
+        if grep "${TOFU_ZIP}" checksums.txt | sha256sum -c -; then
           echo "✅ Checksum verification passed"
         else
           echo "❌ Checksum verification failed"
+          echo "📁 Current directory contents:"
+          ls -la
+          echo "🔍 Expected file: ${TOFU_ZIP}"
+          echo "📋 Checksum entry:"
+          grep "${TOFU_ZIP}" checksums.txt || echo "Checksum entry not found"
           exit 1
         fi
         
         # Extract and install
-        unzip -q tofu.zip
-        sudo mv tofu /usr/local/bin/
-        sudo chmod +x /usr/local/bin/tofu
+        echo "📦 Extracting OpenTofu binary..."
+        if unzip -q "${TOFU_ZIP}"; then
+          echo "✅ Extraction successful"
+        else
+          echo "❌ Failed to extract OpenTofu binary"
+          exit 1
+        fi
+        
+        # Install binary
+        if sudo mv tofu /usr/local/bin/ && sudo chmod +x /usr/local/bin/tofu; then
+          echo "✅ OpenTofu installed successfully"
+        else
+          echo "❌ Failed to install OpenTofu binary"
+          exit 1
+        fi
         
         # Cleanup
-        rm -f tofu.zip checksums.txt
+        rm -f "${TOFU_ZIP}" checksums.txt
 
     - name: Verify OpenTofu Installation
       id: verify-tofu
