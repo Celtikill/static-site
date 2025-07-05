@@ -28,6 +28,11 @@ on:
       - main
       - 'feature/*'
 
+# OIDC Authentication Permissions for AWS Integration
+# id-token: write - CRITICAL: Enables OIDC token generation for AWS authentication
+# contents: read - Repository access for workflow execution
+# security-events: write - Security scan results integration
+# pull-requests: write - Test results and comments on pull requests
 permissions:
   id-token: write
   contents: read

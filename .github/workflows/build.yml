@@ -27,6 +27,11 @@ on:
     branches:
       - main
 
+# OIDC Authentication Permissions
+# id-token: write - REQUIRED for GitHub OIDC token generation to authenticate with AWS
+# contents: read - Standard permission to read repository contents
+# pull-requests: write - Enables PR comments and status updates
+# security-events: write - Allows security scanning results upload
 permissions:
   id-token: write
   contents: read

@@ -57,7 +57,7 @@ graph TB
 - **Defense-in-depth** security architecture
 - **End-to-end encryption** (KMS + TLS 1.2+)
 - **Security headers** via CloudFront Functions
-- **GitHub OIDC** for keyless deployments
+- **GitHub OIDC** for keyless deployments ([Complete Guide](docs/oidc-authentication.md))
 - **ASVS Level 1 & 2** compliance
 
 ### 🚀 Performance
@@ -912,10 +912,13 @@ gh secret set ALERT_EMAIL_ADDRESSES --body '["your-email@example.com"]'
 Test your OIDC configuration:
 
 ```bash
-# Test GitHub Actions locally (requires act tool)
-act -j infrastructure-validation
+# Use our validation script
+./scripts/validate-oidc.sh --repository your-username/static-site --role-name github-actions-static-site
 
-# Or trigger a workflow manually to test
+# Show setup commands for your repository
+./scripts/validate-oidc.sh --repository your-username/static-site --setup
+
+# Test GitHub Actions manually
 gh workflow run build.yml
 
 # Check workflow logs for authentication success
@@ -1007,6 +1010,7 @@ make security-scan
 ## 📚 Documentation
 
 - [Architecture Guide](ARCHITECTURE.md) - Detailed architectural decisions
+- [OIDC Authentication](docs/oidc-authentication.md) - Complete OIDC security implementation guide
 - [Security Guide](docs/security.md) - Comprehensive security documentation
 - [Deployment Guide](docs/deployment.md) - Advanced deployment scenarios
 - [Monitoring Guide](docs/monitoring.md) - Observability and alerting setup

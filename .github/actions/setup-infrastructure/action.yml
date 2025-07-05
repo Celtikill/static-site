@@ -1,5 +1,5 @@
 name: 'Setup Infrastructure Tools'
-description: 'Sets up OpenTofu, AWS CLI, and other infrastructure tools with security best practices'
+description: 'Sets up OpenTofu, AWS CLI, and other infrastructure tools with OIDC authentication and security best practices'
 
 inputs:
   aws-region:
@@ -7,7 +7,7 @@ inputs:
     required: true
     default: 'us-east-1'
   aws-role:
-    description: 'AWS IAM role to assume'
+    description: 'AWS IAM role ARN to assume via OIDC (e.g., arn:aws:iam::123456789012:role/github-actions-role)'
     required: true
   opentofu-version:
     description: 'OpenTofu version to install'
@@ -25,6 +25,12 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    # OIDC Authentication: Exchange GitHub OIDC token for AWS temporary credentials
+    # Requires: 
+    # 1. Workflow permissions: id-token: write
+    # 2. AWS OIDC provider configured in target account
+    # 3. IAM role with trust policy allowing GitHub repository
+    # See: docs/oidc-authentication.md for complete setup guide
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
       with:
@@ -32,7 +38,7 @@ runs:
         role-session-name: github-actions-${{ github.run_id }}
         aws-region: ${{ inputs.aws-region }}
         mask-aws-account-id: false
-        # Add retry and error handling
+        # Security enhancements
         retry-max-attempts: 3
         output-credentials: false
 

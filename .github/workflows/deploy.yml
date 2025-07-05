@@ -41,6 +41,10 @@ on:
     branches:
       - main
 
+# OIDC Authentication Permissions for Production Deployment
+# id-token: write - ESSENTIAL: Enables secure OIDC token generation for AWS authentication
+# contents: read - Repository access for deployment workflows
+# pull-requests: write - Deployment status updates and notifications
 permissions:
   id-token: write
   contents: read
