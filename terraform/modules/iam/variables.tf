@@ -77,11 +77,17 @@ variable "allowed_actions" {
   default     = []
 }
 
+variable "enable_cross_account_access" {
+  description = "Enable cross-account access permissions"
+  type        = bool
+  default     = false
+}
+
 variable "resource_constraints" {
   description = "Resource ARN patterns to constrain permissions"
   type        = list(string)
   default     = ["*"]
-  
+
   validation {
     condition = length([
       for constraint in var.resource_constraints : constraint
@@ -89,12 +95,6 @@ variable "resource_constraints" {
     ]) == 0 || var.enable_cross_account_access
     error_message = "Wildcard (*) resource constraints should be avoided. Use specific ARNs for better security. Set enable_cross_account_access=true if wildcards are intentionally required."
   }
-}
-
-variable "enable_cross_account_access" {
-  description = "Enable cross-account access permissions"
-  type        = bool
-  default     = false
 }
 
 variable "trusted_account_ids" {

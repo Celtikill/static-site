@@ -34,3 +34,13 @@ output "replication_role_arn" {
   description = "ARN of the replication IAM role (if enabled)"
   value       = var.enable_replication ? aws_iam_role.replication[0].arn : null
 }
+
+output "access_logs_bucket_id" {
+  description = "ID of the access logs S3 bucket (if enabled)"
+  value       = var.enable_access_logging && var.access_logging_bucket == "" ? aws_s3_bucket.access_logs[0].id : null
+}
+
+output "access_logs_bucket_arn" {
+  description = "ARN of the access logs S3 bucket (if enabled)"
+  value       = var.enable_access_logging && var.access_logging_bucket == "" ? aws_s3_bucket.access_logs[0].arn : null
+}
