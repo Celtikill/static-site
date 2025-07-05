@@ -379,8 +379,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "access_logs_logs"
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = var.kms_key_id != null ? "aws:kms" : "AES256"
+      kms_master_key_id = var.kms_key_id
     }
+    bucket_key_enabled = var.kms_key_id != null
   }
 
   depends_on = [aws_s3_bucket.access_logs_logs]
@@ -415,6 +417,18 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs_logs" {
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
     }
+  }
+
+  depends_on = [aws_s3_bucket.access_logs_logs]
+}
+
+# Access logs logs bucket versioning
+resource "aws_s3_bucket_versioning" "access_logs_logs" {
+  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket = aws_s3_bucket.access_logs_logs[0].id
+
+  versioning_configuration {
+    status = "Enabled"
   }
 
   depends_on = [aws_s3_bucket.access_logs_logs]

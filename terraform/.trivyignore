@@ -1,0 +1,31 @@
+# Trivy Ignore File - Documented Security Exceptions
+# 
+# This file contains security findings that are intentionally accepted
+# as exceptions due to technical requirements or business decisions.
+# Each exception must be documented with clear rationale.
+
+# ========================================================================
+# S3 Replication Wildcard Exceptions
+# ========================================================================
+# 
+# AVD-AWS-0057: IAM policy should avoid use of wildcards
+# 
+# EXCEPTION RATIONALE:
+# - S3 Cross-Region Replication requires wildcard permissions on bucket objects
+# - AWS Service requirement for replication functionality
+# - Wildcards are scoped to specific S3 buckets only (not global wildcards)
+# - Risk is mitigated by:
+#   * Replication role can only be assumed by S3 service
+#   * Actions are limited to replication-specific operations
+#   * Resources are constrained to known bucket ARNs
+# 
+# REFERENCE: https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-iam-prerequisites.html
+# 
+# Files affected:
+# - modules/s3/main.tf (S3 replication policy)
+# 
+AVD-AWS-0057
+
+# ========================================================================
+# End of documented exceptions
+# ========================================================================
