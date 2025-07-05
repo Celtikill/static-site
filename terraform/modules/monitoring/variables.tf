@@ -30,7 +30,7 @@ variable "alert_email_addresses" {
   description = "List of email addresses to receive alerts"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for email in var.alert_email_addresses : can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", email))
@@ -49,7 +49,7 @@ variable "cloudfront_error_rate_threshold" {
   description = "Threshold for CloudFront 4xx error rate alarm (percentage)"
   type        = number
   default     = 5.0
-  
+
   validation {
     condition     = var.cloudfront_error_rate_threshold >= 0 && var.cloudfront_error_rate_threshold <= 100
     error_message = "CloudFront error rate threshold must be between 0 and 100."
@@ -60,7 +60,7 @@ variable "cache_hit_rate_threshold" {
   description = "Minimum acceptable cache hit rate (percentage)"
   type        = number
   default     = 85.0
-  
+
   validation {
     condition     = var.cache_hit_rate_threshold >= 0 && var.cache_hit_rate_threshold <= 100
     error_message = "Cache hit rate threshold must be between 0 and 100."
@@ -101,7 +101,7 @@ variable "log_retention_days" {
   description = "Number of days to retain CloudWatch logs"
   type        = number
   default     = 14
-  
+
   validation {
     condition = contains([
       1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653
@@ -126,7 +126,7 @@ variable "alarm_evaluation_periods" {
   description = "Number of periods to evaluate for alarms"
   type        = number
   default     = 2
-  
+
   validation {
     condition     = var.alarm_evaluation_periods >= 1 && var.alarm_evaluation_periods <= 100
     error_message = "Alarm evaluation periods must be between 1 and 100."
@@ -137,7 +137,7 @@ variable "alarm_period" {
   description = "Period in seconds for alarm evaluation"
   type        = number
   default     = 300
-  
+
   validation {
     condition     = var.alarm_period >= 60
     error_message = "Alarm period must be at least 60 seconds."

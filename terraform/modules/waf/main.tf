@@ -12,9 +12,9 @@ terraform {
 
 # WAF Web ACL
 resource "aws_wafv2_web_acl" "main" {
-  name  = var.web_acl_name
+  name        = var.web_acl_name
   description = "WAF Web ACL for ${var.web_acl_name}"
-  scope = "CLOUDFRONT"
+  scope       = "CLOUDFRONT"
 
   default_action {
     allow {}
@@ -262,7 +262,7 @@ resource "aws_wafv2_web_acl" "main" {
 # IP Whitelist Set
 resource "aws_wafv2_ip_set" "whitelist" {
   count = length(var.ip_whitelist) > 0 ? 1 : 0
-  
+
   name               = "${var.web_acl_name}-whitelist"
   description        = "IP whitelist for ${var.web_acl_name}"
   scope              = "CLOUDFRONT"
@@ -278,7 +278,7 @@ resource "aws_wafv2_ip_set" "whitelist" {
 # IP Blacklist Set
 resource "aws_wafv2_ip_set" "blacklist" {
   count = length(var.ip_blacklist) > 0 ? 1 : 0
-  
+
   name               = "${var.web_acl_name}-blacklist"
   description        = "IP blacklist for ${var.web_acl_name}"
   scope              = "CLOUDFRONT"

@@ -9,7 +9,7 @@ variable "rate_limit" {
   description = "Rate limit for requests per 5-minute period from a single IP"
   type        = number
   default     = 2000
-  
+
   validation {
     condition     = var.rate_limit >= 100 && var.rate_limit <= 20000000
     error_message = "Rate limit must be between 100 and 20,000,000."
@@ -32,7 +32,7 @@ variable "blocked_countries" {
   description = "List of country codes to block (ISO 3166-1 alpha-2)"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for country in var.blocked_countries : can(regex("^[A-Z]{2}$", country))
@@ -45,7 +45,7 @@ variable "ip_whitelist" {
   description = "List of IP addresses/CIDR blocks to whitelist"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for ip in var.ip_whitelist : can(cidrhost(ip, 0))
@@ -58,7 +58,7 @@ variable "ip_blacklist" {
   description = "List of IP addresses/CIDR blocks to blacklist"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for ip in var.ip_blacklist : can(cidrhost(ip, 0))
@@ -71,7 +71,7 @@ variable "max_body_size" {
   description = "Maximum request body size in bytes"
   type        = number
   default     = 8192
-  
+
   validation {
     condition     = var.max_body_size >= 1 && var.max_body_size <= 8192
     error_message = "Maximum body size must be between 1 and 8192 bytes."
@@ -82,7 +82,7 @@ variable "log_retention_days" {
   description = "Number of days to retain WAF logs"
   type        = number
   default     = 30
-  
+
   validation {
     condition = contains([
       1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653

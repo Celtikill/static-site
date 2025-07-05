@@ -16,9 +16,9 @@ resource "aws_s3_bucket" "website" {
   force_destroy = var.force_destroy
 
   tags = merge(var.common_tags, {
-    Name        = var.bucket_name
-    Purpose     = "Static Website Hosting"
-    Module      = "s3"
+    Name    = var.bucket_name
+    Purpose = "Static Website Hosting"
+    Module  = "s3"
   })
 }
 
@@ -63,17 +63,17 @@ resource "aws_s3_bucket_policy" "website" {
 
 data "aws_iam_policy_document" "s3_policy" {
   statement {
-    sid       = "AllowCloudFrontServicePrincipal"
-    effect    = "Allow"
-    
+    sid    = "AllowCloudFrontServicePrincipal"
+    effect = "Allow"
+
     principals {
       type        = "Service"
       identifiers = ["cloudfront.amazonaws.com"]
     }
-    
+
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.website.arn}/*"]
-    
+
     condition {
       test     = "StringEquals"
       variable = "AWS:SourceArn"
@@ -89,9 +89,9 @@ resource "aws_s3_bucket" "replica" {
   bucket   = "${var.bucket_name}-replica"
 
   tags = merge(var.common_tags, {
-    Name        = "${var.bucket_name}-replica"
-    Purpose     = "Cross-Region Replication"
-    Module      = "s3"
+    Name    = "${var.bucket_name}-replica"
+    Purpose = "Cross-Region Replication"
+    Module  = "s3"
   })
 }
 
@@ -100,7 +100,7 @@ resource "aws_s3_bucket_versioning" "replica" {
   count    = var.enable_replication ? 1 : 0
   provider = aws.replica
   bucket   = aws_s3_bucket.replica[0].id
-  
+
   versioning_configuration {
     status = "Enabled"
   }

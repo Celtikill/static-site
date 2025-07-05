@@ -6,12 +6,12 @@ variable "project_name" {
   description = "Name of the project (used for resource naming)"
   type        = string
   default     = "static-website"
-  
+
   validation {
     condition     = can(regex("^[a-z0-9-]+$", var.project_name))
     error_message = "Project name must contain only lowercase letters, numbers, and hyphens."
   }
-  
+
   validation {
     condition     = length(var.project_name) >= 3 && length(var.project_name) <= 32
     error_message = "Project name must be between 3 and 32 characters long."
@@ -22,7 +22,7 @@ variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
   default     = "prod"
-  
+
   validation {
     condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "Environment must be dev, staging, or prod."
@@ -32,7 +32,7 @@ variable "environment" {
 variable "github_repository" {
   description = "GitHub repository in format owner/repo"
   type        = string
-  
+
   validation {
     condition     = can(regex("^[^/]+/[^/]+$", var.github_repository))
     error_message = "GitHub repository must be in format 'owner/repo'."
@@ -82,7 +82,7 @@ variable "cloudfront_price_class" {
   description = "CloudFront price class (PriceClass_All, PriceClass_200, PriceClass_100)"
   type        = string
   default     = "PriceClass_100"
-  
+
   validation {
     condition     = contains(["PriceClass_All", "PriceClass_200", "PriceClass_100"], var.cloudfront_price_class)
     error_message = "CloudFront price class must be PriceClass_All, PriceClass_200, or PriceClass_100."
@@ -99,7 +99,7 @@ variable "domain_aliases" {
   description = "List of domain aliases for CloudFront distribution"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for domain in var.domain_aliases : can(regex("^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.[a-zA-Z]{2,}$", domain))
@@ -112,7 +112,7 @@ variable "geo_restriction_type" {
   description = "CloudFront geo restriction type (none, whitelist, blacklist)"
   type        = string
   default     = "none"
-  
+
   validation {
     condition     = contains(["none", "whitelist", "blacklist"], var.geo_restriction_type)
     error_message = "Geo restriction type must be none, whitelist, or blacklist."
@@ -166,7 +166,7 @@ variable "waf_rate_limit" {
   description = "WAF rate limit per 5-minute period from single IP"
   type        = number
   default     = 2000
-  
+
   validation {
     condition     = var.waf_rate_limit >= 100 && var.waf_rate_limit <= 20000000
     error_message = "WAF rate limit must be between 100 and 20,000,000."
@@ -201,7 +201,7 @@ variable "max_request_body_size" {
   description = "Maximum request body size in bytes"
   type        = number
   default     = 8192
-  
+
   validation {
     condition     = var.max_request_body_size >= 1 && var.max_request_body_size <= 8192
     error_message = "Maximum request body size must be between 1 and 8192 bytes."
@@ -219,7 +219,7 @@ variable "max_session_duration" {
   description = "Maximum session duration for GitHub Actions role (seconds)"
   type        = number
   default     = 3600
-  
+
   validation {
     condition     = var.max_session_duration >= 3600 && var.max_session_duration <= 43200
     error_message = "Max session duration must be between 3600 (1 hour) and 43200 (12 hours) seconds."
@@ -249,7 +249,7 @@ variable "cloudfront_error_rate_threshold" {
   description = "CloudFront 4xx error rate threshold (percentage)"
   type        = number
   default     = 5.0
-  
+
   validation {
     condition     = var.cloudfront_error_rate_threshold >= 0 && var.cloudfront_error_rate_threshold <= 100
     error_message = "CloudFront error rate threshold must be between 0 and 100."
@@ -260,7 +260,7 @@ variable "cache_hit_rate_threshold" {
   description = "Minimum acceptable cache hit rate (percentage)"
   type        = number
   default     = 85.0
-  
+
   validation {
     condition     = var.cache_hit_rate_threshold >= 0 && var.cache_hit_rate_threshold <= 100
     error_message = "Cache hit rate threshold must be between 0 and 100."
@@ -320,7 +320,7 @@ variable "kms_deletion_window" {
   description = "KMS key deletion window in days"
   type        = number
   default     = 30
-  
+
   validation {
     condition     = var.kms_deletion_window >= 7 && var.kms_deletion_window <= 30
     error_message = "KMS deletion window must be between 7 and 30 days."
@@ -331,7 +331,7 @@ variable "log_retention_days" {
   description = "CloudWatch log retention period in days"
   type        = number
   default     = 30
-  
+
   validation {
     condition = contains([
       1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653

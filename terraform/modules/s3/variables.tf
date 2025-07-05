@@ -3,12 +3,12 @@
 variable "bucket_name" {
   description = "Name of the S3 bucket for static website hosting"
   type        = string
-  
+
   validation {
     condition     = can(regex("^[a-z0-9][a-z0-9-]*[a-z0-9]$", var.bucket_name))
     error_message = "Bucket name must be lowercase, start and end with alphanumeric characters, and can contain hyphens."
   }
-  
+
   validation {
     condition     = length(var.bucket_name) >= 3 && length(var.bucket_name) <= 63
     error_message = "Bucket name must be between 3 and 63 characters long."

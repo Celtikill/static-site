@@ -15,7 +15,7 @@ variable "create_github_oidc_provider" {
 variable "github_repositories" {
   description = "List of GitHub repositories that can assume this role (format: owner/repo)"
   type        = list(string)
-  
+
   validation {
     condition = alltrue([
       for repo in var.github_repositories : can(regex("^[^/]+/[^/]+$", repo))
@@ -46,7 +46,7 @@ variable "max_session_duration" {
   description = "Maximum session duration in seconds for the role"
   type        = number
   default     = 3600
-  
+
   validation {
     condition     = var.max_session_duration >= 3600 && var.max_session_duration <= 43200
     error_message = "Max session duration must be between 3600 (1 hour) and 43200 (12 hours) seconds."

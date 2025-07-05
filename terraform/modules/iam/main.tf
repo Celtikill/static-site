@@ -13,13 +13,13 @@ terraform {
 # GitHub OIDC Identity Provider
 resource "aws_iam_openid_connect_provider" "github" {
   count = var.create_github_oidc_provider ? 1 : 0
-  
+
   url = "https://token.actions.githubusercontent.com"
-  
+
   client_id_list = [
     "sts.amazonaws.com"
   ]
-  
+
   thumbprint_list = [
     "6938fd4d98bab03faadb97b34396831e3780aea1",
     "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
@@ -40,7 +40,7 @@ data "aws_iam_openid_connect_provider" "github" {
 # GitHub Actions IAM Role
 resource "aws_iam_role" "github_actions" {
   name = var.github_actions_role_name
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -76,7 +76,7 @@ resource "aws_iam_role" "github_actions" {
 resource "aws_iam_policy" "s3_deployment" {
   name        = "${var.github_actions_role_name}-s3-deployment"
   description = "Policy for S3 deployment operations"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -112,7 +112,7 @@ resource "aws_iam_policy" "s3_deployment" {
 resource "aws_iam_policy" "cloudfront_invalidation" {
   name        = "${var.github_actions_role_name}-cloudfront-invalidation"
   description = "Policy for CloudFront invalidation operations"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -143,7 +143,7 @@ resource "aws_iam_policy" "cloudfront_invalidation" {
 resource "aws_iam_policy" "cloudwatch_logs" {
   name        = "${var.github_actions_role_name}-cloudwatch-logs"
   description = "Policy for CloudWatch Logs operations"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -167,7 +167,7 @@ resource "aws_iam_policy" "cloudwatch_logs" {
 # Additional deployment permissions (optional)
 resource "aws_iam_policy" "additional_permissions" {
   count = var.additional_policy_json != null ? 1 : 0
-  
+
   name        = "${var.github_actions_role_name}-additional"
   description = "Additional deployment permissions"
   policy      = var.additional_policy_json
@@ -193,7 +193,7 @@ resource "aws_iam_role_policy_attachment" "cloudwatch_logs" {
 
 resource "aws_iam_role_policy_attachment" "additional_permissions" {
   count = var.additional_policy_json != null ? 1 : 0
-  
+
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.additional_permissions[0].arn
 }
@@ -201,7 +201,7 @@ resource "aws_iam_role_policy_attachment" "additional_permissions" {
 # Optional: ReadOnly access for monitoring/validation
 resource "aws_iam_role_policy_attachment" "readonly_access" {
   count = var.enable_readonly_access ? 1 : 0
-  
+
   role       = aws_iam_role.github_actions.name
   policy_arn = "arn:aws:iam::aws:policy/ReadOnlyAccess"
 }
@@ -209,10 +209,10 @@ resource "aws_iam_role_policy_attachment" "readonly_access" {
 # KMS permissions for encrypted resources
 resource "aws_iam_policy" "kms_permissions" {
   count = length(var.kms_key_arns) > 0 ? 1 : 0
-  
+
   name        = "${var.github_actions_role_name}-kms"
   description = "KMS permissions for encrypted resources"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -233,7 +233,7 @@ resource "aws_iam_policy" "kms_permissions" {
 
 resource "aws_iam_role_policy_attachment" "kms_permissions" {
   count = length(var.kms_key_arns) > 0 ? 1 : 0
-  
+
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.kms_permissions[0].arn
 }
@@ -242,7 +242,7 @@ resource "aws_iam_role_policy_attachment" "kms_permissions" {
 resource "aws_iam_role" "deployment_service" {
   count = var.create_deployment_service_role ? 1 : 0
   name  = "${var.github_actions_role_name}-service"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -268,7 +268,7 @@ resource "aws_iam_role" "deployment_service" {
 # Basic execution role for service
 resource "aws_iam_role_policy_attachment" "service_basic_execution" {
   count = var.create_deployment_service_role ? 1 : 0
-  
+
   role       = aws_iam_role.deployment_service[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }

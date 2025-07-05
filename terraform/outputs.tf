@@ -155,12 +155,12 @@ output "cloudfront_url" {
 output "deployment_info" {
   description = "Information for deployment configuration"
   value = {
-    s3_bucket           = module.s3.bucket_id
-    cloudfront_id       = module.cloudfront.distribution_id
-    github_role_arn     = module.iam.github_actions_role_arn
-    aws_region          = data.aws_region.current.name
-    project_name        = local.project_name
-    environment         = local.environment
+    s3_bucket       = module.s3.bucket_id
+    cloudfront_id   = module.cloudfront.distribution_id
+    github_role_arn = module.iam.github_actions_role_arn
+    aws_region      = data.aws_region.current.name
+    project_name    = local.project_name
+    environment     = local.environment
   }
 }
 
@@ -168,15 +168,15 @@ output "deployment_info" {
 output "estimated_monthly_cost" {
   description = "Estimated monthly cost breakdown (USD)"
   value = {
-    s3_storage              = "0.25"
-    s3_requests             = "0.05"
-    s3_replication         = var.enable_cross_region_replication ? "0.03" : "0.00"
-    cloudfront_requests     = "8.50"
-    cloudfront_data         = "9.00" 
-    waf_requests           = "6.00"
-    route53_queries        = var.create_route53_zone ? "0.90" : "0.00"
-    cloudwatch_metrics     = "2.50"
-    total_estimated        = var.create_route53_zone ? "27.23" : "26.33"
+    s3_storage          = "0.25"
+    s3_requests         = "0.05"
+    s3_replication      = var.enable_cross_region_replication ? "0.03" : "0.00"
+    cloudfront_requests = "8.50"
+    cloudfront_data     = "9.00"
+    waf_requests        = "6.00"
+    route53_queries     = var.create_route53_zone ? "0.90" : "0.00"
+    cloudwatch_metrics  = "2.50"
+    total_estimated     = var.create_route53_zone ? "27.23" : "26.33"
   }
 }
 
@@ -190,7 +190,7 @@ output "security_info" {
     access_logging        = var.enable_access_logging
     versioning_enabled    = var.enable_versioning
     replication_enabled   = var.enable_cross_region_replication
-    github_oidc          = true
+    github_oidc           = true
   }
 }
 
@@ -199,11 +199,11 @@ output "performance_info" {
   description = "Performance configuration summary"
   value = {
     cloudfront_price_class = var.cloudfront_price_class
-    cache_behaviors       = "Optimized for static content"
-    compression_enabled   = true
-    http2_enabled        = true
-    ipv6_enabled         = true
-    global_edge_locations = true
+    cache_behaviors        = "Optimized for static content"
+    compression_enabled    = true
+    http2_enabled          = true
+    ipv6_enabled           = true
+    global_edge_locations  = true
   }
 }
 
@@ -211,11 +211,11 @@ output "performance_info" {
 output "compliance_info" {
   description = "Compliance and governance information"
   value = {
-    aws_config_enabled    = false
-    waf_owasp_rules      = true
-    security_headers     = true
-    access_controls      = "Least privilege IAM"
-    data_residency       = "Primary: ${data.aws_region.current.name}, Replica: ${var.replica_region}"
-    backup_strategy      = var.enable_cross_region_replication ? "Cross-region replication" : "Single region"
+    aws_config_enabled = false
+    waf_owasp_rules    = true
+    security_headers   = true
+    access_controls    = "Least privilege IAM"
+    data_residency     = "Primary: ${data.aws_region.current.name}, Replica: ${var.replica_region}"
+    backup_strategy    = var.enable_cross_region_replication ? "Cross-region replication" : "Single region"
   }
 }

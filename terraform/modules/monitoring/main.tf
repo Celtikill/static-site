@@ -49,7 +49,7 @@ resource "aws_sns_topic_policy" "alerts" {
 # Email Subscription for Alerts
 resource "aws_sns_topic_subscription" "email_alerts" {
   count = length(var.alert_email_addresses)
-  
+
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
   endpoint  = var.alert_email_addresses[count.index]
@@ -150,7 +150,7 @@ resource "aws_cloudwatch_dashboard" "main" {
 resource "aws_cloudwatch_composite_alarm" "website_health" {
   alarm_name        = "${var.project_name}-website-health"
   alarm_description = "Composite alarm for overall website health"
-  
+
   alarm_rule = format(
     "ALARM(%s) OR ALARM(%s) OR ALARM(%s)",
     aws_cloudwatch_metric_alarm.cloudfront_high_error_rate.alarm_name,
@@ -288,16 +288,16 @@ resource "aws_budgets_budget" "monthly_cost" {
 
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 80
-    threshold_type            = "PERCENTAGE"
-    notification_type         = "FORECASTED"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
     subscriber_email_addresses = var.alert_email_addresses
   }
 
   notification {
     comparison_operator        = "GREATER_THAN"
-    threshold                 = 100
-    threshold_type            = "PERCENTAGE"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
     notification_type          = "ACTUAL"
     subscriber_email_addresses = var.alert_email_addresses
   }
@@ -308,7 +308,7 @@ resource "aws_budgets_budget" "monthly_cost" {
 # Custom CloudWatch Metrics for Application Performance
 resource "aws_cloudwatch_log_metric_filter" "deployment_success" {
   count = var.enable_deployment_metrics ? 1 : 0
-  
+
   name           = "${var.project_name}-deployment-success"
   log_group_name = "/aws/github-actions/${var.project_name}"
   pattern        = "DEPLOYMENT_SUCCESS"
@@ -322,7 +322,7 @@ resource "aws_cloudwatch_log_metric_filter" "deployment_success" {
 
 resource "aws_cloudwatch_log_metric_filter" "deployment_failure" {
   count = var.enable_deployment_metrics ? 1 : 0
-  
+
   name           = "${var.project_name}-deployment-failure"
   log_group_name = "/aws/github-actions/${var.project_name}"
   pattern        = "DEPLOYMENT_FAILURE"
@@ -337,7 +337,7 @@ resource "aws_cloudwatch_log_metric_filter" "deployment_failure" {
 # Log Group for GitHub Actions
 resource "aws_cloudwatch_log_group" "github_actions" {
   count = var.enable_deployment_metrics ? 1 : 0
-  
+
   name              = "/aws/github-actions/${var.project_name}"
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn

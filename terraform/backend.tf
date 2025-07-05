@@ -7,7 +7,7 @@ terraform {
     # 1. Backend config file: terraform init -backend-config=backend.hcl
     # 2. Environment variables: TF_VAR_backend_*
     # 3. CLI arguments: terraform init -backend-config="bucket=my-bucket"
-    
+
     # Required configuration (must be provided):
     # bucket         = "terraform-state-bucket-name"
     # key            = "static-website/terraform.tfstate"
@@ -15,15 +15,15 @@ terraform {
     # dynamodb_table = "terraform-state-locks"
     # encrypt        = true
     # kms_key_id     = "alias/terraform-state-key"
-    
+
     # Optional configuration with secure defaults:
-    versioning                = true
-    server_side_encryption    = "aws:kms"
-    skip_region_validation    = false
+    versioning                  = true
+    server_side_encryption      = "aws:kms"
+    skip_region_validation      = false
     skip_credentials_validation = false
-    skip_metadata_api_check   = false
-    force_path_style         = false
-    
+    skip_metadata_api_check     = false
+    force_path_style            = false
+
     # Workspace configuration for multi-environment support
     workspace_key_prefix = "env"
   }
@@ -33,7 +33,7 @@ terraform {
 provider "aws" {
   alias  = "replica"
   region = var.replica_region
-  
+
   default_tags {
     tags = {
       Project      = var.project_name
@@ -48,7 +48,7 @@ provider "aws" {
 # Main provider configuration
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Project     = var.project_name

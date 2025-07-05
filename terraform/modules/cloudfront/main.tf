@@ -114,8 +114,8 @@ resource "aws_cloudfront_distribution" "website" {
   # Logging Configuration
   logging_config {
     include_cookies = false
-    bucket         = var.logging_bucket
-    prefix         = var.logging_prefix
+    bucket          = var.logging_bucket
+    prefix          = var.logging_prefix
   }
 
   tags = merge(var.common_tags, {
@@ -128,7 +128,7 @@ resource "aws_cloudfront_distribution" "website" {
 resource "aws_cloudfront_cache_policy" "website" {
   name        = "${var.distribution_name}-cache-policy"
   comment     = "Cache policy for ${var.distribution_name}"
-  default_ttl = 86400   # 1 day
+  default_ttl = 86400    # 1 day
   max_ttl     = 31536000 # 1 year
   min_ttl     = 0
 
@@ -205,7 +205,7 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
     }
 
     access_control_max_age_sec = 600
-    origin_override           = false
+    origin_override            = false
   }
 }
 

@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.6.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -14,7 +14,7 @@ terraform {
       version = "~> 3.4"
     }
   }
-  
+
   backend "s3" {
     # Backend configuration will be provided via backend.tf or CLI
   }
@@ -33,11 +33,11 @@ resource "random_id" "suffix" {
 locals {
   project_name = var.project_name
   environment  = var.environment
-  
+
   # Generate unique names for global resources
-  bucket_name      = "${local.project_name}-${local.environment}-${random_id.suffix.hex}"
+  bucket_name       = "${local.project_name}-${local.environment}-${random_id.suffix.hex}"
   distribution_name = "${local.project_name}-${local.environment}"
-  
+
   # Common tags applied to all resources
   common_tags = merge(var.common_tags, {
     Project     = local.project_name
@@ -47,7 +47,7 @@ locals {
     Region      = data.aws_region.current.name
     AccountId   = data.aws_caller_identity.current.account_id
   })
-  
+
   # GitHub repository configuration
   github_repositories = [var.github_repository]
 }
@@ -55,16 +55,16 @@ locals {
 # S3 Module - Primary storage for static website
 module "s3" {
   source = "./modules/s3"
-  
-  bucket_name                   = local.bucket_name
-  cloudfront_distribution_arn   = module.cloudfront.distribution_arn
-  force_destroy                 = var.force_destroy_bucket
-  versioning_enabled           = var.enable_versioning
-  enable_replication           = var.enable_cross_region_replication
-  replica_region               = var.replica_region
-  kms_key_id                   = var.kms_key_id
-  common_tags                  = local.common_tags
-  
+
+  bucket_name                 = local.bucket_name
+  cloudfront_distribution_arn = module.cloudfront.distribution_arn
+  force_destroy               = var.force_destroy_bucket
+  versioning_enabled          = var.enable_versioning
+  enable_replication          = var.enable_cross_region_replication
+  replica_region              = var.replica_region
+  kms_key_id                  = var.kms_key_id
+  common_tags                 = local.common_tags
+
   providers = {
     aws.replica = aws.replica
   }
@@ -73,90 +73,90 @@ module "s3" {
 # WAF Module - Web Application Firewall for security
 module "waf" {
   source = "./modules/waf"
-  
-  web_acl_name                    = "${local.project_name}-${local.environment}-waf"
-  rate_limit                      = var.waf_rate_limit
-  enable_geo_blocking            = var.enable_geo_blocking
-  blocked_countries              = var.blocked_countries
-  ip_whitelist                   = var.ip_whitelist
-  ip_blacklist                   = var.ip_blacklist
-  max_body_size                  = var.max_request_body_size
-  log_retention_days             = var.log_retention_days
-  blocked_requests_threshold     = var.waf_blocked_requests_threshold
-  kms_key_arn                    = var.kms_key_arn
-  alarm_actions                  = [module.monitoring.sns_topic_arn]
-  common_tags                    = local.common_tags
+
+  web_acl_name               = "${local.project_name}-${local.environment}-waf"
+  rate_limit                 = var.waf_rate_limit
+  enable_geo_blocking        = var.enable_geo_blocking
+  blocked_countries          = var.blocked_countries
+  ip_whitelist               = var.ip_whitelist
+  ip_blacklist               = var.ip_blacklist
+  max_body_size              = var.max_request_body_size
+  log_retention_days         = var.log_retention_days
+  blocked_requests_threshold = var.waf_blocked_requests_threshold
+  kms_key_arn                = var.kms_key_arn
+  alarm_actions              = [module.monitoring.sns_topic_arn]
+  common_tags                = local.common_tags
 }
 
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
   source = "./modules/cloudfront"
-  
-  distribution_name           = local.distribution_name
-  distribution_comment        = "Static website CDN for ${local.project_name}"
-  s3_bucket_id               = module.s3.bucket_id
-  s3_bucket_domain_name      = module.s3.bucket_regional_domain_name
-  web_acl_id                 = module.waf.web_acl_id
-  price_class                = var.cloudfront_price_class
-  acm_certificate_arn        = var.acm_certificate_arn
-  domain_aliases             = var.domain_aliases
-  geo_restriction_type       = var.geo_restriction_type
-  geo_restriction_locations  = var.geo_restriction_locations
-  custom_error_responses     = var.custom_error_responses
-  logging_bucket             = var.enable_access_logging ? module.s3.bucket_domain_name : null
-  logging_prefix             = "cloudfront-logs/"
-  content_security_policy    = var.content_security_policy
-  cors_origins               = var.cors_origins
-  alarm_actions              = [module.monitoring.sns_topic_arn]
-  common_tags                = local.common_tags
+
+  distribution_name         = local.distribution_name
+  distribution_comment      = "Static website CDN for ${local.project_name}"
+  s3_bucket_id              = module.s3.bucket_id
+  s3_bucket_domain_name     = module.s3.bucket_regional_domain_name
+  web_acl_id                = module.waf.web_acl_id
+  price_class               = var.cloudfront_price_class
+  acm_certificate_arn       = var.acm_certificate_arn
+  domain_aliases            = var.domain_aliases
+  geo_restriction_type      = var.geo_restriction_type
+  geo_restriction_locations = var.geo_restriction_locations
+  custom_error_responses    = var.custom_error_responses
+  logging_bucket            = var.enable_access_logging ? module.s3.bucket_domain_name : null
+  logging_prefix            = "cloudfront-logs/"
+  content_security_policy   = var.content_security_policy
+  cors_origins              = var.cors_origins
+  alarm_actions             = [module.monitoring.sns_topic_arn]
+  common_tags               = local.common_tags
 }
 
 # IAM Module - GitHub Actions OIDC and deployment permissions
 module "iam" {
   source = "./modules/iam"
-  
+
   github_actions_role_name       = "${local.project_name}-${local.environment}-github-actions"
   create_github_oidc_provider    = var.create_github_oidc_provider
   github_repositories            = local.github_repositories
-  s3_bucket_arns                = [module.s3.bucket_arn]
+  s3_bucket_arns                 = [module.s3.bucket_arn]
   cloudfront_distribution_arns   = [module.cloudfront.distribution_arn]
-  kms_key_arns                  = var.kms_key_arn != null ? [var.kms_key_arn] : []
-  max_session_duration          = var.max_session_duration
-  enable_readonly_access        = var.enable_readonly_access
+  kms_key_arns                   = var.kms_key_arn != null ? [var.kms_key_arn] : []
+  max_session_duration           = var.max_session_duration
+  enable_readonly_access         = var.enable_readonly_access
   create_deployment_service_role = var.create_deployment_service_role
-  common_tags                   = local.common_tags
+  common_tags                    = local.common_tags
 }
 
 # Monitoring Module - Comprehensive observability and alerting
 module "monitoring" {
   source = "./modules/monitoring"
-  
-  project_name                      = local.project_name
-  cloudfront_distribution_id        = module.cloudfront.distribution_id
-  s3_bucket_name                    = module.s3.bucket_id
-  waf_web_acl_name                  = module.waf.web_acl_name
-  aws_region                        = data.aws_region.current.name
-  alert_email_addresses             = var.alert_email_addresses
-  kms_key_arn                       = var.kms_key_arn
-  cloudfront_error_rate_threshold   = var.cloudfront_error_rate_threshold
-  cache_hit_rate_threshold          = var.cache_hit_rate_threshold
-  waf_blocked_requests_threshold    = var.waf_blocked_requests_threshold
-  s3_billing_threshold              = var.s3_billing_threshold
-  cloudfront_billing_threshold      = var.cloudfront_billing_threshold
-  monthly_budget_limit              = var.monthly_budget_limit
-  enable_deployment_metrics         = var.enable_deployment_metrics
-  log_retention_days                = var.log_retention_days
-  common_tags                       = local.common_tags
+
+  project_name                    = local.project_name
+  cloudfront_distribution_id      = module.cloudfront.distribution_id
+  s3_bucket_name                  = module.s3.bucket_id
+  waf_web_acl_name                = module.waf.web_acl_name
+  aws_region                      = data.aws_region.current.name
+  alert_email_addresses           = var.alert_email_addresses
+  kms_key_arn                     = var.kms_key_arn
+  cloudfront_error_rate_threshold = var.cloudfront_error_rate_threshold
+  cache_hit_rate_threshold        = var.cache_hit_rate_threshold
+  waf_blocked_requests_threshold  = var.waf_blocked_requests_threshold
+  s3_billing_threshold            = var.s3_billing_threshold
+  cloudfront_billing_threshold    = var.cloudfront_billing_threshold
+  monthly_budget_limit            = var.monthly_budget_limit
+  enable_deployment_metrics       = var.enable_deployment_metrics
+  log_retention_days              = var.log_retention_days
+  common_tags                     = local.common_tags
 }
 
 # KMS Key for encryption (optional)
 resource "aws_kms_key" "main" {
   count = var.create_kms_key ? 1 : 0
-  
+
   description             = "KMS key for ${local.project_name} encryption"
   deletion_window_in_days = var.kms_deletion_window
   enable_key_rotation     = true
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -194,7 +194,7 @@ resource "aws_kms_key" "main" {
 
 resource "aws_kms_alias" "main" {
   count = var.create_kms_key ? 1 : 0
-  
+
   name          = "alias/${local.project_name}-${local.environment}"
   target_key_id = aws_kms_key.main[0].key_id
 }
@@ -202,9 +202,9 @@ resource "aws_kms_alias" "main" {
 # Route 53 Configuration (optional)
 resource "aws_route53_zone" "main" {
   count = var.create_route53_zone ? 1 : 0
-  
+
   name = var.domain_name
-  
+
   tags = merge(local.common_tags, {
     Name = "${local.project_name}-${local.environment}-zone"
   })
@@ -212,11 +212,11 @@ resource "aws_route53_zone" "main" {
 
 resource "aws_route53_record" "website" {
   count = var.create_route53_zone && length(var.domain_aliases) > 0 ? 1 : 0
-  
+
   zone_id = aws_route53_zone.main[0].zone_id
   name    = var.domain_aliases[0]
   type    = "A"
-  
+
   alias {
     name                   = module.cloudfront.distribution_domain_name
     zone_id                = module.cloudfront.distribution_hosted_zone_id
@@ -227,7 +227,7 @@ resource "aws_route53_record" "website" {
 # Health check for monitoring
 resource "aws_route53_health_check" "website" {
   count = var.create_route53_zone && length(var.domain_aliases) > 0 ? 1 : 0
-  
+
   fqdn                            = var.domain_aliases[0]
   port                            = 443
   type                            = "HTTPS"
@@ -237,7 +237,7 @@ resource "aws_route53_health_check" "website" {
   cloudwatch_logs_region          = data.aws_region.current.name
   cloudwatch_alarm_region         = data.aws_region.current.name
   insufficient_data_health_status = "Failure"
-  
+
   tags = merge(local.common_tags, {
     Name = "${local.project_name}-${local.environment}-health-check"
   })
