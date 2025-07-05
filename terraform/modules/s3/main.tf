@@ -95,6 +95,18 @@ resource "aws_s3_bucket" "replica" {
   })
 }
 
+# Replica bucket public access block
+resource "aws_s3_bucket_public_access_block" "replica" {
+  count    = var.enable_replication ? 1 : 0
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica[0].id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
 # Replica bucket versioning (required for CRR)
 resource "aws_s3_bucket_versioning" "replica" {
   count    = var.enable_replication ? 1 : 0
@@ -114,8 +126,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "replica" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = var.kms_key_id
     }
+    bucket_key_enabled = true
   }
 }
 
@@ -226,4 +240,46 @@ resource "aws_s3_bucket_lifecycle_configuration" "website" {
       days_after_initiation = 7
     }
   }
+}
+
+# Dedicated logging bucket (optional)
+resource "aws_s3_bucket" "access_logs" {
+  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket = "${var.bucket_name}-access-logs"
+
+  tags = merge(var.common_tags, {
+    Name    = "${var.bucket_name}-access-logs"
+    Purpose = "S3 Access Logging"
+    Module  = "s3"
+  })
+}
+
+# Access logging bucket public access block
+resource "aws_s3_bucket_public_access_block" "access_logs" {
+  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket = aws_s3_bucket.access_logs[0].id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Primary bucket access logging
+resource "aws_s3_bucket_logging" "website" {
+  count  = var.enable_access_logging ? 1 : 0
+  bucket = aws_s3_bucket.website.id
+
+  target_bucket = var.access_logging_bucket != "" ? var.access_logging_bucket : aws_s3_bucket.access_logs[0].id
+  target_prefix = "${var.access_logging_prefix}website/"
+}
+
+# Replica bucket access logging
+resource "aws_s3_bucket_logging" "replica" {
+  count    = var.enable_access_logging && var.enable_replication ? 1 : 0
+  provider = aws.replica
+  bucket   = aws_s3_bucket.replica[0].id
+
+  target_bucket = var.access_logging_bucket != "" ? var.access_logging_bucket : aws_s3_bucket.access_logs[0].id
+  target_prefix = "${var.access_logging_prefix}replica/"
 }

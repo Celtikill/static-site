@@ -71,3 +71,21 @@ variable "lifecycle_expiration_days" {
   type        = number
   default     = 30
 }
+
+variable "enable_access_logging" {
+  description = "Enable S3 access logging for audit trails"
+  type        = bool
+  default     = true
+}
+
+variable "access_logging_bucket" {
+  description = "S3 bucket for access logs (if empty, creates dedicated logging bucket)"
+  type        = string
+  default     = ""
+}
+
+variable "access_logging_prefix" {
+  description = "Prefix for S3 access log objects"
+  type        = string
+  default     = "access-logs/"
+}
