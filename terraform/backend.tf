@@ -17,8 +17,6 @@ terraform {
     # kms_key_id     = "alias/terraform-state-key"
 
     # Optional configuration with secure defaults:
-    versioning                  = true
-    server_side_encryption      = "aws:kms"
     skip_region_validation      = false
     skip_credentials_validation = false
     skip_metadata_api_check     = false

@@ -158,7 +158,8 @@ resource "aws_iam_policy" "cloudwatch_logs" {
         ]
         Resource = [
           "arn:aws:logs:*:*:log-group:/aws/github-actions",
-          "arn:aws:logs:*:*:log-group:/aws/github-actions:*"
+          "arn:aws:logs:*:*:log-group:/aws/github-actions:*",
+          "arn:aws:logs:*:*:log-group:/aws/github-actions:*:*"
         ]
       }
     ]
