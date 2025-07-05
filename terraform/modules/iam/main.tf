@@ -1,5 +1,12 @@
 # IAM Module for GitHub Actions OIDC and Deployment Permissions
 # Implements least-privilege access and secure CI/CD authentication
+# 
+# Security Features:
+# - Specific resource ARNs instead of wildcards where possible
+# - Time-limited sessions with configurable duration
+# - Restricted to specific GitHub repositories
+# - Principle of least privilege applied to all policies
+# - Validation checks for wildcard usage prevention
 
 terraform {
   required_providers {
@@ -140,6 +147,8 @@ resource "aws_iam_policy" "cloudfront_invalidation" {
 }
 
 # CloudWatch Logs Policy (for deployment logs)
+# Security: Uses specific region and account ID instead of wildcards
+# Follows principle of least privilege with restricted resource scope
 resource "aws_iam_policy" "cloudwatch_logs" {
   name        = "${var.github_actions_role_name}-cloudwatch-logs"
   description = "Policy for CloudWatch Logs operations"
@@ -156,10 +165,12 @@ resource "aws_iam_policy" "cloudwatch_logs" {
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams"
         ]
+        # Security: Specific region and account ID prevents cross-account access
+        # Resource scope limited to GitHub Actions log group prefix only
         Resource = [
-          "arn:aws:logs:*:*:log-group:/aws/github-actions",
-          "arn:aws:logs:*:*:log-group:/aws/github-actions:*",
-          "arn:aws:logs:*:*:log-group:/aws/github-actions:*:*"
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/github-actions",
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/github-actions:*",
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/github-actions:*:*"
         ]
       }
     ]

@@ -81,6 +81,14 @@ variable "resource_constraints" {
   description = "Resource ARN patterns to constrain permissions"
   type        = list(string)
   default     = ["*"]
+  
+  validation {
+    condition = length([
+      for constraint in var.resource_constraints : constraint
+      if constraint == "*"
+    ]) == 0 || var.enable_cross_account_access
+    error_message = "Wildcard (*) resource constraints should be avoided. Use specific ARNs for better security. Set enable_cross_account_access=true if wildcards are intentionally required."
+  }
 }
 
 variable "enable_cross_account_access" {
@@ -99,6 +107,16 @@ variable "session_name_prefix" {
   description = "Prefix for role session names"
   type        = string
   default     = "GitHubActions"
+}
+
+variable "aws_account_id" {
+  description = "AWS Account ID for resource ARN construction"
+  type        = string
+}
+
+variable "aws_region" {
+  description = "AWS Region for resource ARN construction"
+  type        = string
 }
 
 variable "common_tags" {
