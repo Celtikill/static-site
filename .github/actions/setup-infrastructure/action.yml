@@ -145,10 +145,13 @@ runs:
         
         # Extract and install
         echo "📦 Extracting OpenTofu binary..."
-        if unzip -q "${TOFU_ZIP}"; then
+        if unzip -o -q "${TOFU_ZIP}"; then
           echo "✅ Extraction successful"
+          ls -la tofu 2>/dev/null || echo "⚠️ tofu binary not found after extraction"
         else
           echo "❌ Failed to extract OpenTofu binary"
+          echo "📋 Archive contents:"
+          unzip -l "${TOFU_ZIP}" || echo "Could not list archive contents"
           exit 1
         fi
         
