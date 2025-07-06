@@ -491,13 +491,17 @@ run_test_suite() {
     local suite_end_time=$(date +%s)
     local suite_duration=$((suite_end_time - suite_start_time))
     
-    # Generate test report
+    # Generate test report and capture exit code
     generate_test_report "$test_suite_name" "$suite_duration"
+    local test_result=$?
     
     # Cleanup if enabled
     if [[ "$TEST_CLEANUP" == "true" ]]; then
         cleanup_test_environment
     fi
+    
+    # Return the test result
+    return $test_result
 }
 
 generate_test_report() {

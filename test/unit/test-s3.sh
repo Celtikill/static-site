@@ -175,4 +175,5 @@ main() {
 # Execute tests if script is run directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     main "$@"
+    exit $?
 fi
