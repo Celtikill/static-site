@@ -4,8 +4,6 @@
 [![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
 [![Deploy](https://github.com/celtikill/static-site/actions/workflows/deploy.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/deploy.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6%2B-purple)](https://opentofu.org/)
-[![AWS](https://img.shields.io/badge/AWS-Well--Architected-orange)](https://aws.amazon.com/architecture/well-architected/)
 [![Security](https://img.shields.io/badge/Security-ASVS%20L1%2FL2-green)](https://github.com/OWASP/ASVS)
 
 Enterprise-grade serverless static website infrastructure demonstrating AWS Well-Architected Framework principles. This project provides a production-ready template for hosting static websites with comprehensive security, monitoring, and cost optimization.
