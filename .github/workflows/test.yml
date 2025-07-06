@@ -545,10 +545,10 @@ jobs:
           
           echo "🚀 Deploying test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
-          # Use a backend configuration that doesn't conflict
+          # Use consistent backend configuration for integration tests
           tofu init -backend=false
-          tofu plan -out=test.tfplan
-          tofu apply -auto-approve test.tfplan
+          tofu plan -backend=false -out=test.tfplan
+          tofu apply -backend=false -auto-approve test.tfplan
           
           tofu output -json > infrastructure-outputs.json
           echo "✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
@@ -649,8 +649,8 @@ jobs:
         run: |
           echo "🧹 Cleaning up test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
-          # Cleanup test infrastructure
-          tofu destroy -auto-approve || true
+          # Cleanup test infrastructure (use same backend config as deployment)
+          tofu destroy -backend=false -auto-approve || true
           
           echo "✅ Cleanup completed" >> $GITHUB_STEP_SUMMARY
 

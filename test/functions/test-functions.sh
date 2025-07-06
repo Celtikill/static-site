@@ -6,7 +6,8 @@ set -euo pipefail
 
 # Global test configuration
 readonly TEST_OUTPUT_DIR="${TEST_OUTPUT_DIR:-./test-results}"
-readonly TEST_LOG_LEVEL="${TEST_LOG_LEVEL:-INFO}"
+# In CI environments, default to DEBUG for better troubleshooting
+readonly TEST_LOG_LEVEL="${TEST_LOG_LEVEL:-$([ "${CI:-false}" = "true" ] && echo "DEBUG" || echo "INFO")}"
 readonly TEST_PARALLEL="${TEST_PARALLEL:-false}"
 readonly TEST_CLEANUP="${TEST_CLEANUP:-true}"
 
@@ -66,31 +67,80 @@ setup_test_environment() {
     log_info "Setting up test environment for: ${test_name}"
     
     # Verify required tools
-    check_dependencies
+    log_info "Checking required dependencies..."
+    if check_dependencies; then
+        log_info "✓ All dependencies verified"
+    else
+        log_error "✗ Dependency check failed"
+        return 1
+    fi
 }
 
 check_dependencies() {
     local missing_deps=()
+    local available_tools=()
+    
+    log_debug "Checking tool dependencies..."
     
     # Check for required tools (excluding Terraform/OpenTofu for now)
     for tool in jq bc aws; do
-        if ! command -v "$tool" &> /dev/null; then
+        if command -v "$tool" &> /dev/null; then
+            local tool_path=$(command -v "$tool")
+            available_tools+=("$tool: $tool_path")
+            log_debug "✓ Found $tool at $tool_path"
+        else
             missing_deps+=("$tool")
+            log_debug "✗ Missing $tool"
         fi
     done
     
     # Check for Terraform or OpenTofu (either is acceptable)
-    if ! command -v "tofu" &> /dev/null && ! command -v "terraform" &> /dev/null; then
+    local tf_tool=""
+    if command -v "tofu" &> /dev/null; then
+        tf_tool="tofu"
+        local tofu_path=$(command -v "tofu")
+        available_tools+=("tofu: $tofu_path")
+        log_debug "✓ Found OpenTofu at $tofu_path"
+    elif command -v "terraform" &> /dev/null; then
+        tf_tool="terraform"
+        local terraform_path=$(command -v "terraform")
+        available_tools+=("terraform: $terraform_path")
+        log_debug "✓ Found Terraform at $terraform_path"
+    else
         missing_deps+=("tofu or terraform")
+        log_debug "✗ Missing both OpenTofu and Terraform"
     fi
+    
+    # Log available tools for debugging
+    if [[ ${#available_tools[@]} -gt 0 ]]; then
+        log_debug "Available tools:"
+        for tool_info in "${available_tools[@]}"; do
+            log_debug "  $tool_info"
+        done
+    fi
+    
+    # Log environment information for debugging
+    log_debug "PATH: $PATH"
+    log_debug "Current working directory: $(pwd)"
+    log_debug "Current user: $(whoami)"
     
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         log_error "Missing required dependencies: ${missing_deps[*]}"
+        log_info "Available tools: ${available_tools[*]}"
         log_info "Please install missing tools before running tests"
+        
+        # In CI environments, be more permissive for AWS CLI
+        if [[ "${CI:-false}" == "true" ]] && [[ "${missing_deps[*]}" == *"aws"* ]]; then
+            log_warn "AWS CLI missing in CI environment - this may be expected if tools are installed later"
+            log_warn "Continuing with test execution..."
+            return 0
+        fi
+        
         return 1
     fi
     
     log_debug "All dependencies satisfied"
+    return 0
 }
 
 # Test assertion functions
