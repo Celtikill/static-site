@@ -481,9 +481,13 @@ EOF
     
     log_info "Test report written to: $json_report"
     
-    # Exit with failure if any tests failed
+    # Create status file for CI/CD integration
     if [[ $TESTS_FAILED -gt 0 ]]; then
+        echo "Some tests failed" > test-status.txt
         return 1
+    else
+        echo "All tests passed!" > test-status.txt
+        return 0
     fi
 }
 
