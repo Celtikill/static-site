@@ -233,53 +233,21 @@ jobs:
           echo "AWS Region: $AWS_REGION"
           echo ""
           
-          # Run the appropriate test script
+          # Run the appropriate test script (all test files now exist)
           case "${{ matrix.module }}" in
             "s3")
               timeout 20m ./test-s3.sh | tee test-output-${{ matrix.module }}.log
               ;;
             "cloudfront")
-              # Create cloudfront test if it doesn't exist
-              if [ ! -f "./test-cloudfront.sh" ]; then
-                echo "Creating cloudfront test script..."
-                cp test-s3.sh test-cloudfront.sh
-                sed -i 's/s3/cloudfront/g' test-cloudfront.sh
-                sed -i 's/S3/CloudFront/g' test-cloudfront.sh
-                chmod +x test-cloudfront.sh
-              fi
               timeout 20m ./test-cloudfront.sh | tee test-output-${{ matrix.module }}.log
               ;;
             "waf")
-              # Create WAF test if it doesn't exist
-              if [ ! -f "./test-waf.sh" ]; then
-                echo "Creating WAF test script..."
-                cp test-s3.sh test-waf.sh
-                sed -i 's/s3/waf/g' test-waf.sh
-                sed -i 's/S3/WAF/g' test-waf.sh
-                chmod +x test-waf.sh
-              fi
               timeout 20m ./test-waf.sh | tee test-output-${{ matrix.module }}.log
               ;;
             "iam")
-              # Create IAM test if it doesn't exist
-              if [ ! -f "./test-iam.sh" ]; then
-                echo "Creating IAM test script..."
-                cp test-s3.sh test-iam.sh
-                sed -i 's/s3/iam/g' test-iam.sh
-                sed -i 's/S3/IAM/g' test-iam.sh
-                chmod +x test-iam.sh
-              fi
               timeout 20m ./test-iam.sh | tee test-output-${{ matrix.module }}.log
               ;;
             "monitoring")
-              # Create monitoring test if it doesn't exist
-              if [ ! -f "./test-monitoring.sh" ]; then
-                echo "Creating monitoring test script..."
-                cp test-s3.sh test-monitoring.sh
-                sed -i 's/s3/monitoring/g' test-monitoring.sh
-                sed -i 's/S3/Monitoring/g' test-monitoring.sh
-                chmod +x test-monitoring.sh
-              fi
               timeout 20m ./test-monitoring.sh | tee test-output-${{ matrix.module }}.log
               ;;
             *)
