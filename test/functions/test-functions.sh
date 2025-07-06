@@ -20,15 +20,34 @@ if [[ -z "${TEST_CLEANUP:-}" ]]; then
 fi
 
 # Colors for output - only set if not already set
+# Detect if colors should be used (check if we're in a terminal and not CI)
+if [[ -t 1 && "${CI:-false}" != "true" ]]; then
+    USE_COLORS=true
+else
+    USE_COLORS=false
+fi
+
 if [[ -z "${RED:-}" ]]; then
-    readonly RED='\033[0;31m'
-    readonly GREEN='\033[0;32m'
-    readonly YELLOW='\033[1;33m'
-    readonly BLUE='\033[0;34m'
-    readonly PURPLE='\033[0;35m'
-    readonly CYAN='\033[0;36m'
-    readonly BOLD='\033[1m'
-    readonly NC='\033[0m' # No Color
+    if [[ "$USE_COLORS" == "true" ]]; then
+        readonly RED='\033[0;31m'
+        readonly GREEN='\033[0;32m'
+        readonly YELLOW='\033[1;33m'
+        readonly BLUE='\033[0;34m'
+        readonly PURPLE='\033[0;35m'
+        readonly CYAN='\033[0;36m'
+        readonly BOLD='\033[1m'
+        readonly NC='\033[0m' # No Color
+    else
+        # No colors in CI or when piped
+        readonly RED=''
+        readonly GREEN=''
+        readonly YELLOW=''
+        readonly BLUE=''
+        readonly PURPLE=''
+        readonly CYAN=''
+        readonly BOLD=''
+        readonly NC=''
+    fi
 fi
 
 # Test counters (using bash 3.x compatible syntax)
@@ -409,7 +428,6 @@ run_test_suite() {
     local test_functions=("${@:2}")
     
     log_info "${BOLD}Running test suite: ${test_suite_name}${NC}"
-    echo "=================================="
     
     setup_test_environment "$test_suite_name"
     
@@ -426,7 +444,6 @@ run_test_suite() {
             TESTS_FAILED=$((TESTS_FAILED + 1))
         fi
         
-        echo "---"
     done
     
     local suite_end_time=$(date +%s)
@@ -446,9 +463,7 @@ generate_test_report() {
     local duration="$2"
     
     echo ""
-    echo "=================================="
     log_info "${BOLD}Test Results for: ${suite_name}${NC}"
-    echo "=================================="
     echo "Tests Run:    $TESTS_RUN"
     echo "Tests Passed: ${GREEN}$TESTS_PASSED${NC}"
     echo "Tests Failed: ${RED}$TESTS_FAILED${NC}"
