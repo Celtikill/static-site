@@ -1,1 +1,4 @@
-Some tests failed
+STATUS=FAILED
+FAILED_COUNT=3
+TOTAL_COUNT=55
+FAILED_TESTS=test_cloudfront_terraform_syntax,test_cloudfront_origin_access_control

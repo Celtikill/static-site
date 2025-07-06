@@ -58,8 +58,10 @@ TESTS_SKIPPED=0
 
 # Test state
 CURRENT_TEST=""
+CURRENT_TEST_FUNCTION=""
 TEST_START_TIME=""
 TEST_RESULTS=()
+FAILED_TESTS=()
 
 # Logging functions
 log_debug() {
@@ -172,6 +174,29 @@ check_dependencies() {
     return 0
 }
 
+# Helper function to record failed tests
+record_test_failure() {
+    if [[ -n "$CURRENT_TEST_FUNCTION" ]]; then
+        # Check if test function is already in failed tests array
+        local already_recorded=false
+        
+        # Only check existing array if it has elements
+        if [[ ${#FAILED_TESTS[@]} -gt 0 ]]; then
+            for failed_test in "${FAILED_TESTS[@]}"; do
+                if [[ "$failed_test" == "$CURRENT_TEST_FUNCTION" ]]; then
+                    already_recorded=true
+                    break
+                fi
+            done
+        fi
+        
+        # Add to failed tests array if not already recorded
+        if [[ "$already_recorded" == "false" ]]; then
+            FAILED_TESTS+=("$CURRENT_TEST_FUNCTION")
+        fi
+    fi
+}
+
 # Test assertion functions
 assert_equals() {
     local expected="$1"
@@ -186,6 +211,7 @@ assert_equals() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Expected: '${expected}'"
         log_error "  Actual:   '${actual}'"
@@ -206,6 +232,7 @@ assert_not_equals() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Should not equal: '${not_expected}'"
         log_error "  Actual:           '${actual}'"
@@ -227,6 +254,7 @@ assert_contains() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Haystack: '${haystack:0:200}...'" # Truncate for readability
         log_error "  Needle:   '${needle}'"
@@ -248,6 +276,7 @@ assert_contains_regex() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Haystack: '${haystack:0:200}...'" # Truncate for readability
         log_error "  Pattern:  '${needle}'"
@@ -267,6 +296,7 @@ assert_not_empty() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Value is empty or null"
         return 1
@@ -285,6 +315,7 @@ assert_file_exists() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  File does not exist: '${file_path}'"
         return 1
@@ -303,6 +334,7 @@ assert_command_success() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Command failed: '${command}'"
         return 1
@@ -321,6 +353,7 @@ assert_command_fails() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Command unexpectedly succeeded: '${command}'"
         return 1
@@ -352,6 +385,7 @@ assert_aws_resource_exists() {
         *)
             log_error "Unknown resource type: $resource_type"
             TESTS_FAILED=$((TESTS_FAILED + 1))
+            record_test_failure
             return 1
             ;;
     esac
@@ -362,6 +396,7 @@ assert_aws_resource_exists() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Resource not found: ${resource_type} '${resource_identifier}'"
         return 1
@@ -416,6 +451,7 @@ validate_terraform_plan() {
         return 0
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
         log_error "✗ ${message}"
         log_error "  Terraform plan validation failed"
         return 1
@@ -436,14 +472,20 @@ run_test_suite() {
     for test_func in "${test_functions[@]}"; do
         log_info "Running test: $test_func"
         
+        # Set current test function for failure tracking
+        CURRENT_TEST_FUNCTION="$test_func"
+        
         # Run test function
         if declare -f "$test_func" > /dev/null; then
             "$test_func" || true
         else
             log_error "Test function not found: $test_func"
             TESTS_FAILED=$((TESTS_FAILED + 1))
+            FAILED_TESTS+=("$test_func")
         fi
         
+        # Clear current test function
+        CURRENT_TEST_FUNCTION=""
     done
     
     local suite_end_time=$(date +%s)
@@ -471,6 +513,15 @@ generate_test_report() {
     echo "Duration:     ${duration}s"
     echo ""
     
+    # Show failed test names if any
+    if [[ ${#FAILED_TESTS[@]} -gt 0 ]]; then
+        echo "Failed Tests:"
+        for failed_test in "${FAILED_TESTS[@]}"; do
+            echo "• $failed_test"
+        done
+        echo ""
+    fi
+    
     # Calculate success rate
     if [[ $TESTS_RUN -gt 0 ]]; then
         local success_rate=$((TESTS_PASSED * 100 / TESTS_RUN))
@@ -479,6 +530,22 @@ generate_test_report() {
     
     # Write JSON report
     local json_report="${TEST_OUTPUT_DIR}/${suite_name}-report.json"
+    
+    # Build failed tests JSON array
+    local failed_tests_json="["
+    if [[ ${#FAILED_TESTS[@]} -gt 0 ]]; then
+        local first=true
+        for failed_test in "${FAILED_TESTS[@]}"; do
+            if [[ "$first" == "true" ]]; then
+                first=false
+            else
+                failed_tests_json+=","
+            fi
+            failed_tests_json+="\"$failed_test\""
+        done
+    fi
+    failed_tests_json+="]"
+    
     cat > "$json_report" << EOF
 {
     "suite_name": "$suite_name",
@@ -490,6 +557,7 @@ generate_test_report() {
         "failed": $TESTS_FAILED,
         "skipped": $TESTS_SKIPPED
     },
+    "failed_tests": $failed_tests_json,
     "success_rate": $(( TESTS_RUN > 0 ? TESTS_PASSED * 100 / TESTS_RUN : 0 ))
 }
 EOF
@@ -498,10 +566,22 @@ EOF
     
     # Create status file for CI/CD integration
     if [[ $TESTS_FAILED -gt 0 ]]; then
-        echo "Some tests failed" > test-status.txt
+        # Create structured status file with failed test details
+        cat > test-status.txt << EOF
+STATUS=FAILED
+FAILED_COUNT=$TESTS_FAILED
+TOTAL_COUNT=$TESTS_RUN
+FAILED_TESTS=$(IFS=','; echo "${FAILED_TESTS[*]}")
+EOF
         return 1
     else
-        echo "All tests passed!" > test-status.txt
+        # All tests passed
+        cat > test-status.txt << EOF
+STATUS=PASSED
+FAILED_COUNT=0
+TOTAL_COUNT=$TESTS_RUN
+FAILED_TESTS=
+EOF
         return 0
     fi
 }
