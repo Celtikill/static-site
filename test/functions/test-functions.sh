@@ -570,22 +570,12 @@ EOF
     
     # Create status file for CI/CD integration
     if [[ $TESTS_FAILED -gt 0 ]]; then
-        # Create structured status file with failed test details
-        cat > test-status.txt << EOF
-STATUS=FAILED
-FAILED_COUNT=$TESTS_FAILED
-TOTAL_COUNT=$TESTS_RUN
-FAILED_TESTS=$(IFS=','; echo "${FAILED_TESTS[*]}")
-EOF
+        # Create status file for failures - CI/CD expects specific format
+        echo "Some tests failed!" > test-status.txt
         return 1
     else
-        # All tests passed
-        cat > test-status.txt << EOF
-STATUS=PASSED
-FAILED_COUNT=0
-TOTAL_COUNT=$TESTS_RUN
-FAILED_TESTS=
-EOF
+        # All tests passed - CI/CD expects this exact string
+        echo "All tests passed!" > test-status.txt
         return 0
     fi
 }
