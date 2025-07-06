@@ -24,6 +24,7 @@ test_s3_terraform_syntax() {
     
     cd "$temp_dir"
     assert_command_success "tofu fmt -check=true -diff=true ." "S3 module should be properly formatted"
+    assert_command_success "tofu init -backend=false" "S3 module should initialize without backend"
     assert_command_success "tofu validate" "S3 module should pass validation"
     
     cd - > /dev/null

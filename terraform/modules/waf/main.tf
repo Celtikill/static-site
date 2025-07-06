@@ -100,10 +100,33 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
+  # AWS Managed SQL Injection Rule Set
+  rule {
+    name     = "AWSManagedRulesSQLiRuleSet"
+    priority = 4
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesSQLiRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "AWSManagedRulesSQLiRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
   # AWS Managed IP Reputation Rule Set
   rule {
     name     = "AWSManagedRulesAmazonIpReputationList"
-    priority = 4
+    priority = 5
 
     override_action {
       none {}
@@ -128,7 +151,7 @@ resource "aws_wafv2_web_acl" "main" {
     for_each = var.enable_geo_blocking ? [1] : []
     content {
       name     = "GeoBlockingRule"
-      priority = 5
+      priority = 6
 
       action {
         block {}
@@ -153,7 +176,7 @@ resource "aws_wafv2_web_acl" "main" {
     for_each = length(var.ip_whitelist) > 0 ? [1] : []
     content {
       name     = "IPWhitelistRule"
-      priority = 6
+      priority = 7
 
       action {
         allow {}
@@ -178,7 +201,7 @@ resource "aws_wafv2_web_acl" "main" {
     for_each = length(var.ip_blacklist) > 0 ? [1] : []
     content {
       name     = "IPBlacklistRule"
-      priority = 7
+      priority = 8
 
       action {
         block {}
@@ -201,7 +224,7 @@ resource "aws_wafv2_web_acl" "main" {
   # Size restrictions rule
   rule {
     name     = "SizeRestrictionsRule"
-    priority = 8
+    priority = 9
 
     action {
       block {}

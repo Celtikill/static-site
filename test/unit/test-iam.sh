@@ -24,6 +24,7 @@ test_iam_terraform_syntax() {
     
     cd "$temp_dir"
     assert_command_success "tofu fmt -check=true -diff=true ." "IAM module should be properly formatted"
+    assert_command_success "tofu init -backend=false" "IAM module should initialize without backend"
     assert_command_success "tofu validate" "IAM module should pass validation"
     
     cd - > /dev/null
@@ -130,7 +131,7 @@ test_iam_variables_validation() {
     local variables_tf="${MODULE_PATH}/variables.tf"
     
     # Check required variables
-    assert_contains "$(cat "$variables_tf")" "variable \"github_repository\"" "Should define github_repository variable"
+    assert_contains "$(cat "$variables_tf")" "variable \"github_repositories\"" "Should define github_repositories variable"
     assert_contains "$(cat "$variables_tf")" "variable \"github_actions_role_name\"" "Should define role name variable"
     
     # Check validation rules
@@ -142,7 +143,7 @@ test_iam_outputs_completeness() {
     
     assert_contains "$(cat "$outputs_tf")" "output \"github_actions_role_arn\"" "Should output role ARN"
     assert_contains "$(cat "$outputs_tf")" "output \"github_actions_role_name\"" "Should output role name"
-    assert_contains "$(cat "$outputs_tf")" "output \"oidc_provider_arn\"" "Should output OIDC provider ARN"
+    assert_contains "$(cat "$outputs_tf")" "output \"github_oidc_provider_arn\"" "Should output OIDC provider ARN"
 }
 
 test_iam_role_session_duration() {

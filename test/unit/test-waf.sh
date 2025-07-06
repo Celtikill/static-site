@@ -24,6 +24,7 @@ test_waf_terraform_syntax() {
     
     cd "$temp_dir"
     assert_command_success "tofu fmt -check=true -diff=true ." "WAF module should be properly formatted"
+    assert_command_success "tofu init -backend=false" "WAF module should initialize without backend"
     assert_command_success "tofu validate" "WAF module should pass validation"
     
     cd - > /dev/null

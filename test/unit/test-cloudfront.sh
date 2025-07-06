@@ -25,6 +25,7 @@ test_cloudfront_terraform_syntax() {
     
     cd "$temp_dir"
     assert_command_success "tofu fmt -check=true -diff=true ." "CloudFront module should be properly formatted"
+    assert_command_success "tofu init -backend=false" "CloudFront module should initialize without backend"
     assert_command_success "tofu validate" "CloudFront module should pass validation"
     
     cd - > /dev/null
@@ -44,8 +45,8 @@ test_cloudfront_origin_access_control() {
     
     # Check OAC configuration
     assert_contains "$(cat "$main_tf")" "origin_access_control_origin_type = \"s3\"" "Should configure OAC for S3"
-    assert_contains "$(cat "$main_tf")" "signing_behavior = \"always\"" "Should always sign requests"
-    assert_contains "$(cat "$main_tf")" "signing_protocol = \"sigv4\"" "Should use SigV4 signing"
+    assert_contains "$(cat "$main_tf")" "signing_behavior                  = \"always\"" "Should always sign requests"
+    assert_contains "$(cat "$main_tf")" "signing_protocol                  = \"sigv4\"" "Should use SigV4 signing"
     assert_contains "$(cat "$main_tf")" "origin_access_control_id" "Should reference OAC in distribution"
 }
 
