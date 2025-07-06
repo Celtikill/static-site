@@ -538,6 +538,9 @@ jobs:
     timeout-minutes: 5
     needs: [deploy-info, deploy-infrastructure, deploy-website]
     if: always()
+    outputs:
+      website_url: ${{ steps.export-url.outputs.website_url }}
+      deployment_success: ${{ steps.export-url.outputs.deployment_success }}
     steps:
       - name: Generate Summary
         run: |
@@ -571,4 +574,50 @@ jobs:
           else
             echo "❌ **DEPLOY Phase Failed**" >> $GITHUB_STEP_SUMMARY
             echo "Please review the deployment logs and fix issues." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Export Public URL
+        id: export-url
+        run: |
+          # Export the public URL for external access
+          WEBSITE_URL="${{ needs.deploy-website.outputs.website_url }}"
+          INFRA_STATUS="${{ needs.deploy-infrastructure.result }}"
+          WEBSITE_STATUS="${{ needs.deploy-website.result }}"
+          
+          echo "website_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+          
+          # Determine overall deployment success
+          if ([ "$INFRA_STATUS" = "success" ] || [ "$INFRA_STATUS" = "skipped" ]) && \
+             ([ "$WEBSITE_STATUS" = "success" ] || [ "$WEBSITE_STATUS" = "skipped" ]); then
+            echo "deployment_success=true" >> $GITHUB_OUTPUT
+          else
+            echo "deployment_success=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Print URL to console for easy access
+          if [ -n "$WEBSITE_URL" ]; then
+            echo ""
+            echo "🌐 ========================================"
+            echo "🚀 WEBSITE DEPLOYED SUCCESSFULLY!"
+            echo "🌐 Public URL: $WEBSITE_URL"
+            echo "🌐 ========================================"
+            echo ""
+            
+            # Add prominent notice to step summary
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "# 🎉 Website Deployed!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 🌐 **Public URL**: [$WEBSITE_URL]($WEBSITE_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Your static website is now live and accessible worldwide!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+            echo "- Test the website functionality" >> $GITHUB_STEP_SUMMARY
+            echo "- Monitor performance metrics" >> $GITHUB_STEP_SUMMARY
+            echo "- Check CloudWatch dashboards" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify security headers" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No website URL available - deployment may have failed"
           fi
