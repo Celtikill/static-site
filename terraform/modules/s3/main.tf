@@ -349,87 +349,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
   depends_on = [aws_s3_bucket.access_logs]
 }
 
-# Dedicated bucket for access logs bucket logging (to close audit gap)
-resource "aws_s3_bucket" "access_logs_logs" {
-  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = "${var.bucket_name}-access-logs-logs"
 
-  tags = merge(var.common_tags, {
-    Name    = "${var.bucket_name}-access-logs-logs"
-    Purpose = "S3 Access Logs Bucket Logging"
-    Module  = "s3"
-  })
-}
 
-# Access logs bucket logging configuration
-resource "aws_s3_bucket_logging" "access_logs" {
-  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = aws_s3_bucket.access_logs[0].id
 
-  target_bucket = aws_s3_bucket.access_logs_logs[0].id
-  target_prefix = "${var.access_logging_prefix}access-logs/"
 
-  depends_on = [aws_s3_bucket.access_logs, aws_s3_bucket.access_logs_logs]
-}
 
-# Access logs logs bucket basic configuration
-resource "aws_s3_bucket_server_side_encryption_configuration" "access_logs_logs" {
-  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = aws_s3_bucket.access_logs_logs[0].id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = var.kms_key_id != null ? "aws:kms" : "AES256"
-      kms_master_key_id = var.kms_key_id
-    }
-    bucket_key_enabled = var.kms_key_id != null
-  }
-
-  depends_on = [aws_s3_bucket.access_logs_logs]
-}
-
-# Access logs logs bucket public access block
-resource "aws_s3_bucket_public_access_block" "access_logs_logs" {
-  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = aws_s3_bucket.access_logs_logs[0].id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-
-  depends_on = [aws_s3_bucket.access_logs_logs]
-}
-
-# Access logs logs bucket lifecycle configuration
-resource "aws_s3_bucket_lifecycle_configuration" "access_logs_logs" {
-  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = aws_s3_bucket.access_logs_logs[0].id
-
-  rule {
-    id     = "access-logs-logs-cleanup"
-    status = "Enabled"
-
-    expiration {
-      days = 30 # Shorter retention for logs of logs
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
-  }
-
-  depends_on = [aws_s3_bucket.access_logs_logs]
-}
-
-# Access logs logs bucket versioning
-resource "aws_s3_bucket_versioning" "access_logs_logs" {
-  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = aws_s3_bucket.access_logs_logs[0].id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-
-  depends_on = [aws_s3_bucket.access_logs_logs]
-}

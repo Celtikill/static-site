@@ -78,12 +78,16 @@ The following security issues have been resolved:
 ### ✅ Fixed Issues
 
 1. **AVD-AWS-0090** - S3 Data Versioning
-   - **Fix**: Added versioning configuration for `access_logs_logs` bucket
-   - **File**: `modules/s3/main.tf:424-433`
+   - **Fix**: Added versioning configuration for S3 buckets
+   - **File**: `modules/s3/main.tf` (multiple buckets)
 
 2. **AVD-AWS-0132** - S3 Customer Managed Keys
    - **Fix**: Updated encryption to use customer-managed KMS keys when available
-   - **File**: `modules/s3/main.tf:376-389`
+   - **File**: `modules/s3/main.tf` (encryption configurations)
+
+3. **AVD-AWS-0089** - S3 Bucket Logging (access_logs_logs)
+   - **Fix**: Removed unnecessary `access_logs_logs` bucket to simplify architecture
+   - **Result**: Single-tier logging: `website` → `access_logs` → [stop]
 
 ### 🔒 Accepted Exceptions
 
@@ -91,6 +95,11 @@ The following security issues have been resolved:
    - **Status**: Documented exception in `.trivyignore`
    - **Reason**: AWS service requirement for S3 replication
    - **Files**: `modules/s3/main.tf` (replication policy)
+
+2. **AVD-AWS-0089** - S3 Bucket Logging (access_logs)
+   - **Status**: Accepted LOW severity finding
+   - **Reason**: `access_logs` bucket is final logging destination - additional S3 logging creates unnecessary complexity
+   - **Alternative**: CloudWatch/CloudTrail provide comprehensive audit trails for bucket access
 
 ## Validation Commands
 
@@ -113,6 +122,19 @@ cd terraform && tofu fmt -recursive
 ## Contact
 
 For questions about security exceptions or to request new exceptions, contact the DevOps Security Team.
+
+## Architecture Summary
+
+**Current Logging Architecture**: Simplified single-tier logging
+- ✅ `website` bucket → `access_logs` bucket
+- ✅ `replica` bucket → `access_logs` bucket  
+- ✅ `access_logs` bucket → CloudWatch/CloudTrail audit trails
+
+**Benefits**:
+- **Cost reduction**: Eliminated unnecessary S3 storage and operations
+- **Operational simplicity**: Reduced complexity while maintaining security
+- **Appropriate for threat model**: Static websites don't require enterprise-level logging chains
+- **Comprehensive audit**: CloudFront access logs + CloudTrail API logs provide full visibility
 
 ---
 **Last Updated**: 2025-07-05  
