@@ -86,14 +86,14 @@ variable "enable_cross_account_access" {
 variable "resource_constraints" {
   description = "Resource ARN patterns to constrain permissions"
   type        = list(string)
-  default     = ["*"]
+  default     = []
 
   validation {
     condition = length([
       for constraint in var.resource_constraints : constraint
       if constraint == "*"
-    ]) == 0 || var.enable_cross_account_access
-    error_message = "Wildcard (*) resource constraints should be avoided. Use specific ARNs for better security. Set enable_cross_account_access=true if wildcards are intentionally required."
+    ]) == 0
+    error_message = "Wildcard (*) resource constraints should be avoided. Use specific ARNs for better security."
   }
 }
 
