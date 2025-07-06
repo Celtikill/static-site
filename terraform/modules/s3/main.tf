@@ -239,6 +239,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "website" {
     id     = "cleanup"
     status = "Enabled"
 
+    filter {}
+
     noncurrent_version_expiration {
       noncurrent_days = 30
     }
@@ -333,6 +335,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
   rule {
     id     = "access-logs-cleanup"
     status = "Enabled"
+
+    filter {}
 
     expiration {
       days = 90

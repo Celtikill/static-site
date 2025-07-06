@@ -232,7 +232,6 @@ resource "aws_route53_health_check" "website" {
   resource_path                   = "/"
   failure_threshold               = "3"
   request_interval                = "30"
-  cloudwatch_logs_region          = data.aws_region.current.name
   cloudwatch_alarm_region         = data.aws_region.current.name
   insufficient_data_health_status = "Failure"
 
