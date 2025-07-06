@@ -14,15 +14,11 @@ graph TB
         U[Users/Browsers]
     end
     
-    subgraph "DNS & CDN Layer"
-        R53[Route 53<br/>DNS Service]
+    subgraph "CDN & Security Layer"
         CF[CloudFront<br/>Global CDN]
-        ACM[ACM<br/>SSL Certificates]
-    end
-    
-    subgraph "Security Layer"
         WAF[AWS WAF<br/>Web Application Firewall]
         SH[Security Headers<br/>CloudFront Functions]
+        ACM[ACM<br/>SSL Certificates]
     end
     
     subgraph "Storage Layer"
