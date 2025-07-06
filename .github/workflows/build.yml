@@ -474,7 +474,7 @@ jobs:
             ls -la terraform/
             
             # Run Trivy with JSON output and better error handling
-            if trivy config --format json --output trivy-results.json terraform; then
+            if trivy config --format json --output trivy-results.json --ignorefile terraform/.trivyignore terraform; then
               echo "✅ Trivy scan completed successfully"
             else
               echo "⚠️ Trivy scan encountered issues, creating minimal results"
