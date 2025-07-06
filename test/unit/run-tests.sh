@@ -12,21 +12,13 @@ readonly TEST_LOG_LEVEL="${TEST_LOG_LEVEL:-INFO}"
 # Import test functions
 source "${SCRIPT_DIR}/../functions/test-functions.sh"
 
-# Colors for output
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly BOLD='\033[1m'
-readonly NC='\033[0m'
-
-# Global test tracking
-declare -g TOTAL_SUITES=0
-declare -g SUITES_PASSED=0
-declare -g SUITES_FAILED=0
-declare -g OVERALL_TESTS_RUN=0
-declare -g OVERALL_TESTS_PASSED=0
-declare -g OVERALL_TESTS_FAILED=0
+# Global test tracking (using bash 3.x compatible syntax)
+TOTAL_SUITES=0
+SUITES_PASSED=0
+SUITES_FAILED=0
+OVERALL_TESTS_RUN=0
+OVERALL_TESTS_PASSED=0
+OVERALL_TESTS_FAILED=0
 
 print_header() {
     echo ""

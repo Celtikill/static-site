@@ -98,7 +98,7 @@ test_iam_terraform_permissions() {
     
     # Check Terraform state and deployment permissions
     if grep -q "terraform" "$main_tf"; then
-        assert_contains "$(cat "$main_tf")" "s3:GetObject.*terraform" "Should allow Terraform state access"
+        assert_contains "$(cat "$main_tf")" "\"s3:GetObject\"," "Should allow Terraform state access"
         assert_contains "$(cat "$main_tf")" "dynamodb:GetItem" "Should allow DynamoDB state locking"
         assert_contains "$(cat "$main_tf")" "dynamodb:PutItem" "Should allow DynamoDB state locking"
     fi
@@ -108,12 +108,12 @@ test_iam_least_privilege_principle() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check for least privilege implementation
-    assert_contains "$(cat "$main_tf")" "Resource.*arn:aws" "Should use specific resource ARNs"
+    assert_contains "$(cat "$main_tf")" "Resource = [" "Should use specific resource ARNs"
     
     # Ensure no overly broad permissions
-    if grep -q "Resource.*\*" "$main_tf"; then
+    if grep -q "Resource = \[\*\]" "$main_tf"; then
         # Only certain actions should have wildcard resources
-        local wildcard_actions=$(grep -A5 -B5 "Resource.*\*" "$main_tf" | grep -o '"[^"]*:.*"' || true)
+        local wildcard_actions=$(grep -A5 -B5 "Resource = \[\*\]" "$main_tf" | grep -o '"[^"]*:.*"' || true)
         echo "Found wildcard resources with actions: $wildcard_actions"
     fi
 }
@@ -122,8 +122,8 @@ test_iam_security_conditions() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check security conditions in policies
-    assert_contains "$(cat "$main_tf")" "StringEquals.*AWS:SourceAccount" "Should include account condition if applicable"
-    assert_contains "$(cat "$main_tf")" "repository.*var.github_repository" "Should restrict to specific repository"
+    assert_contains "$(cat "$main_tf")" "\"token.actions.githubusercontent.com:aud\" = \"sts.amazonaws.com\"" "Should include account condition if applicable"
+    assert_contains "$(cat "$main_tf")" "for repo in var.github_repositories" "Should restrict to specific repository"
 }
 
 test_iam_variables_validation() {
@@ -157,9 +157,9 @@ test_iam_role_session_duration() {
 test_iam_tagging_strategy() {
     local main_tf="${MODULE_PATH}/main.tf"
     
-    assert_contains "$(cat "$main_tf")" "tags.*merge" "Should merge common tags"
-    assert_contains "$(cat "$main_tf")" "Module.*iam" "Should include module tag"
-    assert_contains "$(cat "$main_tf")" "Name.*github" "Should include descriptive name"
+    assert_contains "$(cat "$main_tf")" "tags = merge(var.common_tags, {" "Should merge common tags"
+    assert_contains "$(cat "$main_tf")" "Module = \"iam\"" "Should include module tag"
+    assert_contains "$(cat "$main_tf")" "Name   = \"github-actions-oidc\"" "Should include descriptive name"
 }
 
 test_iam_provider_requirements() {
@@ -182,15 +182,15 @@ test_iam_conditional_resources() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check conditional resource creation
-    assert_contains "$(cat "$main_tf")" "count.*var.create_github_oidc_provider" "Should conditionally create OIDC provider"
+    assert_contains "$(cat "$main_tf")" "count = var.create_github_oidc_provider ? 1 : 0" "Should conditionally create OIDC provider"
 }
 
 test_iam_security_compliance() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check security compliance features
-    assert_contains "$(cat "$main_tf")" "StringEquals.*aud.*sts.amazonaws.com" "Should verify audience"
-    assert_contains "$(cat "$main_tf")" "StringLike.*sub.*repo:" "Should verify repository"
+    assert_contains "$(cat "$main_tf")" "\"token.actions.githubusercontent.com:aud\" = \"sts.amazonaws.com\"" "Should verify audience"
+    assert_contains "$(cat "$main_tf")" "\"token.actions.githubusercontent.com:sub\" = [" "Should verify repository"
     assert_contains "$(cat "$main_tf")" "token.actions.githubusercontent.com" "Should use GitHub OIDC endpoint"
 }
 

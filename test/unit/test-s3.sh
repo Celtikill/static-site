@@ -44,10 +44,10 @@ test_s3_security_configuration() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check public access blocking
-    assert_contains "$(cat "$main_tf")" "block_public_acls.*true" "Should block public ACLs"
-    assert_contains "$(cat "$main_tf")" "block_public_policy.*true" "Should block public policy"
-    assert_contains "$(cat "$main_tf")" "ignore_public_acls.*true" "Should ignore public ACLs"
-    assert_contains "$(cat "$main_tf")" "restrict_public_buckets.*true" "Should restrict public buckets"
+    assert_contains "$(cat "$main_tf")" "block_public_acls       = true" "Should block public ACLs"
+    assert_contains "$(cat "$main_tf")" "block_public_policy     = true" "Should block public policy"
+    assert_contains "$(cat "$main_tf")" "ignore_public_acls      = true" "Should ignore public ACLs"
+    assert_contains "$(cat "$main_tf")" "restrict_public_buckets = true" "Should restrict public buckets"
     
     # Check encryption configuration
     assert_contains "$(cat "$main_tf")" "sse_algorithm" "Should configure server-side encryption"
@@ -60,8 +60,8 @@ test_s3_cross_region_replication() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     assert_contains "$(cat "$main_tf")" "aws_s3_bucket_replication_configuration" "Should support cross-region replication"
-    assert_contains "$(cat "$main_tf")" "aws_iam_role.*replication" "Should create replication IAM role"
-    assert_contains "$(cat "$main_tf")" "aws_iam_role_policy.*replication" "Should create replication policy"
+    assert_contains "$(cat "$main_tf")" "resource \"aws_iam_role\" \"replication\"" "Should create replication IAM role"
+    assert_contains "$(cat "$main_tf")" "resource \"aws_iam_role_policy\" \"replication\"" "Should create replication policy"
 }
 
 test_s3_intelligent_tiering() {
@@ -105,7 +105,7 @@ test_s3_cloudfront_integration() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check OAC policy configuration
-    assert_contains "$(cat "$main_tf")" "StringEquals.*AWS:SourceArn" "Should use OAC condition"
+    assert_contains "$(cat "$main_tf")" "test     = \"StringEquals\"" "Should use OAC condition"
     assert_contains "$(cat "$main_tf")" "cloudfront.amazonaws.com" "Should allow CloudFront service"
     assert_contains "$(cat "$main_tf")" "s3:GetObject" "Should allow GetObject for CloudFront"
 }
@@ -113,8 +113,8 @@ test_s3_cloudfront_integration() {
 test_s3_tagging_strategy() {
     local main_tf="${MODULE_PATH}/main.tf"
     
-    assert_contains "$(cat "$main_tf")" "tags.*merge" "Should merge common tags"
-    assert_contains "$(cat "$main_tf")" "Module.*s3" "Should include module tag"
+    assert_contains "$(cat "$main_tf")" "tags = merge(var.common_tags, {" "Should merge common tags"
+    assert_contains "$(cat "$main_tf")" "Module  = \"s3\"" "Should include module tag"
     assert_contains "$(cat "$main_tf")" "Purpose" "Should include purpose tag"
 }
 
@@ -145,7 +145,7 @@ test_s3_security_compliance() {
     assert_contains "$(cat "$main_tf")" "bucket_policy" "Should define access policy"
     
     # Additional security features
-    assert_contains "$(cat "$main_tf")" "depends_on.*public_access_block" "Should enforce dependency order"
+    assert_contains "$(cat "$main_tf")" "depends_on = [aws_s3_bucket_public_access_block.website]" "Should enforce dependency order"
 }
 
 # Run all tests

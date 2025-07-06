@@ -4,22 +4,32 @@
 
 set -euo pipefail
 
-# Global test configuration
-readonly TEST_OUTPUT_DIR="${TEST_OUTPUT_DIR:-./test-results}"
-# In CI environments, default to DEBUG for better troubleshooting
-readonly TEST_LOG_LEVEL="${TEST_LOG_LEVEL:-$([ "${CI:-false}" = "true" ] && echo "DEBUG" || echo "INFO")}"
-readonly TEST_PARALLEL="${TEST_PARALLEL:-false}"
-readonly TEST_CLEANUP="${TEST_CLEANUP:-true}"
+# Global test configuration - only set if not already set
+if [[ -z "${TEST_OUTPUT_DIR:-}" ]]; then
+    readonly TEST_OUTPUT_DIR="./test-results"
+fi
+if [[ -z "${TEST_LOG_LEVEL:-}" ]]; then
+    # In CI environments, default to DEBUG for better troubleshooting
+    readonly TEST_LOG_LEVEL="$([ "${CI:-false}" = "true" ] && echo "DEBUG" || echo "INFO")"
+fi
+if [[ -z "${TEST_PARALLEL:-}" ]]; then
+    readonly TEST_PARALLEL="false"
+fi
+if [[ -z "${TEST_CLEANUP:-}" ]]; then
+    readonly TEST_CLEANUP="true"
+fi
 
-# Colors for output
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[1;33m'
-readonly BLUE='\033[0;34m'
-readonly PURPLE='\033[0;35m'
-readonly CYAN='\033[0;36m'
-readonly BOLD='\033[1m'
-readonly NC='\033[0m' # No Color
+# Colors for output - only set if not already set
+if [[ -z "${RED:-}" ]]; then
+    readonly RED='\033[0;31m'
+    readonly GREEN='\033[0;32m'
+    readonly YELLOW='\033[1;33m'
+    readonly BLUE='\033[0;34m'
+    readonly PURPLE='\033[0;35m'
+    readonly CYAN='\033[0;36m'
+    readonly BOLD='\033[1m'
+    readonly NC='\033[0m' # No Color
+fi
 
 # Test counters (using bash 3.x compatible syntax)
 TESTS_RUN=0

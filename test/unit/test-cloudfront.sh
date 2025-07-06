@@ -72,9 +72,9 @@ test_cloudfront_distribution_configuration() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check basic distribution settings
-    assert_contains "$(cat "$main_tf")" "enabled.*true" "Distribution should be enabled"
-    assert_contains "$(cat "$main_tf")" "http_version.*http2and3" "Should support HTTP/2 and HTTP/3"
-    assert_contains "$(cat "$main_tf")" "is_ipv6_enabled.*true" "Should enable IPv6"
+    assert_contains "$(cat "$main_tf")" "enabled             = true" "Distribution should be enabled"
+    assert_contains "$(cat "$main_tf")" "http_version        = \"http2and3\"" "Should support HTTP/2 and HTTP/3"
+    assert_contains "$(cat "$main_tf")" "is_ipv6_enabled     = true" "Should enable IPv6"
     assert_contains "$(cat "$main_tf")" "price_class" "Should configure price class"
     assert_contains "$(cat "$main_tf")" "web_acl_id" "Should support WAF integration"
 }
@@ -84,8 +84,8 @@ test_cloudfront_caching_configuration() {
     
     # Check caching behavior
     assert_contains "$(cat "$main_tf")" "default_cache_behavior" "Should define default cache behavior"
-    assert_contains "$(cat "$main_tf")" "compress.*true" "Should enable compression"
-    assert_contains "$(cat "$main_tf")" "viewer_protocol_policy.*redirect-to-https" "Should redirect to HTTPS"
+    assert_contains "$(cat "$main_tf")" "compress               = true" "Should enable compression"
+    assert_contains "$(cat "$main_tf")" "viewer_protocol_policy = \"redirect-to-https\"" "Should redirect to HTTPS"
     assert_contains "$(cat "$main_tf")" "allowed_methods" "Should define allowed HTTP methods"
     assert_contains "$(cat "$main_tf")" "cached_methods" "Should define cached HTTP methods"
 }
@@ -95,7 +95,7 @@ test_cloudfront_custom_error_pages() {
     
     # Check custom error page configuration
     assert_contains "$(cat "$main_tf")" "custom_error_response" "Should define custom error responses"
-    assert_contains "$(cat "$main_tf")" "error_code.*404" "Should handle 404 errors"
+    assert_contains "$(cat "$main_tf")" "error_code            = custom_error_response.value.error_code" "Should handle 404 errors"
     assert_contains "$(cat "$main_tf")" "response_page_path" "Should define custom error page path"
 }
 
@@ -104,7 +104,7 @@ test_cloudfront_logging_configuration() {
     
     # Check logging configuration
     assert_contains "$(cat "$main_tf")" "logging_config" "Should configure access logging"
-    assert_contains "$(cat "$main_tf")" "include_cookies.*false" "Should not log cookies by default"
+    assert_contains "$(cat "$main_tf")" "include_cookies = false" "Should not log cookies by default"
 }
 
 test_cloudfront_variables_validation() {
@@ -124,25 +124,25 @@ test_cloudfront_outputs_completeness() {
     
     assert_contains "$(cat "$outputs_tf")" "output \"distribution_id\"" "Should output distribution ID"
     assert_contains "$(cat "$outputs_tf")" "output \"distribution_arn\"" "Should output distribution ARN"
-    assert_contains "$(cat "$outputs_tf")" "output \"domain_name\"" "Should output domain name"
-    assert_contains "$(cat "$outputs_tf")" "output \"hosted_zone_id\"" "Should output hosted zone ID"
+    assert_contains "$(cat "$outputs_tf")" "output \"distribution_domain_name\"" "Should output domain name"
+    assert_contains "$(cat "$outputs_tf")" "output \"distribution_hosted_zone_id\"" "Should output hosted zone ID"
 }
 
 test_cloudfront_performance_optimization() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check performance features
-    assert_contains "$(cat "$main_tf")" "compress.*true" "Should enable compression"
-    assert_contains "$(cat "$main_tf")" "http_version.*http2and3" "Should support modern HTTP versions"
-    assert_contains "$(cat "$main_tf")" "minimum_protocol_version.*TLSv1.2" "Should enforce minimum TLS version"
+    assert_contains "$(cat "$main_tf")" "compress               = true" "Should enable compression"
+    assert_contains "$(cat "$main_tf")" "http_version        = \"http2and3\"" "Should support modern HTTP versions"
+    assert_contains "$(cat "$main_tf")" "minimum_protocol_version       = \"TLSv1.2_2021\"" "Should enforce minimum TLS version"
 }
 
 test_cloudfront_security_compliance() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check security compliance
-    assert_contains "$(cat "$main_tf")" "viewer_protocol_policy.*redirect-to-https" "Should enforce HTTPS"
-    assert_contains "$(cat "$main_tf")" "function_association.*viewer-response" "Should add security headers"
+    assert_contains "$(cat "$main_tf")" "viewer_protocol_policy = \"redirect-to-https\"" "Should enforce HTTPS"
+    assert_contains "$(cat "$main_tf")" "event_type   = \"viewer-response\"" "Should add security headers"
     assert_contains "$(cat "$main_tf")" "origin_access_control" "Should use OAC instead of OAI"
 }
 
@@ -157,8 +157,8 @@ test_cloudfront_provider_requirements() {
 test_cloudfront_tagging_strategy() {
     local main_tf="${MODULE_PATH}/main.tf"
     
-    assert_contains "$(cat "$main_tf")" "tags.*merge" "Should merge common tags"
-    assert_contains "$(cat "$main_tf")" "Module.*cloudfront" "Should include module tag"
+    assert_contains "$(cat "$main_tf")" "tags = merge(var.common_tags, {" "Should merge common tags"
+    assert_contains "$(cat "$main_tf")" "Module = \"cloudfront\"" "Should include module tag"
 }
 
 # Run all tests

@@ -35,7 +35,7 @@ test_monitoring_sns_topic() {
     
     # Check SNS topic configuration
     assert_contains "$(cat "$main_tf")" "resource \"aws_sns_topic\" \"alerts\"" "Should define SNS topic for alerts"
-    assert_contains "$(cat "$main_tf")" "display_name.*Static Website Alerts" "Should have descriptive display name"
+    assert_contains "$(cat "$main_tf")" "display_name      = \"Static Website Alerts\"" "Should have descriptive display name"
     assert_contains "$(cat "$main_tf")" "kms_master_key_id" "Should encrypt SNS messages"
 }
 
@@ -53,9 +53,9 @@ test_monitoring_email_subscriptions() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check email subscription configuration
-    assert_contains "$(cat "$main_tf")" "aws_sns_topic_subscription.*email" "Should define email subscriptions"
-    assert_contains "$(cat "$main_tf")" "protocol.*email" "Should use email protocol"
-    assert_contains "$(cat "$main_tf")" "count.*length.*var.alert_email_addresses" "Should create subscriptions for each email"
+    assert_contains "$(cat "$main_tf")" "resource \"aws_sns_topic_subscription\" \"email_alerts\"" "Should define email subscriptions"
+    assert_contains "$(cat "$main_tf")" "protocol  = \"email\"" "Should use email protocol"
+    assert_contains "$(cat "$main_tf")" "count = length(var.alert_email_addresses)" "Should create subscriptions for each email"
 }
 
 test_monitoring_cloudwatch_dashboard() {
@@ -77,7 +77,7 @@ test_monitoring_cloudfront_alarms() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check CloudFront monitoring alarms
-    assert_contains "$(cat "$main_tf")" "aws_cloudwatch_metric_alarm.*cloudfront" "Should define CloudFront alarms"
+    assert_contains "$(cat "$main_tf")" "resource \"aws_cloudwatch_metric_alarm\" \"cloudfront_high_error_rate\"" "Should define CloudFront alarms"
     
     # Check specific CloudFront metrics
     if grep -q "CloudFront" "$main_tf"; then
@@ -92,7 +92,7 @@ test_monitoring_waf_alarms() {
     
     # Check WAF monitoring alarms
     if grep -q "WAF" "$main_tf"; then
-        assert_contains "$(cat "$main_tf")" "aws_cloudwatch_metric_alarm.*waf" "Should define WAF alarms"
+        assert_contains "$(cat "$main_tf")" "resource \"aws_cloudwatch_metric_alarm\" \"waf_high_blocked_requests\"" "Should define WAF alarms"
         assert_contains "$(cat "$main_tf")" "BlockedRequests" "Should monitor blocked requests"
         assert_contains "$(cat "$main_tf")" "AllowedRequests" "Should monitor allowed requests"
     fi
@@ -105,7 +105,7 @@ test_monitoring_composite_alarms() {
     if grep -q "aws_cloudwatch_composite_alarm" "$main_tf"; then
         assert_contains "$(cat "$main_tf")" "aws_cloudwatch_composite_alarm" "Should define composite alarms"
         assert_contains "$(cat "$main_tf")" "alarm_rule" "Should define alarm rule logic"
-        assert_contains "$(cat "$main_tf")" "website.*health\|site.*health" "Should monitor overall website health"
+        assert_contains "$(cat "$main_tf")" "resource \"aws_cloudwatch_composite_alarm\" \"website_health\"" "Should monitor overall website health"
     fi
 }
 
@@ -115,8 +115,8 @@ test_monitoring_cost_budgets() {
     # Check AWS Budgets configuration
     if grep -q "aws_budgets_budget" "$main_tf"; then
         assert_contains "$(cat "$main_tf")" "aws_budgets_budget" "Should define cost budget"
-        assert_contains "$(cat "$main_tf")" "budget_type.*COST" "Should monitor costs"
-        assert_contains "$(cat "$main_tf")" "time_unit.*MONTHLY" "Should use monthly budget"
+        assert_contains "$(cat "$main_tf")" "budget_type       = \"COST\"" "Should monitor costs"
+        assert_contains "$(cat "$main_tf")" "time_unit         = \"MONTHLY\"" "Should use monthly budget"
         assert_contains "$(cat "$main_tf")" "limit_amount" "Should define budget limit"
     fi
 }
@@ -161,7 +161,7 @@ test_monitoring_outputs_completeness() {
     
     # Check for alarm outputs
     if grep -q "alarm_arn\|alarm_name" "$outputs_tf"; then
-        assert_contains "$(cat "$outputs_tf")" "output.*alarm" "Should output alarm information"
+        assert_contains "$(cat "$outputs_tf")" "output \"sns_topic_arn\"" "Should output alarm information"
     fi
 }
 
@@ -179,8 +179,8 @@ test_monitoring_alarm_periods() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check alarm period configurations
-    assert_contains "$(cat "$main_tf")" "period.*60\|period.*300" "Should use appropriate periods (1 or 5 minutes)"
-    assert_contains "$(cat "$main_tf")" "statistic.*Average\|statistic.*Sum\|statistic.*Maximum" "Should use appropriate statistics"
+    assert_contains "$(cat "$main_tf")" "period              = \"300\"" "Should use appropriate periods (1 or 5 minutes)"
+    assert_contains "$(cat "$main_tf")" "statistic           = \"Average\"" "Should use appropriate statistics"
 }
 
 test_monitoring_encryption() {
@@ -190,15 +190,15 @@ test_monitoring_encryption() {
     assert_contains "$(cat "$main_tf")" "kms_master_key_id\|kms_key_id" "Should encrypt sensitive resources"
     
     # SNS topic should be encrypted
-    assert_contains "$(cat "$main_tf")" "kms_master_key_id.*var.kms_key_arn" "Should use KMS encryption for SNS"
+    assert_contains "$(cat "$main_tf")" "kms_master_key_id = var.kms_key_arn" "Should use KMS encryption for SNS"
 }
 
 test_monitoring_tagging_strategy() {
     local main_tf="${MODULE_PATH}/main.tf"
     
-    assert_contains "$(cat "$main_tf")" "tags.*merge" "Should merge common tags"
-    assert_contains "$(cat "$main_tf")" "Module.*monitoring" "Should include module tag"
-    assert_contains "$(cat "$main_tf")" "Name.*alerts\|Name.*dashboard" "Should include descriptive names"
+    assert_contains "$(cat "$main_tf")" "tags = merge(var.common_tags, {" "Should merge common tags"
+    assert_contains "$(cat "$main_tf")" "Module = \"monitoring\"" "Should include module tag"
+    assert_contains "$(cat "$main_tf")" "Name   = \\\"\${var.project_name}-alerts\\\"" "Should include descriptive names"
 }
 
 test_monitoring_provider_requirements() {

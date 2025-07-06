@@ -34,7 +34,7 @@ test_waf_required_resources() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     assert_contains "$(cat "$main_tf")" "resource \"aws_wafv2_web_acl\"" "Should define WAF Web ACL resource"
-    assert_contains "$(cat "$main_tf")" "scope.*CLOUDFRONT" "Should be scoped for CloudFront"
+    assert_contains "$(cat "$main_tf")" "scope       = \"CLOUDFRONT\"" "Should be scoped for CloudFront"
 }
 
 test_waf_default_action() {
@@ -42,7 +42,7 @@ test_waf_default_action() {
     
     # Check default action configuration
     assert_contains "$(cat "$main_tf")" "default_action" "Should define default action"
-    assert_contains "$(cat "$main_tf")" "allow.*{}" "Should allow traffic by default"
+    assert_contains "$(cat "$main_tf")" "allow {}" "Should allow traffic by default"
 }
 
 test_waf_rate_limiting_rule() {
@@ -51,9 +51,9 @@ test_waf_rate_limiting_rule() {
     # Check rate limiting rule
     assert_contains "$(cat "$main_tf")" "RateLimitRule" "Should define rate limiting rule"
     assert_contains "$(cat "$main_tf")" "rate_based_statement" "Should use rate-based statement"
-    assert_contains "$(cat "$main_tf")" "aggregate_key_type.*IP" "Should aggregate by IP address"
-    assert_contains "$(cat "$main_tf")" "limit.*var.rate_limit" "Should use configurable rate limit"
-    assert_contains "$(cat "$main_tf")" "action.*block" "Should block when rate limit exceeded"
+    assert_contains "$(cat "$main_tf")" "aggregate_key_type = \"IP\"" "Should aggregate by IP address"
+    assert_contains "$(cat "$main_tf")" "limit              = var.rate_limit" "Should use configurable rate limit"
+    assert_contains "$(cat "$main_tf")" "block {}" "Should block when rate limit exceeded"
 }
 
 test_waf_aws_managed_core_rule_set() {
@@ -62,7 +62,7 @@ test_waf_aws_managed_core_rule_set() {
     # Check AWS Managed Core Rule Set
     assert_contains "$(cat "$main_tf")" "AWSManagedRulesCommonRuleSet" "Should include AWS Managed Core Rule Set"
     assert_contains "$(cat "$main_tf")" "managed_rule_group_statement" "Should use managed rule group"
-    assert_contains "$(cat "$main_tf")" "vendor_name.*AWS" "Should use AWS vendor rules"
+    assert_contains "$(cat "$main_tf")" "vendor_name = \"AWS\"" "Should use AWS vendor rules"
 }
 
 test_waf_owasp_protection() {
@@ -71,7 +71,7 @@ test_waf_owasp_protection() {
     # Check OWASP Top 10 protection rules
     assert_contains "$(cat "$main_tf")" "AWSManagedRulesKnownBadInputsRuleSet" "Should include known bad inputs protection"
     assert_contains "$(cat "$main_tf")" "AWSManagedRulesSQLiRuleSet" "Should include SQL injection protection"
-    assert_contains "$(cat "$main_tf")" "override_action.*none" "Should not override managed rules by default"
+    assert_contains "$(cat "$main_tf")" "none {}" "Should not override managed rules by default"
 }
 
 test_waf_geo_blocking_support() {
@@ -99,8 +99,8 @@ test_waf_cloudwatch_logging() {
     
     # Check CloudWatch metrics configuration
     assert_contains "$(cat "$main_tf")" "visibility_config" "Should configure visibility settings"
-    assert_contains "$(cat "$main_tf")" "cloudwatch_metrics_enabled.*true" "Should enable CloudWatch metrics"
-    assert_contains "$(cat "$main_tf")" "sampled_requests_enabled.*true" "Should enable sampled requests"
+    assert_contains "$(cat "$main_tf")" "cloudwatch_metrics_enabled = true" "Should enable CloudWatch metrics"
+    assert_contains "$(cat "$main_tf")" "sampled_requests_enabled   = true" "Should enable sampled requests"
     assert_contains "$(cat "$main_tf")" "metric_name" "Should define metric names"
 }
 
@@ -138,11 +138,11 @@ test_waf_rule_priorities() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check that rules have proper priority ordering
-    assert_contains "$(cat "$main_tf")" "priority.*1" "Should have rate limiting as priority 1"
-    assert_contains "$(cat "$main_tf")" "priority.*2" "Should have core rules as priority 2"
+    assert_contains "$(cat "$main_tf")" "priority = 1" "Should have rate limiting as priority 1"
+    assert_contains "$(cat "$main_tf")" "priority = 2" "Should have core rules as priority 2"
     
     # Ensure no duplicate priorities
-    local priorities=$(grep -o "priority.*[0-9]" "$main_tf" | sort)
+    local priorities=$(grep -o "priority = [0-9]" "$main_tf" | sort)
     local unique_priorities=$(echo "$priorities" | sort -u)
     assert_equals "$priorities" "$unique_priorities" "Should have unique rule priorities"
 }
@@ -152,8 +152,8 @@ test_waf_security_compliance() {
     
     # Check security compliance features
     assert_contains "$(cat "$main_tf")" "AWSManagedRulesCommonRuleSet" "Should include common security rules"
-    assert_contains "$(cat "$main_tf")" "cloudwatch_metrics_enabled.*true" "Should enable monitoring"
-    assert_contains "$(cat "$main_tf")" "scope.*CLOUDFRONT" "Should be configured for CloudFront"
+    assert_contains "$(cat "$main_tf")" "cloudwatch_metrics_enabled = true" "Should enable monitoring"
+    assert_contains "$(cat "$main_tf")" "scope       = \"CLOUDFRONT\"" "Should be configured for CloudFront"
 }
 
 test_waf_provider_requirements() {
@@ -168,8 +168,8 @@ test_waf_tagging_strategy() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     if grep -q "tags" "$main_tf"; then
-        assert_contains "$(cat "$main_tf")" "tags.*merge" "Should merge common tags"
-        assert_contains "$(cat "$main_tf")" "Module.*waf" "Should include module tag"
+        assert_contains "$(cat "$main_tf")" "tags = merge(var.common_tags, {" "Should merge common tags"
+        assert_contains "$(cat "$main_tf")" "Module = \"waf\"" "Should include module tag"
     fi
 }
 
