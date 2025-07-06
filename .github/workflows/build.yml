@@ -311,8 +311,8 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📋 Infrastructure Plan" >> $GITHUB_STEP_SUMMARY
           
-          tofu init -backend=false
-          
+          # OpenTofu is already initialized from the validation step
+          # Generate infrastructure plan
           if tofu plan -detailed-exitcode -out=plan.tfplan > plan.out 2>&1; then
             PLAN_EXIT_CODE=$?
             echo "plan-status=success" >> $GITHUB_OUTPUT
