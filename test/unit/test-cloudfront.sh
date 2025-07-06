@@ -43,9 +43,9 @@ test_cloudfront_origin_access_control() {
     local main_tf="${MODULE_PATH}/main.tf"
     
     # Check OAC configuration
-    assert_contains "$(cat "$main_tf")" "origin_access_control_origin_type.*s3" "Should configure OAC for S3"
-    assert_contains "$(cat "$main_tf")" "signing_behavior.*always" "Should always sign requests"
-    assert_contains "$(cat "$main_tf")" "signing_protocol.*sigv4" "Should use SigV4 signing"
+    assert_contains "$(cat "$main_tf")" "origin_access_control_origin_type = \"s3\"" "Should configure OAC for S3"
+    assert_contains "$(cat "$main_tf")" "signing_behavior = \"always\"" "Should always sign requests"
+    assert_contains "$(cat "$main_tf")" "signing_protocol = \"sigv4\"" "Should use SigV4 signing"
     assert_contains "$(cat "$main_tf")" "origin_access_control_id" "Should reference OAC in distribution"
 }
 
@@ -54,9 +54,10 @@ test_cloudfront_security_headers_function() {
     local headers_js="${MODULE_PATH}/security-headers.js"
     
     # Check function configuration
-    assert_contains "$(cat "$main_tf")" "aws_cloudfront_function.*security_headers" "Should define security headers function"
-    assert_contains "$(cat "$main_tf")" "runtime.*cloudfront-js-1.0" "Should use CloudFront JS runtime"
-    assert_contains "$(cat "$main_tf")" "publish.*true" "Should publish the function"
+    assert_contains "$(cat "$main_tf")" "aws_cloudfront_function" "Should define security headers function"
+    assert_contains "$(cat "$main_tf")" "security_headers" "Should name function security_headers"
+    assert_contains "$(cat "$main_tf")" "runtime = \"cloudfront-js-1.0\"" "Should use CloudFront JS runtime"
+    assert_contains "$(cat "$main_tf")" "publish = true" "Should publish the function"
     
     # Check security headers JavaScript file exists and has content
     if [[ -f "$headers_js" ]]; then

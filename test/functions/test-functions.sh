@@ -191,6 +191,28 @@ assert_contains() {
     
     TESTS_RUN=$((TESTS_RUN + 1))
     
+    # Use literal string matching instead of regex to avoid metacharacter issues
+    if [[ "$haystack" == *"$needle"* ]]; then
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        log_success "✓ ${message}"
+        return 0
+    else
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+        log_error "✗ ${message}"
+        log_error "  Haystack: '${haystack:0:200}...'" # Truncate for readability
+        log_error "  Needle:   '${needle}'"
+        return 1
+    fi
+}
+
+# Regex-based contains function for when regex patterns are actually needed
+assert_contains_regex() {
+    local haystack="$1"
+    local needle="$2"
+    local message="${3:-String should match regex pattern}"
+    
+    TESTS_RUN=$((TESTS_RUN + 1))
+    
     if [[ "$haystack" =~ $needle ]]; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_success "✓ ${message}"
@@ -198,8 +220,8 @@ assert_contains() {
     else
         TESTS_FAILED=$((TESTS_FAILED + 1))
         log_error "✗ ${message}"
-        log_error "  Haystack: '${haystack}'"
-        log_error "  Needle:   '${needle}'"
+        log_error "  Haystack: '${haystack:0:200}...'" # Truncate for readability
+        log_error "  Pattern:  '${needle}'"
         return 1
     fi
 }

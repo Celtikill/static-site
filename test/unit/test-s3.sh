@@ -89,7 +89,7 @@ test_s3_variables_validation() {
     
     # Check validation rules
     assert_contains "$(cat "$variables_tf")" "validation" "Should include validation rules"
-    assert_contains "$(cat "$variables_tf")" "can(regex(" "Should use regex validation"
+    assert_contains "$(cat "$variables_tf")" "can(regex" "Should use regex validation"
 }
 
 test_s3_outputs_completeness() {
