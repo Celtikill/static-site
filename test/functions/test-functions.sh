@@ -20,16 +20,16 @@ readonly CYAN='\033[0;36m'
 readonly BOLD='\033[1m'
 readonly NC='\033[0m' # No Color
 
-# Test counters
-declare -g TESTS_RUN=0
-declare -g TESTS_PASSED=0
-declare -g TESTS_FAILED=0
-declare -g TESTS_SKIPPED=0
+# Test counters (using bash 3.x compatible syntax)
+TESTS_RUN=0
+TESTS_PASSED=0
+TESTS_FAILED=0
+TESTS_SKIPPED=0
 
 # Test state
-declare -g CURRENT_TEST=""
-declare -g TEST_START_TIME=""
-declare -g TEST_RESULTS=()
+CURRENT_TEST=""
+TEST_START_TIME=""
+TEST_RESULTS=()
 
 # Logging functions
 log_debug() {
@@ -72,12 +72,17 @@ setup_test_environment() {
 check_dependencies() {
     local missing_deps=()
     
-    # Check for required tools
-    for tool in jq bc aws tofu; do
+    # Check for required tools (excluding Terraform/OpenTofu for now)
+    for tool in jq bc aws; do
         if ! command -v "$tool" &> /dev/null; then
             missing_deps+=("$tool")
         fi
     done
+    
+    # Check for Terraform or OpenTofu (either is acceptable)
+    if ! command -v "tofu" &> /dev/null && ! command -v "terraform" &> /dev/null; then
+        missing_deps+=("tofu or terraform")
+    fi
     
     if [[ ${#missing_deps[@]} -gt 0 ]]; then
         log_error "Missing required dependencies: ${missing_deps[*]}"
@@ -263,13 +268,25 @@ assert_aws_resource_exists() {
 }
 
 # Terraform-specific test functions
+# Helper function to determine which Terraform command to use
+get_terraform_cmd() {
+    if command -v "tofu" &> /dev/null; then
+        echo "tofu"
+    elif command -v "terraform" &> /dev/null; then
+        echo "terraform"
+    else
+        echo "terraform"  # fallback
+    fi
+}
+
 assert_terraform_output() {
     local output_name="$1"
     local expected_value="$2"
     local message="${3:-Terraform output should match expected value}"
     
+    local tf_cmd=$(get_terraform_cmd)
     local actual_value
-    actual_value=$(tofu output -raw "$output_name" 2>/dev/null || echo "")
+    actual_value=$($tf_cmd output -raw "$output_name" 2>/dev/null || echo "")
     
     assert_equals "$expected_value" "$actual_value" "$message"
 }
@@ -278,8 +295,9 @@ assert_terraform_output_not_empty() {
     local output_name="$1"
     local message="${2:-Terraform output should not be empty}"
     
+    local tf_cmd=$(get_terraform_cmd)
     local actual_value
-    actual_value=$(tofu output -raw "$output_name" 2>/dev/null || echo "")
+    actual_value=$($tf_cmd output -raw "$output_name" 2>/dev/null || echo "")
     
     assert_not_empty "$actual_value" "$message"
 }
@@ -288,9 +306,10 @@ validate_terraform_plan() {
     local plan_file="${1:-tfplan}"
     local message="${2:-Terraform plan should be valid}"
     
+    local tf_cmd=$(get_terraform_cmd)
     TESTS_RUN=$((TESTS_RUN + 1))
     
-    if tofu plan -out="$plan_file" &>/dev/null; then
+    if $tf_cmd plan -out="$plan_file" &>/dev/null; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         log_success "✓ ${message}"
         return 0
@@ -465,7 +484,7 @@ check_security_headers() {
 }
 
 # Main execution helper
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+if [[ "${BASH_SOURCE[0]:-}" == "${0:-}" ]]; then
     echo "Test Functions Library loaded"
     echo "Available functions:"
     declare -F | grep -E "(assert_|run_|setup_|cleanup_)" | awk '{print "  " $3}'

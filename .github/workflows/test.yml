@@ -1,4 +1,4 @@
-name: TEST - Security and Validation
+name: TEST - Policy and Validation
 
 on:
   workflow_dispatch:
