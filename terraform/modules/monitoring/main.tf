@@ -142,8 +142,6 @@ resource "aws_cloudwatch_dashboard" "main" {
       }
     ]
   })
-
-  tags = var.common_tags
 }
 
 # CloudWatch Composite Alarm for Website Health
@@ -278,8 +276,9 @@ resource "aws_budgets_budget" "monthly_cost" {
   time_unit         = "MONTHLY"
   time_period_start = "2024-01-01_00:00"
 
-  cost_filters = {
-    Service = [
+  cost_filter {
+    name = "Service"
+    values = [
       "Amazon Simple Storage Service",
       "Amazon CloudFront",
       "AWS WAF"

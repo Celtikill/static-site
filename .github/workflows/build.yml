@@ -270,34 +270,32 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## ✅ OpenTofu Validation" >> $GITHUB_STEP_SUMMARY
           
-          validation_errors=0
-          
-          find . -name "*.tf" -exec dirname {} \; | sort -u | grep -v '^.$' > module_dirs.txt
-          
-          while read dir; do
-            echo "Validating: $dir"
-            cd "$dir"
+          # Initialize and validate root module (which includes all child modules)
+          echo "Initializing root module..."
+          if tofu init -backend=false > init.out 2>&1; then
+            echo "✅ Root module initialized successfully" >> $GITHUB_STEP_SUMMARY
             
-            if tofu init -backend=false > /dev/null 2>&1; then
-              if tofu validate > validate.out 2>&1; then
-                echo "✅ $dir - Valid" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "❌ $dir - Invalid" >> $GITHUB_STEP_SUMMARY
-                echo '```' >> $GITHUB_STEP_SUMMARY
-                cat validate.out >> $GITHUB_STEP_SUMMARY
-                echo '```' >> $GITHUB_STEP_SUMMARY
-                validation_errors=$((validation_errors + 1))
-              fi
+            # Validate entire configuration including all modules
+            if tofu validate > validate.out 2>&1; then
+              echo "✅ All modules valid" >> $GITHUB_STEP_SUMMARY
+              echo "validation_status=success" >> $GITHUB_OUTPUT
+              
+              # Show module count for reference
+              module_count=$(find . -name "*.tf" -path "./modules/*" -exec dirname {} \; | sort -u | wc -l)
+              echo "📊 Validated root module with $module_count child modules" >> $GITHUB_STEP_SUMMARY
             else
-              echo "⚠️ $dir - Could not initialize" >> $GITHUB_STEP_SUMMARY
+              echo "❌ Validation failed" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat validate.out >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "validation_status=failure" >> $GITHUB_OUTPUT
+              exit 1
             fi
-            
-            cd - > /dev/null
-          done < module_dirs.txt
-          
-          if [ $validation_errors -eq 0 ]; then
-            echo "validation_status=success" >> $GITHUB_OUTPUT
           else
+            echo "❌ Failed to initialize root module" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat init.out >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
             echo "validation_status=failure" >> $GITHUB_OUTPUT
             exit 1
           fi
