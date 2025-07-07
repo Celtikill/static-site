@@ -150,6 +150,30 @@ resource "aws_iam_policy" "cloudfront_invalidation" {
   tags = var.common_tags
 }
 
+# CloudFront Data Access Policy
+resource "aws_iam_policy" "cloudfront_data_access" {
+  name        = "${var.github_actions_role_name}-cloudfront-data"
+  description = "Policy for CloudFront data source access during Terraform operations"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudfront:ListCachePolicies",
+          "cloudfront:ListOriginRequestPolicies",
+          "cloudfront:GetCachePolicy",
+          "cloudfront:GetOriginRequestPolicy"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = var.common_tags
+}
+
 # CloudWatch Logs Policy (for deployment logs)
 # Security: Uses specific region and account ID instead of wildcards
 # Follows principle of least privilege with restricted resource scope
@@ -247,6 +271,11 @@ resource "aws_iam_role_policy_attachment" "s3_deployment" {
 resource "aws_iam_role_policy_attachment" "cloudfront_invalidation" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.cloudfront_invalidation.arn
+}
+
+resource "aws_iam_role_policy_attachment" "cloudfront_data_access" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.cloudfront_data_access.arn
 }
 
 resource "aws_iam_role_policy_attachment" "cloudwatch_logs" {
