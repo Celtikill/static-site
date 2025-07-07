@@ -138,6 +138,11 @@ jobs:
               HAS_TF_CHANGES=1
             fi
             
+            # Also consider workflow changes as infrastructure changes for policy validation
+            if echo "$CHANGED_FILES" | grep -qE '^\.github/workflows/(build|test|deploy)\.yml$'; then
+              HAS_TF_CHANGES=1
+            fi
+            
             # Check for test changes  
             if echo "$CHANGED_FILES" | grep -qE '^test/'; then
               HAS_TEST_CHANGES=1
@@ -561,8 +566,17 @@ jobs:
           
           echo "🚀 Deploying test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
-          # Use consistent backend configuration for integration tests
-          tofu init -backend=false
+          # Create temporary local backend configuration for integration tests
+          cat > backend-override.tf << 'EOF'
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate"
+            }
+          }
+          EOF
+          
+          # Initialize with local backend for integration tests
+          tofu init -reconfigure
           tofu plan -out=test.tfplan
           tofu apply -auto-approve test.tfplan
           
@@ -665,8 +679,21 @@ jobs:
         run: |
           echo "🧹 Cleaning up test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
-          # Cleanup test infrastructure (use same backend config as deployment)
-          tofu destroy -backend=false -auto-approve || true
+          # Recreate the same backend override for cleanup
+          cat > backend-override.tf << 'EOF'
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate"
+            }
+          }
+          EOF
+          
+          # Cleanup test infrastructure with local backend
+          tofu init -reconfigure || true
+          tofu destroy -auto-approve || true
+          
+          # Clean up temporary files
+          rm -f backend-override.tf terraform.tfstate terraform.tfstate.backup
           
           echo "✅ Cleanup completed" >> $GITHUB_STEP_SUMMARY
 
