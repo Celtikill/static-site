@@ -17,6 +17,9 @@ terraform {
   }
 }
 
+# Data source for current AWS account
+data "aws_caller_identity" "current" {}
+
 
 # GitHub OIDC Identity Provider
 resource "aws_iam_openid_connect_provider" "github" {
@@ -169,10 +172,54 @@ resource "aws_iam_policy" "cloudwatch_logs" {
         # Security: Specific region and account ID prevents cross-account access
         # Resource scope limited to GitHub Actions log group prefix only
         Resource = [
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/github-actions",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/github-actions:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/github-actions:*:*"
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/github-actions",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/github-actions:*",
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/github-actions:*:*"
         ]
+      }
+    ]
+  })
+
+  tags = var.common_tags
+}
+
+# Terraform State Management Policy (optional)
+resource "aws_iam_policy" "terraform_state" {
+  count = var.enable_terraform_state_access ? 1 : 0
+
+  name        = "${var.github_actions_role_name}-terraform-state"
+  description = "Policy for Terraform state management operations"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          for bucket_arn in var.terraform_state_bucket_arns : "${bucket_arn}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = var.terraform_state_bucket_arns
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = var.terraform_state_dynamodb_table_arns
       }
     ]
   })
@@ -205,6 +252,13 @@ resource "aws_iam_role_policy_attachment" "cloudfront_invalidation" {
 resource "aws_iam_role_policy_attachment" "cloudwatch_logs" {
   role       = aws_iam_role.github_actions.name
   policy_arn = aws_iam_policy.cloudwatch_logs.arn
+}
+
+resource "aws_iam_role_policy_attachment" "terraform_state" {
+  count = var.enable_terraform_state_access ? 1 : 0
+
+  role       = aws_iam_role.github_actions.name
+  policy_arn = aws_iam_policy.terraform_state[0].arn
 }
 
 resource "aws_iam_role_policy_attachment" "additional_permissions" {

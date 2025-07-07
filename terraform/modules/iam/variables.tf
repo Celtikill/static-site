@@ -109,14 +109,27 @@ variable "session_name_prefix" {
   default     = "GitHubActions"
 }
 
-variable "aws_account_id" {
-  description = "AWS Account ID for resource ARN construction"
-  type        = string
-}
-
 variable "aws_region" {
   description = "AWS Region for resource ARN construction"
   type        = string
+}
+
+variable "enable_terraform_state_access" {
+  description = "Enable Terraform state management permissions (S3 and DynamoDB)"
+  type        = bool
+  default     = false
+}
+
+variable "terraform_state_bucket_arns" {
+  description = "List of S3 bucket ARNs for Terraform state storage"
+  type        = list(string)
+  default     = []
+}
+
+variable "terraform_state_dynamodb_table_arns" {
+  description = "List of DynamoDB table ARNs for Terraform state locking"
+  type        = list(string)
+  default     = []
 }
 
 variable "common_tags" {

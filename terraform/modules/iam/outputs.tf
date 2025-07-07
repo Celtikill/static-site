@@ -49,3 +49,8 @@ output "deployment_service_role_name" {
   description = "Name of the deployment service role (if created)"
   value       = var.create_deployment_service_role ? aws_iam_role.deployment_service[0].name : null
 }
+
+output "terraform_state_policy_arn" {
+  description = "ARN of the Terraform state management policy (if created)"
+  value       = var.enable_terraform_state_access ? aws_iam_policy.terraform_state[0].arn : null
+}
