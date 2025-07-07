@@ -272,11 +272,19 @@ jobs:
           
           # Initialize and validate root module (which includes all child modules)
           echo "Initializing root module..."
-          if tofu init -backend=false > init.out 2>&1; then
+          
+          # Create temporary directory for validation (no backend needed)
+          mkdir -p temp-validation
+          cp *.tf temp-validation/ 2>/dev/null || true
+          cp -r modules temp-validation/ 2>/dev/null || true
+          rm -f temp-validation/backend.tf  # Remove backend configuration
+          
+          cd temp-validation
+          if tofu init > ../init.out 2>&1; then
             echo "✅ Root module initialized successfully" >> $GITHUB_STEP_SUMMARY
             
             # Validate entire configuration including all modules
-            if tofu validate > validate.out 2>&1; then
+            if tofu validate > ../validate.out 2>&1; then
               echo "✅ All modules valid" >> $GITHUB_STEP_SUMMARY
               echo "validation_status=success" >> $GITHUB_OUTPUT
               
@@ -286,19 +294,25 @@ jobs:
             else
               echo "❌ Validation failed" >> $GITHUB_STEP_SUMMARY
               echo '```' >> $GITHUB_STEP_SUMMARY
-              cat validate.out >> $GITHUB_STEP_SUMMARY
+              cat ../validate.out >> $GITHUB_STEP_SUMMARY
               echo '```' >> $GITHUB_STEP_SUMMARY
               echo "validation_status=failure" >> $GITHUB_OUTPUT
+              cd .. && rm -rf temp-validation
               exit 1
             fi
           else
             echo "❌ Failed to initialize root module" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            cat init.out >> $GITHUB_STEP_SUMMARY
+            cat ../init.out >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "validation_status=failure" >> $GITHUB_OUTPUT
+            cd .. && rm -rf temp-validation
             exit 1
           fi
+          
+          # Return to original directory and cleanup
+          cd ..
+          rm -rf temp-validation
 
       - name: Infrastructure Plan
         id: plan
@@ -311,7 +325,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📋 Infrastructure Plan" >> $GITHUB_STEP_SUMMARY
           
-          # OpenTofu is already initialized from the validation step (with -backend=false)
+          # Create fresh temporary directory for planning (no backend needed)
+          mkdir -p temp-plan
+          cp *.tf temp-plan/ 2>/dev/null || true
+          cp -r modules temp-plan/ 2>/dev/null || true
+          rm -f temp-plan/backend.tf  # Remove backend configuration
+          
+          cd temp-plan
+          tofu init
           # Generate infrastructure plan
           if tofu plan -detailed-exitcode -out=plan.tfplan > plan.out 2>&1; then
             PLAN_EXIT_CODE=$?
@@ -336,6 +357,15 @@ jobs:
             cat plan.out >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
+          
+          # Copy plan file to parent directory for artifact upload
+          if [ -f "plan.tfplan" ]; then
+            cp plan.tfplan ../plan.tfplan
+          fi
+          
+          # Return to original directory and cleanup
+          cd ..
+          rm -rf temp-plan
 
       - name: Upload Plan Artifact
         if: steps.plan.outputs.exit-code == '2'

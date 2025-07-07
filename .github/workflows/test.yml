@@ -450,8 +450,15 @@ jobs:
           echo "- Repository: $TF_VAR_github_repository" >> $GITHUB_STEP_SUMMARY
           echo "- AWS Region: $TF_VAR_aws_region" >> $GITHUB_STEP_SUMMARY
           
-          if tofu init -backend=false; then
-            echo "✅ Terraform initialized successfully" >> $GITHUB_STEP_SUMMARY
+          # Create temporary directory for policy validation (no backend needed)
+          mkdir -p temp-validation
+          cp *.tf temp-validation/ 2>/dev/null || true
+          cp -r modules temp-validation/ 2>/dev/null || true
+          rm -f temp-validation/backend.tf  # Remove backend configuration
+          
+          cd temp-validation
+          if tofu init; then
+            echo "✅ Terraform initialized successfully (temp directory)" >> $GITHUB_STEP_SUMMARY
             if tofu plan -out=plan.tfplan; then
               tofu show -json plan.tfplan > plan.json
               
@@ -491,10 +498,14 @@ jobs:
             echo "❌ Could not initialize Terraform" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "Init error details:" >> $GITHUB_STEP_SUMMARY
-            tofu init -backend=false 2>&1 | tail -20 >> $GITHUB_STEP_SUMMARY || echo "Could not capture init output" >> $GITHUB_STEP_SUMMARY
+            tofu init 2>&1 | tail -20 >> $GITHUB_STEP_SUMMARY || echo "Could not capture init output" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             validation_errors=$((validation_errors + 1))
           fi
+          
+          # Return to original directory and cleanup
+          cd ..
+          rm -rf temp-validation
           
           echo "validation_errors=$validation_errors" >> $GITHUB_OUTPUT
           echo "validation_warnings=$validation_warnings" >> $GITHUB_OUTPUT
@@ -566,14 +577,14 @@ jobs:
           
           echo "🚀 Deploying test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
-          # Temporarily move S3 backend configuration to avoid conflicts
-          if [ -f "backend.tf" ]; then
-            mv backend.tf backend.tf.backup
-            echo "📋 Moved backend.tf to backend.tf.backup for integration tests" >> $GITHUB_STEP_SUMMARY
-          fi
+          # Create temporary directory for integration tests with local backend
+          mkdir -p temp-integration
+          cp *.tf temp-integration/ 2>/dev/null || true
+          cp -r modules temp-integration/ 2>/dev/null || true
+          rm -f temp-integration/backend.tf  # Remove backend configuration
           
-          # Create temporary local backend configuration for integration tests
-          cat > backend-override.tf << 'EOF'
+          # Create local backend configuration for integration tests
+          cat > temp-integration/backend.tf << 'EOF'
           terraform {
             backend "local" {
               path = "terraform.tfstate"
@@ -581,8 +592,9 @@ jobs:
           }
           EOF
           
-          # Initialize with local backend for integration tests (no conflicts now)
-          tofu init -reconfigure
+          cd temp-integration
+          # Initialize with local backend for integration tests
+          tofu init
           tofu plan -out=test.tfplan
           tofu apply -auto-approve test.tfplan
           
@@ -590,7 +602,7 @@ jobs:
           echo "✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
 
       - name: Run Integration Tests
-        working-directory: test/integration
+        working-directory: terraform/temp-integration
         env:
           AWS_DEFAULT_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
           TF_VAR_environment: "integration-test-${{ github.run_number }}"
@@ -621,17 +633,17 @@ jobs:
           }
           
           # Test infrastructure outputs
-          if [ -f "../../terraform/infrastructure-outputs.json" ]; then
+          if [ -f "infrastructure-outputs.json" ]; then
             test_assert "Infrastructure outputs file exists" "true"
-            test_assert "Infrastructure outputs contains s3_bucket_id" "jq -e '.s3_bucket_id' ../../terraform/infrastructure-outputs.json > /dev/null"
-            test_assert "Infrastructure outputs contains cloudfront_distribution_id" "jq -e '.cloudfront_distribution_id' ../../terraform/infrastructure-outputs.json > /dev/null"
-            test_assert "Infrastructure outputs contains cloudfront_domain_name" "jq -e '.cloudfront_domain_name' ../../terraform/infrastructure-outputs.json > /dev/null"
+            test_assert "Infrastructure outputs contains s3_bucket_id" "jq -e '.s3_bucket_id' infrastructure-outputs.json > /dev/null"
+            test_assert "Infrastructure outputs contains cloudfront_distribution_id" "jq -e '.cloudfront_distribution_id' infrastructure-outputs.json > /dev/null"
+            test_assert "Infrastructure outputs contains cloudfront_domain_name" "jq -e '.cloudfront_domain_name' infrastructure-outputs.json > /dev/null"
             echo "✅ Infrastructure outputs validated"
             
             # Test actual AWS resources
-            S3_BUCKET=$(jq -r '.s3_bucket_id.value' ../../terraform/infrastructure-outputs.json)
-            CF_DISTRIBUTION=$(jq -r '.cloudfront_distribution_id.value' ../../terraform/infrastructure-outputs.json)
-            CF_DOMAIN=$(jq -r '.cloudfront_domain_name.value' ../../terraform/infrastructure-outputs.json)
+            S3_BUCKET=$(jq -r '.s3_bucket_id.value' infrastructure-outputs.json)
+            CF_DISTRIBUTION=$(jq -r '.cloudfront_distribution_id.value' infrastructure-outputs.json)
+            CF_DOMAIN=$(jq -r '.cloudfront_domain_name.value' infrastructure-outputs.json)
             
             # Test S3 bucket exists and is accessible
             test_assert "S3 bucket exists" "aws s3 ls s3://$S3_BUCKET > /dev/null"
@@ -685,32 +697,19 @@ jobs:
         run: |
           echo "🧹 Cleaning up test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
-          # Ensure S3 backend is still moved during cleanup
-          if [ -f "backend.tf" ]; then
-            mv backend.tf backend.tf.backup
+          # Check if temp directory exists and has state to cleanup
+          if [ -d "temp-integration" ] && [ -f "temp-integration/terraform.tfstate" ]; then
+            cd temp-integration
+            
+            # Cleanup test infrastructure with local backend
+            tofu init || true
+            tofu destroy -auto-approve || true
+            
+            cd ..
           fi
           
-          # Recreate the same backend override for cleanup
-          cat > backend-override.tf << 'EOF'
-          terraform {
-            backend "local" {
-              path = "terraform.tfstate"
-            }
-          }
-          EOF
-          
-          # Cleanup test infrastructure with local backend
-          tofu init -reconfigure || true
-          tofu destroy -auto-approve || true
-          
-          # Restore original backend configuration
-          if [ -f "backend.tf.backup" ]; then
-            mv backend.tf.backup backend.tf
-            echo "📋 Restored backend.tf from backup" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # Clean up temporary files
-          rm -f backend-override.tf terraform.tfstate terraform.tfstate.backup
+          # Clean up temporary directory
+          rm -rf temp-integration
           
           echo "✅ Cleanup completed" >> $GITHUB_STEP_SUMMARY
 
@@ -720,8 +719,8 @@ jobs:
         with:
           name: ${{ needs.test-info.outputs.test_id }}-integration-tests
           path: |
-            test/integration/integration-test-output.log
-            terraform/infrastructure-outputs.json
+            terraform/temp-integration/integration-test-output.log
+            terraform/temp-integration/infrastructure-outputs.json
           retention-days: 30
 
   test-summary:
