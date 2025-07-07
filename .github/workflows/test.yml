@@ -566,6 +566,12 @@ jobs:
           
           echo "🚀 Deploying test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
+          # Temporarily move S3 backend configuration to avoid conflicts
+          if [ -f "backend.tf" ]; then
+            mv backend.tf backend.tf.backup
+            echo "📋 Moved backend.tf to backend.tf.backup for integration tests" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           # Create temporary local backend configuration for integration tests
           cat > backend-override.tf << 'EOF'
           terraform {
@@ -575,7 +581,7 @@ jobs:
           }
           EOF
           
-          # Initialize with local backend for integration tests
+          # Initialize with local backend for integration tests (no conflicts now)
           tofu init -reconfigure
           tofu plan -out=test.tfplan
           tofu apply -auto-approve test.tfplan
@@ -679,6 +685,11 @@ jobs:
         run: |
           echo "🧹 Cleaning up test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
+          # Ensure S3 backend is still moved during cleanup
+          if [ -f "backend.tf" ]; then
+            mv backend.tf backend.tf.backup
+          fi
+          
           # Recreate the same backend override for cleanup
           cat > backend-override.tf << 'EOF'
           terraform {
@@ -691,6 +702,12 @@ jobs:
           # Cleanup test infrastructure with local backend
           tofu init -reconfigure || true
           tofu destroy -auto-approve || true
+          
+          # Restore original backend configuration
+          if [ -f "backend.tf.backup" ]; then
+            mv backend.tf.backup backend.tf
+            echo "📋 Restored backend.tf from backup" >> $GITHUB_STEP_SUMMARY
+          fi
           
           # Clean up temporary files
           rm -f backend-override.tf terraform.tfstate terraform.tfstate.backup
