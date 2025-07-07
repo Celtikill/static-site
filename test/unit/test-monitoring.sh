@@ -56,7 +56,7 @@ test_monitoring_email_subscriptions() {
     
     # Check email subscription configuration
     assert_contains "$(cat "$main_tf")" "resource \"aws_sns_topic_subscription\" \"email_alerts\"" "Should define email subscriptions"
-    assert_contains "$(cat "$main_tf")" "protocol  = \"email\"" "Should use email protocol"
+    assert_contains "$(cat "$main_tf")" "protocol                        = \"email\"" "Should use email protocol"
     assert_contains "$(cat "$main_tf")" "count = length(var.alert_email_addresses)" "Should create subscriptions for each email"
 }
 
@@ -200,7 +200,7 @@ test_monitoring_tagging_strategy() {
     
     assert_contains "$(cat "$main_tf")" "tags = merge(var.common_tags, {" "Should merge common tags"
     assert_contains "$(cat "$main_tf")" "Module = \"monitoring\"" "Should include module tag"
-    assert_contains "$(cat "$main_tf")" "Name   = \\\"\${var.project_name}-alerts\\\"" "Should include descriptive names"
+    assert_contains "$(cat "$main_tf")" "Name   = \"\${var.project_name}-alerts\"" "Should include descriptive names"
 }
 
 test_monitoring_provider_requirements() {

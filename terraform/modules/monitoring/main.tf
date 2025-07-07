@@ -50,9 +50,11 @@ resource "aws_sns_topic_policy" "alerts" {
 resource "aws_sns_topic_subscription" "email_alerts" {
   count = length(var.alert_email_addresses)
 
-  topic_arn = aws_sns_topic.alerts.arn
-  protocol  = "email"
-  endpoint  = var.alert_email_addresses[count.index]
+  topic_arn                       = aws_sns_topic.alerts.arn
+  protocol                        = "email"
+  endpoint                        = var.alert_email_addresses[count.index]
+  confirmation_timeout_in_minutes = 5
+  endpoint_auto_confirms          = false
 }
 
 # CloudWatch Dashboard
@@ -168,6 +170,7 @@ resource "aws_cloudwatch_metric_alarm" "cloudfront_high_error_rate" {
   alarm_name          = "${var.project_name}-cloudfront-high-error-rate"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
+  datapoints_to_alarm = "2"
   metric_name         = "4xxErrorRate"
   namespace           = "AWS/CloudFront"
   period              = "300"
