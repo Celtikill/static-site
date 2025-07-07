@@ -120,7 +120,6 @@ module "iam" {
   max_session_duration           = var.max_session_duration
   enable_readonly_access         = var.enable_readonly_access
   create_deployment_service_role = var.create_deployment_service_role
-  aws_account_id                 = data.aws_caller_identity.current.account_id
   aws_region                     = data.aws_region.current.name
   common_tags                    = local.common_tags
 }
