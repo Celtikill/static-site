@@ -143,10 +143,10 @@ test_waf_rule_priorities() {
     assert_contains "$(cat "$main_tf")" "priority = 1" "Should have rate limiting as priority 1"
     assert_contains "$(cat "$main_tf")" "priority = 2" "Should have core rules as priority 2"
     
-    # Ensure no duplicate priorities
-    local priorities=$(grep -o "priority = [0-9]" "$main_tf" | sort)
-    local unique_priorities=$(echo "$priorities" | sort -u)
-    assert_equals "$priorities" "$unique_priorities" "Should have unique rule priorities"
+    # Ensure no duplicate rule priorities (exclude text transformation priorities)
+    local rule_priorities=$(grep -B3 "priority = [0-9]" "$main_tf" | grep -A3 "name.*=" | grep "priority = [0-9]" | sort)
+    local unique_rule_priorities=$(echo "$rule_priorities" | sort -u)
+    assert_equals "$rule_priorities" "$unique_rule_priorities" "Should have unique rule priorities"
 }
 
 test_waf_security_compliance() {

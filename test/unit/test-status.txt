@@ -1,1 +1,1 @@
-Some tests failed!
+All tests passed!
