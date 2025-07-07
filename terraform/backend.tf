@@ -27,32 +27,3 @@ terraform {
   }
 }
 
-# Provider configuration for replica region (used by S3 module)
-provider "aws" {
-  alias  = "replica"
-  region = var.replica_region
-
-  default_tags {
-    tags = {
-      Project      = var.project_name
-      Environment  = var.environment
-      ManagedBy    = "opentofu"
-      Repository   = var.github_repository
-      BackupRegion = "true"
-    }
-  }
-}
-
-# Main provider configuration
-provider "aws" {
-  region = var.aws_region
-
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "opentofu"
-      Repository  = var.github_repository
-    }
-  }
-}
