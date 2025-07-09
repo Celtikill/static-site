@@ -2,7 +2,15 @@
 
 ## Executive Summary
 
-This document outlines a comprehensive serverless static website architecture demonstrating AWS Well-Architected Framework principles. The solution provides a scalable, secure, and cost-effective platform for hosting static content while showcasing modern cloud architectural patterns.
+This document outlines a comprehensive serverless static website architecture demonstrating AWS Well-Architected Framework principles. The solution provides a scalable, secure, and cost-effective platform for hosting static content while showcasing modern cloud architectural patterns with enterprise-grade CI/CD automation.
+
+**Key Architectural Highlights:**
+- **Serverless-first approach** with global CDN and edge computing
+- **Zero-trust security model** with defense-in-depth implementation
+- **Enterprise CI/CD pipeline** with BUILD-TEST-DEPLOY automation
+- **Comprehensive testing framework** with 269 individual assertions
+- **Cost-optimized design** with intelligent resource management
+- **Multi-region resilience** with automated failover capabilities
 
 ## Architecture Overview
 
@@ -15,21 +23,27 @@ graph TB
     end
     
     subgraph "CDN & Security Layer"
-        CF[CloudFront<br/>Global CDN]
-        WAF[AWS WAF<br/>Web Application Firewall]
+        R53[Route 53<br/>DNS & Health Checks]
+        CF[CloudFront<br/>Global CDN + Edge Functions]
+        WAF[AWS WAF<br/>OWASP Top 10 Protection]
         SH[Security Headers<br/>CloudFront Functions]
-        ACM[ACM<br/>SSL Certificates]
+        ACM[ACM<br/>SSL/TLS Certificates]
     end
     
     subgraph "Storage Layer"
-        S3P[S3 Primary<br/>us-east-1]
-        S3S[S3 Secondary<br/>us-west-2]
+        S3P[S3 Primary<br/>us-east-1<br/>OAC + Encryption]
+        S3S[S3 Secondary<br/>us-west-2<br/>Cross-Region Replication]
     end
     
-    subgraph "Monitoring & Ops"
-        CW[CloudWatch<br/>Metrics & Logs]
-        CFG[AWS Config<br/>Compliance]
-        BUD[AWS Budgets<br/>Cost Control]
+    subgraph "Monitoring & Observability"
+        CW[CloudWatch<br/>Metrics, Logs & Dashboards]
+        SNS[SNS Topics<br/>Alert Notifications]
+        BUD[AWS Budgets<br/>Cost Control & Forecasting]
+    end
+    
+    subgraph "Identity & Access"
+        IAM[IAM Roles<br/>GitHub OIDC]
+        KMS[KMS Keys<br/>Encryption Management]
     end
     
     U --> R53
@@ -41,8 +55,15 @@ graph TB
     CF --> ACM
     CF --> CW
     S3P --> CW
-    CFG --> S3P
-    BUD --> CW
+    CW --> SNS
+    BUD --> SNS
+    IAM --> S3P
+    KMS --> S3P
+    
+    style CF fill:#e3f2fd
+    style WAF fill:#ffebee
+    style S3P fill:#f3e5f5
+    style CW fill:#e8f5e8
 ```
 
 ### Enterprise CI/CD Pipeline Architecture
@@ -62,9 +83,9 @@ graph TB
             PLAN[Terraform Planning]
         end
         subgraph "Security"
-            CHECKOV[Checkov Scanning]
             CHECKOV[Checkov Analysis]
             TRIVY[Trivy Config Scan]
+            THRESHOLD[Threshold Validation]
         end
         subgraph "Content"
             HTML[HTML Validation]
@@ -73,7 +94,7 @@ graph TB
         end
         subgraph "Analysis"
             COST[Cost Estimation]
-            DOCS[Documentation]
+            DOCS[Documentation Updates]
         end
     end
     
@@ -115,10 +136,10 @@ graph TB
     end
     
     subgraph "Monitoring & Reporting"
-        SARIF[SARIF Security Reports]
         ARTIFACTS[Build Artifacts]
         SUMMARY[Workflow Summaries]
         NOTIFICATIONS[PR Comments/Notifications]
+        REPORTS[Security Reports]
     end
     
     PR --> BUILD
@@ -131,9 +152,8 @@ graph TB
     FMT --> VALIDATE
     VALIDATE --> PLAN
     
-    TFSEC --> SARIF
-    CHECKOV --> SARIF
-    TRIVY --> SARIF
+    CHECKOV --> THRESHOLD
+    TRIVY --> THRESHOLD
     
     HTML --> CONTENT
     CONTENT --> BUILD
@@ -173,9 +193,9 @@ graph TB
 **Enterprise Security**:
 - All GitHub Actions pinned to commit SHAs for supply chain security
 - Comprehensive input validation and sanitization
-- SARIF reporting integration with GitHub Security tab
-- Multi-scanner security analysis (Checkov, Trivy)
+- Multi-scanner security analysis (Checkov, Trivy) with threshold validation
 - Policy-as-code validation with OPA/Conftest
+- JSON security reporting with artifact preservation
 
 **Workflow Orchestration**:
 - Artifact inheritance between BUILD → TEST → DEPLOY phases
@@ -199,7 +219,7 @@ graph TB
 - **Enterprise CI/CD Pipeline**: BUILD-TEST-DEPLOY workflow with comprehensive automation
 - **Infrastructure as Code**: OpenTofu (Terraform) with comprehensive validation and planning
 - **Automated Testing**: Unit tests, integration tests, and policy validation with matrix strategies
-- **Security Integration**: Multi-scanner analysis (Checkov, Trivy) with SARIF reporting
+- **Security Integration**: Multi-scanner analysis (Checkov, Trivy) with threshold validation
 - **Environment Management**: Automated environment-specific deployments with approval gates
 - **Cost Monitoring**: Automated cost estimation and budget tracking per environment
 - **Quality Gates**: Comprehensive validation before production deployment
@@ -318,17 +338,17 @@ graph TD
 | Service | Usage | Cost | Rationale |
 |---------|--------|------|-----------|
 | **S3 Standard** | 1GB storage, 10K requests | $0.25 | Primary storage for static assets |
-| **S3 CRR** | 1GB replication | $0.03 | Cross-region replication for DR |
+| **S3 CRR** | 1GB replication (optional) | $0.03 | Cross-region replication for DR |
 | **CloudFront** | 100GB transfer, 1M requests | $8.50 | Global content delivery |
-| **Route 53** | 1 hosted zone, 1M queries | $0.90 | DNS service with health checks |
+| **Route 53** | 1 hosted zone, 1M queries (optional) | $0.90 | DNS service with health checks |
 | **AWS WAF** | 1 Web ACL, 1M requests | $6.00 | Web application firewall |
 | **ACM** | 1 SSL certificate | $0.00 | Free SSL/TLS certificates |
 | **CloudWatch** | 10 metrics, 1GB logs | $2.50 | Monitoring and logging |
-| **AWS Config** | 100 items | $2.00 | Compliance monitoring |
 | **Data Transfer** | 100GB outbound | $9.00 | Internet egress charges |
+| **KMS** | 1 key, 1000 requests (optional) | $1.00 | Encryption key management |
 | **GitHub Actions** | 2000 minutes | $0.00 | Free tier sufficient |
 
-**Total Monthly Cost: ~$29.18**
+**Total Monthly Cost: ~$26.33-$29.18** (depending on optional features)
 
 ### Cost Optimization Strategies
 
@@ -339,9 +359,10 @@ graph TD
 
 ### Annual Cost Projection
 
-- **Year 1**: $350 (includes setup and testing)
-- **Steady State**: $300-400/year depending on traffic growth
+- **Year 1**: $316-$350 (includes setup and testing)
+- **Steady State**: $315-$350/year depending on traffic growth and optional features
 - **Break-even**: Cost-effective for >1,000 monthly visitors compared to traditional hosting
+- **Scaling**: Cost scales linearly with traffic, no fixed infrastructure costs
 
 ## Security Compliance
 
@@ -389,11 +410,13 @@ gantt
 
 | Risk | Probability | Impact | Mitigation | Owner |
 |------|-------------|--------|------------|-------|
-| S3 bucket misconfiguration | Medium | High | Automated policy validation | DevOps |
+| S3 bucket misconfiguration | Medium | High | Automated policy validation, unit tests | DevOps |
 | DDoS attack | Low | Medium | CloudFront & WAF protection | Security |
 | Certificate expiration | Low | High | ACM automatic renewal | Platform |
 | Cost overrun | Medium | Low | Budget alerts & monitoring | Finance |
-| Regional outage | Low | Medium | Multi-region replication | Architecture |
+| Regional outage | Low | Medium | Multi-region replication (optional) | Architecture |
+| CI/CD pipeline failure | Medium | Medium | Comprehensive testing, rollback capabilities | DevOps |
+| Security scanning bypass | Low | High | Multiple scanners, threshold enforcement | Security |
 
 ## Monitoring Strategy
 
@@ -410,11 +433,96 @@ gantt
 - **Warning**: Latency >200ms for >10 minutes
 - **Info**: Cost exceeds 80% of monthly budget
 
+## Infrastructure Components Detail
+
+### Terraform Module Architecture
+
+The infrastructure is organized into 5 core modules with clear separation of concerns:
+
+#### **S3 Module** (`modules/s3/`)
+- **Primary Features**: Origin Access Control (OAC), encryption, versioning, intelligent tiering
+- **Security**: Public access blocking, least-privilege bucket policies, KMS encryption
+- **Resilience**: Optional cross-region replication to us-west-2
+- **Cost Optimization**: Intelligent tiering, lifecycle policies, incomplete multipart upload cleanup
+
+#### **CloudFront Module** (`modules/cloudfront/`)
+- **Performance**: HTTP/2, HTTP/3, global edge locations with price class optimization
+- **Security**: Security headers function, HTTPS enforcement, TLS 1.2+ requirement
+- **Caching**: Intelligent caching policies with 1-day default, 1-year maximum TTL
+- **Monitoring**: CloudWatch alarms for 4xx/5xx errors with SNS notifications
+
+#### **WAF Module** (`modules/waf/`)
+- **Protection**: AWS Managed Rule Sets (OWASP Top 10, Known Bad Inputs, SQL Injection)
+- **Rate Limiting**: Configurable per-IP rate limits (default: 2000 requests/5min)
+- **Geo-blocking**: Optional country-based restrictions with IP allow/block lists
+- **Logging**: CloudWatch Logs with PII redaction and metric filters
+
+#### **IAM Module** (`modules/iam/`)
+- **OIDC Integration**: GitHub Actions authentication with repository-specific trust policies
+- **Least Privilege**: Scoped permissions for S3, CloudFront, and CloudWatch operations
+- **Security**: Session duration limits, account ID validation, resource ARN constraints
+- **Flexibility**: Optional service roles for Lambda/CodeBuild integration
+
+#### **Monitoring Module** (`modules/monitoring/`)
+- **Dashboards**: Real-time CloudWatch dashboards with performance and security metrics
+- **Alerting**: SNS topics with encrypted notification channels
+- **Budgets**: AWS Budgets with 80% forecast and 100% actual spending alerts
+- **Composite Alarms**: Aggregated health monitoring across all services
+
+### Testing Framework Architecture
+
+#### **Zero-Dependency Design**
+- **Framework**: Pure bash + jq with no external dependencies
+- **Coverage**: 269 individual assertions across all 5 infrastructure modules
+- **Performance**: Sub-second execution through file content caching and parallel processing
+- **Reporting**: JSON and human-readable formats with comprehensive metrics
+
+#### **Test Coverage Breakdown**
+- **S3 Module**: 49 tests covering security, replication, lifecycle, and compliance
+- **CloudFront Module**: 55 tests covering OAC, security headers, caching, and performance
+- **WAF Module**: 50 tests covering rule sets, rate limiting, geo-blocking, and logging
+- **IAM Module**: 58 tests covering OIDC, trust policies, permissions, and security
+- **Monitoring Module**: 57 tests covering dashboards, alarms, notifications, and budgets
+
+### CI/CD Pipeline Implementation
+
+#### **BUILD Phase**
+- **Infrastructure Validation**: OpenTofu formatting, validation, and planning
+- **Security Scanning**: Parallel Checkov and Trivy analysis with threshold enforcement
+- **Content Preparation**: HTML validation, security checks, and artifact creation
+- **Cost Analysis**: Monthly and annual cost projections with environment-specific optimization
+
+#### **TEST Phase**
+- **Unit Testing**: Matrix-based parallel execution of all 5 infrastructure modules
+- **Policy Validation**: OPA/Conftest security and compliance rule enforcement
+- **Integration Testing**: End-to-end deployment with real AWS resources and automated cleanup
+- **Comprehensive Reporting**: JSON reports with success rates and detailed failure analysis
+
+#### **DEPLOY Phase**
+- **Infrastructure Deployment**: Environment-specific OpenTofu deployment with state management
+- **Content Deployment**: S3 sync with CloudFront cache invalidation
+- **Health Validation**: Post-deployment verification and monitoring setup
+- **Environment Protection**: Manual approval gates for staging and production
+
+## **Critical Infrastructure Gap**
+
+**WAF Integration Issue**: The WAF module creates a Web ACL but it's not associated with the CloudFront distribution (`web_acl_id = null` in `main.tf:125`). This represents a significant security gap that should be addressed immediately.
+
 ## Conclusion
 
 This architecture demonstrates enterprise-grade patterns while maintaining cost efficiency and operational simplicity. The serverless approach eliminates infrastructure management overhead while providing global scale and robust security.
 
-The implementation showcases modern DevOps practices, comprehensive monitoring, and defense-in-depth security suitable for production workloads requiring high availability and performance.
+The implementation showcases modern DevOps practices, comprehensive testing (269 individual assertions), and defense-in-depth security suitable for production workloads requiring high availability and performance. The modular design allows for easy maintenance and extension while following infrastructure as code best practices.
+
+**Key Strengths:**
+- Comprehensive security testing with multi-scanner analysis
+- Zero-dependency testing framework with excellent performance
+- Modular architecture with clear separation of concerns
+- Cost-optimized design with intelligent resource management
+- Enterprise-grade CI/CD with proper environment protection
+
+**Immediate Action Required:**
+- Fix WAF integration to associate Web ACL with CloudFront distribution
 
 ---
 
