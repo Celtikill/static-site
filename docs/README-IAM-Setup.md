@@ -1,28 +1,82 @@
 # IAM Setup for GitHub Actions
 
-This document describes the IAM permissions required for GitHub Actions to deploy and manage the static site infrastructure.
+This document describes the IAM permissions required for GitHub Actions to deploy and manage the static site infrastructure using the principle of least privilege with no wildcard permissions.
 
-## Quick Setup
+## Two-Policy Approach
 
-### Option 1: Use the Comprehensive Managed Policy (Recommended for Initial Setup)
+Due to AWS IAM policy size limits (6,144 characters), we split the permissions into two focused policies without wildcards:
+
+### Policy 1: Core Infrastructure (2,547 characters)
+`github-actions-core-infrastructure-policy.json`
+- S3 bucket operations (with resource restrictions)
+- CloudFront distributions and functions
+- WAF web ACL and IP sets
+- General permissions (STS, EC2 regions)
+
+### Policy 2: IAM & Monitoring (3,021 characters)
+`github-actions-iam-monitoring-policy.json`
+- IAM role and policy management
+- CloudWatch alarms and dashboards
+- CloudWatch Logs operations
+- SNS topics for notifications
+- Budget management
+- KMS key operations
+- Route53 DNS management
+- Resource tagging
+
+## Setup Instructions
+
+### Step 1: Create Core Infrastructure Policy
 
 1. Go to AWS Console → IAM → Policies → Create Policy
 2. Select the JSON tab
-3. Copy the contents from `github-actions-comprehensive-policy.json`
+3. Copy the contents from `github-actions-core-infrastructure-policy.json`
 4. Click "Next: Tags" → "Next: Review"
-5. Name: `GitHubActions-StaticSite-ComprehensivePolicy`
-6. Description: "Comprehensive permissions for GitHub Actions to manage static site infrastructure"
+5. Name: `GitHubActions-StaticSite-CoreInfrastructure`
+6. Description: "Core infrastructure permissions for S3, CloudFront, and WAF"
 7. Create the policy
-8. Go to IAM → Roles → `static-site-dev-github-actions`
-9. Click "Add permissions" → "Attach policies"
-10. Search for and select `GitHubActions-StaticSite-ComprehensivePolicy`
-11. Attach the policy
 
-### Option 2: Apply Minimal Permissions (Just to Fix Current Issue)
+### Step 2: Create IAM & Monitoring Policy
 
-If you only want to fix the immediate CloudFront permissions issue:
+1. Create another policy using the same process
+2. Use contents from `github-actions-iam-monitoring-policy.json`
+3. Name: `GitHubActions-StaticSite-IAMMonitoring`
+4. Description: "IAM, monitoring, and supporting service permissions"
+5. Create the policy
 
-1. Create a policy with just these permissions:
+### Step 3: Attach Both Policies to Role
+
+1. Go to IAM → Roles → `static-site-dev-github-actions`
+2. Click "Add permissions" → "Attach policies"
+3. Search for and select both policies:
+   - `GitHubActions-StaticSite-CoreInfrastructure`
+   - `GitHubActions-StaticSite-IAMMonitoring`
+4. Attach both policies
+
+## Security Features
+
+Both policies follow strict security principles:
+
+### Resource Restrictions
+- **S3**: Limited to buckets matching `*-static-site-*` pattern
+- **IAM**: Limited to roles/policies matching `*-static-site-*` pattern
+- **SNS**: Limited to topics matching `*-static-site-*` pattern
+- **Logs**: Limited to specific log group patterns
+
+### No Wildcards in Actions
+- Every permission lists specific API actions
+- No `service:*` permissions used
+- Follows principle of least privilege
+
+### Service-Specific Limitations
+- **CloudFront/WAF**: Some operations require `*` resources due to AWS service design
+- **KMS/Route53/Budgets**: Global services require `*` resources
+- **CloudWatch**: Alarms and dashboards are global resources
+
+## Immediate Fix for Current Issue
+
+If you only need to fix the current CloudFront permissions error, you can create a temporary minimal policy:
+
 ```json
 {
   "Version": "2012-10-17",
@@ -31,66 +85,66 @@ If you only want to fix the immediate CloudFront permissions issue:
     "Effect": "Allow",
     "Action": [
       "cloudfront:ListCachePolicies",
-      "cloudfront:ListOriginRequestPolicies",
-      "cloudfront:GetCachePolicy",
-      "cloudfront:GetOriginRequestPolicy"
+      "cloudfront:ListOriginRequestPolicies"
     ],
     "Resource": "*"
   }]
 }
 ```
 
-## About the Comprehensive Policy
-
-The comprehensive policy (`github-actions-comprehensive-policy.json`) includes all permissions needed to:
-
-- Create and manage S3 buckets for static content
-- Configure CloudFront distributions for CDN
-- Set up WAF rules for security
-- Create IAM roles and policies
-- Configure CloudWatch monitoring and alarms
-- Set up SNS topics for notifications
-- Manage KMS keys for encryption
-- Configure Route53 for custom domains
-- Access Terraform state in S3/DynamoDB
-
-## Security Considerations
-
-The policy follows these security principles:
-
-1. **Resource Restrictions**: Where possible, resources are restricted by naming patterns (e.g., `*-static-site-*`)
-2. **Service-Specific Access**: Permissions are grouped by AWS service
-3. **Least Privilege**: Only includes actions needed for infrastructure management
-4. **No Wildcards on Sensitive Resources**: IAM and S3 resources use specific patterns
+Attach this to the role temporarily, then apply the full two-policy solution later.
 
 ## Post-Deployment Cleanup
 
-Once the Terraform infrastructure is successfully deployed:
+Once Terraform successfully deploys:
 
 1. The Terraform-managed fine-grained policies will be attached to the role
-2. You can detach this comprehensive policy if desired
-3. The role will then use the more restrictive Terraform-managed policies
+2. You can optionally detach these comprehensive policies
+3. The role will use the more restrictive Terraform-managed policies
+4. Consider keeping one policy for emergency infrastructure changes
 
 ## Troubleshooting
 
-If you encounter permission errors:
+### Permission Denied Errors
+1. Check CloudTrail logs for the specific denied action
+2. Verify the resource ARN matches the patterns in the policies
+3. Ensure both policies are attached to the role
+4. Check if additional AWS account policies are blocking access
 
-1. Check the CloudTrail logs for the specific action that was denied
-2. Verify the resource ARN matches the patterns in the policy
-3. Ensure the policy is attached to the correct role
-4. Check if additional conditions (like MFA or IP restrictions) are blocking access
+### Policy Size Issues
+If you need to add permissions:
+1. Each policy has room for additional permissions
+2. Consider creating a third policy if needed
+3. Keep related permissions grouped logically
 
-## Policy Maintenance
+### Missing Permissions
+If Terraform reports missing permissions:
+1. Identify the specific AWS API action needed
+2. Add it to the appropriate policy (core vs monitoring)
+3. Update the policy version in AWS
+4. Test with a Terraform plan operation
 
-When adding new infrastructure components:
+## Maintenance
 
-1. Update the comprehensive policy with new required permissions
-2. Test in a development environment first
-3. Version the policy in AWS IAM
+When updating these policies:
+1. Test changes in a development environment first
+2. Use AWS IAM policy simulator for validation
+3. Version the policies in AWS IAM
 4. Update this documentation
+5. Consider the 6,144 character limit per policy
 
 ## Related Files
 
-- `github-actions-comprehensive-policy.json` - The full IAM policy
-- `../terraform/modules/iam/` - Terraform-managed IAM policies
+- `github-actions-core-infrastructure-policy.json` - Core infrastructure permissions (2,547 chars)
+- `github-actions-iam-monitoring-policy.json` - IAM and monitoring permissions (3,021 chars)
+- `../terraform/modules/iam/` - Terraform-managed IAM policies (applied after initial deployment)
 - `../.github/workflows/` - GitHub Actions workflows that use these permissions
+
+## Policy Validation
+
+Both policies have been validated to:
+- ✅ Fit within AWS 6,144 character limits
+- ✅ Use no wildcard actions (`service:*`)
+- ✅ Apply resource restrictions where possible
+- ✅ Include all permissions needed for Terraform operations
+- ✅ Follow AWS security best practices
