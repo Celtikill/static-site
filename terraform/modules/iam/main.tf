@@ -132,7 +132,9 @@ resource "aws_iam_policy" "cloudfront_invalidation" {
         Action = [
           "cloudfront:CreateInvalidation",
           "cloudfront:GetInvalidation",
-          "cloudfront:ListInvalidations"
+          "cloudfront:ListInvalidations",
+          "cloudfront:GetCachePolicy",
+          "cloudfront:GetOriginRequestPolicy"
         ]
         Resource = var.cloudfront_distribution_arns
       },
@@ -143,6 +145,17 @@ resource "aws_iam_policy" "cloudfront_invalidation" {
           "cloudfront:GetDistributionConfig"
         ]
         Resource = var.cloudfront_distribution_arns
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudfront:GetCachePolicy",
+          "cloudfront:GetOriginRequestPolicy"
+        ]
+        Resource = [
+          "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:cache-policy/*",
+          "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:origin-request-policy/*"
+        ]
       }
     ]
   })
