@@ -263,12 +263,20 @@ jobs:
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
           aws-role: ${{ secrets.AWS_ASSUME_ROLE }}
 
+      - name: Prepare Environment Variables
+        id: prepare-env
+        run: |
+          # Convert repository owner to lowercase for project name
+          PROJECT_NAME=$(echo "${{ github.repository_owner }}-static-site" | tr '[:upper:]' '[:lower:]')
+          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "Using project name: $PROJECT_NAME" >> $GITHUB_STEP_SUMMARY
+
       - name: Deploy Infrastructure
         id: deploy
         working-directory: terraform
         env:
           TF_VAR_environment: ${{ needs.deploy-info.outputs.target_environment }}
-          TF_VAR_project_name: "${{ github.repository_owner }}-static-site"
+          TF_VAR_project_name: ${{ steps.prepare-env.outputs.project_name }}
           TF_VAR_github_repository: ${{ github.repository }}
           TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
           # Environment-specific variables
