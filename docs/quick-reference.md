@@ -2,6 +2,37 @@
 
 Essential commands, variables, and configurations for daily operations.
 
+## 📋 Quick Navigation
+
+**🎯 Purpose**: One-stop reference for all common operations and configurations.
+
+**👥 Target Users**: All team members needing quick access to commands and settings.
+
+**⏱️ Time Saver**: 
+- **Quick Commands**: Copy-paste ready commands for immediate use
+- **Configuration Examples**: Pre-configured settings for different scenarios
+- **Emergency Procedures**: Rapid response commands for incidents
+
+**🔍 What's Inside**:
+- **Essential Commands**: Infrastructure, deployment, testing, monitoring
+- **Configuration Variables**: All settings with explanations
+- **Quick Fixes**: Common problems and immediate solutions
+- **Health Checks**: Automated scripts for system validation
+
+**🚀 Most Used Commands**:
+```bash
+# Deploy website
+aws s3 sync src/ s3://$(tofu output -raw s3_bucket_id) --delete
+
+# Invalidate cache
+aws cloudfront create-invalidation --distribution-id $(tofu output -raw cloudfront_distribution_id) --paths "/*"
+
+# Check status
+curl -I $(tofu output -raw cloudfront_distribution_url)
+```
+
+---
+
 ## 🚀 Essential Commands
 
 ### Infrastructure Management
