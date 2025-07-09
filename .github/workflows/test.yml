@@ -399,8 +399,16 @@ jobs:
           required_tags := ["Environment", "Project", "ManagedBy"]
           
           warn[msg] {
-            input.resource_changes[_].type in ["aws_s3_bucket", "aws_cloudfront_distribution"]
             resource := input.resource_changes[_]
+            resource.type == "aws_s3_bucket"
+            tag := required_tags[_]
+            not resource.change.after.tags[tag]
+            msg := sprintf("Resource %s should have tag: %s", [resource.type, tag])
+          }
+          
+          warn[msg] {
+            resource := input.resource_changes[_]
+            resource.type == "aws_cloudfront_distribution"
             tag := required_tags[_]
             not resource.change.after.tags[tag]
             msg := sprintf("Resource %s should have tag: %s", [resource.type, tag])
