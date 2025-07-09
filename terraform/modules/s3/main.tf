@@ -156,7 +156,7 @@ resource "aws_s3_bucket_replication_configuration" "website" {
 # IAM role for replication
 resource "aws_iam_role" "replication" {
   count = var.enable_replication ? 1 : 0
-  name  = "${var.bucket_name}-replication-role"
+  name  = "${substr(var.bucket_name, 0, min(length(var.bucket_name), 45))}-repl-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

@@ -64,7 +64,6 @@
       "Effect": "Allow",
       "Action": [
         "logs:CreateLogGroup",
-        "logs:DescribeLogGroups",
         "logs:DeleteLogGroup",
         "logs:PutRetentionPolicy",
         "logs:TagLogGroup",
@@ -72,9 +71,7 @@
         "logs:CreateLogStream",
         "logs:PutLogEvents",
         "logs:PutMetricFilter",
-        "logs:DeleteMetricFilter",
-        "logs:DescribeMetricFilters",
-        "logs:DescribeLogStreams"
+        "logs:DeleteMetricFilter"
       ],
       "Resource": [
         "arn:aws:logs:*:*:log-group:/aws/cloudfront/*",
@@ -82,6 +79,16 @@
         "arn:aws:logs:*:*:log-group:/aws/github-actions*",
         "arn:aws:logs:*:*:log-group:*static-site*"
       ]
+    },
+    {
+      "Sid": "LogsListOperations",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:DescribeMetricFilters"
+      ],
+      "Resource": "*"
     },
     {
       "Sid": "SNSOperations",

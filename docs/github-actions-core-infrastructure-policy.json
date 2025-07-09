@@ -43,8 +43,8 @@
         "s3:PutObjectAcl"
       ],
       "Resource": [
-        "arn:aws:s3:::*-static-site-*",
-        "arn:aws:s3:::*-static-site-*/*"
+        "arn:aws:s3:::*static-site*",
+        "arn:aws:s3:::*static-site*/*"
       ]
     },
     {
