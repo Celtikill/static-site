@@ -24,7 +24,7 @@ variable "environment" {
   default     = "prod"
 
   validation {
-    condition = contains(["dev", "staging", "prod"], var.environment) || can(regex("^(integration-test|unit-test)-[0-9]+", var.environment))
+    condition     = contains(["dev", "staging", "prod"], var.environment) || can(regex("^(integration-test|unit-test)-[0-9]+", var.environment))
     error_message = "Environment must be dev, staging, prod, or a test environment (integration-test-*, unit-test-*)."
   }
 }
