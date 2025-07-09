@@ -107,8 +107,8 @@
       "Effect": "Allow",
       "Action": [
         "budgets:CreateBudget",
-        "budgets:ViewBudget",
-        "budgets:UpdateBudget"
+        "budgets:DescribeBudgets",
+        "budgets:ModifyBudget"
       ],
       "Resource": "*"
     },
