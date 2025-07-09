@@ -62,7 +62,7 @@ graph TB
             PLAN[Terraform Planning]
         end
         subgraph "Security"
-            TFSEC[tfsec Scanning]
+            CHECKOV[Checkov Scanning]
             CHECKOV[Checkov Analysis]
             TRIVY[Trivy Config Scan]
         end
@@ -174,7 +174,7 @@ graph TB
 - All GitHub Actions pinned to commit SHAs for supply chain security
 - Comprehensive input validation and sanitization
 - SARIF reporting integration with GitHub Security tab
-- Multi-scanner security analysis (tfsec, Checkov, Trivy)
+- Multi-scanner security analysis (Checkov, Trivy)
 - Policy-as-code validation with OPA/Conftest
 
 **Workflow Orchestration**:
@@ -199,7 +199,7 @@ graph TB
 - **Enterprise CI/CD Pipeline**: BUILD-TEST-DEPLOY workflow with comprehensive automation
 - **Infrastructure as Code**: OpenTofu (Terraform) with comprehensive validation and planning
 - **Automated Testing**: Unit tests, integration tests, and policy validation with matrix strategies
-- **Security Integration**: Multi-scanner analysis (tfsec, Checkov, Trivy) with SARIF reporting
+- **Security Integration**: Multi-scanner analysis (Checkov, Trivy) with SARIF reporting
 - **Environment Management**: Automated environment-specific deployments with approval gates
 - **Cost Monitoring**: Automated cost estimation and budget tracking per environment
 - **Quality Gates**: Comprehensive validation before production deployment

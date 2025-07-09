@@ -58,7 +58,7 @@ graph LR
 #### BUILD Workflow (`build.yml`)
 Triggered on: `push`, `pull_request`
 - OpenTofu validation and planning
-- Security scanning (tfsec, Checkov, Trivy)
+- Security scanning (Checkov, Trivy)
 - Website build preparation  
 - Cost estimation
 
@@ -97,6 +97,22 @@ gh workflow run deploy.yml \
   --field environment=staging \
   --field deploy_infrastructure=true \
   --field deploy_website=false
+```
+
+### 5. Monitor Workflow Execution
+
+```bash
+# Check workflow status
+gh run list --workflow=deploy.yml
+
+# View specific workflow run
+gh run view --job deploy-info
+gh run view --job infrastructure-deployment
+gh run view --job website-deployment
+
+# Download artifacts
+gh run download --name "deploy-123-infrastructure-plan"
+gh run download --name "deploy-123-website-archive"
 ```
 
 ### 5. Environment Protection

@@ -174,16 +174,54 @@ waf_allowed_countries = ["US", "CA"]
 
 **Tools integrated:**
 - **Trivy**: Infrastructure and container scanning
-- **tfsec**: Terraform security analysis
 - **Checkov**: Policy compliance checking
+
+**Parallel Matrix Execution:**
+The security scanning runs both tools simultaneously using GitHub Actions matrix strategy for faster execution:
+
+```yaml
+strategy:
+  matrix:
+    scanner: [checkov, trivy]
+  fail-fast: false
+```
+
+This approach provides:
+- **Faster execution**: Both scanners run in parallel
+- **Comprehensive coverage**: Different tools catch different issues
+- **Redundancy**: If one scanner fails, the other continues
+- **Isolated results**: Each tool produces separate reports
+
+**Security Thresholds:**
+- **Critical**: 0 (Build fails if any critical issues found)
+- **High**: 0 (Build fails if any high-severity issues found)
+- **Medium**: 3 (Build fails if more than 3 medium-severity issues)
+- **Low**: 10 (Build fails if more than 10 low-severity issues)
 
 **CI/CD Integration:**
 ```yaml
 - name: Security Scan
+  env:
+    CRITICAL_THRESHOLD: 0
+    HIGH_THRESHOLD: 0
+    MEDIUM_THRESHOLD: 3
+    LOW_THRESHOLD: 10
   run: |
     trivy config terraform/
-    tfsec terraform/
     checkov -d terraform/
+```
+
+**Monitor Security Scans:**
+```bash
+# View security scan results
+gh run view --job security-scanning
+
+# Download security reports
+gh run download --name "build-123-security-checkov"
+gh run download --name "build-123-security-trivy"
+
+# Check current build status
+gh run list --workflow=build.yml --json status,conclusion
 ```
 
 ### Security Exceptions

@@ -26,14 +26,16 @@ cp terraform/terraform.tfvars.example terraform/terraform.tfvars
 Edit `terraform/terraform.tfvars` with your details:
 
 ```hcl
-# 🔴 REQUIRED - Change these values
-project_name      = "my-awesome-website"
-environment       = "prod" 
+# 🔴 REQUIRED - Must be changed
 github_repository = "your-username/your-repo"
-alert_email_addresses = ["you@example.com"]
+
+# ⚙️ RECOMMENDED - Customize these (have defaults)
+project_name      = "my-awesome-website"    # Default: "static-website"
+environment       = "prod"                  # Default: "prod"
+alert_email_addresses = ["you@example.com"] # Default: none
 ```
 
-**That's it!** The template uses sensible defaults for everything else.
+**That's it!** Only `github_repository` is truly required. The template uses sensible defaults for everything else.
 
 ## 🗂️ Step 3: Setup State Backend (1 minute)
 
@@ -50,6 +52,8 @@ EOF
 ```
 
 **Don't have an S3 bucket yet?** → [Backend Setup Guide](backend-setup.md)
+
+**Need an example?** → See [backend.hcl.example](backend.hcl.example)
 
 ## 🚀 Step 4: Deploy Infrastructure (1 minute)
 

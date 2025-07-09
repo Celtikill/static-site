@@ -34,7 +34,7 @@
 - [x] **TEST Workflow (test.yml)**: Unit tests, policy validation, integration tests with comprehensive reporting
 - [x] **DEPLOY Workflow (deploy.yml)**: Infrastructure deployment, website content deployment with environment protection
 - [x] **Reusable Actions**: setup-infrastructure and validate-environment actions for workflow optimization
-- [x] **Security Integration**: tfsec, Checkov, Trivy with SARIF reporting to GitHub Security tab
+- [x] **Security Integration**: Checkov, Trivy with SARIF reporting to GitHub Security tab
 - [x] **Policy as Code**: OPA/Conftest policies for static website security and compliance validation
 - [x] **Artifact Management**: Comprehensive artifact inheritance between BUILD → TEST → DEPLOY phases
 

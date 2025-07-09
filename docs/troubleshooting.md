@@ -136,6 +136,36 @@ aws cloudfront get-distribution \
 
 ### 🔒 Security Issues
 
+#### Issue: Security threshold violations
+**Symptoms:** Build fails with "Security thresholds exceeded" message
+**Cause:** Security scanners found issues above configured thresholds
+
+**Current Thresholds:**
+- Critical: 0 (any critical issue fails build)
+- High: 0 (any high-severity issue fails build)
+- Medium: 3 (more than 3 medium issues fails build)
+- Low: 10 (more than 10 low issues fails build)
+
+**Solution:**
+```bash
+# Check security scan results
+gh run view --job security-scanning
+
+# Review specific findings
+gh run download --name "build-ID-security-checkov"
+gh run download --name "build-ID-security-trivy"
+
+# Common fixes:
+# 1. Add to .trivyignore if acceptable risk
+echo "AVD-AWS-0057" >> terraform/.trivyignore
+
+# 2. Update Terraform configuration
+# Fix the actual security issue in terraform/
+
+# 3. Temporary threshold adjustment (not recommended)
+# Edit build.yml security thresholds if needed
+```
+
 #### Issue: WAF blocking legitimate traffic
 **Symptoms:** Users getting blocked unexpectedly
 **Cause:** WAF rules too restrictive
