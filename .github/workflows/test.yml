@@ -454,6 +454,7 @@ jobs:
           mkdir -p temp-validation
           cp *.tf temp-validation/ 2>/dev/null || true
           cp -r modules temp-validation/ 2>/dev/null || true
+          cp -r policies temp-validation/ 2>/dev/null || true
           rm -f temp-validation/backend.tf  # Remove backend configuration
           
           cd temp-validation
@@ -464,7 +465,7 @@ jobs:
               
               echo "#### Security Policy Results" >> $GITHUB_STEP_SUMMARY
               
-              if conftest verify --policy ../policies/static-website-security.rego plan.json > security_results.txt 2>&1; then
+              if conftest verify --policy policies/static-website-security.rego plan.json > security_results.txt 2>&1; then
                 echo "✅ Security policies passed" >> $GITHUB_STEP_SUMMARY
               else
                 echo "❌ Security policy violations found:" >> $GITHUB_STEP_SUMMARY
@@ -476,7 +477,7 @@ jobs:
               
               echo "#### Compliance Policy Results" >> $GITHUB_STEP_SUMMARY
               
-              if conftest verify --policy ../policies/static-website-compliance.rego plan.json > compliance_results.txt 2>&1; then
+              if conftest verify --policy policies/static-website-compliance.rego plan.json > compliance_results.txt 2>&1; then
                 echo "✅ Compliance policies passed" >> $GITHUB_STEP_SUMMARY
               else
                 echo "⚠️ Compliance policy warnings:" >> $GITHUB_STEP_SUMMARY
