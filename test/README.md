@@ -257,13 +257,13 @@ sequenceDiagram
         Runner->>TestSuite: Launch test-monitoring.sh &
         
         par All Tests Execute Concurrently
-            TestSuite->>Framework: setup_test_environment()
-            TestSuite->>TestSuite: load_file_contents()
+            TestSuite->>Framework: setup_test_environment
+            TestSuite->>TestSuite: load_file_contents
             loop For Each Test Function
-                TestSuite->>Framework: assert_*()
+                TestSuite->>Framework: assert_*
                 Framework->>Framework: Update counters
             end
-            TestSuite->>Framework: generate_test_report()
+            TestSuite->>Framework: generate_test_report
             Framework->>Reports: Write JSON report
         end
         
@@ -287,8 +287,8 @@ sequenceDiagram
 flowchart TD
     A[Test Suite Start] --> B[Source test-functions.sh]
     B --> C[Load file contents into memory]
-    C --> D[setup_test_environment()]
-    D --> E[check_dependencies()]
+    C --> D[setup_test_environment]
+    D --> E[check_dependencies]
     E --> F{Dependencies OK?}
     F -->|No| G[Exit with error]
     F -->|Yes| H[Execute test functions]
@@ -300,10 +300,10 @@ flowchart TD
     L --> M[... additional tests ...]
     M --> N[test_compliance_validation]
     
-    N --> O[generate_test_report()]
+    N --> O[generate_test_report]
     O --> P[Write JSON report]
     P --> Q{TEST_CLEANUP?}
-    Q -->|Yes| R[cleanup_test_environment()]
+    Q -->|Yes| R[cleanup_test_environment]
     Q -->|No| S[Skip cleanup]
     R --> T[Return exit code]
     S --> T
@@ -385,7 +385,7 @@ graph LR
     end
     
     subgraph "Report Generation"
-        C --> D[generate_test_report()]
+        C --> D[generate_test_report]
         D --> E[Calculate Success Rate]
         E --> F[Build JSON with jq]
         F --> G[Write suite-report.json]
@@ -393,10 +393,10 @@ graph LR
     end
     
     subgraph "Aggregation"
-        H --> I[collect_test_statistics()]
+        H --> I[collect_test_statistics]
         I --> J[Parse all JSON reports]
         J --> K[Aggregate totals]
-        K --> L[generate_overall_report()]
+        K --> L[generate_overall_report]
         L --> M[Write test-summary.json]
     end
     

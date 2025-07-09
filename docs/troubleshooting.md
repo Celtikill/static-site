@@ -1,0 +1,403 @@
+# 🔧 Troubleshooting Guide
+
+Quick solutions to common issues when deploying and managing your AWS static website.
+
+## 🚨 Emergency Quick Fixes
+
+### Website Not Loading
+```bash
+# Check CloudFront status
+aws cloudfront get-distribution --id $(tofu output -raw cloudfront_distribution_id)
+
+# Check if S3 bucket exists
+aws s3 ls s3://$(tofu output -raw s3_bucket_id)
+
+# Verify DNS resolution
+nslookup $(tofu output -raw cloudfront_distribution_url)
+```
+
+### Deployment Failing
+```bash
+# Check Terraform state
+cd terraform && tofu validate
+
+# Force unlock state (if locked)
+tofu force-unlock LOCK_ID
+
+# Reset to working state
+git checkout HEAD~1 && tofu apply
+```
+
+---
+
+## 🎯 Common Issues by Category
+
+### 📦 Deployment Issues
+
+#### Issue: "Error acquiring the state lock"
+**Symptoms:** Terraform/OpenTofu hangs during apply/plan
+**Cause:** Previous deployment was interrupted
+
+**Solution:**
+```bash
+# Check who has the lock
+tofu force-unlock -force LOCK_ID
+
+# If DynamoDB table doesn't exist
+aws dynamodb create-table \
+  --table-name terraform-state-locks \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST
+```
+
+#### Issue: "Backend configuration changed"
+**Symptoms:** Error about backend initialization
+**Cause:** Backend configuration mismatch
+
+**Solution:**
+```bash
+# Reinitialize backend
+rm -rf terraform/.terraform
+tofu init -backend-config=backend.hcl -reconfigure
+
+# If migrating state
+tofu init -migrate-state
+```
+
+#### Issue: "Provider configuration not present"
+**Symptoms:** Resources can't be destroyed/modified
+**Cause:** Provider version mismatch
+
+**Solution:**
+```bash
+# Lock provider versions
+tofu providers lock -platform=linux_amd64 -platform=darwin_amd64
+
+# Upgrade providers
+tofu init -upgrade
+```
+
+### 🌐 Website Access Issues
+
+#### Issue: "Access Denied" when visiting website
+**Symptoms:** S3 access denied error in browser
+**Cause:** CloudFront deployment still in progress
+
+**Solution:**
+```bash
+# Check distribution status (should be "Deployed")
+aws cloudfront get-distribution \
+  --id $(tofu output -raw cloudfront_distribution_id) \
+  --query 'Distribution.Status'
+
+# Wait for deployment (takes 15-20 minutes)
+# Then invalidate cache
+aws cloudfront create-invalidation \
+  --distribution-id $(tofu output -raw cloudfront_distribution_id) \
+  --paths "/*"
+```
+
+#### Issue: Old content still showing
+**Symptoms:** Website shows cached/old content
+**Cause:** CloudFront caching
+
+**Solution:**
+```bash
+# Create cache invalidation
+aws cloudfront create-invalidation \
+  --distribution-id $(tofu output -raw cloudfront_distribution_id) \
+  --paths "/*"
+
+# Check invalidation status
+aws cloudfront list-invalidations \
+  --distribution-id $(tofu output -raw cloudfront_distribution_id)
+```
+
+#### Issue: Custom domain not working
+**Symptoms:** Domain doesn't resolve to CloudFront
+**Cause:** DNS or certificate issues
+
+**Solution:**
+```bash
+# Check certificate status (must be in us-east-1)
+aws acm list-certificates --region us-east-1 \
+  --query 'CertificateSummaryList[?DomainName==`www.example.com`]'
+
+# Check Route53 records
+aws route53 list-resource-record-sets \
+  --hosted-zone-id $(tofu output -raw route53_zone_id)
+
+# Verify domain aliases in CloudFront
+aws cloudfront get-distribution \
+  --id $(tofu output -raw cloudfront_distribution_id) \
+  --query 'Distribution.DistributionConfig.Aliases'
+```
+
+### 🔒 Security Issues
+
+#### Issue: WAF blocking legitimate traffic
+**Symptoms:** Users getting blocked unexpectedly
+**Cause:** WAF rules too restrictive
+
+**Solution:**
+```bash
+# Check WAF logs
+aws logs filter-log-events \
+  --log-group-name /aws/wafv2/cloudfront \
+  --filter-pattern "BLOCK"
+
+# Temporarily disable WAF (emergency only)
+aws wafv2 update-web-acl \
+  --scope CLOUDFRONT \
+  --id $(tofu output -raw waf_web_acl_id) \
+  --default-action Allow={}
+
+# Adjust rate limit
+tofu apply -var="waf_rate_limit=5000"
+```
+
+#### Issue: GitHub Actions authentication failing
+**Symptoms:** "AssumeRoleWithWebIdentity" errors
+**Cause:** OIDC configuration issues
+
+**Solution:**
+```bash
+# Check OIDC provider exists
+aws iam list-open-id-connect-providers
+
+# Check role trust relationship
+aws iam get-role --role-name github-actions-role \
+  --query 'Role.AssumeRolePolicyDocument'
+
+# Verify GitHub secrets
+# AWS_ROLE_ARN should match: $(tofu output -raw github_actions_role_arn)
+```
+
+### 💰 Cost Issues
+
+#### Issue: Unexpected high costs
+**Symptoms:** AWS bill higher than expected
+**Cause:** Data transfer or storage costs
+
+**Solution:**
+```bash
+# Check CloudFront usage
+aws cloudfront get-distribution-config \
+  --id $(tofu output -raw cloudfront_distribution_id) \
+  --query 'DistributionConfig.PriceClass'
+
+# Review S3 storage class
+aws s3api get-bucket-intelligent-tiering-configuration \
+  --bucket $(tofu output -raw s3_bucket_id) \
+  --id EntireBucket
+
+# Check cost allocation tags
+aws resourcegroupstaggingapi get-resources \
+  --tag-filters Key=Project,Values=$(tofu output -raw project_name)
+```
+
+### 🧪 Testing Issues
+
+#### Issue: Unit tests failing
+**Symptoms:** Test failures in CI/CD pipeline
+**Cause:** Configuration or syntax errors
+
+**Solution:**
+```bash
+# Run tests locally
+cd test/unit && bash run-tests.sh --verbose
+
+# Check specific test
+./test-s3.sh
+
+# Debug test environment
+TEST_LOG_LEVEL=DEBUG ./test-s3.sh
+
+# Check Terraform syntax
+cd terraform && tofu fmt -check -diff
+```
+
+---
+
+## 🔍 Diagnostic Commands
+
+### Infrastructure Health Check
+```bash
+#!/bin/bash
+# Complete infrastructure health check
+
+echo "=== Infrastructure Health Check ==="
+
+# Check Terraform state
+cd terraform
+echo "1. Terraform validation:"
+tofu validate && echo "✅ Valid" || echo "❌ Invalid"
+
+# Check AWS connectivity
+echo "2. AWS connectivity:"
+aws sts get-caller-identity && echo "✅ Connected" || echo "❌ No access"
+
+# Check S3 bucket
+echo "3. S3 bucket status:"
+S3_BUCKET=$(tofu output -raw s3_bucket_id)
+aws s3 ls "s3://$S3_BUCKET" && echo "✅ Accessible" || echo "❌ Access denied"
+
+# Check CloudFront distribution
+echo "4. CloudFront status:"
+CF_ID=$(tofu output -raw cloudfront_distribution_id)
+STATUS=$(aws cloudfront get-distribution --id "$CF_ID" --query 'Distribution.Status' --output text)
+echo "Status: $STATUS"
+
+# Check website accessibility
+echo "5. Website accessibility:"
+CF_URL=$(tofu output -raw cloudfront_distribution_url)
+curl -f -s "$CF_URL" > /dev/null && echo "✅ Website responding" || echo "❌ Website not accessible"
+
+echo "=== Health Check Complete ==="
+```
+
+### Debug Information Collection
+```bash
+#!/bin/bash
+# Collect debug information
+
+echo "=== Debug Information ==="
+
+# Terraform version
+echo "Terraform/OpenTofu version:"
+tofu version
+
+# AWS CLI version and config
+echo "AWS CLI version:"
+aws --version
+echo "AWS caller identity:"
+aws sts get-caller-identity
+
+# Infrastructure outputs
+echo "Infrastructure outputs:"
+cd terraform
+tofu output
+
+# Recent AWS CloudTrail events
+echo "Recent CloudTrail events:"
+aws logs filter-log-events \
+  --log-group-name CloudTrail/management-events \
+  --start-time $(date -d '1 hour ago' +%s)000 \
+  --query 'events[0:5].{Time:eventTime,Event:eventName,User:userIdentity.type}'
+
+echo "=== Debug Information Complete ==="
+```
+
+---
+
+## 📊 Monitoring & Alerts
+
+### Check System Health
+```bash
+# CloudWatch dashboard
+aws cloudwatch get-dashboard \
+  --dashboard-name $(tofu output -raw cloudwatch_dashboard_name)
+
+# Recent alarms
+aws cloudwatch describe-alarms \
+  --state-value ALARM \
+  --query 'MetricAlarms[?StateUpdatedTimestamp>`2023-01-01`]'
+
+# Cost alerts
+aws budgets describe-budgets \
+  --account-id $(aws sts get-caller-identity --query Account --output text)
+```
+
+### Performance Diagnostics
+```bash
+# CloudFront cache performance
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/CloudFront \
+  --metric-name CacheHitRate \
+  --dimensions Name=DistributionId,Value=$(tofu output -raw cloudfront_distribution_id) \
+  --start-time $(date -d '24 hours ago' -u +%Y-%m-%dT%H:%M:%SZ) \
+  --end-time $(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  --period 3600 \
+  --statistics Average
+
+# Error rates
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/CloudFront \
+  --metric-name 4xxErrorRate \
+  --dimensions Name=DistributionId,Value=$(tofu output -raw cloudfront_distribution_id) \
+  --start-time $(date -d '24 hours ago' -u +%Y-%m-%dT%H:%M:%SZ) \
+  --end-time $(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  --period 3600 \
+  --statistics Average
+```
+
+---
+
+## 🆘 Emergency Procedures
+
+### Emergency Rollback
+```bash
+# Quick rollback to previous working state
+git log --oneline | head -5  # Find last working commit
+git checkout <PREVIOUS_COMMIT>
+cd terraform && tofu apply -auto-approve
+```
+
+### Emergency Maintenance Mode
+```bash
+# Put site in maintenance mode
+echo "<h1>Under Maintenance</h1>" > maintenance.html
+aws s3 cp maintenance.html s3://$(tofu output -raw s3_bucket_id)/index.html
+aws cloudfront create-invalidation \
+  --distribution-id $(tofu output -raw cloudfront_distribution_id) \
+  --paths "/index.html"
+```
+
+### Emergency Security Lockdown
+```bash
+# Block all traffic except admin
+aws wafv2 update-web-acl \
+  --scope CLOUDFRONT \
+  --id $(tofu output -raw waf_web_acl_id) \
+  --default-action Block={}
+
+# Or restrict to specific IP
+tofu apply -var="admin_ip_whitelist=[\"YOUR_IP/32\"]"
+```
+
+---
+
+## 🤝 Getting Additional Help
+
+### Self-Service Resources
+1. **[Error Codes](error-codes.md)** - Detailed error explanations
+2. **[FAQ](faq.md)** - Frequently asked questions
+3. **[Configuration Reference](configuration.md)** - All variables and settings
+
+### Community Support
+- **[GitHub Discussions](https://github.com/celtikill/static-site/discussions)** - Community Q&A
+- **[GitHub Issues](https://github.com/celtikill/static-site/issues)** - Bug reports
+
+### Expert Support
+- **Security Issues**: security@yourcompany.com
+- **Critical Production Issues**: priority-support@yourcompany.com
+
+### Creating a Support Request
+
+**Include this information:**
+```bash
+# Run this command and include output
+cd terraform
+echo "=== Environment ==="
+tofu version
+aws --version
+echo "=== Configuration ==="
+tofu output
+echo "=== Recent Errors ==="
+tofu plan 2>&1 | tail -20
+```
+
+---
+
+**Still stuck?** → [Create an Issue](https://github.com/celtikill/static-site/issues/new) with the debug information above.
