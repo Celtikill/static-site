@@ -106,8 +106,7 @@
       "Sid": "BudgetOperations",
       "Effect": "Allow",
       "Action": [
-        "budgets:CreateBudget",
-        "budgets:DescribeBudgets",
+        "budgets:ViewBudget",
         "budgets:ModifyBudget"
       ],
       "Resource": "*"
