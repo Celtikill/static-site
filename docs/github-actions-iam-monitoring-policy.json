@@ -7,7 +7,7 @@
       "Action": [
         "iam:CreateOpenIDConnectProvider",
         "iam:GetOpenIDConnectProvider",
-        "iam:UpdateOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint",
         "iam:DeleteOpenIDConnectProvider",
         "iam:CreateRole",
         "iam:GetRole",
@@ -41,11 +41,10 @@
         "cloudwatch:DescribeAlarms",
         "cloudwatch:DeleteAlarms",
         "cloudwatch:PutCompositeAlarm",
-        "cloudwatch:DescribeCompositeAlarms",
-        "cloudwatch:DeleteCompositeAlarms",
+        "cloudwatch:DescribeAlarmsForMetric",
         "cloudwatch:PutDashboard",
         "cloudwatch:GetDashboard",
-        "cloudwatch:DeleteDashboard",
+        "cloudwatch:DeleteDashboards",
         "cloudwatch:TagResource",
         "cloudwatch:UntagResource",
         "cloudwatch:ListTagsForResource"
@@ -98,7 +97,7 @@
       "Effect": "Allow",
       "Action": [
         "budgets:CreateBudget",
-        "budgets:ViewBudget",
+        "budgets:DescribeBudget",
         "budgets:ModifyBudget",
         "budgets:DeleteBudget"
       ],
