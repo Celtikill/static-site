@@ -112,10 +112,13 @@ resource "aws_cloudfront_distribution" "website" {
   }
 
   # Logging Configuration
-  logging_config {
-    include_cookies = false
-    bucket          = var.logging_bucket
-    prefix          = var.logging_prefix
+  dynamic "logging_config" {
+    for_each = var.logging_bucket != null ? [1] : []
+    content {
+      include_cookies = false
+      bucket          = var.logging_bucket
+      prefix          = var.logging_prefix
+    }
   }
 
   tags = merge(var.common_tags, {
@@ -137,9 +140,12 @@ resource "aws_cloudfront_cache_policy" "website" {
     enable_accept_encoding_gzip   = true
 
     query_strings_config {
-      query_string_behavior = "whitelist"
-      query_strings {
-        items = var.cache_query_strings
+      query_string_behavior = length(var.cache_query_strings) > 0 ? "whitelist" : "none"
+      dynamic "query_strings" {
+        for_each = length(var.cache_query_strings) > 0 ? [1] : []
+        content {
+          items = var.cache_query_strings
+        }
       }
     }
 
@@ -189,23 +195,26 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
     }
   }
 
-  cors_config {
-    access_control_allow_credentials = false
+  dynamic "cors_config" {
+    for_each = length(var.cors_origins) > 0 ? [1] : []
+    content {
+      access_control_allow_credentials = false
 
-    access_control_allow_headers {
-      items = ["*"]
+      access_control_allow_headers {
+        items = ["*"]
+      }
+
+      access_control_allow_methods {
+        items = ["GET", "HEAD", "OPTIONS"]
+      }
+
+      access_control_allow_origins {
+        items = var.cors_origins
+      }
+
+      access_control_max_age_sec = 600
+      origin_override            = false
     }
-
-    access_control_allow_methods {
-      items = ["GET", "HEAD", "OPTIONS"]
-    }
-
-    access_control_allow_origins {
-      items = var.cors_origins
-    }
-
-    access_control_max_age_sec = 600
-    origin_override            = false
   }
 }
 
