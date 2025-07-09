@@ -454,7 +454,7 @@ jobs:
           mkdir -p temp-validation
           cp *.tf temp-validation/ 2>/dev/null || true
           cp -r modules temp-validation/ 2>/dev/null || true
-          cp -r policies temp-validation/ 2>/dev/null || true
+          cp -r ../policies temp-validation/ 2>/dev/null || true
           rm -f temp-validation/backend.tf  # Remove backend configuration
           
           cd temp-validation
