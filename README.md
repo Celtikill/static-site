@@ -56,15 +56,18 @@ graph TB
 
 ### 🔒 Security Engineer
 1. [**Security Guide**](docs/security.md) - Comprehensive security overview
-2. [**OIDC Setup**](docs/oidc-authentication.md) - GitHub authentication
-3. [**Security Hardening**](docs/oidc-security-hardening.md) - Advanced security
-4. [**Compliance**](docs/compliance.md) - ASVS L1/L2 standards
+2. [**Policy Validation**](docs/policy-validation.md) - Policy-as-code with OPA/Conftest
+3. [**OIDC Setup**](docs/oidc-authentication.md) - GitHub authentication
+4. [**Security Hardening**](docs/oidc-security-hardening.md) - Advanced security
+5. [**Compliance**](docs/compliance.md) - ASVS L1/L2 standards
 
 ### 👨‍💻 Developer/Contributor
 1. [**Development Guide**](docs/development.md) - Local development setup
-2. [**Testing Framework**](test/README.md) - Run and write tests
-3. [**Contributing**](docs/contributing.md) - Contribution guidelines
-4. [**API Reference**](docs/api-reference.md) - Commands and variables
+2. [**Policy Development**](docs/policy-development.md) - Writing custom OPA policies
+3. [**Unit Testing**](test/README.md) - Module testing framework
+4. [**Integration Testing**](docs/integration-testing.md) - End-to-end testing with AWS
+5. [**Contributing**](docs/contributing.md) - Contribution guidelines
+6. [**API Reference**](docs/api-reference.md) - Commands and variables
 
 ## 📈 Production Ready
 

@@ -1,6 +1,6 @@
 # Infrastructure Testing Framework
 
-A comprehensive, zero-dependency testing framework for validating Terraform/OpenTofu infrastructure configurations. This framework provides fast, reliable testing of AWS infrastructure modules with built-in security validation, performance optimization, and CI/CD integration.
+A comprehensive, zero-dependency testing framework for validating Terraform/OpenTofu infrastructure configurations. This framework provides both **unit testing** of individual modules and **integration testing** with real AWS resources, ensuring fast, reliable validation with built-in security validation, performance optimization, and CI/CD integration.
 
 ## 🏗️ Architecture Overview
 
@@ -12,7 +12,7 @@ The testing framework follows a modular architecture designed for performance, m
 test/
 ├── functions/
 │   └── test-functions.sh      # Core testing library (5 assertions + utilities)
-├── unit/
+├── unit/                      # Unit Testing (Module Validation)
 │   ├── run-tests.sh          # Test orchestration and execution engine
 │   ├── test-s3.sh           # S3 module validation (49 tests)
 │   ├── test-cloudfront.sh   # CloudFront module validation (55 tests)  
@@ -20,6 +20,11 @@ test/
 │   ├── test-iam.sh          # IAM module validation (51 tests)
 │   ├── test-monitoring.sh   # Monitoring module validation (64 tests)
 │   └── test-results/        # JSON and status reports
+├── integration/               # Integration Testing (Real AWS Resources)
+│   ├── test-website-deployment.sh    # End-to-end website deployment
+│   ├── test-security-integration.sh  # Security controls validation
+│   ├── test-performance.sh           # Performance and CDN testing
+│   └── test-monitoring-alerts.sh     # Monitoring integration
 └── README.md                # This documentation
 ```
 
@@ -30,6 +35,45 @@ test/
 - **Security Focused**: ASVS L1/L2 compliance validation, security best practices
 - **CI/CD Ready**: JSON reporting, exit codes, status files for automation
 - **Developer Friendly**: Clear output, comprehensive logging, easy debugging
+
+## 🧪 Testing Types
+
+### Unit Testing (test/unit/)
+
+**Purpose**: Validate individual Terraform modules in isolation using static analysis and plan validation.
+
+**What it tests**:
+- ✅ Terraform syntax and configuration validity
+- ✅ Module input/output relationships
+- ✅ Resource configuration correctness
+- ✅ Security policy compliance
+- ✅ Code formatting and best practices
+
+**Characteristics**:
+- **Fast**: Complete test suite runs in 2-3 minutes
+- **No AWS resources**: Uses `terraform plan` without deployment
+- **Deterministic**: Same results every time
+- **Cost-free**: No AWS charges incurred
+
+### Integration Testing (test/integration/)
+
+**Purpose**: Validate end-to-end functionality with real AWS resources and services.
+
+**What it tests**:
+- 🔄 Complete website deployment workflow
+- 🔄 Cross-service communication (S3 → CloudFront → WAF)
+- 🔄 Security controls in live environments
+- 🔄 Performance characteristics with real CDN
+- 🔄 Monitoring and alerting with actual metrics
+- 🔄 Cost optimization features
+
+**Characteristics**:
+- **Comprehensive**: Tests complete user journeys
+- **Real AWS resources**: Deploys actual infrastructure
+- **Longer duration**: 15-30 minutes including cleanup
+- **Cost-aware**: ~$2-5 per test run with automatic cleanup
+
+**➡️ [Complete Integration Testing Guide](../docs/integration-testing.md)**
 
 ## 🚀 Quick Start
 
@@ -46,7 +90,7 @@ terraform version     # Terraform (alternative)
 ### Basic Usage
 
 ```bash
-# Run all tests in parallel (recommended)
+# Unit Testing: Run all module tests in parallel (recommended)
 cd test/unit
 ./run-tests.sh
 
@@ -55,6 +99,13 @@ cd test/unit
 
 # Enable verbose debugging
 ./run-tests.sh --verbose
+
+# Integration Testing: End-to-end validation with real AWS resources
+cd test/integration
+./test-website-deployment.sh
+
+# Run all integration tests
+./run-integration-tests.sh
 
 # Run tests sequentially for easier debugging
 ./run-tests.sh --sequential

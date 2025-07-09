@@ -175,6 +175,7 @@ waf_allowed_countries = ["US", "CA"]
 **Tools integrated:**
 - **Trivy**: Infrastructure and container scanning
 - **Checkov**: Policy compliance checking
+- **OPA/Conftest**: Policy-as-code validation ([Policy Guide](policy-validation.md))
 
 **Parallel Matrix Execution:**
 The security scanning runs both tools simultaneously using GitHub Actions matrix strategy for faster execution:
