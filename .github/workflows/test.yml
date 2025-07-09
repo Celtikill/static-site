@@ -350,10 +350,8 @@ jobs:
           cat > policies/static-website-security.rego << 'EOF'
           package terraform.static_website.security
           
-          import rego.v1
-          
           # S3 bucket must be encrypted
-          deny contains msg if {
+          deny[msg] {
             input.resource_changes[_].type == "aws_s3_bucket"
             bucket := input.resource_changes[_]
             not bucket.change.after.server_side_encryption_configuration
@@ -361,7 +359,7 @@ jobs:
           }
           
           # S3 bucket must block public access
-          deny contains msg if {
+          deny[msg] {
             input.resource_changes[_].type == "aws_s3_bucket_public_access_block"
             pab := input.resource_changes[_]
             not pab.change.after.block_public_acls
@@ -369,7 +367,7 @@ jobs:
           }
           
           # CloudFront must use HTTPS only
-          deny contains msg if {
+          deny[msg] {
             input.resource_changes[_].type == "aws_cloudfront_distribution"
             cf := input.resource_changes[_]
             cf.change.after.default_cache_behavior[_].viewer_protocol_policy != "redirect-to-https"
@@ -377,7 +375,7 @@ jobs:
           }
           
           # WAF must be enabled for CloudFront
-          deny contains msg if {
+          deny[msg] {
             input.resource_changes[_].type == "aws_cloudfront_distribution"
             cf := input.resource_changes[_]
             not cf.change.after.web_acl_id
@@ -385,7 +383,7 @@ jobs:
           }
           
           # IAM roles must follow least privilege
-          warn contains msg if {
+          warn[msg] {
             input.resource_changes[_].type == "aws_iam_role_policy_attachment"
             attachment := input.resource_changes[_]
             contains(attachment.change.after.policy_arn, "PowerUserAccess")
@@ -397,12 +395,10 @@ jobs:
           cat > policies/static-website-compliance.rego << 'EOF'
           package terraform.static_website.compliance
           
-          import rego.v1
-          
           # Resources must have required tags
           required_tags := ["Environment", "Project", "ManagedBy"]
           
-          warn contains msg if {
+          warn[msg] {
             input.resource_changes[_].type in ["aws_s3_bucket", "aws_cloudfront_distribution"]
             resource := input.resource_changes[_]
             tag := required_tags[_]
@@ -411,7 +407,7 @@ jobs:
           }
           
           # S3 bucket names must follow naming convention
-          warn contains msg if {
+          warn[msg] {
             input.resource_changes[_].type == "aws_s3_bucket"
             bucket := input.resource_changes[_]
             not regex.match("^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$", bucket.change.after.bucket)
@@ -419,7 +415,7 @@ jobs:
           }
           
           # CloudFront must have security headers
-          warn contains msg if {
+          warn[msg] {
             input.resource_changes[_].type == "aws_cloudfront_function"
             cf_function := input.resource_changes[_]
             not contains(cf_function.change.after.code, "x-content-type-options")
