@@ -25,7 +25,12 @@
         "iam:UntagPolicy",
         "iam:TagOpenIDConnectProvider",
         "iam:UntagOpenIDConnectProvider",
-        "iam:PassRole"
+        "iam:PassRole",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion"
       ],
       "Resource": [
         "arn:aws:iam::*:role/*-static-site-*",
@@ -47,7 +52,10 @@
         "cloudwatch:DeleteDashboards",
         "cloudwatch:TagResource",
         "cloudwatch:UntagResource",
-        "cloudwatch:ListTagsForResource"
+        "cloudwatch:ListTagsForResource",
+        "cloudwatch:ListMetrics",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListDashboards"
       ],
       "Resource": "*"
     },
@@ -65,7 +73,8 @@
         "logs:PutLogEvents",
         "logs:PutMetricFilter",
         "logs:DeleteMetricFilter",
-        "logs:DescribeMetricFilters"
+        "logs:DescribeMetricFilters",
+        "logs:DescribeLogStreams"
       ],
       "Resource": [
         "arn:aws:logs:*:*:log-group:/aws/cloudfront/*",
@@ -88,7 +97,8 @@
         "sns:SetSubscriptionAttributes",
         "sns:TagResource",
         "sns:UntagResource",
-        "sns:ListTagsForResource"
+        "sns:ListTagsForResource",
+        "sns:GetSubscriptionAttributes"
       ],
       "Resource": "arn:aws:sns:*:*:*-static-site-*"
     },
@@ -97,9 +107,8 @@
       "Effect": "Allow",
       "Action": [
         "budgets:CreateBudget",
-        "budgets:DescribeBudget",
-        "budgets:ModifyBudget",
-        "budgets:DeleteBudget"
+        "budgets:ViewBudget",
+        "budgets:UpdateBudget"
       ],
       "Resource": "*"
     },
@@ -118,6 +127,7 @@
         "kms:CreateAlias",
         "kms:UpdateAlias",
         "kms:DeleteAlias",
+        "kms:ListAliases",
         "kms:TagResource",
         "kms:UntagResource",
         "kms:ListResourceTags",
@@ -135,6 +145,7 @@
         "route53:DeleteHostedZone",
         "route53:ChangeResourceRecordSets",
         "route53:ListResourceRecordSets",
+        "route53:GetChange",
         "route53:CreateHealthCheck",
         "route53:GetHealthCheck",
         "route53:UpdateHealthCheck",
