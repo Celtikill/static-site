@@ -31,7 +31,7 @@ github_repository = "your-username/your-repo"
 
 # ⚙️ RECOMMENDED - Customize these (have defaults)
 project_name      = "my-awesome-website"    # Default: "static-website"
-environment       = "prod"                  # Default: "prod"
+environment       = "prod"                  # Default: "prod" (or dev, staging)
 alert_email_addresses = ["you@example.com"] # Default: none
 ```
 

@@ -248,6 +248,22 @@ TEST_LOG_LEVEL=DEBUG ./test-s3.sh
 cd terraform && tofu fmt -check -diff
 ```
 
+#### Issue: Integration tests failing with environment validation error
+**Symptoms:** Error "Environment must be dev, staging, prod, or a test environment"
+**Cause:** Integration test environment names don't match validation pattern
+
+**Solution:**
+```bash
+# Check environment variable validation in terraform/variables.tf
+# Integration tests use: integration-test-[NUMBER]
+# Unit tests use: unit-test-[NUMBER]
+# These patterns are automatically allowed by the validation rule
+
+# If you need to run integration tests manually:
+export TF_VAR_environment="integration-test-123"
+cd terraform && tofu plan
+```
+
 ---
 
 ## 🔍 Diagnostic Commands

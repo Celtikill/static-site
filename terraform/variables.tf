@@ -19,13 +19,14 @@ variable "project_name" {
 }
 
 variable "environment" {
-  description = "Environment name (dev, staging, prod)"
+  description = "Environment name (dev, staging, prod, or test environments like integration-test-*, unit-test-*)"
   type        = string
   default     = "prod"
 
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be dev, staging, or prod."
+    condition = contains(["dev", "staging", "prod"], var.environment) || 
+                can(regex("^(integration-test|unit-test)-[0-9]+", var.environment))
+    error_message = "Environment must be dev, staging, prod, or a test environment (integration-test-*, unit-test-*)."
   }
 }
 
