@@ -173,7 +173,9 @@ runs:
         esac
         
         echo "status=$VALIDATION_STATUS" >> $GITHUB_OUTPUT
-        echo "config=$CONFIG" >> $GITHUB_OUTPUT
+        # Ensure JSON is on a single line for GitHub Actions output
+        CONFIG_SINGLE_LINE=$(echo "$CONFIG" | jq -c .)
+        echo "config=$CONFIG_SINGLE_LINE" >> $GITHUB_OUTPUT
         
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Environment Configuration" >> $GITHUB_STEP_SUMMARY
