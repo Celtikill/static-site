@@ -21,9 +21,7 @@ resource "aws_cloudfront_origin_access_control" "website" {
 
 # CloudFront Function for Security Headers
 resource "aws_cloudfront_function" "security_headers" {
-  name    = length("${var.distribution_name}-security-headers") > 64 ? 
-    "${substr(var.distribution_name, 0, 47)}-${substr(var.distribution_name, -8, -1)}-headers" : 
-    "${var.distribution_name}-security-headers"
+  name    = length("${var.distribution_name}-security-headers") > 64 ? "${substr(var.distribution_name, 0, 47)}-${substr(var.distribution_name, -8, -1)}-headers" : "${var.distribution_name}-security-headers"
   runtime = "cloudfront-js-1.0"
   comment = "Add security headers to all responses"
   publish = true
