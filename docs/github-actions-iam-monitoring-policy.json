@@ -138,7 +138,8 @@
         "kms:UntagResource",
         "kms:ListResourceTags",
         "kms:Decrypt",
-        "kms:GenerateDataKey"
+        "kms:GenerateDataKey",
+        "kms:GetKeyRotationStatus"
       ],
       "Resource": "*"
     },

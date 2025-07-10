@@ -6,10 +6,11 @@ This document describes the IAM permissions required for GitHub Actions to deplo
 
 Due to AWS IAM policy size limits (6,144 characters), we split the permissions into two focused policies without wildcards:
 
-### Policy 1: Core Infrastructure (2,547 characters)
+### Policy 1: Core Infrastructure (2,802 characters)
 `github-actions-core-infrastructure-policy.json`
 - S3 bucket operations (with resource restrictions)
 - CloudFront distributions and functions
+- ACM certificate operations (read-only)
 - WAF web ACL and IP sets
 - General permissions (STS, EC2 regions)
 
@@ -135,7 +136,7 @@ When updating these policies:
 
 ## Related Files
 
-- `github-actions-core-infrastructure-policy.json` - Core infrastructure permissions (2,547 chars)
+- `github-actions-core-infrastructure-policy.json` - Core infrastructure permissions (2,802 chars)
 - `github-actions-iam-monitoring-policy.json` - IAM and monitoring permissions (3,021 chars)
 - `../terraform/modules/iam/` - Terraform-managed IAM policies (applied after initial deployment)
 - `../.github/workflows/` - GitHub Actions workflows that use these permissions
