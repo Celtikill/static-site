@@ -576,6 +576,7 @@ jobs:
           TF_VAR_project_name: "static-site-int-test"
           TF_VAR_github_repository: ${{ github.repository }}
           TF_VAR_alert_email_addresses: '["test@example.com"]'
+          TF_VAR_use_existing_iam_role: "false"
         run: |
           echo "## 🧪 Integration Tests" >> $GITHUB_STEP_SUMMARY
           echo "**Test ID**: ${{ needs.test-info.outputs.test_id }}" >> $GITHUB_STEP_SUMMARY
@@ -700,6 +701,7 @@ jobs:
           TF_VAR_project_name: "static-site-int-test"
           TF_VAR_github_repository: ${{ github.repository }}
           TF_VAR_alert_email_addresses: '["test@example.com"]'
+          TF_VAR_use_existing_iam_role: "false"
         run: |
           echo "🧹 Cleaning up test infrastructure..." >> $GITHUB_STEP_SUMMARY
           
