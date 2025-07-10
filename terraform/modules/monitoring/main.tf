@@ -312,7 +312,7 @@ resource "aws_cloudwatch_log_metric_filter" "deployment_success" {
   count = var.enable_deployment_metrics ? 1 : 0
 
   name           = "${var.project_name}-deployment-success"
-  log_group_name = "/aws/github-actions/${var.project_name}"
+  log_group_name = aws_cloudwatch_log_group.github_actions[0].name
   pattern        = "DEPLOYMENT_SUCCESS"
 
   metric_transformation {
@@ -320,13 +320,15 @@ resource "aws_cloudwatch_log_metric_filter" "deployment_success" {
     namespace = "Custom/${var.project_name}"
     value     = "1"
   }
+
+  depends_on = [aws_cloudwatch_log_group.github_actions]
 }
 
 resource "aws_cloudwatch_log_metric_filter" "deployment_failure" {
   count = var.enable_deployment_metrics ? 1 : 0
 
   name           = "${var.project_name}-deployment-failure"
-  log_group_name = "/aws/github-actions/${var.project_name}"
+  log_group_name = aws_cloudwatch_log_group.github_actions[0].name
   pattern        = "DEPLOYMENT_FAILURE"
 
   metric_transformation {
@@ -334,6 +336,8 @@ resource "aws_cloudwatch_log_metric_filter" "deployment_failure" {
     namespace = "Custom/${var.project_name}"
     value     = "1"
   }
+
+  depends_on = [aws_cloudwatch_log_group.github_actions]
 }
 
 # Log Group for GitHub Actions

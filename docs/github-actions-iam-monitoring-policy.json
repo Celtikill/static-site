@@ -128,6 +128,11 @@
         "sns:GetTopicAttributes",
         "sns:SetTopicAttributes",
         "sns:DeleteTopic",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:ListSubscriptionsByTopic",
+        "sns:SetSubscriptionAttributes",
+        "sns:GetSubscriptionAttributes",
         "sns:TagResource",
         "sns:UntagResource",
         "sns:ListTagsForResource"
