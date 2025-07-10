@@ -78,7 +78,8 @@
         "logs:CreateLogStream",
         "logs:PutLogEvents",
         "logs:PutMetricFilter",
-        "logs:DeleteMetricFilter"
+        "logs:DeleteMetricFilter",
+        "logs:DescribeMetricFilters"
       ],
       "Resource": [
         "arn:aws:logs:*:*:log-group:/aws/cloudfront/*",
@@ -132,8 +133,12 @@
         "sns:ListTagsForResource"
       ],
       "Resource": [
+        "arn:aws:sns:*:*:*-int-test-*",
+        "arn:aws:sns:*:*:*-integration-test-*",
         "arn:aws:sns:us-east-1:*:*-int-test-*",
-        "arn:aws:sns:us-east-1:*:*-integration-test-*"
+        "arn:aws:sns:us-east-1:*:*-integration-test-*",
+        "arn:aws:sns:us-east-2:*:*-int-test-*",
+        "arn:aws:sns:us-east-2:*:*-integration-test-*"
       ]
     },
     {
@@ -142,7 +147,12 @@
       "Action": [
         "budgets:ViewBudget",
         "budgets:ModifyBudget",
-        "budgets:TagResource"
+        "budgets:TagResource",
+        "budgets:UntagResource",
+        "budgets:ListTagsForResource",
+        "budgets:CreateBudget",
+        "budgets:DeleteBudget",
+        "budgets:DescribeBudget"
       ],
       "Resource": "*"
     },
