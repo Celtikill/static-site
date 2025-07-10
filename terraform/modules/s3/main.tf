@@ -88,7 +88,7 @@ data "aws_iam_policy_document" "s3_policy" {
 resource "aws_s3_bucket" "replica" {
   count    = var.enable_replication ? 1 : 0
   provider = aws.replica
-  bucket   = "${var.bucket_name}-replica"
+  bucket   = length("${var.bucket_name}-replica") > 63 ? "${substr(var.bucket_name, 0, 55)}-${substr(md5(var.bucket_name), 0, 7)}" : "${var.bucket_name}-replica"
 
   tags = merge(var.common_tags, {
     Name    = "${var.bucket_name}-replica"
@@ -254,7 +254,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "website" {
 # Dedicated logging bucket (optional)
 resource "aws_s3_bucket" "access_logs" {
   count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = "${var.bucket_name}-access-logs"
+  bucket = length("${var.bucket_name}-access-logs") > 63 ? "${substr(var.bucket_name, 0, 51)}-${substr(md5(var.bucket_name), 0, 11)}" : "${var.bucket_name}-access-logs"
 
   tags = merge(var.common_tags, {
     Name    = "${var.bucket_name}-access-logs"

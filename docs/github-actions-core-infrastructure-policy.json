@@ -48,7 +48,12 @@
         "s3:PutBucketWebsite",
         "s3:DeleteBucketWebsite",
         "s3:GetAccelerateConfiguration",
-        "s3:PutAccelerateConfiguration"
+        "s3:PutAccelerateConfiguration",
+        "s3:GetBucketRequestPayment",
+        "s3:PutBucketRequestPayment",
+        "s3:GetBucketLocation",
+        "s3:ListBuckets",
+        "s3:DeleteBucketReplication"
       ],
       "Resource": [
         "arn:aws:s3:::*static-site*",
@@ -102,7 +107,11 @@
         "cloudfront:GetOriginRequestPolicy",
         "cloudfront:TagResource",
         "cloudfront:UntagResource",
-        "cloudfront:ListTagsForResource"
+        "cloudfront:ListTagsForResource",
+        "cloudfront:ListOriginAccessControls",
+        "cloudfront:ListDistributions",
+        "cloudfront:ListResponseHeadersPolicies",
+        "cloudfront:ListFunctions"
       ],
       "Resource": "*"
     },
@@ -143,7 +152,11 @@
         "wafv2:DeleteLoggingConfiguration",
         "wafv2:TagResource",
         "wafv2:UntagResource",
-        "wafv2:ListTagsForResource"
+        "wafv2:ListTagsForResource",
+        "wafv2:ListWebACLs",
+        "wafv2:ListIPSets",
+        "wafv2:DescribeManagedRuleGroup",
+        "wafv2:ListRuleGroups"
       ],
       "Resource": "*"
     }

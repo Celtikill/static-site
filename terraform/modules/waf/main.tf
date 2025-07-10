@@ -316,12 +316,12 @@ resource "aws_wafv2_ip_set" "blacklist" {
 
 # CloudWatch Log Group for WAF
 resource "aws_cloudwatch_log_group" "waf" {
-  name              = "/aws/wafv2/${var.web_acl_name}"
+  name              = "aws-waf-logs-${var.web_acl_name}"
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn
 
   tags = merge(var.common_tags, {
-    Name   = "/aws/wafv2/${var.web_acl_name}"
+    Name   = "aws-waf-logs-${var.web_acl_name}"
     Module = "waf"
   })
 }
@@ -329,7 +329,7 @@ resource "aws_cloudwatch_log_group" "waf" {
 # WAF Logging Configuration
 resource "aws_wafv2_web_acl_logging_configuration" "main" {
   resource_arn            = aws_wafv2_web_acl.main.arn
-  log_destination_configs = [aws_cloudwatch_log_group.waf.arn]
+  log_destination_configs = ["${aws_cloudwatch_log_group.waf.arn}:*"]
 
   redacted_fields {
     single_header {
@@ -360,6 +360,7 @@ resource "aws_wafv2_web_acl_logging_configuration" "main" {
 
 # CloudWatch Alarms for WAF metrics
 resource "aws_cloudwatch_metric_alarm" "blocked_requests" {
+  provider            = aws.cloudfront
   alarm_name          = "${var.web_acl_name}-blocked-requests"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
@@ -380,6 +381,7 @@ resource "aws_cloudwatch_metric_alarm" "blocked_requests" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "rate_limit_exceeded" {
+  provider            = aws.cloudfront
   alarm_name          = "${var.web_acl_name}-rate-limit-exceeded"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "1"

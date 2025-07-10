@@ -35,7 +35,13 @@
         "iam:CreatePolicyVersion",
         "iam:PutRolePolicy",
         "iam:GetRolePolicy",
-        "iam:DeleteRolePolicy"
+        "iam:DeleteRolePolicy",
+        "iam:ListRoles",
+        "iam:ListPolicies",
+        "iam:SetDefaultPolicyVersion",
+        "iam:ListRoleTags",
+        "iam:ListPolicyTags",
+        "iam:SimulatePrincipalPolicy"
       ],
       "Resource": [
         "arn:aws:iam::*:role/*static-site*",
@@ -150,8 +156,17 @@
       "Sid": "BudgetOperations",
       "Effect": "Allow",
       "Action": [
-        "budgets:ViewBudget",
+        "budgets:CreateBudget",
+        "budgets:DescribeBudget",
         "budgets:ModifyBudget",
+        "budgets:DeleteBudget",
+        "budgets:CreateNotification",
+        "budgets:DescribeNotificationsForBudget",
+        "budgets:DeleteNotification",
+        "budgets:CreateSubscriber",
+        "budgets:DescribeSubscribersForNotification",
+        "budgets:DeleteSubscriber",
+        "budgets:ViewBudget",
         "budgets:TagResource",
         "budgets:UntagResource",
         "budgets:ListTagsForResource"
