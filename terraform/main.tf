@@ -32,6 +32,22 @@ provider "aws" {
   }
 }
 
+# Provider configuration for CloudFront resources (must be us-east-1)
+provider "aws" {
+  alias  = "cloudfront"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      Project      = var.project_name
+      Environment  = var.environment
+      ManagedBy    = "opentofu"
+      Repository   = var.github_repository
+      Region       = "us-east-1"
+    }
+  }
+}
+
 # Main provider configuration
 provider "aws" {
   region = var.aws_region
@@ -96,9 +112,13 @@ module "s3" {
   }
 }
 
-# WAF Module - Web Application Firewall for security
+# WAF Module - Web Application Firewall for security (must be in us-east-1 for CloudFront)
 module "waf" {
   source = "./modules/waf"
+
+  providers = {
+    aws = aws.cloudfront
+  }
 
   web_acl_name               = "${local.project_name}-${local.environment}-waf"
   rate_limit                 = var.waf_rate_limit
@@ -137,21 +157,16 @@ module "cloudfront" {
   common_tags               = local.common_tags
 }
 
-# IAM Module - GitHub Actions OIDC and deployment permissions
-module "iam" {
-  source = "./modules/iam"
+# IAM Resources - Manually managed for security
+# Note: These resources are created and managed manually in AWS Console
+# using the policy files in /docs directory
 
-  github_actions_role_name       = "${local.project_name}-${local.environment}-github-actions"
-  create_github_oidc_provider    = var.create_github_oidc_provider
-  github_repositories            = local.github_repositories
-  s3_bucket_arns                 = [module.s3.bucket_arn]
-  cloudfront_distribution_arns   = [module.cloudfront.distribution_arn]
-  kms_key_arns                   = var.kms_key_arn != null ? [var.kms_key_arn] : []
-  max_session_duration           = var.max_session_duration
-  enable_readonly_access         = var.enable_readonly_access
-  create_deployment_service_role = var.create_deployment_service_role
-  aws_region                     = data.aws_region.current.name
-  common_tags                    = local.common_tags
+data "aws_iam_role" "github_actions" {
+  name = "${local.project_name}-${local.environment}-github-actions"
+}
+
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
 }
 
 # Monitoring Module - Comprehensive observability and alerting

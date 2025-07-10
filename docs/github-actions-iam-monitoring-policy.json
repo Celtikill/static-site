@@ -17,6 +17,7 @@
         "iam:GetPolicy",
         "iam:CreatePolicyVersion",
         "iam:DeletePolicy",
+        "iam:DeletePolicyVersion",
         "iam:AttachRolePolicy",
         "iam:DetachRolePolicy",
         "iam:TagRole",
@@ -30,7 +31,10 @@
         "iam:ListRolePolicies",
         "iam:GetPolicyVersion",
         "iam:ListPolicyVersions",
-        "iam:CreatePolicyVersion"
+        "iam:CreatePolicyVersion",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy"
       ],
       "Resource": [
         "arn:aws:iam::*:role/*-static-site-*",
@@ -86,7 +90,8 @@
       "Action": [
         "logs:DescribeLogGroups",
         "logs:DescribeLogStreams",
-        "logs:DescribeMetricFilters"
+        "logs:DescribeMetricFilters",
+        "logs:ListTagsForResource"
       ],
       "Resource": "*"
     },
@@ -105,16 +110,36 @@
         "sns:TagResource",
         "sns:UntagResource",
         "sns:ListTagsForResource",
-        "sns:GetSubscriptionAttributes"
+        "sns:GetSubscriptionAttributes",
+        "sns:ListTopics",
+        "sns:Publish"
       ],
       "Resource": "arn:aws:sns:*:*:*-static-site-*"
+    },
+    {
+      "Sid": "SNSIntegrationTestOperations",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:DeleteTopic",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:sns:us-east-1:*:*-int-test-*",
+        "arn:aws:sns:us-east-1:*:*-integration-test-*"
+      ]
     },
     {
       "Sid": "BudgetOperations",
       "Effect": "Allow",
       "Action": [
         "budgets:ViewBudget",
-        "budgets:ModifyBudget"
+        "budgets:ModifyBudget",
+        "budgets:TagResource"
       ],
       "Resource": "*"
     },
