@@ -38,8 +38,10 @@
         "iam:DeleteRolePolicy"
       ],
       "Resource": [
-        "arn:aws:iam::*:role/*-static-site-*",
-        "arn:aws:iam::*:policy/*-static-site-*",
+        "arn:aws:iam::*:role/*static-site*",
+        "arn:aws:iam::*:role/static-site*",
+        "arn:aws:iam::*:policy/*static-site*",
+        "arn:aws:iam::*:policy/static-site*",
         "arn:aws:iam::*:oidc-provider/*"
       ]
     },
