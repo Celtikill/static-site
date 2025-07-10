@@ -1,0 +1,186 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GeneralPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "ec2:DescribeRegions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3BucketOperations",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:ListBucket",
+        "s3:PutBucketPolicy",
+        "s3:GetBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketVersioning",
+        "s3:GetBucketVersioning",
+        "s3:PutEncryptionConfiguration",
+        "s3:GetEncryptionConfiguration",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutReplicationConfiguration",
+        "s3:GetReplicationConfiguration",
+        "s3:PutIntelligentTieringConfiguration",
+        "s3:GetIntelligentTieringConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutBucketLogging",
+        "s3:GetBucketLogging",
+        "s3:PutBucketTagging",
+        "s3:GetBucketTagging",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:PutObjectAcl",
+        "s3:GetBucketAcl",
+        "s3:PutBucketCORS",
+        "s3:GetBucketCORS",
+        "s3:GetBucketWebsite",
+        "s3:PutBucketWebsite",
+        "s3:DeleteBucketWebsite",
+        "s3:GetAccelerateConfiguration",
+        "s3:PutAccelerateConfiguration",
+        "s3:GetBucketRequestPayment",
+        "s3:PutBucketRequestPayment",
+        "s3:GetBucketLocation",
+        "s3:ListBuckets",
+        "s3:DeleteBucketReplication"
+      ],
+      "Resource": [
+        "arn:aws:s3:::static-site-dev-*",
+        "arn:aws:s3:::static-site-dev-*/*",
+        "arn:aws:s3:::static-site-staging-*",
+        "arn:aws:s3:::static-site-staging-*/*",
+        "arn:aws:s3:::static-site-prod-*",
+        "arn:aws:s3:::static-site-prod-*/*",
+        "arn:aws:s3:::*int-test*",
+        "arn:aws:s3:::*int-test*/*",
+        "arn:aws:s3:::*integration-test*",
+        "arn:aws:s3:::*integration-test*/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": ["us-east-1", "us-east-2"]
+        }
+      }
+    },
+    {
+      "Sid": "S3ReplicationRoleAccess",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole",
+        "iam:GetRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/static-site-s3-replication"
+      ]
+    },
+    {
+      "Sid": "CloudFrontOperations",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateDistribution",
+        "cloudfront:GetDistribution",
+        "cloudfront:GetDistributionConfig",
+        "cloudfront:UpdateDistribution",
+        "cloudfront:DeleteDistribution",
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:GetOriginAccessControl",
+        "cloudfront:UpdateOriginAccessControl",
+        "cloudfront:DeleteOriginAccessControl",
+        "cloudfront:CreateFunction",
+        "cloudfront:GetFunction",
+        "cloudfront:DescribeFunction",
+        "cloudfront:UpdateFunction",
+        "cloudfront:DeleteFunction",
+        "cloudfront:PublishFunction",
+        "cloudfront:CreateCachePolicy",
+        "cloudfront:GetCachePolicy",
+        "cloudfront:UpdateCachePolicy",
+        "cloudfront:DeleteCachePolicy",
+        "cloudfront:CreateResponseHeadersPolicy",
+        "cloudfront:GetResponseHeadersPolicy",
+        "cloudfront:UpdateResponseHeadersPolicy",
+        "cloudfront:DeleteResponseHeadersPolicy",
+        "cloudfront:GetOriginRequestPolicy",
+        "cloudfront:TagResource",
+        "cloudfront:UntagResource",
+        "cloudfront:ListTagsForResource",
+        "cloudfront:ListOriginAccessControls",
+        "cloudfront:ListDistributions",
+        "cloudfront:ListResponseHeadersPolicies",
+        "cloudfront:ListFunctions"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "CloudFrontDataSources",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:ListCachePolicies",
+        "cloudfront:ListOriginRequestPolicies"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ACMCertificateOperations",
+      "Effect": "Allow",
+      "Action": [
+        "acm:DescribeCertificate",
+        "acm:ListCertificates",
+        "acm:GetCertificate",
+        "acm:ListTagsForCertificate"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "WAFOperations",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:CreateWebACL",
+        "wafv2:GetWebACL",
+        "wafv2:UpdateWebACL",
+        "wafv2:DeleteWebACL",
+        "wafv2:CreateIPSet",
+        "wafv2:GetIPSet",
+        "wafv2:UpdateIPSet",
+        "wafv2:DeleteIPSet",
+        "wafv2:PutLoggingConfiguration",
+        "wafv2:GetLoggingConfiguration",
+        "wafv2:DeleteLoggingConfiguration",
+        "wafv2:TagResource",
+        "wafv2:UntagResource",
+        "wafv2:ListTagsForResource",
+        "wafv2:ListWebACLs",
+        "wafv2:ListIPSets",
+        "wafv2:DescribeManagedRuleGroup",
+        "wafv2:ListRuleGroups"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    }
+  ]
+}

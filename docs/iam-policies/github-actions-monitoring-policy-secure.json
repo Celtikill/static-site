@@ -1,0 +1,174 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudWatchOperations",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:PutCompositeAlarm",
+        "cloudwatch:DescribeAlarmsForMetric",
+        "cloudwatch:PutDashboard",
+        "cloudwatch:GetDashboard",
+        "cloudwatch:DeleteDashboards",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource",
+        "cloudwatch:ListTagsForResource",
+        "cloudwatch:ListMetrics",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListDashboards"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": ["us-east-1", "us-east-2"]
+        }
+      }
+    },
+    {
+      "Sid": "LogsOperations",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:TagLogGroup",
+        "logs:UntagLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:PutMetricFilter",
+        "logs:DeleteMetricFilter",
+        "logs:DescribeMetricFilters"
+      ],
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:aws-waf-logs-*",
+        "arn:aws:logs:*:*:log-group:/aws/cloudfront/*",
+        "arn:aws:logs:*:*:log-group:/aws/wafv2/*",
+        "arn:aws:logs:*:*:log-group:/aws/github-actions*",
+        "arn:aws:logs:*:*:log-group:*static-site*"
+      ]
+    },
+    {
+      "Sid": "LogsListOperations",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:DescribeMetricFilters",
+        "logs:ListTagsForResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SNSOperations",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:DeleteTopic",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:ListSubscriptionsByTopic",
+        "sns:SetSubscriptionAttributes",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:ListTagsForResource",
+        "sns:GetSubscriptionAttributes",
+        "sns:ListTopics",
+        "sns:Publish"
+      ],
+      "Resource": [
+        "arn:aws:sns:*:*:*-static-site-*",
+        "arn:aws:sns:*:*:static-site-*"
+      ]
+    },
+    {
+      "Sid": "SNSIntegrationTestOperations",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:DeleteTopic",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:ListSubscriptionsByTopic",
+        "sns:SetSubscriptionAttributes",
+        "sns:GetSubscriptionAttributes",
+        "sns:TagResource",
+        "sns:UntagResource",
+        "sns:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:sns:*:*:*-int-test-*",
+        "arn:aws:sns:*:*:*-integration-test-*",
+        "arn:aws:sns:us-east-1:*:*-int-test-*",
+        "arn:aws:sns:us-east-1:*:*-integration-test-*",
+        "arn:aws:sns:us-east-2:*:*-int-test-*",
+        "arn:aws:sns:us-east-2:*:*-integration-test-*"
+      ]
+    },
+    {
+      "Sid": "BudgetOperations",
+      "Effect": "Allow",
+      "Action": [
+        "budgets:CreateBudget",
+        "budgets:DescribeBudget",
+        "budgets:ModifyBudget",
+        "budgets:DeleteBudget",
+        "budgets:CreateNotification",
+        "budgets:DescribeNotificationsForBudget",
+        "budgets:DeleteNotification",
+        "budgets:CreateSubscriber",
+        "budgets:DescribeSubscribersForNotification",
+        "budgets:DeleteSubscriber",
+        "budgets:ViewBudget",
+        "budgets:TagResource",
+        "budgets:UntagResource",
+        "budgets:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:budgets::*:budget/static-site-*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "KMSOperationsRestricted",
+      "Effect": "Allow",
+      "Action": [
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:GetKeyRotationStatus"
+      ],
+      "Resource": [
+        "arn:aws:kms:*:*:key/*"
+      ],
+      "Condition": {
+        "StringLike": {
+          "kms:via": [
+            "cloudwatch.*.amazonaws.com",
+            "s3.*.amazonaws.com",
+            "sns.*.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "TaggingOperations",
+      "Effect": "Allow",
+      "Action": [
+        "tag:TagResources",
+        "tag:UntagResources",
+        "tag:GetResources"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
