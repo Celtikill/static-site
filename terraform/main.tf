@@ -162,7 +162,8 @@ module "cloudfront" {
 # using the policy files in /docs directory
 
 data "aws_iam_role" "github_actions" {
-  name = "${local.project_name}-${local.environment}-github-actions"
+  count = var.use_existing_iam_role ? 1 : 0
+  name  = "${local.project_name}-${local.environment}-github-actions"
 }
 
 data "aws_iam_openid_connect_provider" "github" {

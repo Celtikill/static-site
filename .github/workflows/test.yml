@@ -319,7 +319,7 @@ jobs:
       - name: Setup Infrastructure
         uses: ./.github/actions/setup-infrastructure
         with:
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-2' }}
           aws-role: ${{ secrets.AWS_ASSUME_ROLE }}
 
       - name: Install OPA and Conftest
@@ -444,8 +444,9 @@ jobs:
           export TF_VAR_environment="dev"
           export TF_VAR_project_name="static-site-policy-test"
           export TF_VAR_github_repository="test/test"
-          export TF_VAR_aws_region="us-east-1"
+          export TF_VAR_aws_region="us-east-2"
           export TF_VAR_alert_email_addresses='["test@example.com"]'
+          export TF_VAR_use_existing_iam_role="false"
           
           echo "Generating Terraform plan for policy validation..."
           echo "Using test variables:" >> $GITHUB_STEP_SUMMARY

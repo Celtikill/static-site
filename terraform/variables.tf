@@ -232,6 +232,12 @@ variable "enable_readonly_access" {
   default     = false
 }
 
+variable "use_existing_iam_role" {
+  description = "Use existing IAM role instead of creating new one (for policy validation)"
+  type        = bool
+  default     = true
+}
+
 variable "create_deployment_service_role" {
   description = "Create additional service role for automated deployments"
   type        = bool
