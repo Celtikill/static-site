@@ -149,10 +149,7 @@
         "budgets:ModifyBudget",
         "budgets:TagResource",
         "budgets:UntagResource",
-        "budgets:ListTagsForResource",
-        "budgets:CreateBudget",
-        "budgets:DeleteBudget",
-        "budgets:DescribeBudget"
+        "budgets:ListTagsForResource"
       ],
       "Resource": "*"
     },
