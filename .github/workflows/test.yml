@@ -568,11 +568,49 @@ jobs:
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
           aws-role: ${{ secrets.AWS_ASSUME_ROLE }}
 
+      - name: Pre-deployment Cleanup
+        env:
+          AWS_DEFAULT_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+          TEST_ENV: "integration-test-${{ github.run_number }}-${{ github.run_id }}"
+        run: |
+          echo "🧹 Cleaning up any existing test resources..." >> $GITHUB_STEP_SUMMARY
+          
+          # Function to safely delete resources
+          delete_if_exists() {
+            local cmd="$1"
+            local resource="$2"
+            echo "Checking: $resource"
+            if eval "$cmd" 2>/dev/null; then
+              echo "✅ Cleaned up: $resource"
+            else
+              echo "ℹ️ Not found or already clean: $resource"
+            fi
+          }
+          
+          # Clean up SNS topics in both regions
+          for region in us-east-1 us-east-2; do
+            export AWS_REGION=$region
+            delete_if_exists "aws sns delete-topic --topic-arn arn:aws:sns:${region}:$(aws sts get-caller-identity --query Account --output text):static-site-int-test-alerts" "SNS topic in $region"
+          done
+          
+          # Clean up Budgets (global service)
+          export AWS_REGION=us-east-1
+          delete_if_exists "aws budgets delete-budget --account-id $(aws sts get-caller-identity --query Account --output text) --budget-name static-site-int-test-monthly-budget" "Budget"
+          
+          # Clean up CloudWatch Log Groups
+          for region in us-east-1 us-east-2; do
+            export AWS_REGION=$region
+            delete_if_exists "aws logs delete-log-group --log-group-name /aws/github-actions/static-site-int-test" "Log group in $region"
+            delete_if_exists "aws logs delete-log-group --log-group-name /aws/wafv2/static-site-int-test-${TEST_ENV}-waf" "WAF log group in $region"
+          done
+          
+          echo "✅ Pre-deployment cleanup completed" >> $GITHUB_STEP_SUMMARY
+
       - name: Deploy Test Infrastructure
         working-directory: terraform
         env:
           AWS_DEFAULT_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-          TF_VAR_environment: "integration-test-${{ github.run_number }}"
+          TF_VAR_environment: "integration-test-${{ github.run_number }}-${{ github.run_id }}"
           TF_VAR_project_name: "static-site-int-test"
           TF_VAR_github_repository: ${{ github.repository }}
           TF_VAR_alert_email_addresses: '["test@example.com"]'
@@ -612,7 +650,7 @@ jobs:
         working-directory: terraform/temp-integration
         env:
           AWS_DEFAULT_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-          TF_VAR_environment: "integration-test-${{ github.run_number }}"
+          TF_VAR_environment: "integration-test-${{ github.run_number }}-${{ github.run_id }}"
         run: |
           echo "🧪 Running integration tests..." >> $GITHUB_STEP_SUMMARY
           
@@ -697,7 +735,7 @@ jobs:
         working-directory: terraform
         env:
           AWS_DEFAULT_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-          TF_VAR_environment: "integration-test-${{ github.run_number }}"
+          TF_VAR_environment: "integration-test-${{ github.run_number }}-${{ github.run_id }}"
           TF_VAR_project_name: "static-site-int-test"
           TF_VAR_github_repository: ${{ github.repository }}
           TF_VAR_alert_email_addresses: '["test@example.com"]'

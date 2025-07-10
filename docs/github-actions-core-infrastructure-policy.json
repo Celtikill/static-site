@@ -46,7 +46,9 @@
         "s3:GetBucketCORS",
         "s3:GetBucketWebsite",
         "s3:PutBucketWebsite",
-        "s3:DeleteBucketWebsite"
+        "s3:DeleteBucketWebsite",
+        "s3:GetAccelerateConfiguration",
+        "s3:PutAccelerateConfiguration"
       ],
       "Resource": [
         "arn:aws:s3:::*static-site*",
