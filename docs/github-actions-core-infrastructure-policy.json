@@ -43,7 +43,10 @@
         "s3:PutObjectAcl",
         "s3:GetBucketAcl",
         "s3:PutBucketCORS",
-        "s3:GetBucketCORS"
+        "s3:GetBucketCORS",
+        "s3:GetBucketWebsite",
+        "s3:PutBucketWebsite",
+        "s3:DeleteBucketWebsite"
       ],
       "Resource": [
         "arn:aws:s3:::*static-site*",
