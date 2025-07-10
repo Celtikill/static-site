@@ -39,11 +39,11 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project      = var.project_name
-      Environment  = var.environment
-      ManagedBy    = "opentofu"
-      Repository   = var.github_repository
-      Region       = "us-east-1"
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "opentofu"
+      Repository  = var.github_repository
+      Region      = "us-east-1"
     }
   }
 }
