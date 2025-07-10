@@ -43,7 +43,7 @@ variable "github_repository" {
 variable "aws_region" {
   description = "AWS region for primary resources"
   type        = string
-  default     = "us-east-1"
+  default     = "us-east-2"
 }
 
 variable "replica_region" {
