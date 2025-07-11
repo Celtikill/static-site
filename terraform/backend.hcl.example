@@ -1,0 +1,37 @@
+# S3 Backend Configuration Example
+# 
+# Copy this file to backend-dev.hcl, backend-staging.hcl, or backend-prod.hcl
+# and update with your specific values.
+#
+# Usage: tofu init -backend-config=backend-dev.hcl
+
+# REQUIRED: S3 bucket name for storing Terraform state
+# Replace with your actual state bucket name
+bucket         = "your-terraform-state-bucket-name"
+
+# REQUIRED: Path to the state file within the bucket
+key            = "terraform.tfstate"
+
+# REQUIRED: AWS region where the S3 bucket is located
+region         = "us-east-2"
+
+# RECOMMENDED: Enable encryption for state file
+encrypt        = true
+
+# OPTIONAL: KMS key for state encryption (remove if using default S3 encryption)
+# kms_key_id     = "alias/your-kms-key-alias"
+
+# RECOMMENDED: Enable state locking with S3
+use_lockfile = true
+
+# Security settings (recommended defaults)
+skip_region_validation      = false
+skip_credentials_validation = false  
+skip_metadata_api_check     = false
+use_path_style             = false
+
+# OPTIONAL: AWS Profile name (remove if using default profile or IAM role)
+# profile = "your-aws-profile"
+
+# OPTIONAL: Workspace configuration for multiple environments
+# workspace_key_prefix = "env"

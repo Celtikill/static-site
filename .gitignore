@@ -56,9 +56,17 @@ config
 
 # Backend Configuration (May contain sensitive backend details)
 backend.hcl
+backend-*.hcl
+!backend.hcl.example
 **/backend.hcl
+**/backend-*.hcl
+!**/backend.hcl.example
 backend.conf
+backend-*.conf
+!backend.conf.example
 **/backend.conf
+**/backend-*.conf
+!**/backend.conf.example
 
 # OpenTofu/Terraform Provider Credentials
 .terraformrc

@@ -1,95 +1,173 @@
-# AWS Well-Architected Static Website
+# AWS Static Website Infrastructure
 
-[![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml)
-[![Policy Tests](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
-[![Deploy](https://github.com/celtikill/static-site/actions/workflows/deploy.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/deploy.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Security](https://img.shields.io/badge/Security-ASVS%20L1%2FL2-green)](https://github.com/OWASP/ASVS)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6%2B-blue)](https://opentofu.org/)
+[![AWS](https://img.shields.io/badge/AWS-Well--Architected-orange)](https://aws.amazon.com/architecture/well-architected/)
 
-Enterprise-grade serverless static website infrastructure using AWS Well-Architected Framework principles. Production-ready template with comprehensive security, monitoring, and cost optimization.
+Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu/Terraform.
 
-## 🚀 Get Started in 5 Minutes
+## 🚀 Features
 
-**New to this project?** → [**Quick Start Guide**](docs/quick-start.md)
+- **🔒 Security First**: OWASP Top 10 protection, WAF, encryption at rest/transit
+- **🌍 Global CDN**: CloudFront distribution with edge locations worldwide
+- **📊 Monitoring**: Comprehensive CloudWatch dashboards and alerts
+- **💰 Cost Optimized**: S3 Intelligent Tiering, budget alerts
+- **🔄 CI/CD Ready**: GitHub Actions OIDC integration
+- **🛡️ Compliance**: ASVS L1/L2 compliant, security scanning
 
-**Ready to deploy?** → [**Deployment Guide**](docs/deployment.md)
+## 📋 Prerequisites
 
-**Need to secure your setup?** → [**Security Guide**](docs/security.md)
+- AWS Account with appropriate permissions
+- OpenTofu 1.6+ or Terraform 1.6+
+- AWS CLI v2 configured
+- GitHub repository (for CI/CD)
 
-## 🏗️ What You'll Get
+## 🏗️ Architecture
 
-```mermaid
-graph TB
-    subgraph "Your Website"
-        U[Global Users] --> CF[CloudFront CDN]
-        CF --> WAF[Security Protection]
-        WAF --> S3[Your Content]
-    end
-    
-    subgraph "Built-in Features"
-        MON[24/7 Monitoring]
-        SEC[Enterprise Security]
-        COST[Cost ~$30/month]
-    end
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Route 53  │────▶│ CloudFront  │────▶│     S3      │
+│    (DNS)    │     │    (CDN)    │     │  (Storage)  │
+└─────────────┘     └──────┬──────┘     └─────────────┘
+                           │
+                    ┌──────▼──────┐
+                    │     WAF     │
+                    │ (Security)  │
+                    └─────────────┘
 ```
 
-### ✨ Key Features
+## 🚀 Quick Start
 
-- **🛡️ Enterprise Security**: WAF protection, security headers, OIDC authentication
-- **🌍 Global Performance**: CloudFront CDN with 200+ edge locations  
-- **💰 Cost Optimized**: ~$30/month with intelligent cost monitoring
-- **📊 Production Monitoring**: Real-time dashboards and alerts
-- **🔄 Zero-Downtime CI/CD**: Fully automated GitHub Actions pipeline
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/static-site.git
+   cd static-site
+   ```
 
-## 🗺️ Choose Your Path
+2. **Configure backend storage**
+   ```bash
+   cd terraform
+   cp backend.hcl.example backend-dev.hcl
+   # Edit backend-dev.hcl with your S3 bucket details
+   ```
 
-### 👋 First Time User
-1. [**Quick Start**](docs/quick-start.md) - Get running in 5 minutes
-2. [**Architecture Overview**](docs/architecture.md) - Understand what you're building
-3. [**Security Basics**](docs/security.md) - Essential security setup
+3. **Initialize Terraform**
+   ```bash
+   tofu init -backend-config=backend-dev.hcl
+   ```
 
-### 🔧 System Administrator  
-1. [**Deployment Guide**](docs/deployment.md) - Complete deployment process
-2. [**Configuration Reference**](docs/configuration.md) - All variables and settings
-3. [**Monitoring Setup**](docs/monitoring.md) - Dashboards and alerting
-4. [**Troubleshooting**](docs/troubleshooting.md) - Common issues and solutions
+4. **Configure variables**
+   ```bash
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your values
+   ```
 
-### 🔒 Security Engineer
-1. [**Security Guide**](docs/security.md) - Comprehensive security overview
-2. [**Policy Validation**](docs/policy-validation.md) - Policy-as-code with OPA/Conftest
-3. [**OIDC Setup**](docs/oidc-authentication.md) - GitHub authentication
-4. [**Security Hardening**](docs/oidc-security-hardening.md) - Advanced security
-5. [**Compliance**](docs/compliance.md) - ASVS L1/L2 standards
+5. **Deploy infrastructure**
+   ```bash
+   tofu plan
+   tofu apply
+   ```
 
-### 👨‍💻 Developer/Contributor
-1. [**Development Guide**](docs/development.md) - Local development setup
-2. [**Policy Development**](docs/policy-development.md) - Writing custom OPA policies
-3. [**Unit Testing**](test/README.md) - Module testing framework
-4. [**Integration Testing**](docs/integration-testing.md) - End-to-end testing with AWS
-5. [**Contributing**](docs/contributing.md) - Contribution guidelines
-6. [**API Reference**](docs/api-reference.md) - Commands and variables
+## 📁 Project Structure
 
-## 📈 Production Ready
+```
+.
+├── .github/workflows/    # CI/CD pipelines
+├── docs/                 # Documentation and IAM policies
+├── scripts/              # Setup and utility scripts
+├── src/                  # Static website content
+├── terraform/            # Infrastructure as Code
+│   ├── modules/         # Reusable Terraform modules
+│   │   ├── cloudfront/  # CDN configuration
+│   │   ├── s3/          # Storage configuration
+│   │   ├── waf/         # Web Application Firewall
+│   │   └── monitoring/  # CloudWatch monitoring
+│   └── *.tf             # Root configuration files
+└── test/                # Infrastructure tests
+```
 
-This template powers production websites with:
+## 🔧 Configuration
 
-- **99.9%+ Uptime** with global CDN and health monitoring
-- **Sub-second Response Times** worldwide
-- **Enterprise Security** with WAF and security headers
-- **Automated Cost Management** with budget alerts
-- **Zero-Downtime Deployments** via CI/CD
+### Required Variables
 
-## 🤝 Get Help
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `project_name` | Project identifier | `my-website` |
+| `environment` | Deployment environment | `dev`, `staging`, `prod` |
+| `alert_email_addresses` | Email for alerts | `["admin@example.com"]` |
+| `github_repository` | GitHub repo for OIDC | `owner/repo` |
 
-- **🚀 Quick Issues**: Check [Troubleshooting Guide](docs/troubleshooting.md)
-- **💬 Questions**: [GitHub Discussions](https://github.com/celtikill/static-site/discussions) 
-- **🐛 Bug Reports**: [GitHub Issues](https://github.com/celtikill/static-site/issues)
-- **📧 Security Issues**: security@yourcompany.com
+### Optional Features
 
-## 📄 License
+- **Custom Domain**: Set `domain_aliases` and `acm_certificate_arn`
+- **Cross-Region Replication**: Set `enable_cross_region_replication = true`
+- **Budget Alerts**: Configure `monthly_budget_limit`
 
-Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+## 🔒 Security
 
----
+This project implements multiple security layers:
 
-**Ready to build something amazing?** → [**Start Here**](docs/quick-start.md) 🚀
+- **IAM**: Least privilege access with manual role management
+- **Encryption**: KMS encryption for all data at rest
+- **WAF**: OWASP Top 10 protection with rate limiting
+- **Access Control**: S3 bucket access only through CloudFront OAC
+- **Monitoring**: Real-time security alerts and logging
+
+See [SECURITY.md](SECURITY.md) for detailed security documentation.
+
+## 🧪 Testing
+
+Run unit tests:
+```bash
+cd test/unit
+./run-tests.sh
+```
+
+Run integration tests:
+```bash
+cd .github/workflows
+# Tests run automatically in CI/CD
+```
+
+## 📊 Cost Estimation
+
+Estimated monthly costs (USD):
+- S3 Storage: ~$0.25
+- CloudFront CDN: ~$8.50
+- WAF Protection: ~$6.00
+- Monitoring: ~$2.50
+- **Total**: ~$27-30/month
+
+*Costs vary by usage and region*
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [OpenTofu](https://opentofu.org/)
+- Follows [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
+- Security scanning by [Checkov](https://www.checkov.io/) and [Trivy](https://trivy.dev/)
+
+## ⚠️ Important Notes
+
+- All example values in this repository are placeholders
+- Replace `123456789012` with your actual AWS account ID
+- Update email addresses and domain names with real values
+- Review and customize IAM policies before deployment
+
+## 📚 Additional Resources
+
+- [Deployment Guide](docs/deployment-guide.md)
+- [Architecture Details](docs/architecture.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Security Best Practices](SECURITY.md)
