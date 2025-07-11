@@ -58,10 +58,10 @@
       "Resource": [
         "arn:aws:s3:::*static-site*",
         "arn:aws:s3:::*static-site*/*",
-        "arn:aws:s3:::*int-test*",
-        "arn:aws:s3:::*int-test*/*",
-        "arn:aws:s3:::*integration-test*",
-        "arn:aws:s3:::*integration-test*/*"
+        "arn:aws:s3:::static-site-int-test-*",
+        "arn:aws:s3:::static-site-int-test-*/*",
+        "arn:aws:s3:::static-site-*integration-test-*",
+        "arn:aws:s3:::static-site-*integration-test-*/*"
       ]
     },
     {
@@ -157,6 +157,18 @@
         "wafv2:ListIPSets",
         "wafv2:DescribeManagedRuleGroup",
         "wafv2:ListRuleGroups"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchLogsForWAF",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:DescribeLogGroups"
       ],
       "Resource": "*"
     }

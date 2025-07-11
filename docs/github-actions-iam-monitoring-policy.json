@@ -91,7 +91,10 @@
         "arn:aws:logs:*:*:log-group:/aws/cloudfront/*",
         "arn:aws:logs:*:*:log-group:/aws/wafv2/*",
         "arn:aws:logs:*:*:log-group:/aws/github-actions*",
-        "arn:aws:logs:*:*:log-group:*static-site*"
+        "arn:aws:logs:*:*:log-group:*static-site*",
+        "arn:aws:logs:*:*:log-group:aws-waf-logs-*",
+        "arn:aws:logs:*:*:log-group:aws-waf-logs-static-site-int-test-*",
+        "arn:aws:logs:*:*:log-group:aws-waf-logs-*integration-test-*"
       ]
     },
     {
