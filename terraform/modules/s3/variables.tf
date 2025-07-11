@@ -89,3 +89,9 @@ variable "access_logging_prefix" {
   type        = string
   default     = "access-logs/"
 }
+
+variable "replication_role_arn" {
+  description = "ARN of existing IAM role for S3 replication (managed manually)"
+  type        = string
+  default     = ""
+}

@@ -11,6 +11,8 @@ terraform {
   }
 }
 
+# Data source for current AWS account
+data "aws_caller_identity" "current" {}
 
 # Primary S3 bucket for website hosting
 resource "aws_s3_bucket" "website" {
@@ -138,7 +140,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "replica" {
 # Cross-Region Replication configuration
 resource "aws_s3_bucket_replication_configuration" "website" {
   count      = var.enable_replication ? 1 : 0
-  role       = aws_iam_role.replication[0].arn
+  role       = var.replication_role_arn != "" ? var.replication_role_arn : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/static-site-s3-replication"
   bucket     = aws_s3_bucket.website.id
   depends_on = [aws_s3_bucket_versioning.website]
 
@@ -153,67 +155,9 @@ resource "aws_s3_bucket_replication_configuration" "website" {
   }
 }
 
-# IAM role for replication
-resource "aws_iam_role" "replication" {
-  count = var.enable_replication ? 1 : 0
-  name  = "${substr(var.bucket_name, 0, min(length(var.bucket_name), 45))}-repl-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "s3.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = var.common_tags
-}
-
-# IAM policy for replication
-# NOTE: Wildcards are required for S3 replication functionality
-# S3 replication requires access to all objects in source and destination buckets
-# This is an AWS service requirement and follows AWS best practices for replication roles
-resource "aws_iam_role_policy" "replication" {
-  count = var.enable_replication ? 1 : 0
-  name  = "${var.bucket_name}-replication-policy"
-  role  = aws_iam_role.replication[0].id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObjectVersionForReplication",
-          "s3:GetObjectVersionAcl"
-        ]
-        # Wildcard required: S3 replication needs access to all objects
-        Resource = "${aws_s3_bucket.website.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket"
-        ]
-        Resource = aws_s3_bucket.website.arn
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ReplicateObject",
-          "s3:ReplicateDelete"
-        ]
-        # Wildcard required: S3 replication needs access to all objects
-        Resource = "${aws_s3_bucket.replica[0].arn}/*"
-      }
-    ]
-  })
-}
+# Note: IAM role for S3 replication is now managed manually
+# Role ARN: arn:aws:iam::ACCOUNT_ID:role/static-site-s3-replication
+# This eliminates privilege escalation risks and improves security posture
 
 # S3 Intelligent Tiering for cost optimization
 resource "aws_s3_bucket_intelligent_tiering_configuration" "website" {

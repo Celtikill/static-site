@@ -31,8 +31,8 @@ output "replica_bucket_arn" {
 }
 
 output "replication_role_arn" {
-  description = "ARN of the replication IAM role (if enabled)"
-  value       = var.enable_replication ? aws_iam_role.replication[0].arn : null
+  description = "ARN of the replication IAM role (manually managed)"
+  value       = var.enable_replication ? (var.replication_role_arn != "" ? var.replication_role_arn : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/static-site-s3-replication") : null
 }
 
 output "access_logs_bucket_id" {

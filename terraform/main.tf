@@ -62,7 +62,7 @@ provider "aws" {
   }
 }
 
-# Data sources
+# Data sources for AWS account information
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
@@ -105,6 +105,7 @@ module "s3" {
   enable_replication          = var.enable_cross_region_replication
   replica_region              = var.replica_region
   kms_key_id                  = var.kms_key_id
+  replication_role_arn        = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/static-site-s3-replication"
   common_tags                 = local.common_tags
 
   providers = {
@@ -117,7 +118,8 @@ module "waf" {
   source = "./modules/waf"
 
   providers = {
-    aws = aws.cloudfront
+    aws            = aws.cloudfront
+    aws.cloudfront = aws.cloudfront
   }
 
   web_acl_name               = "${local.project_name}-${local.environment}-waf"
@@ -162,8 +164,7 @@ module "cloudfront" {
 # using the policy files in /docs directory
 
 data "aws_iam_role" "github_actions" {
-  count = var.use_existing_iam_role ? 1 : 0
-  name  = "${local.project_name}-${local.environment}-github-actions"
+  name = "static-site-github-actions"
 }
 
 data "aws_iam_openid_connect_provider" "github" {
