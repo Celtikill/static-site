@@ -94,6 +94,22 @@ locals {
   github_repositories = [var.github_repository]
 }
 
+# SNS Topic for CloudFront/WAF alarms (must be in us-east-1)
+resource "aws_sns_topic" "cloudfront_alerts" {
+  provider = aws.cloudfront
+  name     = "${local.project_name}-${local.environment}-cloudfront-alerts"
+
+  tags = local.common_tags
+}
+
+resource "aws_sns_topic_subscription" "cloudfront_alerts_email" {
+  provider = aws.cloudfront
+  count    = length(var.alert_email_addresses)
+  topic_arn = aws_sns_topic.cloudfront_alerts.arn
+  protocol  = "email"
+  endpoint  = var.alert_email_addresses[count.index]
+}
+
 # S3 Module - Primary storage for static website
 module "s3" {
   source = "./modules/s3"
@@ -155,7 +171,7 @@ module "cloudfront" {
   logging_prefix            = "cloudfront-logs/"
   content_security_policy   = var.content_security_policy
   cors_origins              = var.cors_origins
-  alarm_actions             = [module.monitoring.sns_topic_arn]
+  alarm_actions             = [aws_sns_topic.cloudfront_alerts.arn]
   common_tags               = local.common_tags
 }
 

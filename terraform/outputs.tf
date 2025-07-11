@@ -64,6 +64,12 @@ output "waf_web_acl_name" {
   value       = module.waf.web_acl_name
 }
 
+# CloudFront/WAF Alerts SNS Topic
+output "cloudfront_alerts_topic_arn" {
+  description = "ARN of the CloudFront/WAF alerts SNS topic (us-east-1)"
+  value       = aws_sns_topic.cloudfront_alerts.arn
+}
+
 # IAM Outputs - References to manually managed resources
 output "github_actions_role_arn" {
   description = "ARN of the GitHub Actions IAM role (manually managed)"
