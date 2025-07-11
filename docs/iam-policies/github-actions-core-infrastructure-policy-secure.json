@@ -210,12 +210,7 @@
       "Action": [
         "iam:ListOpenIDConnectProviders"
       ],
-      "Resource": "*",
-      "Condition": {
-        "StringLike": {
-          "iam:AWSServiceName": "sts.amazonaws.com"
-        }
-      }
+      "Resource": "*"
     }
   ]
 }
