@@ -208,7 +208,8 @@
       "Sid": "IAMReadAccess",
       "Effect": "Allow",
       "Action": [
-        "iam:ListOpenIDConnectProviders"
+        "iam:ListOpenIDConnectProviders",
+        "iam:GetOpenIDConnectProvider"
       ],
       "Resource": "*"
     }
