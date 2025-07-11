@@ -149,7 +149,7 @@ module "waf" {
   log_retention_days         = var.log_retention_days
   blocked_requests_threshold = var.waf_blocked_requests_threshold
   kms_key_arn                = var.kms_key_arn
-  alarm_actions              = [module.monitoring.sns_topic_arn]
+  alarm_actions              = [aws_sns_topic.cloudfront_alerts.arn]
   common_tags                = local.common_tags
 }
 

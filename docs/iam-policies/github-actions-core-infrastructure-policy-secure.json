@@ -75,7 +75,9 @@
         "arn:aws:s3:::static-site-int-test-integration-test-*",
         "arn:aws:s3:::static-site-int-test-integration-test-*/*",
         "arn:aws:s3:::static-site-int-test-integration-test-*-*-*",
-        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*/*"
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-0-*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-0-*/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -225,7 +227,8 @@
         "kms:CreateAlias",
         "kms:UpdateAlias",
         "kms:DeleteAlias",
-        "kms:ListAliases"
+        "kms:ListAliases",
+        "kms:ListResourceTags"
       ],
       "Resource": "*",
       "Condition": {
