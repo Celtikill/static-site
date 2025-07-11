@@ -73,7 +73,9 @@
         "arn:aws:s3:::static-site-*-integration-test-*",
         "arn:aws:s3:::static-site-*-integration-test-*/*",
         "arn:aws:s3:::static-site-int-test-integration-test-*",
-        "arn:aws:s3:::static-site-int-test-integration-test-*/*"
+        "arn:aws:s3:::static-site-int-test-integration-test-*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -205,6 +207,30 @@
       "Condition": {
         "StringEquals": {
           "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "KMSOperations",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:PutKeyPolicy",
+        "kms:GetKeyPolicy",
+        "kms:DescribeKey",
+        "kms:GetKeyRotationStatus",
+        "kms:EnableKeyRotation",
+        "kms:CreateAlias",
+        "kms:UpdateAlias",
+        "kms:DeleteAlias",
+        "kms:ListAliases"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": ["us-east-1", "us-east-2"]
         }
       }
     },

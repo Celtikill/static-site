@@ -166,6 +166,27 @@ cd terraform && tofu validate
 cd terraform && tofu fmt -recursive
 ```
 
+## Operational Requirements
+
+### CloudFront Policy Limits
+
+**Issue**: AWS accounts have limits on CloudFront policies:
+- **Cache Policies**: 20 per account maximum
+- **Response Headers Policies**: 20 per account maximum
+
+**Impact**: Integration tests may fail with `TooManyCachePolicies` or `TooManyResponseHeadersPolicies` errors
+
+**Resolution**: Before running integration tests, clean up unused CloudFront policies:
+```bash
+# List existing policies
+aws cloudfront list-cache-policies --query 'CachePolicyList.Items[?Type==`custom`]'
+aws cloudfront list-response-headers-policies --query 'ResponseHeadersPolicyList.Items[?Type==`custom`]'
+
+# Delete unused policies (use with caution)
+aws cloudfront delete-cache-policy --id POLICY_ID --if-match ETAG
+aws cloudfront delete-response-headers-policy --id POLICY_ID --if-match ETAG
+```
+
 ## Contact
 
 For questions about security exceptions or to request new exceptions, contact the DevOps Security Team.
