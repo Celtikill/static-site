@@ -29,6 +29,35 @@ terraform/.trivyignore
 
 **AWS Documentation**: [S3 Replication IAM Prerequisites](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-iam-prerequisites.html)
 
+#### 2. S3 Access Logs Bucket Logging (AVD-AWS-0089)
+
+**Status**: ACCEPTED EXCEPTION  
+**Severity**: LOW  
+**Rationale**: Access logs bucket is the final destination for S3 logging - adding logging creates recursive complexity
+
+**Risk Mitigation**:
+- CloudTrail provides comprehensive S3 API audit trails
+- VPC Flow Logs capture network-level access patterns
+- AWS Config monitors bucket configuration changes
+- Risk is low: access logs bucket contains only log files, not sensitive application data
+- Industry standard practice: log aggregation buckets typically don't log themselves
+
+**Alternative Controls**: CloudTrail + VPC Flow Logs + AWS Config provide comprehensive audit coverage
+
+#### 3. CloudFront Logging Dynamic Configuration (AVD-AWS-0010)
+
+**Status**: ACCEPTED EXCEPTION (FALSE POSITIVE)  
+**Severity**: MEDIUM  
+**Rationale**: CloudFront logging IS configured via dynamic configuration block, but Trivy cannot evaluate dynamic blocks during static analysis
+
+**Actual Implementation**:
+- Dynamic `logging_config` block in `modules/cloudfront/main.tf`
+- Conditionally enabled based on `var.enable_access_logging = true`
+- Logs stored in separate S3 bucket for security isolation
+- Prefix-based log organization for analysis
+
+**Technical Limitation**: Static security scanners cannot evaluate Terraform dynamic blocks that depend on variable values
+
 ## CI/CD Pipeline Integration
 
 ### GitHub Actions Integration
@@ -77,29 +106,47 @@ The following security issues have been resolved:
 
 ### ✅ Fixed Issues
 
-1. **AVD-AWS-0090** - S3 Data Versioning
+1. **AVD-AWS-0095** - SNS Topic Encryption (HIGH)
+   - **Fix**: Added KMS encryption to CloudFront alerts SNS topic
+   - **File**: `terraform/main.tf` (aws_sns_topic.cloudfront_alerts)
+   - **Security**: Protects alert notification contents with customer-managed KMS encryption
+
+2. **AVD-AWS-0090** - S3 Data Versioning
    - **Fix**: Added versioning configuration for S3 buckets
    - **File**: `modules/s3/main.tf` (multiple buckets)
 
-2. **AVD-AWS-0132** - S3 Customer Managed Keys
+3. **AVD-AWS-0132** - S3 Customer Managed Keys
    - **Fix**: Updated encryption to use customer-managed KMS keys when available
    - **File**: `modules/s3/main.tf` (encryption configurations)
 
-3. **AVD-AWS-0089** - S3 Bucket Logging (access_logs_logs)
+4. **AVD-AWS-0089** - S3 Bucket Logging (access_logs_logs)
    - **Fix**: Removed unnecessary `access_logs_logs` bucket to simplify architecture
    - **Result**: Single-tier logging: `website` → `access_logs` → [stop]
+
+5. **CloudFront Access Logging Configuration**
+   - **Fix**: Updated logging configuration to use dedicated access logs bucket
+   - **Files**: `terraform/main.tf` (module call), `modules/s3/outputs.tf` (new output)
+   - **Security**: Proper isolation of CloudFront access logs in dedicated S3 bucket
 
 ### 🔒 Accepted Exceptions
 
 1. **AVD-AWS-0057** - S3 Replication Wildcards
    - **Status**: Documented exception in `.trivyignore`
+   - **Severity**: HIGH
    - **Reason**: AWS service requirement for S3 replication
    - **Files**: `modules/s3/main.tf` (replication policy)
 
 2. **AVD-AWS-0089** - S3 Bucket Logging (access_logs)
-   - **Status**: Accepted LOW severity finding
-   - **Reason**: `access_logs` bucket is final logging destination - additional S3 logging creates unnecessary complexity
-   - **Alternative**: CloudWatch/CloudTrail provide comprehensive audit trails for bucket access
+   - **Status**: Documented exception in `.trivyignore`
+   - **Severity**: LOW
+   - **Reason**: `access_logs` bucket is final logging destination - recursive logging creates unnecessary complexity
+   - **Alternative**: CloudTrail/VPC Flow Logs/AWS Config provide comprehensive audit trails for bucket access
+
+3. **AVD-AWS-0010** - CloudFront Logging Configuration
+   - **Status**: Documented exception in `.trivyignore` (False Positive)
+   - **Severity**: MEDIUM
+   - **Reason**: CloudFront logging IS configured via dynamic block - static scanner limitation
+   - **Files**: `modules/cloudfront/main.tf` (dynamic logging_config block)
 
 ## Validation Commands
 
@@ -137,5 +184,6 @@ For questions about security exceptions or to request new exceptions, contact th
 - **Comprehensive audit**: CloudFront access logs + CloudTrail API logs provide full visibility
 
 ---
-**Last Updated**: 2025-07-05  
-**Next Review**: 2025-08-05
+**Last Updated**: 2025-07-11  
+**Next Review**: 2025-08-11  
+**Updated By**: Claude Code (Trivy ignore file synchronization and security fixes documentation)

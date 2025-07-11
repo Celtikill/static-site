@@ -85,7 +85,8 @@
         "iam:GetRole"
       ],
       "Resource": [
-        "arn:aws:iam::*:role/static-site-s3-replication"
+        "arn:aws:iam::*:role/static-site-s3-replication",
+        "arn:aws:iam::*:role/static-site-github-actions"
       ]
     },
     {
@@ -200,6 +201,19 @@
       "Condition": {
         "StringEquals": {
           "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "IAMReadAccess",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListOpenIDConnectProviders"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "iam:AWSServiceName": "sts.amazonaws.com"
         }
       }
     }

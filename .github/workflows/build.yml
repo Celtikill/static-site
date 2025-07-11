@@ -410,8 +410,6 @@ jobs:
             ~/.cache/trivy
             ~/.cache/checkov
           key: security-scanners-${{ runner.os }}-${{ hashFiles('terraform/**/*.tf') }}-${{ github.run_id }}
-          restore-keys: |
-            security-scanners-${{ runner.os }}-
 
       - name: Initialize Security Scan
         run: |
