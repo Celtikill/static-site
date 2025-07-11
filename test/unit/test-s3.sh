@@ -127,8 +127,9 @@ test_s3_security_configuration() {
 
 test_s3_cross_region_replication() {
     assert_contains "$MAIN_TF_CONTENT" "aws_s3_bucket_replication_configuration" "Should support cross-region replication"
-    assert_contains "$MAIN_TF_CONTENT" "resource \"aws_iam_role\" \"replication\"" "Should create replication IAM role"
-    assert_contains "$MAIN_TF_CONTENT" "resource \"aws_iam_role_policy\" \"replication\"" "Should create replication policy"
+    # IAM role is now managed manually for security
+    assert_contains "$MAIN_TF_CONTENT" "replication_role_arn" "Should use replication role ARN variable"
+    assert_contains "$MAIN_TF_CONTENT" "# Note: IAM role for S3 replication is now managed manually" "Should document manual IAM management"
 }
 
 test_s3_intelligent_tiering() {

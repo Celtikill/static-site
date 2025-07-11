@@ -299,6 +299,42 @@ assert_contains() {
     fi
 }
 
+# Assert that a string does NOT contain a substring
+# Opposite of assert_contains - validates that a substring is absent
+#
+# Args:
+#   $1 - haystack: The string to search within
+#   $2 - needle: The substring that should NOT be present
+#   $3 - message: Optional custom assertion message
+#
+# Returns:
+#   0 if substring is not found (test passes)
+#   1 if substring is found (test fails)
+#
+# Side Effects:
+#   - Increments test counters and logs results
+assert_not_contains() {
+    local haystack="$1"
+    local needle="$2"
+    local message="${3:-String should not contain substring}"
+    
+    TESTS_RUN=$((TESTS_RUN + 1))
+    
+    # Use bash literal string matching (safe, no regex metacharacters)
+    if [[ "$haystack" != *"$needle"* ]]; then
+        TESTS_PASSED=$((TESTS_PASSED + 1))
+        log_success "✓ ${message}"
+        return 0
+    else
+        TESTS_FAILED=$((TESTS_FAILED + 1))
+        record_test_failure
+        log_error "✗ ${message}"
+        # Truncate long haystack values for readability in error messages
+        log_error "  Haystack: '${haystack:0:200}...'"
+        log_error "  Found:    '${needle}'"
+        return 1
+    fi
+}
 
 # Assert that a value is not empty or null
 # Useful for validating that required configuration values are present
