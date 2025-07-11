@@ -27,5 +27,52 @@
 AVD-AWS-0057
 
 # ========================================================================
+# S3 Access Logs Bucket Logging Exception
+# ========================================================================
+# 
+# AVD-AWS-0089: S3 Bucket Logging
+# 
+# EXCEPTION RATIONALE:
+# - Access logs bucket is the final destination for S3 logging
+# - Adding logging to the logs bucket creates recursive complexity
+# - CloudTrail provides comprehensive S3 API audit trails 
+# - Risk is low: access logs bucket contains only log files, not sensitive application data
+# - Industry standard practice: log aggregation buckets typically don't log themselves
+# 
+# ALTERNATIVE CONTROLS:
+# - CloudTrail logs all S3 API operations including access to log buckets
+# - VPC Flow Logs capture network-level access patterns
+# - AWS Config monitors bucket configuration changes
+# 
+# Files affected:
+# - modules/s3/main.tf (access_logs bucket)
+# 
+AVD-AWS-0089
+
+# ========================================================================
+# CloudFront Logging Dynamic Configuration Exception
+# ========================================================================
+# 
+# AVD-AWS-0010: CloudFront distribution should have Access Logging configured
+# 
+# EXCEPTION RATIONALE:
+# - CloudFront logging IS configured via dynamic configuration block
+# - Trivy cannot evaluate dynamic blocks during static analysis
+# - Logging is enabled when var.enable_access_logging = true
+# - Logs are written to dedicated S3 access logs bucket
+# - Configuration includes appropriate logging prefix for organization
+# 
+# ACTUAL IMPLEMENTATION:
+# - Dynamic "logging_config" block in modules/cloudfront/main.tf
+# - Conditionally enabled based on var.enable_access_logging
+# - Logs stored in separate S3 bucket for security isolation
+# - Prefix-based log organization for analysis
+# 
+# Files affected:
+# - modules/cloudfront/main.tf (dynamic logging_config block)
+# 
+AVD-AWS-0010
+
+# ========================================================================
 # End of documented exceptions
 # ========================================================================

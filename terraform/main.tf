@@ -96,15 +96,16 @@ locals {
 
 # SNS Topic for CloudFront/WAF alarms (must be in us-east-1)
 resource "aws_sns_topic" "cloudfront_alerts" {
-  provider = aws.cloudfront
-  name     = "${local.project_name}-${local.environment}-cloudfront-alerts"
+  provider          = aws.cloudfront
+  name              = "${local.project_name}-${local.environment}-cloudfront-alerts"
+  kms_master_key_id = var.kms_key_arn
 
   tags = local.common_tags
 }
 
 resource "aws_sns_topic_subscription" "cloudfront_alerts_email" {
-  provider = aws.cloudfront
-  count    = length(var.alert_email_addresses)
+  provider  = aws.cloudfront
+  count     = length(var.alert_email_addresses)
   topic_arn = aws_sns_topic.cloudfront_alerts.arn
   protocol  = "email"
   endpoint  = var.alert_email_addresses[count.index]
@@ -167,7 +168,7 @@ module "cloudfront" {
   geo_restriction_type      = var.geo_restriction_type
   geo_restriction_locations = var.geo_restriction_locations
   custom_error_responses    = var.custom_error_responses
-  logging_bucket            = var.enable_access_logging ? module.s3.bucket_domain_name : null
+  logging_bucket            = var.enable_access_logging ? module.s3.access_logs_bucket_domain_name : null
   logging_prefix            = "cloudfront-logs/"
   content_security_policy   = var.content_security_policy
   cors_origins              = var.cors_origins

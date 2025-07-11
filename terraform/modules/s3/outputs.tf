@@ -44,3 +44,8 @@ output "access_logs_bucket_arn" {
   description = "ARN of the access logs S3 bucket (if enabled)"
   value       = var.enable_access_logging && var.access_logging_bucket == "" ? aws_s3_bucket.access_logs[0].arn : null
 }
+
+output "access_logs_bucket_domain_name" {
+  description = "Domain name of the access logs S3 bucket (if enabled)"
+  value       = var.enable_access_logging && var.access_logging_bucket == "" ? aws_s3_bucket.access_logs[0].bucket_domain_name : null
+}
