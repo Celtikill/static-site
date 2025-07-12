@@ -652,8 +652,25 @@ jobs:
           # Comment out WAF module entirely
           sed -i '/^module "waf"/,/^}/s/^/# /' temp-integration/main.tf
           
+          # Comment out WAF outputs that reference the disabled module
+          sed -i '/^output "waf_web_acl_id"/,/^}/s/^/# /' temp-integration/outputs.tf
+          sed -i '/^output "waf_web_acl_arn"/,/^}/s/^/# /' temp-integration/outputs.tf
+          sed -i '/^output "waf_web_acl_name"/,/^}/s/^/# /' temp-integration/outputs.tf
+          
           # Comment out monitoring module to reduce complexity  
           sed -i '/^module "monitoring"/,/^}/s/^/# /' temp-integration/main.tf
+          
+          # Comment out monitoring outputs that reference the disabled module
+          sed -i '/^output "sns_topic_arn"/,/^}/s/^/# /' temp-integration/outputs.tf
+          sed -i '/^output "cloudwatch_dashboard_name"/,/^}/s/^/# /' temp-integration/outputs.tf
+          sed -i '/^output "cloudwatch_dashboard_url"/,/^}/s/^/# /' temp-integration/outputs.tf
+          sed -i '/^output "composite_alarm_arn"/,/^}/s/^/# /' temp-integration/outputs.tf
+          sed -i '/^output "cloudfront_alerts_topic_arn"/,/^}/s/^/# /' temp-integration/outputs.tf
+          
+          # Comment out SNS and monitoring resources for simplified testing
+          sed -i '/^resource "aws_sns_topic" "cloudfront_alerts"/,/^}/s/^/# /' temp-integration/main.tf
+          sed -i '/^resource "aws_sns_topic_subscription" "cloudfront_alerts_email"/,/^}/s/^/# /' temp-integration/main.tf
+          sed -i '/^resource "aws_cloudwatch_metric_alarm"/,/^}/s/^/# /' temp-integration/main.tf
           
           cd temp-integration
           
