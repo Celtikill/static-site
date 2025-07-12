@@ -80,7 +80,11 @@
         "arn:aws:s3:::static-site-int-test-integration-test-*-0-*",
         "arn:aws:s3:::static-site-int-test-integration-test-*-0-*/*",
         "arn:aws:s3:::static-site-int-test-integration-test-*-a-*",
-        "arn:aws:s3:::static-site-int-test-integration-test-*-a-*/*"
+        "arn:aws:s3:::static-site-int-test-integration-test-*-a-*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-f-*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-f-*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-f-*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-f-*/*"
       ],
       "Condition": {
         "StringEquals": {

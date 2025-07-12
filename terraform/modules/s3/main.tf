@@ -248,6 +248,26 @@ resource "aws_s3_bucket_public_access_block" "access_logs" {
   depends_on = [aws_s3_bucket.access_logs]
 }
 
+# Access logs bucket ownership controls (enable ACLs for CloudFront logging)
+resource "aws_s3_bucket_ownership_controls" "access_logs" {
+  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket = aws_s3_bucket.access_logs[0].id
+
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+
+  depends_on = [aws_s3_bucket_public_access_block.access_logs]
+}
+
+# Access logs bucket ACL (required for CloudFront logging)
+resource "aws_s3_bucket_acl" "access_logs" {
+  count      = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket     = aws_s3_bucket.access_logs[0].id
+  acl        = "log-delivery-write"
+  depends_on = [aws_s3_bucket_ownership_controls.access_logs]
+}
+
 # Primary bucket access logging
 resource "aws_s3_bucket_logging" "website" {
   count  = var.enable_access_logging ? 1 : 0
