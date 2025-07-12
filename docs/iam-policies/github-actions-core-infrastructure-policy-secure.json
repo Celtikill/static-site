@@ -92,7 +92,9 @@
         "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-d*",
         "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-d*/*",
         "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-*",
-        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-*/*"
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-d-*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-d-*/*"
       ],
       "Condition": {
         "StringEquals": {
