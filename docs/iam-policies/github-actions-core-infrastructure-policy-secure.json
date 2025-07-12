@@ -56,7 +56,9 @@
         "s3:ListBuckets",
         "s3:DeleteBucketReplication",
         "s3:GetBucketObjectLockConfiguration",
-        "s3:PutBucketObjectLockConfiguration"
+        "s3:PutBucketObjectLockConfiguration",
+        "s3:PutBucketOwnershipControls",
+        "s3:GetBucketOwnershipControls"
       ],
       "Resource": [
         "arn:aws:s3:::static-site-dev-*",
@@ -84,7 +86,13 @@
         "arn:aws:s3:::static-site-int-test-integration-test-*-f-*",
         "arn:aws:s3:::static-site-int-test-integration-test-*-f-*/*",
         "arn:aws:s3:::static-site-int-test-integration-test-*-*-f-*",
-        "arn:aws:s3:::static-site-int-test-integration-test-*-*-f-*/*"
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-f-*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-d*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-d*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-d*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-d*/*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-*",
+        "arn:aws:s3:::static-site-int-test-integration-test-*-*-*-*/*"
       ],
       "Condition": {
         "StringEquals": {
