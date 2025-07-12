@@ -672,6 +672,9 @@ jobs:
           sed -i '/^resource "aws_sns_topic_subscription" "cloudfront_alerts_email"/,/^}/s/^/# /' temp-integration/main.tf
           sed -i '/^resource "aws_cloudwatch_metric_alarm"/,/^}/s/^/# /' temp-integration/main.tf
           
+          # Remove alarm_actions references to commented out SNS topic
+          sed -i 's/alarm_actions.*=.*\[aws_sns_topic\.cloudfront_alerts\.arn\]/alarm_actions = []/' temp-integration/main.tf
+          
           cd temp-integration
           
           echo "📝 Integration test configuration summary:" >> $GITHUB_STEP_SUMMARY
