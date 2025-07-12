@@ -162,6 +162,7 @@ module "cloudfront" {
   s3_bucket_id              = module.s3.bucket_id
   s3_bucket_domain_name     = module.s3.bucket_regional_domain_name
   web_acl_id                = module.waf.web_acl_id
+  waf_web_acl_dependency    = module.waf.web_acl_arn
   price_class               = var.cloudfront_price_class
   acm_certificate_arn       = var.acm_certificate_arn
   domain_aliases            = var.domain_aliases

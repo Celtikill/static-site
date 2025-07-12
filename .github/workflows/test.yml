@@ -757,7 +757,60 @@ jobs:
           # Clean up temporary directory
           rm -rf temp-integration
           
-          echo "✅ Cleanup completed" >> $GITHUB_STEP_SUMMARY
+          # Enhanced cleanup - remove any orphaned resources
+          echo "🧹 Performing enhanced cleanup of orphaned resources..." >> $GITHUB_STEP_SUMMARY
+          
+          # Set the test environment prefix for cleanup
+          TEST_PREFIX="static-site-int-test-integration-test-${{ github.run_number }}"
+          
+          # Function to safely delete resources
+          cleanup_resource() {
+            local resource_type="$1"
+            local delete_cmd="$2"
+            local list_cmd="$3"
+            
+            echo "Cleaning up $resource_type..."
+            if command -v aws >/dev/null 2>&1; then
+              resources=$(eval "$list_cmd" 2>/dev/null | grep "$TEST_PREFIX" || true)
+              if [ -n "$resources" ]; then
+                echo "$resources" | while IFS= read -r resource; do
+                  if [ -n "$resource" ]; then
+                    echo "Deleting $resource_type: $resource"
+                    eval "$delete_cmd \"$resource\"" 2>/dev/null || echo "Failed to delete $resource"
+                  fi
+                done
+              fi
+            fi
+          }
+          
+          # Clean up S3 buckets (both regions)
+          for region in us-east-1 us-east-2; do
+            export AWS_REGION=$region
+            cleanup_resource "S3 buckets in $region" \
+              "aws s3 rm s3://\$1 --recursive --region $region 2>/dev/null; aws s3 rb s3://\$1 --region $region 2>/dev/null" \
+              "aws s3 ls --region $region | awk '{print \$3}'"
+          done
+          
+          # Clean up WAF Web ACLs (us-east-1 only - CloudFront scope)
+          export AWS_REGION=us-east-1
+          cleanup_resource "WAF Web ACLs" \
+            "echo 'WAF cleanup requires manual intervention'" \
+            "aws wafv2 list-web-acls --scope CLOUDFRONT --region us-east-1 --query 'WebACLs[].Name' --output text 2>/dev/null"
+          
+          # Clean up KMS keys (both regions)
+          for region in us-east-1 us-east-2; do
+            export AWS_REGION=$region
+            cleanup_resource "KMS aliases in $region" \
+              "aws kms delete-alias --alias-name \$1 --region $region 2>/dev/null" \
+              "aws kms list-aliases --region $region --query 'Aliases[].AliasName' --output text 2>/dev/null"
+          done
+          
+          # Clean up IAM roles
+          cleanup_resource "IAM roles" \
+            "aws iam delete-role --role-name \$1 2>/dev/null" \
+            "aws iam list-roles --query 'Roles[].RoleName' --output text 2>/dev/null"
+          
+          echo "✅ Enhanced cleanup completed" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Integration Test Results
         if: always()

@@ -38,6 +38,9 @@ resource "aws_cloudfront_distribution" "website" {
   price_class         = var.price_class
   web_acl_id          = var.web_acl_id
 
+  # Explicit dependency to ensure WAF Web ACL is fully created and accessible
+  depends_on = [var.waf_web_acl_dependency]
+
   # S3 Origin Configuration
   origin {
     domain_name              = var.s3_bucket_domain_name

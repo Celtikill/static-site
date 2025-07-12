@@ -44,6 +44,12 @@ variable "web_acl_id" {
   default     = null
 }
 
+variable "waf_web_acl_dependency" {
+  description = "WAF Web ACL resource for dependency management"
+  type        = any
+  default     = null
+}
+
 variable "acm_certificate_arn" {
   description = "ACM certificate ARN for custom domain (must be in us-east-1)"
   type        = string
