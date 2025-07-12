@@ -1,0 +1,164 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GeneralPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "ec2:DescribeRegions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3Operations",
+      "Effect": "Allow",
+      "Action": [
+        "s3:*"
+      ],
+      "Resource": [
+        "arn:aws:s3:::static-site-dev-*",
+        "arn:aws:s3:::static-site-dev-*/*",
+        "arn:aws:s3:::static-site-staging-*",
+        "arn:aws:s3:::static-site-staging-*/*",
+        "arn:aws:s3:::static-site-prod-*",
+        "arn:aws:s3:::static-site-prod-*/*",
+        "arn:aws:s3:::static-site-int-test*",
+        "arn:aws:s3:::static-site-int-test*/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": ["us-east-1", "us-east-2"]
+        }
+      }
+    },
+    {
+      "Sid": "S3ReplicationRoleAccess",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole",
+        "iam:GetRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/static-site-s3-replication",
+        "arn:aws:iam::*:role/static-site-github-actions"
+      ]
+    },
+    {
+      "Sid": "CloudFrontOperations",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "CloudFrontDataSources",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:ListCachePolicies",
+        "cloudfront:ListOriginRequestPolicies"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ACMCertificateOperations",
+      "Effect": "Allow",
+      "Action": [
+        "acm:DescribeCertificate",
+        "acm:ListCertificates",
+        "acm:GetCertificate",
+        "acm:ListTagsForCertificate"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "WAFOperations",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "MonitoringOperations",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:*",
+        "logs:*",
+        "sns:*",
+        "budgets:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": ["us-east-1", "us-east-2"]
+        }
+      }
+    },
+    {
+      "Sid": "Route53Operations",
+      "Effect": "Allow",
+      "Action": [
+        "route53:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KMSOperations",
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:PutKeyPolicy",
+        "kms:GetKeyPolicy",
+        "kms:DescribeKey",
+        "kms:GetKeyRotationStatus",
+        "kms:EnableKeyRotation",
+        "kms:CreateAlias",
+        "kms:UpdateAlias",
+        "kms:DeleteAlias",
+        "kms:ListAliases",
+        "kms:ListResourceTags",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": ["us-east-1", "us-east-2"]
+        }
+      }
+    },
+    {
+      "Sid": "IAMOperationsLimited",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListOpenIDConnectProviders",
+        "iam:GetOpenIDConnectProvider",
+        "iam:ListRoles",
+        "iam:DeleteRole"
+      ],
+      "Resource": [
+        "*",
+        "arn:aws:iam::*:role/static-site-*"
+      ]
+    }
+  ]
+}
