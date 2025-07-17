@@ -1,6 +1,7 @@
 # Claude Code artifacts
 .claude*
 CLAUDE.local.md
+CLAUDE.md
 
 # UX Implementation Task Management (Development workflow only)
 TODO.md

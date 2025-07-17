@@ -11,7 +11,7 @@ data "aws_region" "current" {}
 # S3 Bucket for Terraform State Storage
 resource "aws_s3_bucket" "terraform_state" {
   bucket = "static-site-terraform-state-${data.aws_caller_identity.current.account_id}"
-  
+
   tags = {
     Name        = "Terraform State Bucket"
     Environment = "shared"
@@ -31,7 +31,7 @@ resource "aws_s3_bucket_versioning" "terraform_state" {
 # Environment-specific KMS Keys for State Encryption
 resource "aws_kms_key" "terraform_state" {
   for_each = toset(["dev", "staging", "prod"])
-  
+
   description             = "KMS key for Terraform state encryption - ${upper(each.key)} environment"
   deletion_window_in_days = each.key == "prod" ? 30 : 7
   enable_key_rotation     = true
@@ -47,7 +47,7 @@ resource "aws_kms_key" "terraform_state" {
 # KMS Key Aliases for easier reference
 resource "aws_kms_alias" "terraform_state" {
   for_each = toset(["dev", "staging", "prod"])
-  
+
   name          = "alias/terraform-state-${each.key}"
   target_key_id = aws_kms_key.terraform_state[each.key].key_id
 }
@@ -114,10 +114,10 @@ resource "aws_s3_bucket_policy" "terraform_state" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DenyUnSecureCommunications"
-        Effect = "Deny"
+        Sid       = "DenyUnSecureCommunications"
+        Effect    = "Deny"
         Principal = "*"
-        Action = "s3:*"
+        Action    = "s3:*"
         Resource = [
           aws_s3_bucket.terraform_state.arn,
           "${aws_s3_bucket.terraform_state.arn}/*"
@@ -129,10 +129,10 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         }
       },
       {
-        Sid    = "DenyInsecureConnections"
-        Effect = "Deny"
+        Sid       = "DenyInsecureConnections"
+        Effect    = "Deny"
         Principal = "*"
-        Action = "s3:*"
+        Action    = "s3:*"
         Resource = [
           aws_s3_bucket.terraform_state.arn,
           "${aws_s3_bucket.terraform_state.arn}/*"
@@ -189,27 +189,27 @@ output "backend_config_example" {
   description = "Example backend configuration for each environment"
   value = {
     dev = {
-      bucket     = aws_s3_bucket.terraform_state.id
-      key        = "environments/dev/terraform.tfstate"
-      region     = data.aws_region.current.name
-      encrypt    = true
-      kms_key_id = "alias/terraform-state-dev"
+      bucket       = aws_s3_bucket.terraform_state.id
+      key          = "environments/dev/terraform.tfstate"
+      region       = data.aws_region.current.name
+      encrypt      = true
+      kms_key_id   = "alias/terraform-state-dev"
       use_lockfile = true
     }
     staging = {
-      bucket     = aws_s3_bucket.terraform_state.id
-      key        = "environments/staging/terraform.tfstate"
-      region     = data.aws_region.current.name
-      encrypt    = true
-      kms_key_id = "alias/terraform-state-staging"
+      bucket       = aws_s3_bucket.terraform_state.id
+      key          = "environments/staging/terraform.tfstate"
+      region       = data.aws_region.current.name
+      encrypt      = true
+      kms_key_id   = "alias/terraform-state-staging"
       use_lockfile = true
     }
     prod = {
-      bucket     = aws_s3_bucket.terraform_state.id
-      key        = "environments/prod/terraform.tfstate"
-      region     = data.aws_region.current.name
-      encrypt    = true
-      kms_key_id = "alias/terraform-state-prod"
+      bucket       = aws_s3_bucket.terraform_state.id
+      key          = "environments/prod/terraform.tfstate"
+      region       = data.aws_region.current.name
+      encrypt      = true
+      kms_key_id   = "alias/terraform-state-prod"
       use_lockfile = true
     }
   }
