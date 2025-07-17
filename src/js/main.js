@@ -27,6 +27,8 @@ const AWSArchitectureDemo = {
         this.setupSmoothScrolling();
         this.setupPerformanceMonitoring();
         this.setupKeyboardNavigation();
+        this.setupMobileInteractions();
+        this.setupAccessibilityFeatures();
         this.setupErrorHandling();
         this.updateSystemStatus();
         
@@ -240,6 +242,7 @@ const AWSArchitectureDemo = {
             if (e.key === 'Escape') {
                 document.activeElement.blur();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+                this.announceToScreenReader('Returned to top of page', 'polite');
             }
 
             // Arrow key navigation for section links
@@ -255,7 +258,340 @@ const AWSArchitectureDemo = {
                     navLinks[currentIndex + 1].focus();
                 }
             }
+
+            // Keyboard shortcuts
+            if (e.ctrlKey || e.metaKey) {
+                switch (e.key) {
+                    case 'h':
+                        e.preventDefault();
+                        this.showKeyboardHelp();
+                        break;
+                    case '1':
+                        e.preventDefault();
+                        this.navigateToSection('architecture');
+                        break;
+                    case '2':
+                        e.preventDefault();
+                        this.navigateToSection('security');
+                        break;
+                    case '3':
+                        e.preventDefault();
+                        this.navigateToSection('performance');
+                        break;
+                    case '4':
+                        e.preventDefault();
+                        this.navigateToSection('monitoring');
+                        break;
+                }
+            }
         });
+    },
+
+    // Setup mobile interactions
+    setupMobileInteractions() {
+        // Touch support detection
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        if (!isTouchDevice) {
+            return;
+        }
+
+        // Add touch interaction for architecture items
+        const interactiveElements = document.querySelectorAll(
+            '.architecture-item, .security-item, .metric-card, .monitoring-feature'
+        );
+
+        interactiveElements.forEach(element => {
+            this.setupTouchInteractions(element);
+        });
+
+        // Setup diagram zoom/pan for mobile
+        this.setupMobileDiagramInteractions();
+    },
+
+    // Setup touch interactions for elements
+    setupTouchInteractions(element) {
+        let touchStartTime = 0;
+        let touchMoved = false;
+
+        element.addEventListener('touchstart', (e) => {
+            touchStartTime = Date.now();
+            touchMoved = false;
+        }, { passive: true });
+
+        element.addEventListener('touchmove', () => {
+            touchMoved = true;
+        }, { passive: true });
+
+        element.addEventListener('touchend', (e) => {
+            const touchDuration = Date.now() - touchStartTime;
+            
+            // If it's a quick tap (< 200ms) and no movement, treat as click
+            if (touchDuration < 200 && !touchMoved) {
+                this.handleElementInteraction(element);
+            }
+        });
+    },
+
+    // Setup mobile diagram interactions
+    setupMobileDiagramInteractions() {
+        // Create zoom overlay for complex diagrams
+        const diagramContainers = document.querySelectorAll('.architecture-grid, .security-grid, .performance-metrics');
+        
+        diagramContainers.forEach(container => {
+            this.setupZoomInteraction(container);
+        });
+    },
+
+    // Setup zoom interaction for diagram containers
+    setupZoomInteraction(container) {
+        // Add zoom button for mobile users
+        const zoomButton = document.createElement('button');
+        zoomButton.className = 'mobile-zoom-btn';
+        zoomButton.innerHTML = '🔍 Zoom to view details';
+        zoomButton.setAttribute('aria-label', 'Zoom in to view diagram details');
+        
+        // Insert zoom button before container
+        container.parentNode.insertBefore(zoomButton, container);
+
+        zoomButton.addEventListener('click', () => {
+            this.openZoomModal(container);
+        });
+    },
+
+    // Open zoom modal for better mobile viewing
+    openZoomModal(container) {
+        const modal = document.createElement('div');
+        modal.className = 'zoom-modal';
+        modal.innerHTML = `
+            <div class="zoom-modal-content">
+                <button class="zoom-close" aria-label="Close zoom view">×</button>
+                <div class="zoom-container">
+                    ${container.outerHTML}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
+
+        // Focus management
+        const closeBtn = modal.querySelector('.zoom-close');
+        closeBtn.focus();
+
+        // Close modal handlers
+        const closeModal = () => {
+            document.body.removeChild(modal);
+            document.body.style.overflow = '';
+            this.announceToScreenReader('Zoom view closed', 'polite');
+        };
+
+        closeBtn.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+
+        this.announceToScreenReader('Zoom view opened. Press Escape to close.', 'polite');
+    },
+
+    // Setup accessibility features
+    setupAccessibilityFeatures() {
+        // Add ARIA live region support
+        this.ariaLiveRegions = {
+            polite: document.getElementById('status-announcements'),
+            assertive: document.getElementById('alert-announcements')
+        };
+
+        // Enhanced focus management
+        this.setupFocusManagement();
+        
+        // Add aria-current to navigation
+        this.updateAriaCurrentNavigation();
+        
+        // Setup breadcrumb navigation
+        this.setupBreadcrumbNavigation();
+    },
+
+    // Setup focus management
+    setupFocusManagement() {
+        // Track focus for better UX
+        let lastFocusedElement = null;
+
+        document.addEventListener('focusin', (e) => {
+            lastFocusedElement = e.target;
+        });
+
+        // Handle focus restoration
+        window.addEventListener('hashchange', () => {
+            const target = document.getElementById(location.hash.substring(1));
+            if (target) {
+                target.setAttribute('tabindex', '-1');
+                target.focus();
+                this.announceToScreenReader(`Navigated to ${target.textContent || target.id}`, 'polite');
+            }
+        });
+    },
+
+    // Update aria-current for navigation
+    updateAriaCurrentNavigation() {
+        const navLinks = document.querySelectorAll('.nav-list a[href^="#"]');
+        
+        const updateCurrent = () => {
+            navLinks.forEach(link => {
+                link.removeAttribute('aria-current');
+                const targetId = link.getAttribute('href').substring(1);
+                const target = document.getElementById(targetId);
+                
+                if (target && this.isElementInViewport(target)) {
+                    link.setAttribute('aria-current', 'page');
+                }
+            });
+        };
+
+        // Update on scroll (throttled)
+        window.addEventListener('scroll', this.throttle(updateCurrent, 200));
+        updateCurrent(); // Initial call
+    },
+
+    // Check if element is in viewport
+    isElementInViewport(element) {
+        const rect = element.getBoundingClientRect();
+        return (
+            rect.top >= 0 &&
+            rect.top <= window.innerHeight * 0.5
+        );
+    },
+
+    // Handle element interaction
+    handleElementInteraction(element) {
+        // Add visual feedback
+        element.classList.add('interaction-active');
+        setTimeout(() => {
+            element.classList.remove('interaction-active');
+        }, 150);
+
+        // Announce interaction to screen readers
+        const heading = element.querySelector('h3');
+        if (heading) {
+            this.announceToScreenReader(`Selected ${heading.textContent}`, 'polite');
+        }
+    },
+
+    // Navigate to section with announcement
+    navigateToSection(sectionId) {
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            section.setAttribute('tabindex', '-1');
+            section.focus();
+            
+            const heading = section.querySelector('h2');
+            const sectionName = heading ? heading.textContent : sectionId;
+            this.announceToScreenReader(`Navigated to ${sectionName} section`, 'polite');
+        }
+    },
+
+    // Show keyboard help
+    showKeyboardHelp() {
+        const helpText = `
+            Keyboard shortcuts:
+            Ctrl+H: Show this help
+            Ctrl+1: Architecture section
+            Ctrl+2: Security section
+            Ctrl+3: Performance section
+            Ctrl+4: Monitoring section
+            Escape: Return to top
+            Tab: Navigate through interactive elements
+            Arrow keys: Navigate within navigation menu
+        `;
+        
+        this.announceToScreenReader(helpText, 'assertive');
+        console.log('🎹 Keyboard Help:', helpText);
+    },
+
+    // Announce to screen reader
+    announceToScreenReader(message, priority = 'polite') {
+        const region = this.ariaLiveRegions && this.ariaLiveRegions[priority];
+        if (region) {
+            region.textContent = message;
+            // Clear after announcement
+            setTimeout(() => {
+                region.textContent = '';
+            }, 1000);
+        }
+    },
+
+    // Setup breadcrumb navigation
+    setupBreadcrumbNavigation() {
+        const currentSectionElement = document.getElementById('current-section');
+        const homeLink = document.querySelector('.breadcrumb-list a[href="#main-content"]');
+        
+        if (!currentSectionElement || !homeLink) {
+            return;
+        }
+
+        // Section mapping
+        const sectionMap = {
+            'architecture': 'Architecture Overview',
+            'security': 'Security Features', 
+            'performance': 'Performance Optimization',
+            'monitoring': 'Monitoring & Observability'
+        };
+
+        // Update breadcrumb based on current section
+        const updateBreadcrumb = () => {
+            const currentSection = this.getCurrentSection();
+            
+            if (currentSection && sectionMap[currentSection]) {
+                currentSectionElement.textContent = sectionMap[currentSection];
+                currentSectionElement.classList.add('active');
+                currentSectionElement.setAttribute('aria-hidden', 'false');
+                homeLink.removeAttribute('aria-current');
+            } else {
+                currentSectionElement.classList.remove('active');
+                currentSectionElement.setAttribute('aria-hidden', 'true');
+                homeLink.setAttribute('aria-current', 'page');
+            }
+        };
+
+        // Update on scroll (throttled)
+        window.addEventListener('scroll', this.throttle(updateBreadcrumb, 200));
+        
+        // Update on hash change
+        window.addEventListener('hashchange', updateBreadcrumb);
+        
+        // Initial update
+        updateBreadcrumb();
+    },
+
+    // Get current section based on scroll position
+    getCurrentSection() {
+        const sections = ['architecture', 'security', 'performance', 'monitoring'];
+        
+        // Check hash first
+        if (location.hash) {
+            const hashSection = location.hash.substring(1);
+            if (sections.includes(hashSection)) {
+                return hashSection;
+            }
+        }
+
+        // Check scroll position
+        for (const sectionId of sections) {
+            const section = document.getElementById(sectionId);
+            if (section && this.isElementInViewport(section)) {
+                return sectionId;
+            }
+        }
+
+        return null;
     },
 
     // Setup global error handling
@@ -386,6 +722,98 @@ const animationCSS = `
     .status-warning { color: #FF9800; }
     .status-error { color: #F44336; }
     .status-neutral { color: #757575; }
+    
+    /* Mobile Interaction Styles */
+    .mobile-zoom-btn {
+        display: none;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 12px 16px;
+        border-radius: var(--border-radius);
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        margin: var(--spacing-md) 0;
+        min-height: 48px;
+        min-width: 48px;
+        cursor: pointer;
+        transition: all var(--transition-normal);
+        box-shadow: var(--shadow-medium);
+    }
+
+    .mobile-zoom-btn:hover,
+    .mobile-zoom-btn:focus {
+        background: var(--accent-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-heavy);
+    }
+
+    .interaction-active {
+        transform: scale(0.98);
+        transition: transform 0.15s ease;
+    }
+
+    /* Zoom Modal Styles */
+    .zoom-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-md);
+    }
+
+    .zoom-modal-content {
+        background: white;
+        border-radius: var(--border-radius);
+        max-width: 95vw;
+        max-height: 95vh;
+        overflow: auto;
+        position: relative;
+    }
+
+    .zoom-close {
+        position: absolute;
+        top: var(--spacing-sm);
+        right: var(--spacing-sm);
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        font-size: var(--font-size-xl);
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 2001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all var(--transition-normal);
+    }
+
+    .zoom-close:hover,
+    .zoom-close:focus {
+        background: var(--secondary-color);
+        transform: scale(1.1);
+    }
+
+    .zoom-container {
+        padding: var(--spacing-xl);
+        padding-top: calc(var(--spacing-xl) + 48px);
+    }
+
+    /* Show mobile zoom buttons on touch devices */
+    @media (max-width: 768px) {
+        .mobile-zoom-btn {
+            display: inline-block;
+        }
+    }
 `;
 
 // Inject animation CSS

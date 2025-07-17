@@ -42,8 +42,18 @@
     <link rel="canonical" href="https://example.com">
 </head>
 <body>
-    <!-- Skip to main content for accessibility -->
-    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <!-- Skip navigation for accessibility -->
+    <nav class="skip-nav" aria-label="Skip navigation">
+        <a href="#main-content" class="skip-link">Skip to main content</a>
+        <a href="#architecture" class="skip-link">Skip to architecture</a>
+        <a href="#security" class="skip-link">Skip to security</a>
+        <a href="#performance" class="skip-link">Skip to performance</a>
+        <a href="#monitoring" class="skip-link">Skip to monitoring</a>
+    </nav>
+    
+    <!-- ARIA live regions for dynamic content updates -->
+    <div aria-live="polite" aria-atomic="true" class="sr-only" id="status-announcements"></div>
+    <div aria-live="assertive" aria-atomic="true" class="sr-only" id="alert-announcements"></div>
     
     <!-- Header -->
     <header class="header" role="banner">
@@ -67,6 +77,16 @@
 
     <!-- Main Content -->
     <main id="main-content" class="main" role="main">
+        <!-- Breadcrumb Navigation -->
+        <nav class="breadcrumb-nav" aria-label="Breadcrumb navigation">
+            <div class="container">
+                <ol class="breadcrumb-list" role="list">
+                    <li><a href="#main-content" aria-current="page">Home</a></li>
+                    <li id="current-section" aria-hidden="true"></li>
+                </ol>
+            </div>
+        </nav>
+
         <!-- Hero Section -->
         <section class="hero">
             <div class="container">
@@ -95,9 +115,10 @@
         </section>
 
         <!-- Architecture Section -->
-        <section id="architecture" class="section architecture-section">
+        <section id="architecture" class="section architecture-section" aria-labelledby="architecture-title" aria-describedby="architecture-description">
             <div class="container">
-                <h2 class="section-title">Architecture Overview</h2>
+                <h2 id="architecture-title" class="section-title">Architecture Overview</h2>
+                <p id="architecture-description" class="sr-only">This section describes the AWS architecture components including S3 storage, CloudFront CDN, WAF security, IAM authentication, CloudWatch monitoring, and CI/CD pipeline implementation.</p>
                 <div class="architecture-grid">
                     <div class="architecture-item">
                         <div class="architecture-icon">🗄️</div>
@@ -164,9 +185,10 @@
         </section>
 
         <!-- Security Section -->
-        <section id="security" class="section security-section">
+        <section id="security" class="section security-section" aria-labelledby="security-title" aria-describedby="security-description">
             <div class="container">
-                <h2 class="section-title">Security Features</h2>
+                <h2 id="security-title" class="section-title">Security Features</h2>
+                <p id="security-description" class="sr-only">This section details comprehensive security measures including defense in depth, OWASP protection, encryption, security headers, monitoring, and compliance standards.</p>
                 <div class="security-grid">
                     <div class="security-item">
                         <h3>🔒 Defense in Depth</h3>
@@ -197,9 +219,10 @@
         </section>
 
         <!-- Performance Section -->
-        <section id="performance" class="section performance-section">
+        <section id="performance" class="section performance-section" aria-labelledby="performance-title" aria-describedby="performance-description">
             <div class="container">
-                <h2 class="section-title">Performance Optimization</h2>
+                <h2 id="performance-title" class="section-title">Performance Optimization</h2>
+                <p id="performance-description" class="sr-only">This section showcases performance metrics including security grades, Lighthouse scores, load times, cache hit rates, and optimization features for enhanced user experience.</p>
                 <div class="performance-metrics">
                     <div class="metric-card">
                         <div class="metric-value">A+</div>
@@ -233,9 +256,10 @@
         </section>
 
         <!-- Monitoring Section -->
-        <section id="monitoring" class="section monitoring-section">
+        <section id="monitoring" class="section monitoring-section" aria-labelledby="monitoring-title" aria-describedby="monitoring-description">
             <div class="container">
-                <h2 class="section-title">Monitoring & Observability</h2>
+                <h2 id="monitoring-title" class="section-title">Monitoring & Observability</h2>
+                <p id="monitoring-description" class="sr-only">This section explains comprehensive monitoring capabilities including real-time dashboards, intelligent alerting systems, and cost optimization features for operational excellence.</p>
                 <div class="monitoring-content">
                     <div class="monitoring-feature">
                         <h3>📊 Real-time Dashboards</h3>

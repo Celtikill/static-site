@@ -1,37 +1,40 @@
-# S3 Backend Configuration Example
+# Example Backend Configuration Template
+# Copy this file to create environment-specific backend configurations
 # 
-# Copy this file to backend-dev.hcl, backend-staging.hcl, or backend-prod.hcl
-# and update with your specific values.
-#
-# Usage: tofu init -backend-config=backend-dev.hcl
+# Usage:
+#   cp backend.hcl.example backend-{env}.hcl
+#   
+# Environment-specific files:
+#   - backend-dev.hcl     (Development environment)
+#   - backend-staging.hcl (Staging environment) 
+#   - backend-prod.hcl    (Production environment)
 
-# REQUIRED: S3 bucket name for storing Terraform state
-# Replace with your actual state bucket name
-bucket         = "your-terraform-state-bucket-name"
+# S3 Backend Configuration Template
+bucket                     = "static-site-terraform-state-{ACCOUNT-ID}"
+key                        = "environments/{ENVIRONMENT}/terraform.tfstate"
+region                     = "us-east-2"
+encrypt                    = true
+kms_key_id                = "alias/terraform-state-{ENVIRONMENT}"
 
-# REQUIRED: Path to the state file within the bucket
-key            = "terraform.tfstate"
+# Native S3 State Locking (recommended over deprecated DynamoDB)
+use_lockfile              = true
 
-# REQUIRED: AWS region where the S3 bucket is located
-region         = "us-east-2"
+# Security Settings (Production Recommended)
+skip_credentials_validation = false
+skip_region_validation     = false
+skip_requesting_account_id = false
+skip_s3_checksum          = false
+skip_metadata_api_check   = false
 
-# RECOMMENDED: Enable encryption for state file
-encrypt        = true
+# Performance Settings
+max_retries               = 5
+force_path_style          = false
 
-# OPTIONAL: KMS key for state encryption (remove if using default S3 encryption)
-# kms_key_id     = "alias/your-kms-key-alias"
+# Required Replacements:
+# {ACCOUNT-ID}    - Your AWS Account ID
+# {ENVIRONMENT}   - Environment name (dev, staging, prod)
 
-# RECOMMENDED: Enable state locking with S3
-use_lockfile = true
-
-# Security settings (recommended defaults)
-skip_region_validation      = false
-skip_credentials_validation = false  
-skip_metadata_api_check     = false
-use_path_style             = false
-
-# OPTIONAL: AWS Profile name (remove if using default profile or IAM role)
-# profile = "your-aws-profile"
-
-# OPTIONAL: Workspace configuration for multiple environments
-# workspace_key_prefix = "env"
+# Security Note:
+# Never commit actual backend configuration files with real values
+# to version control. Use this template to create environment-specific
+# configurations with actual values.

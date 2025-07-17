@@ -1,0 +1,430 @@
+name: DEPLOY-DEV - Development Environment Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_id:
+        description: 'Test ID from TEST workflow (optional - will create new if not provided)'
+        required: false
+        type: string
+      build_id:
+        description: 'Build ID to reference (optional - will inherit from TEST)'
+        required: false
+        type: string
+      skip_test_check:
+        description: 'Skip TEST workflow dependency check (dev environment only)'
+        required: false
+        default: false
+        type: boolean
+      deploy_infrastructure:
+        description: 'Deploy infrastructure changes'
+        required: false
+        default: true
+        type: boolean
+      deploy_website:
+        description: 'Deploy website content'
+        required: false
+        default: true
+        type: boolean
+      force_deploy:
+        description: 'Force deployment even without changes'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - develop
+      - 'feature/*'
+  workflow_run:
+    workflows: ["TEST - Policy and Validation"]
+    types: [completed]
+    branches:
+      - develop
+      - 'feature/*'
+
+# OIDC Authentication Permissions for Development Deployment
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  actions: read
+
+# Development Environment - Allow concurrent deployments for faster iteration
+concurrency:
+  group: static-site-dev-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy-info:
+    name: Development Deployment Information
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy_id: ${{ steps.generate-id.outputs.deploy_id }}
+      test_id: ${{ steps.generate-id.outputs.test_id }}
+      build_id: ${{ steps.generate-id.outputs.build_id }}
+      deploy_infrastructure: ${{ steps.generate-id.outputs.deploy_infrastructure }}
+      deploy_website: ${{ steps.generate-id.outputs.deploy_website }}
+      has_tf_changes: ${{ steps.detect-changes.outputs.has_tf_changes }}
+      has_content_changes: ${{ steps.detect-changes.outputs.has_content_changes }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          fetch-depth: 0
+
+      - name: Generate Deployment ID
+        id: generate-id
+        run: |
+          # Development environment - simplified ID generation
+          TEST_ID_INPUT='${{ github.event.inputs.test_id }}'
+          BUILD_ID_INPUT='${{ github.event.inputs.build_id }}'
+          
+          # Set IDs with dev-specific defaults
+          if [ -n "$TEST_ID_INPUT" ]; then
+            TEST_ID="$TEST_ID_INPUT"
+          else
+            TEST_ID="test-dev-${{ github.run_id }}"
+          fi
+          
+          if [ -n "$BUILD_ID_INPUT" ]; then
+            BUILD_ID="$BUILD_ID_INPUT"
+          else
+            BUILD_ID="build-dev-${{ github.run_id }}"
+          fi
+          
+          DEPLOY_INFRASTRUCTURE="${{ github.event.inputs.deploy_infrastructure || 'true' }}"
+          DEPLOY_WEBSITE="${{ github.event.inputs.deploy_website || 'true' }}"
+          DEPLOY_ID="deploy-dev-${{ github.run_id }}-${{ github.run_attempt }}"
+          
+          echo "deploy_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
+          echo "test_id=$TEST_ID" >> $GITHUB_OUTPUT
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "deploy_infrastructure=$DEPLOY_INFRASTRUCTURE" >> $GITHUB_OUTPUT
+          echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
+          
+          echo "🚀 **DEV DEPLOY Phase Started**" >> $GITHUB_STEP_SUMMARY
+          echo "**Deploy ID**: $DEPLOY_ID" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Development" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Detect Changes
+        id: detect-changes
+        run: |
+          echo "🔍 **Analyzing Changes for Development Deployment**" >> $GITHUB_STEP_SUMMARY
+          
+          # Get changed files based on trigger
+          if [ "${{ github.event_name }}" = "push" ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          else
+            # Manual dispatch - check for force deploy
+            if [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              CHANGED_FILES="terraform/ src/"
+            else
+              CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null || echo "")
+            fi
+          fi
+          
+          # Categorize changes for development
+          HAS_TF_CHANGES=0
+          HAS_CONTENT_CHANGES=0
+          
+          if [ -n "$CHANGED_FILES" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            # Liberal change detection for development
+            if echo "$CHANGED_FILES" | grep -qE '(terraform/|\.tf$|\.tfvars$)' || [ "${{ github.event.inputs.deploy_infrastructure }}" = "true" ]; then
+              HAS_TF_CHANGES=1
+            fi
+            
+            if echo "$CHANGED_FILES" | grep -qE '(src/|\.html$|\.css$|\.js$)' || [ "${{ github.event.inputs.deploy_website }}" = "true" ]; then
+              HAS_CONTENT_CHANGES=1
+            fi
+          fi
+          
+          echo "has_tf_changes=$HAS_TF_CHANGES" >> $GITHUB_OUTPUT
+          echo "has_content_changes=$HAS_CONTENT_CHANGES" >> $GITHUB_OUTPUT
+          
+          echo "**Infrastructure Changes**: $HAS_TF_CHANGES" >> $GITHUB_STEP_SUMMARY
+          echo "**Content Changes**: $HAS_CONTENT_CHANGES" >> $GITHUB_STEP_SUMMARY
+
+  deploy-infrastructure:
+    name: Deploy Development Infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: deploy-info
+    if: needs.deploy-info.outputs.deploy_infrastructure == 'true' && (needs.deploy-info.outputs.has_tf_changes == '1' || github.event.inputs.deploy_infrastructure == 'true')
+    environment: dev
+    outputs:
+      deployment_outputs: ${{ steps.deploy.outputs.deployment_outputs }}
+      deployment_status: ${{ steps.deploy.outputs.deployment_status }}
+      s3_bucket_id: ${{ steps.deploy.outputs.s3_bucket_id }}
+      cloudfront_distribution_id: ${{ steps.deploy.outputs.cloudfront_distribution_id }}
+      cloudfront_domain_name: ${{ steps.deploy.outputs.cloudfront_domain_name }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Cache Infrastructure Dependencies
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: |
+            ~/.cache/terraform
+            terraform/.terraform
+            terraform/.terraform.lock.hcl
+          key: deploy-dev-infra-${{ runner.os }}-${{ hashFiles('terraform/*.tf', 'terraform/.terraform.lock.hcl') }}
+          restore-keys: |
+            deploy-dev-infra-${{ runner.os }}-
+            deploy-infra-${{ runner.os }}-
+
+      - name: Setup Infrastructure
+        uses: ./.github/actions/setup-infrastructure
+        with:
+          aws-region: ${{ vars.AWS_REGION || 'us-east-2' }}
+          aws-role: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
+
+      - name: Prepare Environment Variables
+        id: prepare-env
+        run: |
+          PROJECT_NAME=$(echo "${{ github.repository_owner }}-static-site" | tr '[:upper:]' '[:lower:]')
+          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "Using project name: $PROJECT_NAME" >> $GITHUB_STEP_SUMMARY
+
+      - name: Initialize Development Backend
+        working-directory: terraform
+        run: |
+          echo "## 🔧 Initializing Development Backend" >> $GITHUB_STEP_SUMMARY
+          
+          # Get AWS Account ID for bucket name
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          
+          # Initialize with development backend configuration
+          tofu init \
+            -backend-config=backend-dev.hcl \
+            -backend-config="bucket=static-site-terraform-state-${AWS_ACCOUNT_ID}" \
+            -reconfigure
+          
+          echo "✅ Development backend initialized" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy Development Infrastructure
+        id: deploy
+        working-directory: terraform
+        env:
+          TF_VAR_environment: dev
+          TF_VAR_project_name: ${{ steps.prepare-env.outputs.project_name }}
+          TF_VAR_github_repository: ${{ github.repository }}
+          TF_VAR_aws_region: ${{ vars.AWS_REGION || 'us-east-2' }}
+          # Development-specific optimizations
+          TF_VAR_enable_cross_region_replication: false
+          TF_VAR_cloudfront_price_class: PriceClass_100
+          TF_VAR_waf_rate_limit: 1000
+          TF_VAR_enable_detailed_monitoring: false
+          TF_VAR_force_destroy_bucket: true
+          TF_VAR_monthly_budget_limit: "10"
+          TF_VAR_log_retention_days: 7
+        run: |
+          echo "## 🏗️ Development Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "**Deploy ID**: ${{ needs.deploy-info.outputs.deploy_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Development" >> $GITHUB_STEP_SUMMARY
+          
+          # Create development deployment plan
+          echo "### 📋 Creating Development Plan" >> $GITHUB_STEP_SUMMARY
+          tofu plan -out=dev-deployment.tfplan
+          
+          # Apply development deployment
+          echo "### 🚀 Applying Development Deployment" >> $GITHUB_STEP_SUMMARY
+          if tofu apply -auto-approve dev-deployment.tfplan; then
+            echo "✅ Development infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_status=success" >> $GITHUB_OUTPUT
+            
+            # Capture outputs
+            if tofu output -json > dev-deployment-outputs.json 2>/dev/null; then
+              OUTPUTS=$(cat dev-deployment-outputs.json | jq -c . 2>/dev/null || echo '{}')
+              echo "deployment_outputs=$OUTPUTS" >> $GITHUB_OUTPUT
+              
+              # Extract key outputs
+              S3_BUCKET=$(jq -r '.s3_bucket_id.value // empty' dev-deployment-outputs.json)
+              CF_DISTRIBUTION=$(jq -r '.cloudfront_distribution_id.value // empty' dev-deployment-outputs.json)
+              CF_DOMAIN=$(jq -r '.cloudfront_domain_name.value // empty' dev-deployment-outputs.json)
+              
+              echo "s3_bucket_id=$S3_BUCKET" >> $GITHUB_OUTPUT
+              echo "cloudfront_distribution_id=$CF_DISTRIBUTION" >> $GITHUB_OUTPUT
+              echo "cloudfront_domain_name=$CF_DOMAIN" >> $GITHUB_OUTPUT
+              
+              echo "### 📊 Development Deployment Outputs" >> $GITHUB_STEP_SUMMARY
+              echo "- **S3 Bucket**: $S3_BUCKET" >> $GITHUB_STEP_SUMMARY
+              echo "- **CloudFront Distribution**: $CF_DISTRIBUTION" >> $GITHUB_STEP_SUMMARY
+              echo "- **CloudFront Domain**: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ Development infrastructure deployment failed" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Upload Development Deployment Outputs
+        if: steps.deploy.outputs.deployment_status == 'success'
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: ${{ needs.deploy-info.outputs.deploy_id }}-dev-infrastructure-outputs
+          path: terraform/dev-deployment-outputs.json
+          retention-days: 7
+
+  deploy-website:
+    name: Deploy Development Website
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [deploy-info, deploy-infrastructure]
+    if: needs.deploy-info.outputs.deploy_website == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') && (needs.deploy-info.outputs.has_content_changes == '1' || github.event.inputs.deploy_website == 'true')
+    environment: dev
+    outputs:
+      website_url: ${{ steps.deploy-content.outputs.website_url }}
+      deployment_status: ${{ steps.deploy-content.outputs.deployment_status }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Infrastructure
+        uses: ./.github/actions/setup-infrastructure
+        with:
+          aws-region: ${{ vars.AWS_REGION || 'us-east-2' }}
+          aws-role: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
+
+      - name: Download Website Artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          pattern: website-*
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Deploy Development Website Content
+        id: deploy-content
+        env:
+          S3_BUCKET: ${{ needs.deploy-infrastructure.outputs.s3_bucket_id }}
+          CF_DISTRIBUTION: ${{ needs.deploy-infrastructure.outputs.cloudfront_distribution_id }}
+          CF_DOMAIN: ${{ needs.deploy-infrastructure.outputs.cloudfront_domain_name }}
+        run: |
+          echo "## 🌐 Development Website Content Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "**Deploy ID**: ${{ needs.deploy-info.outputs.deploy_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Development" >> $GITHUB_STEP_SUMMARY
+          
+          # Use built website if available, otherwise use source
+          if [ -d "build" ]; then
+            CONTENT_DIR="build"
+            echo "✅ Using built website content" >> $GITHUB_STEP_SUMMARY
+          else
+            CONTENT_DIR="src"
+            echo "⚠️ Using source content directly" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Get S3 bucket from infrastructure deployment or discover it
+          if [ -z "$S3_BUCKET" ]; then
+            echo "🔍 Discovering S3 bucket from Terraform state..." >> $GITHUB_STEP_SUMMARY
+            cd terraform
+            
+            # Get AWS Account ID for backend
+            AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+            
+            # Initialize backend to read state
+            tofu init \
+              -backend-config=backend-dev.hcl \
+              -backend-config="bucket=static-site-terraform-state-${AWS_ACCOUNT_ID}" \
+              -reconfigure
+            
+            S3_BUCKET=$(tofu output -raw s3_bucket_id 2>/dev/null || echo "")
+            CF_DISTRIBUTION=$(tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+            CF_DOMAIN=$(tofu output -raw cloudfront_domain_name 2>/dev/null || echo "")
+            cd ..
+          fi
+          
+          if [ -z "$S3_BUCKET" ]; then
+            echo "❌ Could not determine S3 bucket for development deployment" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "### 📋 Development Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket**: $S3_BUCKET" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront Distribution**: $CF_DISTRIBUTION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Content Directory**: $CONTENT_DIR" >> $GITHUB_STEP_SUMMARY
+          
+          # Sync content to S3 (development optimized)
+          echo "### 🚀 Syncing Content to Development S3" >> $GITHUB_STEP_SUMMARY
+          if aws s3 sync "$CONTENT_DIR/" "s3://$S3_BUCKET" --delete --exact-timestamps; then
+            echo "✅ Development content synced successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Failed to sync development content" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Invalidate CloudFront cache for development
+          if [ -n "$CF_DISTRIBUTION" ]; then
+            echo "### 🔄 Invalidating Development CloudFront Cache" >> $GITHUB_STEP_SUMMARY
+            aws cloudfront create-invalidation \
+              --distribution-id "$CF_DISTRIBUTION" \
+              --paths "/*" \
+              --query 'Invalidation.Id' \
+              --output text
+            echo "✅ Development cache invalidation initiated" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Set outputs
+          echo "deployment_status=success" >> $GITHUB_OUTPUT
+          if [ -n "$CF_DOMAIN" ]; then
+            echo "website_url=https://$CF_DOMAIN" >> $GITHUB_OUTPUT
+            echo "### 🌐 Development Website URL" >> $GITHUB_STEP_SUMMARY
+            echo "**Development site is live at**: https://$CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "website_url=https://$S3_BUCKET.s3.amazonaws.com" >> $GITHUB_OUTPUT
+          fi
+
+  deployment-summary:
+    name: Development Deployment Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [deploy-info, deploy-infrastructure, deploy-website]
+    if: always()
+    outputs:
+      website_url: ${{ steps.export-url.outputs.website_url }}
+      deployment_success: ${{ steps.export-url.outputs.deployment_success }}
+    steps:
+      - name: Generate Development Summary
+        run: |
+          echo "## 🚀 DEVELOPMENT DEPLOY Complete" >> $GITHUB_STEP_SUMMARY
+          echo "**Deploy ID**: ${{ needs.deploy-info.outputs.deploy_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: Development" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Infrastructure**: ${{ needs.deploy-infrastructure.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Website**: ${{ needs.deploy-website.result }}" >> $GITHUB_STEP_SUMMARY
+          
+          WEBSITE_URL="${{ needs.deploy-website.outputs.website_url }}"
+          if [ -n "$WEBSITE_URL" ]; then
+            echo "### 🌐 Development Website" >> $GITHUB_STEP_SUMMARY
+            echo "**Live URL**: $WEBSITE_URL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Export Development URL
+        id: export-url
+        run: |
+          WEBSITE_URL="${{ needs.deploy-website.outputs.website_url }}"
+          INFRA_STATUS="${{ needs.deploy-infrastructure.result }}"
+          WEBSITE_STATUS="${{ needs.deploy-website.result }}"
+          
+          echo "website_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+          
+          if ([ "$INFRA_STATUS" = "success" ] || [ "$INFRA_STATUS" = "skipped" ]) && \
+             ([ "$WEBSITE_STATUS" = "success" ] || [ "$WEBSITE_STATUS" = "skipped" ]); then
+            echo "deployment_success=true" >> $GITHUB_OUTPUT
+            echo "✅ **DEVELOPMENT DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "deployment_success=false" >> $GITHUB_OUTPUT
+            echo "❌ **DEVELOPMENT DEPLOYMENT FAILED**" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ -n "$WEBSITE_URL" ]; then
+            echo "🌐 Development site: $WEBSITE_URL"
+          fi
