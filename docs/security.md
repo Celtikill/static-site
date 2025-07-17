@@ -36,6 +36,10 @@ This infrastructure implements defense-in-depth security with multiple layers:
 
 ```mermaid
 graph TB
+    %% Accessibility
+    accTitle: Defense-in-Depth Security Layers
+    accDescr: Shows five security layers in sequence: Network Security (WAF and CloudFront), Application Security (Headers and CSP), Data Security (Encryption and Access Control), Infrastructure Security (IAM and OIDC), and Monitoring Security (Logging and Alerts). Each layer builds upon the previous one for comprehensive protection.
+    
     subgraph "Security Layers"
         L1[Network Security<br/>WAF + CloudFront]
         L2[Application Security<br/>Headers + CSP]
@@ -45,6 +49,11 @@ graph TB
     end
     
     L1 --> L2 --> L3 --> L4 --> L5
+    
+    %% High-Contrast Styling for Accessibility
+    classDef layerBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    
+    class L1,L2,L3,L4,L5 layerBox
 ```
 
 ### 🏆 Security Standards

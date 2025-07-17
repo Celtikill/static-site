@@ -35,6 +35,10 @@ Comprehensive monitoring and observability setup for AWS static website infrastr
 
 ```mermaid
 graph TB
+    %% Accessibility
+    accTitle: Observability Stack Architecture
+    accDescr: Shows monitoring architecture with data sources (CloudFront, S3, WAF, Route 53, IAM) feeding into collection services (CloudWatch Metrics, CloudWatch Logs, CloudTrail, Cost Explorer), then visualization tools (CloudWatch Dashboard, CloudWatch Alarms, Budget Alerts), and finally notification systems (SNS Topics, Email Alerts, Slack Integration). Data flows from sources through collection to visualization to notifications.
+    
     subgraph "Data Sources"
         CF[CloudFront]
         S3[S3 Bucket]
@@ -79,6 +83,17 @@ graph TB
     
     SNS --> EMAIL
     SNS --> SLACK
+    
+    %% High-Contrast Styling for Accessibility
+    classDef sourceBox fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
+    classDef collectionBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    classDef visualBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#1b5e20
+    classDef notifyBox fill:#e3f2fd,stroke:#1565c0,stroke-width:3px,color:#0d47a1
+    
+    class CF,S3,WAF,ROUTE53,IAM sourceBox
+    class CW,CWLOGS,CT,COST collectionBox
+    class DASH,ALERTS,BUDGET visualBox
+    class SNS,EMAIL,SLACK notifyBox
 ```
 
 ### Key Metrics Tracked

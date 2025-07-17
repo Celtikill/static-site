@@ -74,6 +74,10 @@ Integration testing validates that all infrastructure components work together c
 
 ```mermaid
 graph TB
+    %% Accessibility
+    accTitle: Integration Test Environment Strategy
+    accDescr: Shows how GitHub Actions creates isolated integration test environments with real AWS resources including S3 buckets, CloudFront distributions, and WAF rules. Test environment deploys test website content to global CDN edge locations and validates security rules.
+    
     A[GitHub Actions] --> B[Integration Test Environment]
     B --> C[Real AWS Resources]
     C --> D[S3 Bucket: integration-test-*]
@@ -82,6 +86,17 @@ graph TB
     D --> G[Test Website Content]
     E --> H[Global CDN Edge Locations]
     F --> I[Security Rule Validation]
+    
+    %% High-Contrast Styling for Accessibility
+    classDef actionsBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef envBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    classDef resourceBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef serviceBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    
+    class A actionsBox
+    class B envBox
+    class C resourceBox
+    class D,E,F,G,H,I serviceBox
 ```
 
 #### 2. Environment Naming Convention

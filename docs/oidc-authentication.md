@@ -63,6 +63,10 @@ permissions:
 ### 2. Cryptographic Trust Chain
 ```mermaid
 sequenceDiagram
+    %% Accessibility
+    accTitle: OIDC Cryptographic Trust Chain
+    accDescr: Shows sequence of OIDC authentication steps: GitHub Action requests OIDC token from GitHub OIDC Provider, receives signed JWT token, sends AssumeRoleWithWebIdentity request to AWS STS, STS validates trust policy with AWS IAM Role, role assumption is approved, STS returns temporary AWS credentials, GitHub Action uses credentials to access AWS Services.
+    
     participant GHA as GitHub Action
     participant GP as GitHub OIDC Provider
     participant STS as AWS STS
@@ -95,6 +99,10 @@ sequenceDiagram
 ### OIDC Flow Diagram
 ```mermaid
 graph TB
+    %% Accessibility
+    accTitle: OIDC Authentication Flow
+    accDescr: Shows OIDC authentication flow from GitHub Actions through AWS STS to access AWS services. GitHub workflow execution generates OIDC JWT token through GitHub OIDC Provider, which AWS STS validates against OIDC Identity Provider to assume IAM Role and generate temporary credentials for accessing S3, CloudFront, WAF, and CloudWatch services.
+    
     subgraph "GitHub Actions Environment"
         WF[Workflow Execution]
         GP[GitHub OIDC Provider]
@@ -126,9 +134,16 @@ graph TB
     TEMP --> WAF
     TEMP --> CW
     
-    style JWT fill:#e3f2fd
-    style TEMP fill:#e8f5e8
-    style ROLE fill:#fff3e0
+    %% High-Contrast Styling for Accessibility
+    classDef githubBox fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
+    classDef awsInfraBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    classDef awsServiceBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef tokenBox fill:#e3f2fd,stroke:#1565c0,stroke-width:3px,color:#0d47a1
+    
+    class WF,GP githubBox
+    class STS,PROVIDER,ROLE awsInfraBox
+    class S3,CF,WAF,CW awsServiceBox
+    class JWT,TEMP tokenBox
 ```
 
 ### OIDC Token Claims

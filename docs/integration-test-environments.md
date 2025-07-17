@@ -10,6 +10,10 @@ This guide explains how integration test environments are provisioned, managed, 
 
 ```mermaid
 graph TB
+    %% Accessibility
+    accTitle: Integration Test Environment Architecture
+    accDescr: Shows how GitHub Actions runner creates different environment types including pull request, scheduled, and manual test environments. Each environment type generates unique identifiers and deploys AWS resources including S3 buckets, CloudFront distributions, WAF web ACLs, IAM roles, and CloudWatch resources.
+    
     A[GitHub Actions Runner] --> B{Environment Type}
     B --> C[Pull Request Environment]
     B --> D[Scheduled Test Environment]
@@ -28,6 +32,17 @@ graph TB
     I --> L[WAF Web ACLs]
     I --> M[IAM Roles]
     I --> N[CloudWatch Resources]
+    
+    %% High-Contrast Styling for Accessibility
+    classDef runnerBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef decisionBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    classDef envBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef resourceBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    
+    class A runnerBox
+    class B decisionBox
+    class C,D,E,F,G,H envBox
+    class I,J,K,L,M,N resourceBox
 ```
 
 ### Naming Conventions

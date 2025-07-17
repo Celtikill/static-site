@@ -37,6 +37,10 @@ AWS_ROLE_ARN=$(tofu output -raw github_actions_role_arn)
 
 ```mermaid
 graph LR
+    %% Accessibility
+    accTitle: Deployment Workflow Overview
+    accDescr: Shows deployment workflow from push or pull request through BUILD, TEST, and DEPLOY phases. BUILD includes infrastructure validation, security scanning, and format checking. TEST includes unit tests and policy validation. DEPLOY includes infrastructure deployment, website deployment, and verification.
+    
     A[Push/PR] --> B[BUILD]
     B --> C[TEST] 
     C --> D[DEPLOY]
@@ -51,6 +55,15 @@ graph LR
     D1[Infrastructure Deploy] --> D
     D2[Website Deploy] --> D
     D3[Verification] --> D
+    
+    %% High-Contrast Styling for Accessibility
+    classDef phaseBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef triggerBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef stepBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    
+    class B,C,D phaseBox
+    class A triggerBox
+    class B1,B2,B3,C1,C2,D1,D2,D3 stepBox
 ```
 
 ### 3. Available Workflows

@@ -25,6 +25,10 @@ The CI/CD pipeline consists of three sequential workflows that build upon each o
 
 ```mermaid
 graph LR
+    %% Accessibility
+    accTitle: CI/CD Pipeline Overview
+    accDescr: Shows sequential CI/CD pipeline with three main phases: BUILD (validate, security scan, build website), TEST (unit tests, policy validation, integration tests), and DEPLOY (deploy infrastructure, deploy website, verify). Each phase must succeed before proceeding to the next.
+    
     A[BUILD] -->|Success| B[TEST]
     B -->|Success| C[DEPLOY]
     
@@ -39,6 +43,13 @@ graph LR
     C1[Deploy Infrastructure] --> C
     C2[Deploy Website] --> C
     C3[Verify] --> C
+    
+    %% High-Contrast Styling for Accessibility
+    classDef phaseBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef stepBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    
+    class A,B,C phaseBox
+    class A1,A2,A3,B1,B2,B3,C1,C2,C3 stepBox
 ```
 
 ## BUILD Workflow Conditions

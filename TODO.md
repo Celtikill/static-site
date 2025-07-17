@@ -272,6 +272,10 @@
 
 ```mermaid
 graph TD
+    %% Accessibility
+    accTitle: Enhanced Task Dependencies
+    accDescr: Shows project task dependencies across three main areas: Critical Infrastructure (testing framework, security hardening, GitHub Actions pipeline, security scanning, unit tests), Core Implementation (Pelican structure, content workflow, CI/CD integration, S3 sync configuration), and Advanced Features (policy validation, cost estimation, integration tests, drift detection, content migration, theme customization). Critical tasks are highlighted in high-contrast colors.
+    
     subgraph "Critical Infrastructure"
         A[Testing Framework] --> B[Security Hardening]
         B --> C[GitHub Actions Pipeline]
@@ -295,15 +299,14 @@ graph TD
     E --> L
     I --> N
     
-    style A fill:#ff0000,color:#ffffff
-    style B fill:#ff0000,color:#ffffff
-    style C fill:#ff0000,color:#ffffff
-    style D fill:#ff0000,color:#ffffff
-    style E fill:#ff0000,color:#ffffff
-    style F fill:#ff9999
-    style G fill:#ff9999
-    style H fill:#ff9999
-    style I fill:#ff9999
+    %% High-Contrast Styling for Accessibility
+    classDef criticalTask fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef coreTask fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef advancedTask fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    
+    class A,B,C,D,E criticalTask
+    class F,G,H,I coreTask
+    class J,K,L,M,N,O advancedTask
 ```
 
 **Priority Legend:**

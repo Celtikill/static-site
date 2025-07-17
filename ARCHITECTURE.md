@@ -18,6 +18,10 @@ This document outlines a comprehensive serverless static website architecture de
 
 ```mermaid
 graph TB
+    %% Accessibility
+    accTitle: AWS Static Website High-Level Architecture
+    accDescr: Shows enterprise static website architecture with user layer connecting to CDN and security layer (Route 53, CloudFront, WAF, security headers, ACM), storage layer (primary and secondary S3), monitoring layer (CloudWatch, SNS, budgets), and identity layer (IAM, KMS). Data flows from users through CDN to storage with monitoring and security controls.
+    
     subgraph "User Layer"
         U[Users/Browsers]
     end
@@ -60,16 +64,26 @@ graph TB
     IAM --> S3P
     KMS --> S3P
     
-    style CF fill:#e3f2fd
-    style WAF fill:#ffebee
-    style S3P fill:#f3e5f5
-    style CW fill:#e8f5e8
+    %% High-Contrast Styling for Accessibility
+    classDef systemBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef personBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef externalBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef storageBox fill:#e3f2fd,stroke:#1565c0,stroke-width:3px,color:#0d47a1
+    
+    class CF,WAF,SH,ACM systemBox
+    class U personBox
+    class R53,CW,SNS,BUD,IAM,KMS externalBox
+    class S3P,S3S storageBox
 ```
 
 ### Enterprise CI/CD Pipeline Architecture
 
 ```mermaid
 graph TB
+    %% Accessibility
+    accTitle: Enterprise CI/CD Pipeline Architecture
+    accDescr: Shows comprehensive CI/CD pipeline with three main phases: BUILD (infrastructure preparation with validation, security, content, and analysis), TEST (unit testing, policy validation, integration), and DEPLOY (infrastructure deployment, content deployment, environment protection). Includes monitoring and reporting throughout. Triggered by pull requests, pushes, or manual dispatch.
+    
     subgraph "Triggers & Events"
         PR[Pull Request]
         PUSH[Push to main]
@@ -182,10 +196,18 @@ graph TB
     TEST --> SUMMARY
     DEPLOY --> NOTIFICATIONS
     
-    style BUILD fill:#e1f5fe
-    style TEST fill:#fff3e0
-    style DEPLOY fill:#e8f5e8
-    style SARIF fill:#ffebee
+    %% High-Contrast Styling for Accessibility
+    classDef buildBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef testBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    classDef deployBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#1b5e20
+    classDef triggerBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef monitorBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    
+    class BUILD,FMT,VALIDATE,PLAN,CHECKOV,TRIVY,THRESHOLD,HTML,CONTENT,COST,DOCS buildBox
+    class TEST,UT_S3,UT_CF,UT_WAF,UT_IAM,UT_MON,OPA,SECURITY_POL,COMPLIANCE,DEPLOY_TEST,E2E,CLEANUP testBox
+    class DEPLOY,INFRA_DEPLOY,POST_VALID,S3_SYNC,CF_INVALIDATE,VERIFY,DEV_ENV,STAGING_ENV,PROD_ENV deployBox
+    class PR,PUSH,MANUAL triggerBox
+    class ARTIFACTS,SUMMARY,NOTIFICATIONS,REPORTS monitorBox
 ```
 
 #### Pipeline Features
@@ -252,6 +274,10 @@ graph TB
 **Attack Tree Analysis**:
 ```mermaid
 graph TD
+    %% Accessibility
+    accTitle: Static Website Attack Tree Analysis
+    accDescr: Shows potential attack vectors for compromising static website including direct S3 access, CDN bypass, DDoS attacks, and malicious content injection. High-risk vulnerabilities include misconfigured bucket policies, leaked credentials, direct origin access, and pipeline compromises. Mitigated risks include application and network layer DDoS through WAF and CloudFront protection.
+    
     A[Compromise Static Website] --> B[Direct S3 Access]
     A --> C[CDN Bypass]
     A --> D[DDoS Attack]
@@ -269,13 +295,14 @@ graph TD
     E --> E1[Build Pipeline Compromise]
     E --> E2[Repository Access]
     
-    style B1 fill:#ffcccc
-    style B2 fill:#ffcccc
-    style C1 fill:#ffcccc
-    style D1 fill:#ccffcc
-    style D2 fill:#ccffcc
-    style E1 fill:#ffcccc
-    style E2 fill:#ffcccc
+    %% High-Contrast Styling for Accessibility
+    classDef highRisk fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
+    classDef mitigated fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef rootNode fill:#f8f9fa,stroke:#495057,stroke-width:4px,color:#212529
+    
+    class A rootNode
+    class B1,B2,C1,C2,E1,E2 highRisk
+    class D1,D2 mitigated
 ```
 
 **Mitigations**:
@@ -387,6 +414,10 @@ graph TD
 
 ```mermaid
 gantt
+    %% Accessibility
+    accTitle: Static Website Deployment Timeline
+    accDescr: Shows project implementation timeline across 5 phases: Infrastructure (OpenTofu modules, S3 and CloudFront, security layer), CI/CD (GitHub Actions, testing pipeline), Monitoring (CloudWatch setup, alerting configuration), Testing (security testing, performance testing), and Launch (production deployment). Timeline spans from January 1 to January 15, 2024.
+    
     title Static Website Deployment Timeline
     dateFormat  YYYY-MM-DD
     section Infrastructure
