@@ -5,7 +5,7 @@ Complete guide for deploying and managing your AWS static website infrastructure
 ## 🎯 Deployment Options
 
 ### Option 1: GitHub Actions (Recommended)
-Fully automated CI/CD with security scanning and zero-downtime deployments.
+Fully automated CI/CD with comprehensive security scanning and validation.
 
 ### Option 2: Manual Deployment  
 Local deployment for development and testing.
@@ -39,54 +39,109 @@ AWS_ROLE_ARN=$(tofu output -raw github_actions_role_arn)
 graph LR
     %% Accessibility
     accTitle: Deployment Workflow Overview
-    accDescr: Shows deployment workflow from push or pull request through BUILD, TEST, and DEPLOY phases. BUILD includes infrastructure validation, security scanning, and format checking. TEST includes unit tests and policy validation. DEPLOY includes infrastructure deployment, website deployment, and verification.
+    accDescr: Shows deployment workflow with BUILD, TEST, and three DEPLOY phases (dev, staging, prod). Each phase can be triggered independently but typically follows the progression path. BUILD includes validation and security scanning. TEST includes policy validation. DEPLOY includes infrastructure and website deployment with environment-specific configurations.
     
     A[Push/PR] --> B[BUILD]
-    B --> C[TEST] 
-    C --> D[DEPLOY]
+    B -.->|Optional| C[TEST]
+    C -.->|Optional| D1[DEPLOY-DEV]
+    D1 -.->|Optional| D2[DEPLOY-STAGING]
+    D2 -.->|Optional| D3[DEPLOY-PROD]
     
-    B1[Validate Infrastructure] --> B
-    B2[Security Scanning] --> B
-    B3[Format Checking] --> B
+    B1[Infrastructure] --> B
+    B2[Security] --> B
+    B3[Website] --> B
+    B4[Cost Analysis] --> B
     
-    C1[Unit Tests] --> C
-    C2[Policy Validation] --> C
+    C1[Policy] --> C
+    C2[Security] --> C
     
-    D1[Infrastructure Deploy] --> D
-    D2[Website Deploy] --> D
-    D3[Verification] --> D
+    subgraph Deployments
+    D1 & D2 & D3
+    end
     
     %% High-Contrast Styling for Accessibility
     classDef phaseBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
     classDef triggerBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
     classDef stepBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef deployBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
     
-    class B,C,D phaseBox
+    class B,C phaseBox
     class A triggerBox
-    class B1,B2,B3,C1,C2,D1,D2,D3 stepBox
+    class B1,B2,B3,B4,C1,C2 stepBox
+    class D1,D2,D3 deployBox
 ```
 
 ### 3. Available Workflows
 
 #### BUILD Workflow (`build.yml`)
-Triggered on: `push`, `pull_request`
-- OpenTofu validation and planning
-- Security scanning (Checkov, Trivy)
-- Website build preparation  
-- Cost estimation
+Triggered on:
+- `pull_request` to main branch
+- `push` to main branch
+- Manual dispatch with options:
+  - environment selection
+  - force build flag
+
+Jobs:
+- Infrastructure validation and planning
+- Security scanning (Checkov and Trivy in parallel)
+  - Critical threshold: 0
+  - High threshold: 0
+  - Medium threshold: 3
+  - Low threshold: 10
+- Website content validation and build
+- Cost estimation with thresholds:
+  - Development: ~$27/month
+  - Staging: ~$35/month
+  - Production: ~$45/month
 
 #### TEST Workflow (`test.yml`)
-Triggered on: `push`, `pull_request`
-- Unit tests for all infrastructure modules
-- Policy validation with OPA/Conftest
-- Security compliance checking
+Triggered on:
+- Successful BUILD workflow completion
+- Manual dispatch with options:
+  - test_id reference
+  - build_id reference
+  - skip_build_check flag
 
-#### DEPLOY Workflow (`deploy.yml`)
-Triggered on: `push to main`, `manual dispatch`
-- Infrastructure provisioning with OpenTofu
-- Website content deployment to S3
-- CloudFront cache invalidation
-- Post-deployment verification
+Jobs:
+- Policy validation with OPA/Conftest
+- Security compliance validation
+- Infrastructure state validation
+
+#### DEPLOY Workflows
+
+##### Development (`deploy-dev.yml`)
+Triggered on:
+- Push to develop/feature branches
+- Manual dispatch
+- TEST workflow completion
+
+Configuration:
+- CloudFront: PriceClass_100
+- WAF rate limit: 1000
+- Cross-region replication: disabled
+- Detailed monitoring: disabled
+
+##### Staging (`deploy-staging.yml`)
+Triggered on:
+- Successful DEPLOY-DEV completion
+- Manual dispatch (requires test_id and build_id)
+
+Configuration:
+- CloudFront: PriceClass_200
+- WAF rate limit: 2000
+- Cross-region replication: enabled
+- Detailed monitoring: enabled
+
+##### Production (`deploy.yml`)
+Triggered on:
+- TEST workflow completion for main branch
+- Manual dispatch with environment selection
+
+Configuration:
+- CloudFront: PriceClass_All
+- WAF rate limit: 5000
+- Cross-region replication: enabled
+- Detailed monitoring: enabled
 
 ### 4. Manual Workflow Dispatch
 
@@ -197,28 +252,66 @@ aws cloudwatch get-dashboard \
 
 ## 🔧 Configuration Management
 
-### Environment-Specific Configuration
+### Environment Configuration
 
-Create separate `.tfvars` files for each environment:
-
+#### Required Secrets
+Add to GitHub repository secrets:
 ```bash
-# terraform/environments/dev.tfvars
-project_name = "mysite"
-environment = "dev"
-cloudfront_price_class = "PriceClass_100"
-enable_cross_region_replication = false
+# AWS Role ARNs for OIDC authentication
+AWS_ASSUME_ROLE_DEV       # Development deployment role
+AWS_ASSUME_ROLE_STAGING   # Staging deployment role
+AWS_ASSUME_ROLE           # Production deployment role
 
-# terraform/environments/prod.tfvars  
-project_name = "mysite"
-environment = "prod"
-cloudfront_price_class = "PriceClass_All"
-enable_cross_region_replication = true
-domain_aliases = ["www.example.com"]
+# Monitoring configuration
+ALERT_EMAIL_ADDRESSES     # JSON array of alert recipients
 ```
 
-Deploy with environment-specific config:
+#### Environment Variables
+Repository variables (optional):
 ```bash
-tofu apply -var-file="environments/prod.tfvars"
+# Set in repository Settings -> Variables
+AWS_REGION                # Default: us-east-1
+DEFAULT_ENVIRONMENT       # Default: dev
+MONTHLY_BUDGET_LIMIT      # Default: 50
+```
+
+#### Environment-Specific Settings
+Automatically set by workflows:
+
+##### Development
+```hcl
+TF_VAR_environment = "dev"
+TF_VAR_cloudfront_price_class = "PriceClass_100"
+TF_VAR_waf_rate_limit = 1000
+TF_VAR_enable_cross_region_replication = false
+TF_VAR_enable_detailed_monitoring = false
+TF_VAR_force_destroy_bucket = true
+TF_VAR_monthly_budget_limit = 10
+TF_VAR_log_retention_days = 7
+```
+
+##### Staging
+```hcl
+TF_VAR_environment = "staging"
+TF_VAR_cloudfront_price_class = "PriceClass_200"
+TF_VAR_waf_rate_limit = 2000
+TF_VAR_enable_cross_region_replication = true
+TF_VAR_enable_detailed_monitoring = true
+TF_VAR_force_destroy_bucket = false
+TF_VAR_monthly_budget_limit = 25
+TF_VAR_log_retention_days = 30
+```
+
+##### Production
+```hcl
+TF_VAR_environment = "prod"
+TF_VAR_cloudfront_price_class = "PriceClass_All"
+TF_VAR_waf_rate_limit = 5000
+TF_VAR_enable_cross_region_replication = true
+TF_VAR_enable_detailed_monitoring = true
+TF_VAR_force_destroy_bucket = false
+TF_VAR_monthly_budget_limit = 50
+TF_VAR_log_retention_days = 90
 ```
 
 ### Workspace Management
@@ -310,30 +403,6 @@ For critical issues:
 
 ## 🚀 Advanced Deployment
 
-### Blue-Green Deployment
-
-Deploy new version alongside existing:
-```bash
-# Deploy to blue environment
-tofu workspace select blue
-tofu apply -var="environment=blue"
-
-# Test blue environment
-# Switch traffic to blue
-# Destroy green environment
-```
-
-### Canary Deployment
-
-Use CloudFront weighted routing:
-```bash
-# Deploy new version with 10% traffic
-tofu apply -var="canary_percentage=10"
-
-# Gradually increase traffic
-tofu apply -var="canary_percentage=50"
-tofu apply -var="canary_percentage=100"
-```
 
 **Next Steps:**
 - 🔒 [Security Configuration](security.md)

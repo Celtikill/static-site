@@ -21,35 +21,41 @@ This guide documents the conditional execution logic in the BUILD-TEST-DEPLOY CI
 
 ## Pipeline Overview
 
-The CI/CD pipeline consists of three sequential workflows that build upon each other:
+The CI/CD pipeline consists of multiple workflows that can run independently but typically follow a progression:
 
 ```mermaid
 graph LR
     %% Accessibility
     accTitle: CI/CD Pipeline Overview
-    accDescr: Shows sequential CI/CD pipeline with three main phases: BUILD (validate, security scan, build website), TEST (unit tests, policy validation, integration tests), and DEPLOY (deploy infrastructure, deploy website, verify). Each phase must succeed before proceeding to the next.
+    accDescr: Shows CI/CD pipeline with multiple workflows. BUILD validates and scans infrastructure and website. TEST performs policy validation. Three DEPLOY workflows handle different environments with specific configurations.
     
-    A[BUILD] -->|Success| B[TEST]
-    B -->|Success| C[DEPLOY]
+    A[BUILD] -.->|Optional| B[TEST]
+    B -.->|Optional| D1[DEPLOY-DEV]
+    D1 -.->|Optional| D2[DEPLOY-STAGING]
+    D2 -.->|Optional| D3[DEPLOY-PROD]
     
-    A1[Validate] --> A
-    A2[Security Scan] --> A
-    A3[Build Website] --> A
+    A1[Infrastructure] --> A
+    A2[Security] --> A
+    A3[Website] --> A
+    A4[Cost Analysis] --> A
     
-    B1[Unit Tests] --> B
-    B2[Policy Validation] --> B
-    B3[Integration Tests] --> B
+    B1[Policy] --> B
+    B2[Security] --> B
     
-    C1[Deploy Infrastructure] --> C
-    C2[Deploy Website] --> C
-    C3[Verify] --> C
+    D1S[Dev Settings] --> D1
+    D2S[Staging Settings] --> D2
+    D3S[Prod Settings] --> D3
     
     %% High-Contrast Styling for Accessibility
     classDef phaseBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
     classDef stepBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef deployBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef settingsBox fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
     
-    class A,B,C phaseBox
-    class A1,A2,A3,B1,B2,B3,C1,C2,C3 stepBox
+    class A,B phaseBox
+    class A1,A2,A3,A4,B1,B2 stepBox
+    class D1,D2,D3 deployBox
+    class D1S,D2S,D3S settingsBox
 ```
 
 ## BUILD Workflow Conditions
@@ -192,20 +198,14 @@ if echo "$CHANGED_FILES" | grep -qE '\.(md|txt|rst)$' && \
 fi
 ```
 
-#### Unit Tests Matrix
+#### Policy Testing
 
 **Runs when**:
-```
-if: needs.test-info.outputs.skip_tests != '1'
+```yaml
+if: needs.test-info.outputs.skip_tests != '1' && needs.test-info.outputs.has_tf_changes == '1'
 ```
 
-**Matrix Strategy**:
-```yaml
-strategy:
-  matrix:
-    module: [s3, cloudfront, waf, iam, monitoring]
-  fail-fast: false  # All modules test independently
-```
+Executes policy validation and security compliance checks on infrastructure.
 
 #### Policy Validation
 
@@ -225,17 +225,79 @@ if: needs.test-info.outputs.skip_tests != '1' && (success() || needs.policy-vali
 
 Runs after unit tests succeed, even if policy validation was skipped.
 
-## DEPLOY Workflow Conditions
+## Deployment Workflow Conditions
 
-### Trigger Conditions
+### Development Deployment (`deploy-dev.yml`)
 
-1. **Manual Dispatch** with granular control:
-   - `environment`: dev, staging, or prod
-   - `deploy_infrastructure`: true/false
-   - `deploy_website`: true/false
-   - `skip_test_check`: Bypass TEST dependency
+#### Trigger Conditions:
+1. **Push** to:
+   - `develop` branch
+   - `feature/*` branches
 
-2. **Workflow Run** (automatic):
+2. **Manual Dispatch** with options:
+   - `test_id`: Optional reference
+   - `build_id`: Optional reference
+   - `skip_test_check`: Development only
+   - `force_deploy`: Override change detection
+
+3. **Workflow Run**:
+   ```yaml
+   workflow_run:
+     workflows: ["TEST - Policy and Validation"]
+     types: [completed]
+     branches: [develop, 'feature/*']
+   ```
+
+#### Environment Settings:
+```yaml
+TF_VAR_environment: dev
+TF_VAR_cloudfront_price_class: PriceClass_100
+TF_VAR_waf_rate_limit: 1000
+TF_VAR_enable_cross_region_replication: false
+TF_VAR_enable_detailed_monitoring: false
+TF_VAR_force_destroy_bucket: true
+TF_VAR_monthly_budget_limit: "10"
+TF_VAR_log_retention_days: 7
+```
+
+### Staging Deployment (`deploy-staging.yml`)
+
+#### Trigger Conditions:
+1. **Manual Dispatch** with required inputs:
+   - `test_id`: Required for traceability
+   - `build_id`: Required for artifact reference
+   - `dev_deployment_id`: For deployment tracking
+
+2. **Workflow Run**:
+   ```yaml
+   workflow_run:
+     workflows: ["DEPLOY-DEV - Development Environment Deployment"]
+     types: [completed]
+     branches: [main, develop]
+   ```
+
+#### Environment Settings:
+```yaml
+TF_VAR_environment: staging
+TF_VAR_cloudfront_price_class: PriceClass_200
+TF_VAR_waf_rate_limit: 2000
+TF_VAR_enable_cross_region_replication: true
+TF_VAR_enable_detailed_monitoring: true
+TF_VAR_force_destroy_bucket: false
+TF_VAR_monthly_budget_limit: "25"
+TF_VAR_log_retention_days: 30
+```
+
+### Production Deployment (`deploy.yml`)
+
+#### Trigger Conditions:
+1. **Manual Dispatch** with options:
+   - `environment`: Required (prod/staging/dev)
+   - `test_id`: Optional TEST workflow reference
+   - `build_id`: Optional BUILD reference
+   - `skip_test_check`: Emergency override
+
+2. **Workflow Run**:
    ```yaml
    workflow_run:
      workflows: ["TEST - Security and Validation"]
@@ -243,25 +305,16 @@ Runs after unit tests succeed, even if policy validation was skipped.
      branches: [main]
    ```
 
-### Environment-Specific Conditions
-
-The DEPLOY workflow includes environment-specific configurations:
-
+#### Environment Settings:
 ```yaml
-# Environment determines resource sizing:
-TF_VAR_cloudfront_price_class: 
-  - prod: 'PriceClass_All'
-  - staging: 'PriceClass_200'
-  - dev: 'PriceClass_100'
-
-TF_VAR_enable_cross_region_replication:
-  - prod: 'true'
-  - others: 'false'
-
-TF_VAR_waf_rate_limit:
-  - prod: '5000'
-  - staging: '2000'
-  - dev: '1000'
+TF_VAR_environment: prod
+TF_VAR_cloudfront_price_class: PriceClass_All
+TF_VAR_waf_rate_limit: 5000
+TF_VAR_enable_cross_region_replication: true
+TF_VAR_enable_detailed_monitoring: true
+TF_VAR_force_destroy_bucket: false
+TF_VAR_monthly_budget_limit: "50"
+TF_VAR_log_retention_days: 90
 ```
 
 ### Deploy Infrastructure Job
@@ -356,11 +409,16 @@ The pipeline optimizes execution based on what changed:
 
 ### 2. Parallel Execution
 
-Multiple strategies for parallel execution:
+Parallel execution strategies:
 
-- **Security scanners**: Run Checkov and Trivy in parallel
-- **Unit tests**: Test all modules in parallel
-- **No fail-fast**: Continue other jobs even if one fails
+- **Security scanning**: Checkov and Trivy run simultaneously with separate thresholds:
+  - Critical: 0
+  - High: 0
+  - Medium: 3
+  - Low: 10
+- **Infrastructure operations**: Plan and security scan run in parallel
+- **Website operations**: Build and validation run concurrently
+- **No fail-fast**: Jobs continue independently after failures
 
 ### 3. Conditional Artifact Downloads
 
@@ -428,18 +486,27 @@ gh workflow run deploy.yml \
    - Verify repository variables are set
    - Review manual input parameters
 
-### Debug Commands
+### Debug Outputs
 
-Enable detailed logging:
-```bash
-# In workflow files, add debug steps:
-- name: Debug Conditions
-  run: |
-    echo "has_tf_changes: ${{ needs.build-info.outputs.has_tf_changes }}"
-    echo "has_content_changes: ${{ needs.build-info.outputs.has_content_changes }}"
-    echo "skip_tests: ${{ needs.test-info.outputs.skip_tests }}"
-    echo "Event name: ${{ github.event_name }}"
-    echo "Event action: ${{ github.event.action }}"
+Key debug outputs available:
+```yaml
+# BUILD outputs:
+has_tf_changes: Infrastructure file changes
+has_content_changes: Website content changes
+has_workflow_changes: GitHub Actions changes
+has_doc_changes: Documentation updates
+needs_security_scan: Security scan required
+needs_full_tests: Full test suite needed
+
+# TEST outputs:
+skip_tests: Test execution flag
+policy_status: Policy validation status
+
+# DEPLOY outputs:
+deployment_status: Overall status
+website_url: Deployed site URL
+s3_bucket_id: Target bucket
+cloudfront_distribution_id: CDN ID
 ```
 
 ## Best Practices
