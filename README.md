@@ -81,12 +81,12 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 ├── scripts/              # Setup and utility scripts
 ├── src/                  # Static website content
 ├── terraform/            # Infrastructure as Code
-│   ├── modules/         # Reusable Terraform modules
+│   ├── modules/         # Reusable Terraform modules (4 modules)
 │   │   ├── cloudfront/  # CDN configuration
 │   │   ├── s3/          # Storage configuration
 │   │   ├── waf/         # Web Application Firewall
 │   │   └── monitoring/  # CloudWatch monitoring
-│   └── *.tf             # Root configuration files
+│   └── *.tf             # Root configuration files (includes IAM)
 └── test/                # Infrastructure tests
 ```
 
@@ -111,11 +111,13 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 
 This project implements multiple security layers:
 
-- **IAM**: Least privilege access with manual role management
+- **IAM**: Least privilege access with OIDC authentication (configured in main.tf)
 - **Encryption**: KMS encryption for all data at rest
 - **WAF**: OWASP Top 10 protection with rate limiting
 - **Access Control**: S3 bucket access only through CloudFront OAC
 - **Monitoring**: Real-time security alerts and logging
+
+**Note**: IAM roles and policies must be manually created before deployment. See [docs/manual-iam-setup.md](docs/manual-iam-setup.md) for setup instructions.
 
 See [SECURITY.md](SECURITY.md) for detailed security documentation.
 
@@ -127,11 +129,7 @@ cd test/unit
 ./run-tests.sh
 ```
 
-Run integration tests:
-```bash
-cd .github/workflows
-# Tests run automatically in CI/CD
-```
+**Note**: Integration tests are documented but not yet implemented. Unit tests cover all 4 infrastructure modules with comprehensive assertions.
 
 ## 📊 Cost Estimation
 
@@ -169,9 +167,23 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Update email addresses and domain names with real values
 - Review and customize IAM policies before deployment
 
-## 📚 Additional Resources
+## 📚 Documentation
 
-- [Deployment Guide](docs/deployment-guide.md)
-- [Architecture Details](docs/architecture.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Security Best Practices](SECURITY.md)
+Complete documentation is available in the [docs](docs/) directory:
+
+### Quick Start
+- [Documentation Index](docs/README.md) - Start here for all documentation
+- [Quick Start Guide](docs/quick-start.md) - Get up and running quickly
+
+### Guides
+- [IAM Setup](docs/guides/iam-setup.md) - Configure AWS roles and permissions
+- [Deployment Guide](docs/guides/deployment-guide.md) - Deploy your infrastructure
+- [Security Guide](docs/guides/security-guide.md) - Implement security best practices
+- [Testing Guide](docs/guides/testing-guide.md) - Run and write tests
+- [Troubleshooting](docs/guides/troubleshooting.md) - Solve common issues
+
+### Reference
+- [Architecture Details](ARCHITECTURE.md) - Complete architectural overview
+- [Security Policies](SECURITY.md) - Security overview and placeholder info
+- [Cost Analysis](docs/reference/cost-estimation.md) - Detailed cost breakdown
+- [Monitoring](docs/reference/monitoring.md) - CloudWatch setup and alerts
