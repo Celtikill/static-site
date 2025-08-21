@@ -321,4 +321,4 @@ cd terraform && echo "URL: $(tofu output -raw cloudfront_distribution_url)" && e
 
 ---
 
-**Need more help?** → [Documentation Index](index.md) | [Troubleshooting](troubleshooting.md)
+**Need more help?** → [Documentation Index](README.md) | [Troubleshooting](guides/troubleshooting.md)

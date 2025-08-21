@@ -96,10 +96,10 @@ aws cloudfront create-invalidation \
 Your website is now live at the CloudFront URL! 
 
 **Next Steps:**
-- 🔒 [Setup CI/CD](deployment.md#github-actions-setup) for automated deployments
-- 🛡️ [Configure Security](security.md) for production use
-- 🌍 [Add Custom Domain](custom-domain.md) for your website
-- 📊 [Setup Monitoring](monitoring.md) to track performance
+- 🔒 [Setup CI/CD](guides/deployment-guide.md#github-actions-setup) for automated deployments
+- 🛡️ [Configure Security](guides/security-guide.md) for production use
+- 🌍 Add Custom Domain (configure `domain_aliases` variable)
+- 📊 [Setup Monitoring](reference/monitoring.md) to track performance
 
 ## ⚠️ Quick Troubleshooting
 
@@ -119,7 +119,7 @@ tofu workspace new my-workspace
 ### Issue: Certificate validation errors
 **Solution:** ACM certificates must be in `us-east-1` region for CloudFront
 
-**Need more help?** → [Troubleshooting Guide](troubleshooting.md)
+**Need more help?** → [Troubleshooting Guide](guides/troubleshooting.md)
 
 ## 💡 What Just Happened?
 
@@ -134,4 +134,4 @@ You deployed:
 
 ---
 
-**Ready for production?** → [Security Setup Guide](security.md) 🔒
+**Ready for production?** → [Security Setup Guide](guides/security-guide.md) 🔒

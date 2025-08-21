@@ -117,7 +117,7 @@ This project implements multiple security layers:
 - **Access Control**: S3 bucket access only through CloudFront OAC
 - **Monitoring**: Real-time security alerts and logging
 
-**Note**: IAM roles and policies must be manually created before deployment. See [docs/manual-iam-setup.md](docs/manual-iam-setup.md) for setup instructions.
+**Note**: IAM roles and policies must be manually created before deployment. See [docs/guides/iam-setup.md](docs/guides/iam-setup.md) for setup instructions.
 
 See [SECURITY.md](SECURITY.md) for detailed security documentation.
 

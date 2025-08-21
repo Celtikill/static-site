@@ -519,7 +519,7 @@ cloudfront_distribution_id: CDN ID
 
 ## Related Documentation
 
-- [Deployment Guide](deployment.md) - Overall deployment strategies
-- [Integration Testing](integration-testing.md) - Test execution details
-- [Quick Reference](quick-reference.md) - Common workflow commands
-- [Troubleshooting](troubleshooting.md) - Debugging workflow issues
+- [Deployment Guide](../guides/deployment-guide.md) - Overall deployment strategies
+- [Integration Testing](../guides/testing-guide.md) - Test execution details
+- [Quick Reference](../quick-reference.md) - Common workflow commands
+- [Troubleshooting](../guides/troubleshooting.md) - Debugging workflow issues

@@ -4,7 +4,9 @@ Welcome to the AWS Static Website Infrastructure documentation.
 
 ## Quick Start
 
+- [Prerequisites](prerequisites.md) - Required tools and setup
 - [Quick Start Guide](quick-start.md) - Get up and running quickly
+- [Backend Setup](backend-setup.md) - Configure Terraform state storage
 - [Architecture Overview](../ARCHITECTURE.md) - Understand the system design
 - [Security Overview](../SECURITY.md) - Security policies and considerations
 

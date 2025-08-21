@@ -414,12 +414,132 @@ tofu apply -var="admin_ip_whitelist=[\"YOUR_IP/32\"]"
 
 ---
 
+## 📚 Error Codes Reference
+
+### Common Terraform/OpenTofu Error Codes
+
+**Error Code: InvalidParameterValue**
+- **Cause**: Invalid parameter passed to AWS resource
+- **Fix**: Check variable values in `terraform.tfvars`
+
+**Error Code: AccessDenied** 
+- **Cause**: Insufficient IAM permissions
+- **Fix**: Review [IAM Setup Guide](iam-setup.md)
+
+**Error Code: BucketAlreadyExists**
+- **Cause**: S3 bucket name already taken globally
+- **Fix**: Change `project_name` in variables
+
+**Error Code: ResourceInUse**
+- **Cause**: Resource being used by another service
+- **Fix**: Wait for resource to be freed or force delete
+
+### GitHub Actions Error Codes
+
+**Error: OIDC token verification failed**
+- **Fix**: Check OIDC provider configuration
+- **Check**: Repository trust policy conditions
+
+**Error: AWS credentials not found**
+- **Fix**: Verify `AWS_ROLE_ARN` secret is set
+- **Check**: OIDC provider exists in AWS
+
+## 📋 Frequently Asked Questions
+
+### General Questions
+
+**Q: Can I use Terraform instead of OpenTofu?**
+A: Yes, replace `tofu` commands with `terraform`. The configuration is compatible.
+
+**Q: How much does this infrastructure cost?**
+A: Approximately $27-30/month. See [cost estimation](../reference/cost-estimation.md) for details.
+
+**Q: Can I deploy to multiple environments?**
+A: Yes, use different backend configurations for each environment.
+
+### Technical Questions
+
+**Q: Why is my CloudFront distribution taking long to deploy?**
+A: CloudFront distributions can take 15-45 minutes to deploy globally.
+
+**Q: Can I use my own domain?**
+A: Yes, configure `domain_aliases` and `acm_certificate_arn` variables.
+
+**Q: How do I enable cross-region replication?**
+A: Set `enable_cross_region_replication = true` in your variables.
+
+### Troubleshooting Questions
+
+**Q: My website shows 403 Forbidden**
+A: Check Origin Access Control (OAC) configuration and S3 bucket policy.
+
+**Q: Changes aren't visible on the website**
+A: CloudFront caches content. Create an invalidation or wait for cache expiry.
+
+**Q: GitHub Actions workflow is failing**
+A: Check AWS credentials, IAM permissions, and repository secrets.
+
+## ⚙️ Configuration Reference
+
+### Required Variables
+
+| Variable | Type | Description | Example |
+|----------|------|-------------|---------|
+| `project_name` | string | Project identifier | `"my-website"` |
+| `environment` | string | Environment name | `"dev"` |
+| `aws_region` | string | Primary AWS region | `"us-east-1"` |
+| `alert_email_addresses` | list(string) | Email addresses for alerts | `["admin@example.com"]` |
+| `github_repository` | string | GitHub repository | `"owner/repo"` |
+
+### Optional Variables
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `domain_aliases` | list(string) | `[]` | Custom domains |
+| `acm_certificate_arn` | string | `""` | SSL certificate ARN |
+| `enable_cross_region_replication` | bool | `false` | Enable S3 replication |
+| `replica_region` | string | `"us-west-2"` | Replication target region |
+| `enable_versioning` | bool | `true` | S3 object versioning |
+| `waf_rate_limit` | number | `2000` | WAF rate limit per 5 minutes |
+| `enable_geo_blocking` | bool | `false` | Enable geographic blocking |
+| `blocked_countries` | list(string) | `[]` | Countries to block |
+| `monthly_budget_limit` | number | `50` | Budget alert threshold |
+
+### Advanced Configuration
+
+**KMS Encryption:**
+```hcl
+kms_key_id = "alias/my-static-site-key"
+```
+
+**Custom Error Pages:**
+```hcl
+custom_error_response = [
+  {
+    error_code = 404
+    response_code = 404
+    response_page_path = "/404.html"
+  }
+]
+```
+
+**Cache Behaviors:**
+```hcl
+ordered_cache_behavior = [
+  {
+    path_pattern = "/api/*"
+    target_origin_id = "S3-origin"
+    cache_policy_id = "cache-disabled"
+  }
+]
+```
+
 ## 🤝 Getting Additional Help
 
 ### Self-Service Resources
-1. **[Error Codes](error-codes.md)** - Detailed error explanations
-2. **[FAQ](faq.md)** - Frequently asked questions
-3. **[Configuration Reference](configuration.md)** - All variables and settings
+1. **Error Codes** - See detailed error explanations in sections above
+2. **FAQ** - See frequently asked questions in sections above  
+3. **Configuration Reference** - See configuration reference in sections above
 
 ### Community Support
 - **[GitHub Discussions](https://github.com/celtikill/static-site/discussions)** - Community Q&A
