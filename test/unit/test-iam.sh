@@ -14,7 +14,8 @@ readonly TEST_NAME="iam-configuration-tests"
 
 # Test functions
 test_iam_documentation_exists() {
-    assert_file_exists "${DOCS_PATH}/manual-iam-setup.md" "Manual IAM setup documentation should exist"
+    # Updated to use consolidated IAM documentation location
+    assert_file_exists "${DOCS_PATH}/guides/iam-setup.md" "Consolidated IAM setup documentation should exist"
     assert_file_exists "${DOCS_PATH}/iam-policies/github-actions-trust-policy.json" "GitHub Actions trust policy should exist"
     assert_file_exists "${DOCS_PATH}/iam-policies/github-actions-core-infrastructure-policy-secure.json" "Secure core infrastructure policy should exist"
     assert_file_exists "${DOCS_PATH}/iam-policies/github-actions-monitoring-policy-secure.json" "Secure monitoring policy should exist"
@@ -116,13 +117,14 @@ test_iam_setup_script_validation() {
 }
 
 test_iam_documentation_completeness() {
-    local manual_setup="${DOCS_PATH}/manual-iam-setup.md"
+    # Updated to use consolidated documentation location
+    local manual_setup="${DOCS_PATH}/guides/iam-setup.md"
     
-    # Check documentation includes all necessary sections
+    # Check documentation includes all necessary sections (updated for actual consolidated format)
     assert_contains "$(cat "$manual_setup")" "## Prerequisites" "Should include prerequisites"
-    assert_contains "$(cat "$manual_setup")" "## Setup Process" "Should include setup process"
-    assert_contains "$(cat "$manual_setup")" "## Security Benefits" "Should explain security benefits"
-    assert_contains "$(cat "$manual_setup")" "## Ongoing Management" "Should include ongoing management"
+    assert_contains "$(cat "$manual_setup")" "## GitHub Actions OIDC Setup" "Should include OIDC setup process"
+    assert_contains "$(cat "$manual_setup")" "## Security Best Practices" "Should explain security benefits"
+    assert_contains "$(cat "$manual_setup")" "## Troubleshooting" "Should include troubleshooting guidance"
 }
 
 test_iam_replication_policy_permissions() {
