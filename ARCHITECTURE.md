@@ -468,7 +468,7 @@ gantt
 
 ### Terraform Module Architecture
 
-The infrastructure is organized into 5 core modules with clear separation of concerns:
+The infrastructure is organized into 4 core modules with clear separation of concerns:
 
 #### **S3 Module** (`modules/s3/`)
 - **Primary Features**: Origin Access Control (OAC), encryption, versioning, intelligent tiering
@@ -488,12 +488,6 @@ The infrastructure is organized into 5 core modules with clear separation of con
 - **Geo-blocking**: Optional country-based restrictions with IP allow/block lists
 - **Logging**: CloudWatch Logs with PII redaction and metric filters
 
-#### **IAM Module** (`modules/iam/`)
-- **OIDC Integration**: GitHub Actions authentication with repository-specific trust policies
-- **Least Privilege**: Scoped permissions for S3, CloudFront, and CloudWatch operations
-- **Security**: Session duration limits, account ID validation, resource ARN constraints
-- **Flexibility**: Optional service roles for Lambda/CodeBuild integration
-
 #### **Monitoring Module** (`modules/monitoring/`)
 - **Dashboards**: Real-time CloudWatch dashboards with performance and security metrics
 - **Alerting**: SNS topics with encrypted notification channels
@@ -504,7 +498,7 @@ The infrastructure is organized into 5 core modules with clear separation of con
 
 #### **Zero-Dependency Design**
 - **Framework**: Pure bash + jq with no external dependencies
-- **Coverage**: 269 individual assertions across all 5 infrastructure modules
+- **Coverage**: Comprehensive assertions across all 4 infrastructure modules
 - **Performance**: Sub-second execution through file content caching and parallel processing
 - **Reporting**: JSON and human-readable formats with comprehensive metrics
 
@@ -512,7 +506,7 @@ The infrastructure is organized into 5 core modules with clear separation of con
 - **S3 Module**: 49 tests covering security, replication, lifecycle, and compliance
 - **CloudFront Module**: 55 tests covering OAC, security headers, caching, and performance
 - **WAF Module**: 50 tests covering rule sets, rate limiting, geo-blocking, and logging
-- **IAM Module**: 58 tests covering OIDC, trust policies, permissions, and security
+- **IAM Tests**: 58 tests covering OIDC, trust policies, permissions, and security (tests IAM configuration in main.tf)
 - **Monitoring Module**: 57 tests covering dashboards, alarms, notifications, and budgets
 
 ### CI/CD Pipeline Implementation
@@ -535,9 +529,9 @@ The infrastructure is organized into 5 core modules with clear separation of con
 - **Health Validation**: Post-deployment verification and monitoring setup
 - **Environment Protection**: Manual approval gates for staging and production
 
-## **Security Architecture Validation**
+## **Security Architecture**
 
-**WAF Integration Status**: ✅ **RESOLVED** - The WAF Web ACL is now properly associated with the CloudFront distribution (`web_acl_id = module.waf.web_acl_id` in `main.tf:125`). This provides comprehensive protection against OWASP Top 10 attacks, rate limiting, and geographic restrictions.
+The WAF Web ACL is properly associated with the CloudFront distribution (`web_acl_id = module.waf.web_acl_id` in `main.tf:125`), providing comprehensive protection against OWASP Top 10 attacks, rate limiting, and geographic restrictions.
 
 ## Conclusion
 
@@ -552,9 +546,10 @@ The implementation showcases modern DevOps practices, comprehensive testing (269
 - Cost-optimized design with intelligent resource management
 - Enterprise-grade CI/CD with proper environment protection
 
-**Security Status:**
-- ✅ WAF integration properly configured with CloudFront distribution
-- ✅ Complete defense-in-depth security architecture implemented
+**Implementation Notes:**
+- IAM configuration is handled directly in main.tf rather than as a separate module
+- All 4 infrastructure modules are fully implemented and tested
+- WAF integration provides complete defense-in-depth security architecture
 
 ---
 
