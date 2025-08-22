@@ -12,15 +12,195 @@ This guide provides complete procedures for deploying and managing the AWS stati
 
 ## 🎯 Deployment Options
 
-### Option 1: GitHub Actions (Recommended)
-Fully automated CI/CD with comprehensive security scanning and validation.
+### Option 1: Release Workflow (Recommended)
+**Primary deployment method** using semantic versioning and automated environment promotion.
 
-### Option 2: Manual Deployment  
+### Option 2: Direct GitHub Actions
+Individual workflow execution for specific environments or testing.
+
+### Option 3: Manual Deployment  
 Local deployment for development and testing.
 
 ---
 
-## 🤖 GitHub Actions Deployment
+## 🚀 Release Workflow Deployment (Recommended)
+
+### Overview
+
+The Release workflow (`release.yml`) is the **primary deployment method** that orchestrates the entire deployment pipeline using semantic versioning and automated environment promotion. It integrates with existing BUILD, TEST, and DEPLOY workflows to provide a unified release management system.
+
+### Release Process Flow
+
+```mermaid
+graph LR
+    %% Accessibility
+    accTitle: Release Workflow Process
+    accDescr: Shows complete release workflow from version creation through environment deployment. Process includes version determination, BUILD triggering, GitHub release creation, and environment-specific deployment based on version type.
+    
+    A[Create Version] --> B[Trigger BUILD]
+    B --> C[Generate Release Notes]
+    C --> D[Create GitHub Release]
+    D --> E{Version Type?}
+    
+    E -->|v1.0.0-rc1| F[Deploy to Staging]
+    E -->|v1.0.0| G[Deploy to Production]
+    E -->|v1.0.1-hotfix.1| H[Deploy to Staging → Prod]
+    
+    F --> I[Validation Gates]
+    G --> J[Production Gates]
+    H --> K[Emergency Procedures]
+    
+    style A fill:#e8f5e9
+    style E fill:#fff3cd
+    style F fill:#e3f2fd
+    style G fill:#f8d7da
+    style H fill:#ffebee
+```
+
+### Version-Based Deployment Strategy
+
+| Version Pattern | Example | Target Environment | Approval Required | Auto-Deploy |
+|----------------|---------|-------------------|-------------------|-------------|
+| **Release Candidate** | `v1.2.0-rc1` | Staging | 1 reviewer | Yes |
+| **Stable Release** | `v1.2.0` | Production | 2 reviewers | Manual trigger |
+| **Hotfix** | `v1.2.1-hotfix.1` | Staging → Production | Emergency approval | Expedited |
+
+### Creating Releases
+
+#### Method 1: Using Helper Script (Recommended)
+
+```bash
+# Create a minor release (v1.1.0)
+./scripts/create-release.sh minor
+
+# Create a release candidate (v1.2.0-rc1)
+./scripts/create-release.sh rc
+
+# Create a patch release (v1.1.1)
+./scripts/create-release.sh patch
+
+# Create a hotfix (v1.1.2-hotfix.1)
+./scripts/create-release.sh hotfix
+
+# Use custom version
+./scripts/create-release.sh custom v2.0.0
+```
+
+#### Method 2: Manual GitHub Actions Trigger
+
+1. **Navigate to Actions** → `RELEASE - Version Management`
+2. **Click "Run workflow"**
+3. **Configure options**:
+   - **Version type**: patch/minor/major/rc/hotfix
+   - **Custom version**: Optional override
+   - **Deploy to staging**: Auto-deploy RC to staging
+   - **Deploy to production**: Require manual approval
+   - **Generate release notes**: Auto-generate from commits
+
+#### Method 3: Git Tag Trigger
+
+```bash
+# Create and push version tag (triggers automatic release)
+git tag -a v1.2.0 -m "Release version 1.2.0
+
+Features:
+- Enhanced security monitoring
+- Multi-environment support
+
+Tested in staging: v1.2.0-rc1"
+
+git push origin v1.2.0
+```
+
+### Release Workflow Features
+
+#### Automatic Version Calculation
+- **Current version detection** from git tags
+- **Semantic version incrementing** based on type
+- **Release candidate numbering** (rc1, rc2, etc.)
+- **Hotfix version management** with proper sequencing
+
+#### Release Notes Generation
+- **Automatic commit categorization** (feat, fix, docs)
+- **Change impact analysis** (features, bugs, documentation)
+- **Deployment instructions** based on environment
+- **Rollback procedures** included in notes
+
+#### Environment Orchestration
+- **Staging deployment** for release candidates
+- **Production deployment** for stable releases
+- **BUILD workflow integration** with artifact passing
+- **TEST workflow validation** before deployment
+
+### Environment Promotion Flow
+
+#### Development → Staging
+
+1. **Create Release Candidate**:
+   ```bash
+   ./scripts/create-release.sh rc
+   ```
+
+2. **Automatic Staging Deployment**:
+   - Release candidate automatically deploys to staging
+   - Validation gates ensure successful deployment
+   - Integration tests run automatically
+
+3. **Staging Validation**:
+   - Performance testing
+   - User acceptance testing
+   - Security scan validation
+   - Manual testing verification
+
+#### Staging → Production
+
+1. **Create Stable Release**:
+   ```bash
+   # After staging validation
+   ./scripts/create-release.sh minor  # or major/patch
+   ```
+
+2. **Production Approval**:
+   - **2 reviewers required** for production deployment
+   - **GitHub Environment protection** enforces approval
+   - **Deployment window** restrictions (if configured)
+
+3. **Production Deployment**:
+   - Manual trigger after approval
+   - Real-time monitoring during deployment
+   - Automatic rollback on failure
+
+### Emergency Hotfix Process
+
+#### Rapid Hotfix Deployment
+
+1. **Create Hotfix Branch**:
+   ```bash
+   git checkout -b hotfix/critical-security-fix main
+   # Apply fix
+   git commit -m "hotfix: critical security vulnerability fix"
+   git push origin hotfix/critical-security-fix
+   ```
+
+2. **Create Hotfix Release**:
+   ```bash
+   ./scripts/create-release.sh hotfix
+   ```
+
+3. **Expedited Approval**:
+   - Hotfix deploys to staging first
+   - Emergency approval process for production
+   - Compressed testing cycle
+
+4. **Production Hotfix**:
+   ```bash
+   # After staging validation
+   ./scripts/create-release.sh patch
+   ```
+
+---
+
+## 🤖 Direct GitHub Actions Deployment
 
 ### Prerequisites
 - GitHub repository with this code
@@ -41,19 +221,25 @@ AWS_ROLE_ARN=$(tofu output -raw github_actions_role_arn)
 # AWS_REGION: us-east-1
 ```
 
-### 2. Workflow Overview
+### 2. Complete Workflow Architecture
 
 ```mermaid
 graph LR
     %% Accessibility
-    accTitle: Deployment Workflow Overview
-    accDescr: Shows deployment workflow with BUILD, TEST, and three DEPLOY phases (dev, staging, prod). Each phase can be triggered independently but typically follows the progression path. BUILD includes validation and security scanning. TEST includes policy validation. DEPLOY includes infrastructure and website deployment with environment-specific configurations.
+    accTitle: Complete Deployment Workflow Architecture
+    accDescr: Shows complete workflow architecture including RELEASE workflow orchestration. RELEASE workflow coordinates BUILD, TEST, and environment-specific DEPLOY workflows based on version tags and semantic versioning strategy.
     
-    A[Push/PR] --> B[BUILD]
-    B -.->|Optional| C[TEST]
-    C -.->|Optional| D1[DEPLOY-DEV]
-    D1 -.->|Optional| D2[DEPLOY-STAGING]
-    D2 -.->|Optional| D3[DEPLOY-PROD]
+    A[Version Tag] --> R[RELEASE]
+    R --> B[BUILD]
+    B --> C[TEST]
+    
+    R --> R1[Version Analysis]
+    R --> R2[Release Notes]
+    R --> R3[GitHub Release]
+    
+    C -.->|RC Tags| D2[DEPLOY-STAGING]
+    C -.->|Stable Tags| D3[DEPLOY-PROD]
+    C -.->|Development| D1[DEPLOY-DEV]
     
     B1[Infrastructure] --> B
     B2[Security] --> B
@@ -63,23 +249,47 @@ graph LR
     C1[Policy] --> C
     C2[Security] --> C
     
-    subgraph Deployments
+    subgraph "Release Management"
+    R1 & R2 & R3
+    end
+    
+    subgraph "Environment Deployments"
     D1 & D2 & D3
     end
     
     %% High-Contrast Styling for Accessibility
+    classDef releaseBox fill:#f3e5f5,stroke:#7b1fa2,stroke-width:4px,color:#4a148c
     classDef phaseBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
     classDef triggerBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
     classDef stepBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
     classDef deployBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
     
+    class R releaseBox
     class B,C phaseBox
     class A triggerBox
-    class B1,B2,B3,B4,C1,C2 stepBox
+    class B1,B2,B3,B4,C1,C2,R1,R2,R3 stepBox
     class D1,D2,D3 deployBox
 ```
 
 ### 3. Available Workflows
+
+#### RELEASE Workflow (`release.yml`) - **PRIMARY**
+Triggered on:
+- `push` with version tags (v*.*.*, v*.*.*-rc*, v*.*.*-hotfix.*)
+- Manual dispatch with options:
+  - version type selection (major/minor/patch/rc/hotfix)
+  - custom version override
+  - deployment target selection
+  - release notes generation
+
+Jobs:
+- **Version analysis and validation**
+- **BUILD workflow orchestration** with environment context
+- **GitHub release creation** with automated release notes
+- **Environment-specific deployment** based on version type:
+  - Release candidates → Staging
+  - Stable releases → Production (with approval)
+  - Hotfixes → Staging → Production (expedited)
 
 #### BUILD Workflow (`build.yml`)
 Triggered on:

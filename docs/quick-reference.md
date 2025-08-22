@@ -1,33 +1,160 @@
-# ⚡ Quick Reference
+# ⚡ Quick Reference - Release Management
 
-Essential commands, variables, and configurations for daily operations.
+Essential commands for version management and release operations.
 
 ## 📋 Quick Navigation
 
-**🎯 Purpose**: One-stop reference for all common operations and configurations.
+**🎯 Purpose**: One-stop reference for release management and emergency operations.
 
-**👥 Target Users**: All team members needing quick access to commands and settings.
+**👥 Target Users**: DevOps teams, release managers, and platform engineers.
 
 **⏱️ Time Saver**: 
-- **Quick Commands**: Copy-paste ready commands for immediate use
-- **Configuration Examples**: Pre-configured settings for different scenarios
-- **Emergency Procedures**: Rapid response commands for incidents
+- **Release Commands**: Copy-paste ready release creation commands
+- **Version Management**: Quick version queries and operations
+- **Emergency Procedures**: Rapid rollback and hotfix commands
+- **Status Checks**: Environment and deployment validation
 
 **🔍 What's Inside**:
-- **Essential Commands**: Infrastructure, deployment, testing, monitoring
-- **Configuration Variables**: All settings with explanations
-- **Quick Fixes**: Common problems and immediate solutions
-- **Health Checks**: Automated scripts for system validation
+- **Release Creation**: Semantic versioning and automated releases
+- **Environment Management**: Multi-environment deployment commands
+- **Emergency Response**: Rollback and hotfix procedures
+- **Health Checks**: Deployment status and validation scripts
 
-**🚀 Most Used Commands**:
+## 🚀 Release Management Commands
+
+### Creating Releases
+
 ```bash
-# Deploy website
-aws s3 sync src/ s3://$(tofu output -raw s3_bucket_id) --delete
+# Create a minor release (v1.1.0 → v1.2.0)
+./scripts/create-release.sh minor
 
-# Invalidate cache
-aws cloudfront create-invalidation --distribution-id $(tofu output -raw cloudfront_distribution_id) --paths "/*"
+# Create a patch release (v1.1.0 → v1.1.1)
+./scripts/create-release.sh patch
 
-# Check status
+# Create a major release (v1.1.0 → v2.0.0)
+./scripts/create-release.sh major
+
+# Create a release candidate (v1.2.0-rc1)
+./scripts/create-release.sh rc
+
+# Create a hotfix (v1.1.1-hotfix.1)
+./scripts/create-release.sh hotfix
+
+# Use custom version
+./scripts/create-release.sh custom v2.5.0
+```
+
+### Version Queries
+
+```bash
+# Get current version
+git describe --tags --always
+
+# List all versions (sorted)
+git tag -l "v*" --sort=-version:refname
+
+# Show latest 5 releases
+git tag -l "v*" --sort=-version:refname | head -5
+
+# Find version by date
+git tag -l --sort=-creatordate --format='%(refname:short) %(creatordate:short)'
+
+# Compare versions
+git diff v1.1.0..v1.2.0
+
+# Show version details
+git show v1.2.0
+```
+
+## 🌍 Environment Management
+
+### Environment Status
+
+```bash
+# Check all environment status
+for env in dev staging prod; do
+  echo "=== $env Environment ==="
+  curl -I https://$env.example.com 2>/dev/null | head -1
+done
+
+# Check deployment versions
+git tag -l "v*" --sort=-version:refname | head -3
+
+# Validate environment configurations
+tofu validate -var-file=terraform/environments/dev.tfvars
+tofu validate -var-file=terraform/environments/staging.tfvars
+tofu validate -var-file=terraform/environments/prod.tfvars
+```
+
+### Deployment Commands
+
+```bash
+# Deploy to development (latest develop branch)
+gh workflow run deploy-dev.yml
+
+# Deploy RC to staging
+gh workflow run deploy-staging.yml \
+  -f test_id="test-$(date +%s)" \
+  -f build_id="build-$(date +%s)"
+
+# Deploy stable to production
+gh workflow run deploy.yml \
+  -f environment=prod \
+  -f deploy_infrastructure=true \
+  -f deploy_website=true
+```
+
+## 🚨 Emergency Procedures
+
+### Rollback Commands
+
+```bash
+# Quick rollback to previous version
+./scripts/rollback-deployment.sh prod
+
+# Rollback to specific version
+./scripts/rollback-deployment.sh prod v1.1.0
+
+# Emergency staging rollback
+./scripts/rollback-deployment.sh staging
+
+# Development environment reset
+./scripts/rollback-deployment.sh dev
+```
+
+### Hotfix Workflow
+
+```bash
+# 1. Create hotfix branch
+git checkout -b hotfix/critical-fix main
+
+# 2. Apply fix and commit
+git add .
+git commit -m "hotfix: critical security fix"
+git push origin hotfix/critical-fix
+
+# 3. Create hotfix release
+./scripts/create-release.sh hotfix
+
+# 4. After staging validation, promote to patch
+./scripts/create-release.sh patch
+```
+
+## 📊 Health Checks and Monitoring
+
+### Quick Health Checks
+
+```bash
+# Website accessibility
+curl -I $(tofu output -raw cloudfront_distribution_url)
+
+# Security headers validation
+curl -I $(tofu output -raw cloudfront_distribution_url) | grep -E "(X-Frame-Options|Content-Security-Policy|Strict-Transport-Security)"
+
+# Performance check
+curl -w "Total time: %{time_total}s\n" -o /dev/null -s $(tofu output -raw cloudfront_distribution_url)
+
+# Infrastructure status
 curl -I $(tofu output -raw cloudfront_distribution_url)
 ```
 

@@ -36,7 +36,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 **Key Takeaways**:
 - 4-module architecture with clear separation of concerns
 - Multi-environment deployment with environment-specific configurations
-- Git-based version management with semantic versioning
+- Git-based version management with semantic versioning and automated release orchestration
 
 ### 🔒 For Security & Compliance Teams
 **Primary Focus**: Security controls, compliance frameworks, and threat mitigation
@@ -70,10 +70,10 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 - [Troubleshooting](guides/troubleshooting.md) ⭐⭐ (15 min) - Common operational issues
 
 **Key Takeaways**:
-- BUILD → TEST → DEPLOY pipeline with smart change detection
+- BUILD → TEST → RELEASE → DEPLOY pipeline with smart change detection
 - Environment-specific configurations with tfvars files
 - Automated security scanning and policy validation
-- Version-based deployment with rollback capabilities
+- Tag-based version deployment with automated release orchestration
 
 ### 👔 For Executives & Decision Makers
 **Primary Focus**: Business value, cost implications, and strategic alignment
@@ -88,6 +88,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 - Multi-environment strategy reduces deployment risks
 - Automated security scanning prevents vulnerabilities in production
 - Cost-optimized configuration per environment
+- Tag-based release automation improves deployment reliability
 
 ### 🎨 For Content & UX Teams
 **Primary Focus**: Website deployment, content management, and user experience
@@ -98,7 +99,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 - [UX Guidelines](development/ux-guidelines.md) ⭐⭐ (15 min) - Design standards and accessibility
 
 **Key Takeaways**:
-- Simple content deployment via git commits
+- Simple content deployment via git commits and version tags
 - Global CDN ensures fast content delivery
 - Built-in security headers and protection
 - Accessibility and mobile-first design standards

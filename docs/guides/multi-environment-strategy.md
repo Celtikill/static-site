@@ -322,6 +322,114 @@ Each environment has dedicated CloudWatch dashboards:
    - Check for unused resources
    - Verify auto-shutdown working
 
+## Environment Variables and Repository Configuration
+
+### Required Repository Secrets
+```yaml
+AWS_ASSUME_ROLE_DEV: Development role ARN
+AWS_ASSUME_ROLE_STAGING: Staging role ARN  
+AWS_ASSUME_ROLE: Production role ARN
+ALERT_EMAIL_ADDRESSES: ["admin@example.com"]
+```
+
+### Optional Repository Variables
+```yaml
+AWS_REGION: Default region (us-east-1)
+DEFAULT_ENVIRONMENT: Default environment (dev)
+MONTHLY_BUDGET_LIMIT: Cost threshold
+```
+
+### Environment Resolution Logic
+
+The workflow resolves the target environment in this order:
+
+```bash
+1. Manual input (github.event.inputs.environment)
+2. Repository variable (vars.DEFAULT_ENVIRONMENT)  
+3. Hardcoded fallback ("dev")
+```
+
+## Workflow Dependencies
+
+### Development Environment
+- Can deploy independently
+- Optional test requirements
+- Automatic triggers on push to develop/feature branches
+- Concurrent deployments allowed
+- Immediate cache invalidation
+
+### Staging Environment
+- Requires successful dev deployment or manual trigger
+- Required test and build IDs for traceability
+- Manual approval required (1 reviewer)
+- Enhanced validation and testing
+- Controlled cache invalidation
+
+### Production Environment
+- Requires test completion and approval
+- Required reviewers (2 minimum)
+- Manual deployment only
+- Strict validation and monitoring
+- Controlled cache invalidation with validation
+
+## Access Control Configuration
+
+### Development Access
+```yaml
+# AWS Role Configuration
+AWS_ASSUME_ROLE_DEV: Development IAM role ARN
+
+# Permission Scope
+- Limited WAF rules (basic protection)
+- Basic monitoring capabilities
+- Single region deployment
+- Relaxed resource constraints
+```
+
+### Staging Access
+```yaml
+# AWS Role Configuration  
+AWS_ASSUME_ROLE_STAGING: Staging IAM role ARN
+
+# Permission Scope
+- Enhanced WAF rules (production-like)
+- Full monitoring capabilities
+- Multi-region support enabled
+- Production-like resource constraints
+```
+
+### Production Access
+```yaml
+# AWS Role Configuration
+AWS_ASSUME_ROLE: Production IAM role ARN
+
+# Permission Scope
+- Full WAF protection (maximum security)
+- Comprehensive monitoring and alerting
+- Global distribution capabilities
+- Strict resource management
+```
+
+## Environment Protection Rules
+
+### Development Protection
+- **Auto-deploy**: Enabled on push
+- **Validation Level**: Basic infrastructure checks
+- **Cost Controls**: Aggressive optimization for minimal spend
+- **Rollback**: Automatic on failure
+
+### Staging Protection
+- **Manual Approval**: Required (1 reviewer)
+- **Validation Level**: Enhanced with performance testing
+- **Monitoring**: Full CloudWatch integration
+- **Rollback**: Controlled rollback procedures
+
+### Production Protection
+- **Manual Approval**: Required (2 reviewers minimum)
+- **Validation Level**: Strict with comprehensive testing
+- **Monitoring**: Real-time alerts and dashboards
+- **Rollback**: Emergency procedures with approval gates
+
 ## Related Documentation
 
 - [Deployment Guide](deployment-guide.md) - Detailed deployment procedures

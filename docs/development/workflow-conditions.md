@@ -21,18 +21,19 @@ This guide documents the conditional execution logic in the BUILD-TEST-DEPLOY CI
 
 ## Pipeline Overview
 
-The CI/CD pipeline consists of multiple workflows that can run independently but typically follow a progression:
+The CI/CD pipeline consists of multiple workflows including the new RELEASE workflow that orchestrates tag-based deployments:
 
 ```mermaid
 graph LR
     %% Accessibility
-    accTitle: CI/CD Pipeline Overview
-    accDescr: Shows CI/CD pipeline with multiple workflows. BUILD validates and scans infrastructure and website. TEST performs policy validation. Three DEPLOY workflows handle different environments with specific configurations.
+    accTitle: CI/CD Pipeline with RELEASE Workflow
+    accDescr: Shows enhanced CI/CD pipeline. BUILD validates infrastructure and website. TEST performs policy validation. RELEASE orchestrates version-based deployments. Traditional DEPLOY workflows handle specific environments.
     
     A[BUILD] -.->|Optional| B[TEST]
-    B -.->|Optional| D1[DEPLOY-DEV]
-    D1 -.->|Optional| D2[DEPLOY-STAGING]
-    D2 -.->|Optional| D3[DEPLOY-PROD]
+    B -.->|Optional| R[RELEASE]
+    R -->|Tag-based| D1[DEPLOY-DEV]
+    R -->|RC Tags| D2[DEPLOY-STAGING]  
+    R -->|Stable Tags| D3[DEPLOY-PROD]
     
     A1[Infrastructure] --> A
     A2[Security] --> A
@@ -42,6 +43,10 @@ graph LR
     B1[Policy] --> B
     B2[Security] --> B
     
+    R1[Version Detection] --> R
+    R2[GitHub Release] --> R
+    R3[Environment Routing] --> R
+    
     D1S[Dev Settings] --> D1
     D2S[Staging Settings] --> D2
     D3S[Prod Settings] --> D3
@@ -49,11 +54,14 @@ graph LR
     %% High-Contrast Styling for Accessibility
     classDef phaseBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
     classDef stepBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef releaseBox fill:#d4edda,stroke:#155724,stroke-width:3px,color:#155724
     classDef deployBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
     classDef settingsBox fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
     
     class A,B phaseBox
     class A1,A2,A3,A4,B1,B2 stepBox
+    class R releaseBox
+    class R1,R2,R3 stepBox
     class D1,D2,D3 deployBox
     class D1S,D2S,D3S settingsBox
 ```
@@ -224,6 +232,96 @@ if: needs.test-info.outputs.skip_tests != '1' && (success() || needs.policy-vali
 ```
 
 Runs after unit tests succeed, even if policy validation was skipped.
+
+## RELEASE Workflow Conditions
+
+### Tag-Based Trigger Conditions
+
+The RELEASE workflow is triggered by Git tags following semantic versioning:
+
+```yaml
+on:
+  push:
+    tags:
+      - 'v*.*.*'        # Stable releases (v1.0.0)
+      - 'v*.*.*-rc*'    # Release candidates (v1.0.0-rc1)
+      - 'v*.*.*-hotfix*' # Hotfix releases (v1.0.1-hotfix.1)
+```
+
+#### Version Type Detection
+
+```bash
+# Version pattern matching:
+if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    VERSION_TYPE="stable"
+    TARGET_ENV="prod"
+elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$ ]]; then
+    VERSION_TYPE="rc" 
+    TARGET_ENV="staging"
+elif [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-hotfix\.[0-9]+$ ]]; then
+    VERSION_TYPE="hotfix"
+    TARGET_ENV="prod"
+else
+    VERSION_TYPE="unknown"
+    # Workflow fails with invalid tag format
+fi
+```
+
+### Environment Routing Logic
+
+| Tag Pattern | Version Type | Target Environment | Deployment Strategy |
+|-------------|--------------|-------------------|-------------------|
+| `v1.0.0` | stable | production | Full validation + approval gates |
+| `v1.0.0-rc1` | rc | staging | Pre-production validation |
+| `v1.0.1-hotfix.1` | hotfix | production | Emergency deployment path |
+
+### GitHub Release Creation
+
+**Conditions for release creation**:
+```yaml
+if: steps.version-info.outputs.version_type != 'unknown'
+```
+
+**Release type determination**:
+```bash
+case "$VERSION_TYPE" in
+  "stable")
+    PRERELEASE=false
+    LATEST=true
+    ;;
+  "rc")
+    PRERELEASE=true  
+    LATEST=false
+    ;;
+  "hotfix")
+    PRERELEASE=false
+    LATEST=true
+    ;;
+esac
+```
+
+### Deployment Triggering
+
+The RELEASE workflow triggers appropriate deployment workflows:
+
+```yaml
+# For RC versions → staging
+- name: Trigger Staging Deployment
+  if: steps.version-info.outputs.version_type == 'rc'
+  run: |
+    gh workflow run deploy-staging.yml \
+      --field test_id="release-${{ github.run_id }}" \
+      --field build_id="release-${{ github.run_id }}"
+
+# For stable/hotfix → production  
+- name: Trigger Production Deployment
+  if: steps.version-info.outputs.version_type == 'stable' || steps.version-info.outputs.version_type == 'hotfix'
+  run: |
+    gh workflow run deploy.yml \
+      --field environment=prod \
+      --field deploy_infrastructure=true \
+      --field deploy_website=true
+```
 
 ## Deployment Workflow Conditions
 
@@ -431,7 +529,29 @@ Artifacts are only downloaded when needed:
 
 ## Manual Workflow Triggers
 
-### Force Full Pipeline
+### Tag-Based Release Deployment
+
+**Primary deployment method using RELEASE workflow**:
+```bash
+# Create and push a release tag
+git tag v1.0.0
+git push origin v1.0.0
+# → Automatically triggers RELEASE workflow → Production deployment
+
+# Create release candidate
+git tag v1.0.0-rc1  
+git push origin v1.0.0-rc1
+# → Automatically triggers RELEASE workflow → Staging deployment
+
+# Create hotfix release
+git tag v1.0.1-hotfix.1
+git push origin v1.0.1-hotfix.1  
+# → Automatically triggers RELEASE workflow → Production deployment
+```
+
+### Manual Workflow Triggers
+
+**Force specific workflows**:
 ```bash
 # BUILD with force
 gh workflow run build.yml \
@@ -444,7 +564,7 @@ gh workflow run test.yml \
   --field build_id=build-12345 \
   --field skip_build_check=true
 
-# DEPLOY everything
+# DEPLOY directly (bypassing RELEASE)
 gh workflow run deploy.yml \
   --field environment=prod \
   --field deploy_infrastructure=true \
@@ -480,11 +600,18 @@ gh workflow run deploy.yml \
    - Verify branch names in trigger conditions
    - Check workflow_run dependencies
    - Ensure previous workflow succeeded
+   - For RELEASE workflow: verify tag format matches patterns
 
-3. **Wrong environment selected**
+3. **RELEASE workflow issues**
+   - Check tag format follows semantic versioning (v1.0.0, v1.0.0-rc1)
+   - Verify tag push permissions and GitHub token access
+   - Review version type detection in workflow logs
+
+4. **Wrong environment selected**
    - Check environment resolution in workflow logs
    - Verify repository variables are set
    - Review manual input parameters
+   - For RELEASE workflow: verify version type to environment mapping
 
 ### Debug Outputs
 
@@ -502,6 +629,12 @@ needs_full_tests: Full test suite needed
 skip_tests: Test execution flag
 policy_status: Policy validation status
 
+# RELEASE outputs:
+version_type: Detected version type (stable/rc/hotfix)
+target_environment: Resolved target environment
+release_created: GitHub release creation status
+release_url: Created release URL
+
 # DEPLOY outputs:
 deployment_status: Overall status
 website_url: Deployed site URL
@@ -511,15 +644,18 @@ cloudfront_distribution_id: CDN ID
 
 ## Best Practices
 
-1. **Use force flags sparingly**: Only when you need to override smart detection
-2. **Monitor skip patterns**: Ensure important tests aren't accidentally skipped
-3. **Test conditions locally**: Use act or similar tools to test workflow logic
-4. **Document custom conditions**: Add comments explaining complex conditions
-5. **Regular condition audits**: Review and optimize conditions quarterly
+1. **Use tag-based deployment as primary method**: RELEASE workflow provides best traceability
+2. **Use force flags sparingly**: Only when you need to override smart detection
+3. **Monitor skip patterns**: Ensure important tests aren't accidentally skipped
+4. **Follow semantic versioning**: Proper tag formats ensure correct environment routing
+5. **Test conditions locally**: Use act or similar tools to test workflow logic
+6. **Document custom conditions**: Add comments explaining complex conditions
+7. **Regular condition audits**: Review and optimize conditions quarterly
 
 ## Related Documentation
 
-- [Deployment Guide](../guides/deployment-guide.md) - Overall deployment strategies
-- [Integration Testing](../guides/testing-guide.md) - Test execution details
+- [Deployment Guide](../guides/deployment-guide.md) - Overall deployment strategies and RELEASE workflow
+- [Version Management](../guides/version-management.md) - Git-based versioning and release process
+- [Integration Testing](../guides/testing-guide.md) - Test execution details  
 - [Quick Reference](../quick-reference.md) - Common workflow commands
 - [Troubleshooting](../guides/troubleshooting.md) - Debugging workflow issues
