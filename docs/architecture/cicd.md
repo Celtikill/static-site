@@ -9,84 +9,42 @@
 
 This document details the comprehensive CI/CD pipeline architecture implemented using GitHub Actions. The design emphasizes security, quality assurance, and operational excellence through automated BUILD-TEST-RELEASE-DEPLOY workflows with comprehensive validation and approval gates.
 
+The architecture is presented through progressive disclosure:
+- **High-Level Flow**: Overall pipeline progression and environment management
+- **Phase Details**: Detailed breakdown of BUILD, TEST, and DEPLOY workflows
+- **Implementation Details**: Technical specifications and configuration examples
+
 ## Pipeline Architecture Overview
 
+### High-Level Pipeline Flow
+
 ```mermaid
-graph TB
+graph LR
     %% Accessibility
-    accTitle: Enterprise CI/CD Pipeline Architecture
-    accDescr: Shows comprehensive CI/CD pipeline with three main phases: BUILD (infrastructure preparation with validation, security, content, and analysis), TEST (unit testing, policy validation, integration), and DEPLOY (infrastructure deployment, content deployment, environment protection). Includes monitoring and reporting throughout. Triggered by pull requests, pushes, or manual dispatch.
+    accTitle: CI/CD Pipeline High-Level Flow
+    accDescr: High-level view of CI/CD pipeline showing triggers leading to BUILD-TEST-RELEASE-DEPLOY phases with environment progression and monitoring outputs
     
-    subgraph "Triggers & Events"
+    subgraph "Triggers"
         PR[Pull Request]
         PUSH[Push to main]
         MANUAL[Manual Dispatch]
     end
     
-    subgraph "BUILD Phase - Infrastructure Preparation"
-        subgraph "Validation"
-            FMT[OpenTofu Format]
-            VALIDATE[Infrastructure Validation]
-            PLAN[Terraform Planning]
-        end
-        subgraph "Security"
-            CHECKOV[Checkov Analysis]
-            TRIVY[Trivy Config Scan]
-            THRESHOLD[Threshold Validation]
-        end
-        subgraph "Content"
-            HTML[HTML Validation]
-            CONTENT[Content Security]
-            BUILD[Website Build]
-        end
-        subgraph "Analysis"
-            COST[Cost Estimation]
-            DOCS[Documentation Updates]
-        end
+    BUILD[BUILD<br/>Infrastructure Prep]
+    TEST[TEST<br/>Validation & QA]
+    RELEASE[RELEASE<br/>Version Management]
+    DEPLOY[DEPLOY<br/>Multi-Environment]
+    
+    subgraph "Environments"
+        DEV[Development]
+        STAGING[Staging]
+        PROD[Production]
     end
     
-    subgraph "TEST Phase - Comprehensive Validation"
-        subgraph "Unit Testing"
-            UT_S3[S3 Module Tests]
-            UT_CF[CloudFront Tests]
-            UT_WAF[WAF Tests]
-            UT_IAM[IAM Tests]
-            UT_MON[Monitoring Tests]
-        end
-        subgraph "Policy Validation"
-            OPA[OPA/Conftest Policies]
-            SECURITY_POL[Security Policies]
-            COMPLIANCE[Compliance Checks]
-        end
-        subgraph "Integration"
-            DEPLOY_TEST[Test Deployment]
-            E2E[End-to-End Tests]
-            CLEANUP[Automated Cleanup]
-        end
-    end
-    
-    subgraph "DEPLOY Phase - Production Deployment"
-        subgraph "Infrastructure"
-            INFRA_DEPLOY[Infrastructure Deployment]
-            POST_VALID[Post-Deploy Validation]
-        end
-        subgraph "Content Deployment"
-            S3_SYNC[S3 Content Sync]
-            CF_INVALIDATE[CloudFront Invalidation]
-            VERIFY[Website Verification]
-        end
-        subgraph "Environment Protection"
-            DEV_ENV[Development]
-            STAGING_ENV[Staging - Approval Gate]
-            PROD_ENV[Production - Approval Gate]
-        end
-    end
-    
-    subgraph "Monitoring & Reporting"
+    subgraph "Outputs"
         ARTIFACTS[Build Artifacts]
-        SUMMARY[Workflow Summaries]
-        NOTIFICATIONS[PR Comments/Notifications]
         REPORTS[Security Reports]
+        NOTIFICATIONS[Notifications]
     end
     
     PR --> BUILD
@@ -94,68 +52,244 @@ graph TB
     MANUAL --> BUILD
     
     BUILD --> TEST
-    TEST --> DEPLOY
+    TEST --> RELEASE
+    RELEASE --> DEPLOY
     
+    DEPLOY --> DEV
+    DEV --> STAGING
+    STAGING --> PROD
+    
+    BUILD --> ARTIFACTS
+    TEST --> REPORTS
+    DEPLOY --> NOTIFICATIONS
+    
+    %% Styling following Mermaid style guide
+    classDef buildBox fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
+    classDef testBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef deployBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef releaseBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef triggerBox fill:#e9ecef,stroke:#6c757d,stroke-width:2px,color:#212529
+    classDef envBox fill:#d4edda,stroke:#155724,stroke-width:2px,color:#155724
+    classDef outputBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    
+    class BUILD buildBox
+    class TEST testBox
+    class RELEASE releaseBox
+    class DEPLOY deployBox
+    class PR,PUSH,MANUAL triggerBox
+    class DEV,STAGING,PROD envBox
+    class ARTIFACTS,REPORTS,NOTIFICATIONS outputBox
+```
+
+### BUILD Phase Details
+
+```mermaid
+graph TB
+    %% Accessibility
+    accTitle: BUILD Phase Workflow Details
+    accDescr: Detailed view of BUILD phase showing validation, security scanning, content preparation, and analysis steps with quality gates
+    
+    START[BUILD Triggered]
+    
+    subgraph "Infrastructure Validation"
+        FMT[OpenTofu Format Check]
+        VALIDATE[Infrastructure Validation]
+        PLAN[Terraform Planning]
+    end
+    
+    subgraph "Security Analysis"
+        CHECKOV[Checkov Config Scan]
+        TRIVY[Trivy Security Scan]
+        THRESHOLD[Security Threshold Check]
+    end
+    
+    subgraph "Content Preparation"
+        HTML[HTML Validation]
+        BUILD_SITE[Website Build]
+        CONTENT_SEC[Content Security Check]
+    end
+    
+    subgraph "Analysis & Documentation"
+        COST[Cost Estimation]
+        DOCS[Documentation Updates]
+    end
+    
+    ARTIFACTS_OUT[Build Artifacts]
+    
+    START --> FMT
     FMT --> VALIDATE
     VALIDATE --> PLAN
     
-    CHECKOV --> THRESHOLD
+    START --> CHECKOV
+    CHECKOV --> TRIVY
     TRIVY --> THRESHOLD
     
-    HTML --> CONTENT
-    CONTENT --> BUILD
+    START --> HTML
+    HTML --> BUILD_SITE
+    BUILD_SITE --> CONTENT_SEC
     
-    UT_S3 --> E2E
-    UT_CF --> E2E
-    UT_WAF --> E2E
-    UT_IAM --> E2E
-    UT_MON --> E2E
+    START --> COST
+    START --> DOCS
     
-    OPA --> COMPLIANCE
-    SECURITY_POL --> COMPLIANCE
+    PLAN --> ARTIFACTS_OUT
+    THRESHOLD --> ARTIFACTS_OUT
+    CONTENT_SEC --> ARTIFACTS_OUT
+    COST --> ARTIFACTS_OUT
+    DOCS --> ARTIFACTS_OUT
     
-    DEPLOY_TEST --> E2E
+    %% Styling
+    classDef buildBox fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
+    classDef securityBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef contentBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef analysisBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef outputBox fill:#d4edda,stroke:#155724,stroke-width:2px,color:#155724
+    
+    class START buildBox
+    class FMT,VALIDATE,PLAN buildBox
+    class CHECKOV,TRIVY,THRESHOLD securityBox
+    class HTML,BUILD_SITE,CONTENT_SEC contentBox
+    class COST,DOCS analysisBox
+    class ARTIFACTS_OUT outputBox
+```
+
+### TEST Phase Details
+
+```mermaid
+graph TB
+    %% Accessibility
+    accTitle: TEST Phase Workflow Details
+    accDescr: Detailed view of TEST phase showing unit testing, policy validation, and integration testing with 269 total test assertions
+    
+    START[TEST Triggered]
+    
+    subgraph "Unit Testing (269 Tests)"
+        UT_S3[S3 Module Tests<br/>49 assertions]
+        UT_CF[CloudFront Tests<br/>55 assertions]
+        UT_WAF[WAF Tests<br/>50 assertions]
+        UT_IAM[IAM Tests<br/>58 assertions]
+        UT_MON[Monitoring Tests<br/>57 assertions]
+    end
+    
+    subgraph "Policy Validation"
+        OPA[OPA/Conftest Policies]
+        SEC_POL[Security Policy Check]
+        COMPLIANCE[Compliance Validation]
+    end
+    
+    subgraph "Integration Testing"
+        TEST_DEPLOY[Test Infrastructure Deploy]
+        E2E[End-to-End Validation]
+        CLEANUP[Resource Cleanup]
+    end
+    
+    REPORTS_OUT[Test Reports & Summaries]
+    
+    START --> UT_S3
+    START --> UT_CF
+    START --> UT_WAF
+    START --> UT_IAM
+    START --> UT_MON
+    
+    START --> OPA
+    OPA --> SEC_POL
+    SEC_POL --> COMPLIANCE
+    
+    UT_S3 --> TEST_DEPLOY
+    UT_CF --> TEST_DEPLOY
+    UT_WAF --> TEST_DEPLOY
+    UT_IAM --> TEST_DEPLOY
+    UT_MON --> TEST_DEPLOY
+    
+    TEST_DEPLOY --> E2E
     E2E --> CLEANUP
     
-    INFRA_DEPLOY --> POST_VALID
-    POST_VALID --> S3_SYNC
+    COMPLIANCE --> REPORTS_OUT
+    CLEANUP --> REPORTS_OUT
+    
+    %% Styling
+    classDef testBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    classDef unitBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef policyBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef integrationBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    classDef outputBox fill:#d4edda,stroke:#155724,stroke-width:2px,color:#155724
+    
+    class START testBox
+    class UT_S3,UT_CF,UT_WAF,UT_IAM,UT_MON unitBox
+    class OPA,SEC_POL,COMPLIANCE policyBox
+    class TEST_DEPLOY,E2E,CLEANUP integrationBox
+    class REPORTS_OUT outputBox
+```
+
+### DEPLOY Phase Details
+
+```mermaid
+graph TB
+    %% Accessibility
+    accTitle: DEPLOY Phase Workflow Details
+    accDescr: Detailed view of DEPLOY phase showing infrastructure deployment, content deployment, and multi-environment progression with approval gates
+    
+    START[DEPLOY Triggered]
+    
+    subgraph "Infrastructure Deployment"
+        INFRA_DEPLOY[Terraform Apply]
+        POST_VALIDATE[Post-Deploy Validation]
+    end
+    
+    subgraph "Content Deployment"
+        S3_SYNC[S3 Content Sync]
+        CF_INVALIDATE[CloudFront Cache Invalidation]
+        VERIFY[Website Health Check]
+    end
+    
+    subgraph "Environment Progression"
+        DEV_GATE[Development<br/>Auto-Deploy]
+        STAGING_GATE[Staging<br/>Manual Approval]
+        PROD_GATE[Production<br/>Manual Approval]
+    end
+    
+    NOTIFICATIONS_OUT[Deployment Notifications]
+    
+    START --> INFRA_DEPLOY
+    INFRA_DEPLOY --> POST_VALIDATE
+    POST_VALIDATE --> S3_SYNC
     S3_SYNC --> CF_INVALIDATE
     CF_INVALIDATE --> VERIFY
     
-    DEV_ENV --> STAGING_ENV
-    STAGING_ENV --> PROD_ENV
+    VERIFY --> DEV_GATE
+    DEV_GATE --> STAGING_GATE
+    STAGING_GATE --> PROD_GATE
     
-    BUILD --> ARTIFACTS
-    TEST --> SUMMARY
-    DEPLOY --> NOTIFICATIONS
+    PROD_GATE --> NOTIFICATIONS_OUT
     
-    %% High-Contrast Styling for Accessibility
-    classDef buildBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
-    classDef testBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    %% Styling
     classDef deployBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#1b5e20
-    classDef triggerBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
-    classDef monitorBox fill:#d4edda,stroke:#155724,stroke-width:2px,color:#155724
+    classDef infraBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef contentBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    classDef envBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef outputBox fill:#d4edda,stroke:#155724,stroke-width:2px,color:#155724
     
-    class BUILD,FMT,VALIDATE,PLAN,CHECKOV,TRIVY,THRESHOLD,HTML,CONTENT,COST,DOCS buildBox
-    class TEST,UT_S3,UT_CF,UT_WAF,UT_IAM,UT_MON,OPA,SECURITY_POL,COMPLIANCE,DEPLOY_TEST,E2E,CLEANUP testBox
-    class DEPLOY,INFRA_DEPLOY,POST_VALID,S3_SYNC,CF_INVALIDATE,VERIFY,DEV_ENV,STAGING_ENV,PROD_ENV deployBox
-    class PR,PUSH,MANUAL triggerBox
-    class ARTIFACTS,SUMMARY,NOTIFICATIONS,REPORTS monitorBox
+    class START deployBox
+    class INFRA_DEPLOY,POST_VALIDATE infraBox
+    class S3_SYNC,CF_INVALIDATE,VERIFY contentBox
+    class DEV_GATE,STAGING_GATE,PROD_GATE envBox
+    class NOTIFICATIONS_OUT outputBox
 ```
 
 ## Workflow Implementation Details
 
 ### 1. BUILD Workflow (`build.yml`)
 
+The BUILD phase (detailed in the diagram above) handles infrastructure preparation, validation, and artifact creation across four parallel tracks: infrastructure validation, security analysis, content preparation, and analysis & documentation.
+
 **Purpose**: Infrastructure preparation, validation, and artifact creation  
 **Triggers**: Pull requests, pushes to main, manual dispatch  
 
 **Key Features**:
-- **Infrastructure Validation**: OpenTofu formatting, validation, and planning
-- **Security Scanning**: Parallel Checkov and Trivy analysis with threshold enforcement
-- **Content Preparation**: HTML validation, security checks, and build optimization
+- **Infrastructure Validation**: OpenTofu formatting, validation, and planning (shown in Infrastructure Validation subgraph)
+- **Security Scanning**: Parallel Checkov and Trivy analysis with threshold enforcement (Security Analysis subgraph)
+- **Content Preparation**: HTML validation, security checks, and build optimization (Content Preparation subgraph)
 - **Change Detection**: Intelligent detection of infrastructure, content, and configuration changes
-- **Artifact Management**: Build artifacts for downstream workflows
+- **Artifact Management**: All tracks converge to produce build artifacts for downstream workflows
 
 **Architecture Components**:
 
@@ -193,14 +327,16 @@ cost-estimation:
 
 ### 2. TEST Workflow (`test.yml`)
 
+The TEST phase (detailed in the diagram above) executes comprehensive validation through three main tracks: unit testing with 269 assertions, policy validation, and integration testing with cleanup.
+
 **Purpose**: Comprehensive validation including unit tests, policy validation, and integration testing  
 **Trigger**: Successful BUILD workflow completion  
 
 **Key Features**:
-- **Unit Testing**: Parallel execution of 269 individual test assertions
-- **Policy Validation**: OPA/Conftest security and compliance rule enforcement
-- **Integration Testing**: End-to-end deployment validation with real AWS resources
-- **Matrix Strategy**: Parallel test execution for optimal performance
+- **Unit Testing**: Parallel execution of 269 individual test assertions across all 5 infrastructure modules (Unit Testing subgraph)
+- **Policy Validation**: OPA/Conftest security and compliance rule enforcement (Policy Validation subgraph)
+- **Integration Testing**: End-to-end deployment validation with real AWS resources and automated cleanup (Integration Testing subgraph)
+- **Matrix Strategy**: Parallel test execution for optimal performance with consolidated reporting
 
 **Architecture Components**:
 
@@ -275,15 +411,16 @@ release-process:
 
 ### 4. DEPLOY Workflow (`deploy.yml`)
 
+The DEPLOY phase (detailed in the diagram above) executes deployments through sequential infrastructure and content deployment, followed by environment progression with approval gates.
+
 **Purpose**: Unified deployment workflow for all environments with approval gates  
 **Triggers**: RELEASE workflow, manual dispatch  
 
 **Key Features**:
-- **Environment-Specific Configuration**: Dedicated configurations per environment
-- **Approval Gates**: Manual approval requirements for staging and production
-- **Infrastructure Deployment**: OpenTofu-based infrastructure management
-- **Content Deployment**: S3 sync with CloudFront cache invalidation
-- **Health Validation**: Post-deployment verification and monitoring
+- **Infrastructure Deployment**: Sequential Terraform apply and post-deploy validation (Infrastructure Deployment subgraph)
+- **Content Deployment**: S3 sync, CloudFront cache invalidation, and health checks (Content Deployment subgraph)
+- **Environment Progression**: Automated dev deployment with manual approval gates for staging and production (Environment Progression subgraph)
+- **Health Validation**: Comprehensive post-deployment verification and monitoring with notifications
 
 **Architecture Components**:
 
