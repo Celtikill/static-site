@@ -151,17 +151,20 @@ WAF              | $5.67
 
 ### CloudFront Distributions
 ```bash
-# Process
+# Process (Enhanced - v1.1.0)
 1. Identify distributions by comment field
-2. Disable distribution (required before deletion)
-3. Wait for disabled state (manual step)
-4. Delete distribution (manual step)
+2. Check current status (Enabled/Disabled, InProgress/Deployed)
+3. If enabled → disable it automatically
+4. If disabled and deployed → delete it automatically
+5. If disabled and in progress → wait and re-run script later
 ```
 
 **Special Considerations**:
 - Distributions must be disabled before deletion
 - Disabling takes 15-20 minutes
-- Final deletion requires manual action after disabled state
+- Script now handles multi-run scenarios automatically
+- No JSON output displayed even with FORCE_DELETE=true
+- Automatic deletion when distributions are ready
 
 ### S3 Buckets
 ```bash
@@ -192,15 +195,19 @@ WAF              | $5.67
 
 ## Manual Cleanup Steps
 
-Some resources require manual intervention:
+Some resources may require manual intervention:
 
-### 1. CloudFront Distributions
-After script disables distributions:
+### 1. CloudFront Distributions (Automated in v1.1.0)
+The script now handles CloudFront deletion automatically:
+- First run: Disables enabled distributions
+- Second run (after 15-20 minutes): Deletes disabled distributions
+
+Manual intervention only needed if automatic deletion fails:
 ```bash
-# Check status
+# Check status if needed
 aws cloudfront get-distribution --id DISTRIBUTION_ID
 
-# Delete when status is "Deployed" and Enabled=false
+# Manual delete if automatic fails
 aws cloudfront delete-distribution --id DISTRIBUTION_ID --if-match ETAG
 ```
 
@@ -343,10 +350,22 @@ DRY_RUN=false FORCE_DELETE=true ./scripts/decommission-aws-resources.sh
 - [Troubleshooting](troubleshooting.md) - General AWS troubleshooting
 - [Security Guide](security-guide.md) - Security implications of cleanup
 
+## Version History
+
+### v1.1.0 (Current)
+- **Fixed**: CloudFront JSON output no longer displayed during execution
+- **Fixed**: "xaa" file creation from incorrect split command usage
+- **Added**: Automatic CloudFront deletion for disabled distributions
+- **Added**: Multi-run support for CloudFront cleanup
+- **Improved**: CloudWatch alarm batching using arrays instead of split
+
+### v1.0.0
+- Initial release with comprehensive resource cleanup
+
 ---
 
 **⚠️ WARNING**: This process permanently deletes AWS resources and all associated data. Ensure you have proper backups and authorization before proceeding with actual cleanup.
 
 *Last Updated: 2025-08-22*  
-*Version: 1.0.0*  
+*Version: 1.1.0*  
 *Status: Production Ready*
