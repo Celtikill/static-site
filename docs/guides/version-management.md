@@ -34,33 +34,35 @@ We follow [Semantic Versioning 2.0.0](https://semver.org/) with the format: `MAJ
 
 ```mermaid
 gitGraph
+    %% Accessibility
+    accTitle: Git-Based Version Management Flow
+    accDescr: Shows actual git workflow with main branch and feature branches. Feature branches are created from main, merged back to main via PR, then tagged for releases. RC tags trigger staging deployments, stable tags trigger production deployments.
+    
     commit id: "Initial"
-    branch develop
-    checkout develop
     commit id: "Feature A"
-    commit id: "Feature B"
     branch feature/new-waf-rules
     checkout feature/new-waf-rules
     commit id: "WAF Update"
-    checkout develop
+    commit id: "WAF Tests"
+    checkout main
     merge feature/new-waf-rules
     commit id: "v1.1.0-rc1" tag: "v1.1.0-rc1"
-    checkout main
-    merge develop
+    commit id: "RC Testing"
     commit id: "v1.1.0" tag: "v1.1.0"
-    checkout develop
-    commit id: "Next feature"
+    branch feature/cloudfront-opt
+    checkout feature/cloudfront-opt
+    commit id: "CF Optimization"
+    checkout main
+    commit id: "Hotfix" tag: "v1.1.1"
 ```
 
 ### Branch Purposes
 
 | Branch | Purpose | Deploy To | Protected | Auto-Deploy |
 |--------|---------|-----------|-----------|-------------|
-| `main` | Stable releases | production | Yes | No |
-| `develop` | Integration branch | development | Yes | Yes |
-| `feature/*` | Feature development | development | No | Yes |
-| `hotfix/*` | Emergency fixes | staging → production | No | No |
-| `release/*` | Release preparation | staging | No | No |
+| `main` | Stable releases | Tag-based deployment | Yes | Via tags |
+| `feature/*` | Feature development | Manual deployment | No | No |
+| `hotfix/*` | Emergency fixes | Tag-based deployment | No | Via tags |
 
 ## Release Process
 
@@ -160,20 +162,33 @@ The release workflow automates version tagging and deployment based on commit me
 
 ```mermaid
 graph LR
+    %% Accessibility
+    accTitle: Version to Environment Mapping
+    accDescr: Shows how different version types map to environments. Main branch supports tag-based dev deployment. RC tags trigger manual staging deployment. Stable version tags trigger approved production deployment.
+    
     A[main branch] -->|Tag-based| B[Dev Environment]
     C[v1.2.0-rc1] -->|Manual| D[Staging Environment]
     E[v1.2.0] -->|Approved| F[Production Environment]
     
-    style B fill:#e8f5e9
-    style D fill:#fff3cd
-    style F fill:#f8d7da
+    %% High-Contrast Styling for Accessibility
+    classDef branchBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef devBox fill:#e9ecef,stroke:#6c757d,stroke-width:2px,color:#212529
+    classDef stagingBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    classDef prodBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef tagBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    
+    class A branchBox
+    class B devBox
+    class D stagingBox
+    class F prodBox
+    class C,E tagBox
 ```
 
 ### Deployment Rules
 
 | Environment | Version Sources | Approval | Rollback |
 |-------------|----------------|----------|----------|
-| Development | `develop`, `feature/*` | None | Redeploy previous commit |
+| Development | Manual deployment | None | Redeploy previous version |
 | Staging | `v*-rc*` tags | 1 reviewer | Deploy previous RC |
 | Production | `v*.*.*` tags | 2 reviewers | Deploy previous stable |
 

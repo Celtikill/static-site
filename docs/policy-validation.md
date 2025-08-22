@@ -216,7 +216,7 @@ See [Policy Development Guide](policy-development.md) for detailed instructions 
 
 ## Related Documentation
 
-- [Policy Development Guide](policy-development.md) - Writing custom policies
+- [Policy Governance Guide](guides/policy-governance.md) - Comprehensive policy framework
 - [Security Documentation](guides/security-guide.md) - Overall security strategy
 - [GitHub Actions Workflows](../README.md#cicd-pipeline) - CI/CD integration
 - [OPA Documentation](https://www.openpolicyagent.org/docs/) - Official OPA docs

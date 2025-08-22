@@ -21,11 +21,23 @@ OIDC (OpenID Connect) eliminates the need for storing AWS credentials in GitHub:
 
 ```mermaid
 graph LR
+    %% Accessibility
+    accTitle: OIDC Authentication Flow
+    accDescr: Shows secure authentication flow between GitHub Actions and AWS. GitHub Actions requests token from GitHub OIDC Provider, receives JWT, uses it to assume AWS role via STS, gets temporary credentials, then deploys to AWS services. No long-lived credentials stored.
+    
     A[GitHub Actions] -->|1. Request Token| B[GitHub OIDC Provider]
     B -->|2. Issue JWT| A
     A -->|3. AssumeRoleWithWebIdentity| C[AWS STS]
     C -->|4. Temporary Credentials| A
     A -->|5. Deploy Resources| D[AWS Services]
+    
+    %% High-Contrast Styling for Accessibility
+    classDef githubBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef awsBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    classDef secureBox fill:#d4edda,stroke:#155724,stroke-width:3px,color:#155724
+    
+    class A,B githubBox
+    class C,D awsBox
 ```
 
 ### Setup

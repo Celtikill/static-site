@@ -51,9 +51,17 @@ graph TB
     L1 --> L2 --> L3 --> L4 --> L5
     
     %% High-Contrast Styling for Accessibility
-    classDef layerBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
+    classDef networkBox fill:#e3f2fd,stroke:#1565c0,stroke-width:3px,color:#0d47a1
+    classDef appBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
+    classDef dataBox fill:#d4edda,stroke:#155724,stroke-width:3px,color:#155724
+    classDef infraBox fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
+    classDef monitorBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#1b5e20
     
-    class L1,L2,L3,L4,L5 layerBox
+    class L1 networkBox
+    class L2 appBox
+    class L3 dataBox
+    class L4 infraBox
+    class L5 monitorBox
 ```
 
 ### 🏆 Security Standards

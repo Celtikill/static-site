@@ -183,7 +183,7 @@ Complete documentation is available in the [docs](docs/) directory:
 - [Troubleshooting](docs/guides/troubleshooting.md) - Solve common issues
 
 ### Reference
-- [Architecture Details](ARCHITECTURE.md) - Complete architectural overview
+- [Architecture Documentation](docs/architecture/) - Complete architectural overview with dedicated infrastructure, Terraform, CI/CD, and testing documentation
 - [Security Policies](SECURITY.md) - Security overview and placeholder info
 - [Cost Analysis](docs/reference/cost-estimation.md) - Detailed cost breakdown
 - [Monitoring](docs/reference/monitoring.md) - CloudWatch setup and alerts
