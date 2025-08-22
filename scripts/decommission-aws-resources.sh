@@ -1,8 +1,14 @@
 #!/bin/bash
 
 # AWS Resource Decommissioning Script
+# Version: 1.1.0
 # Searches for and removes all AWS resources created by the static website pipeline
 # Focus on cost-generating resources with comprehensive cleanup
+#
+# Changelog:
+# v1.1.0 - Fixed CloudFront JSON output, automatic deletion of disabled distributions,
+#          Fixed "xaa" file creation from split command, improved CloudWatch alarm batching
+# v1.0.0 - Initial release
 
 set -euo pipefail
 
@@ -113,40 +119,100 @@ cleanup_cloudfront() {
     local region="us-east-1"  # CloudFront is global but managed from us-east-1
     log_info "Checking CloudFront distributions in $region..."
     
+    # Get detailed distribution info including Enabled status
     local distributions=$(aws cloudfront list-distributions \
         --region "$region" \
-        --query "DistributionList.Items[?contains(Comment, 'static') || contains(Comment, 'website')].{Id:Id,Comment:Comment,Status:Status}" \
+        --query "DistributionList.Items[?contains(Comment, 'static') || contains(Comment, 'website')]" \
         --output json 2>/dev/null || echo "[]")
     
     if [[ $(echo "$distributions" | jq '. | length') -gt 0 ]]; then
         log_warning "Found CloudFront distributions:"
-        echo "$distributions" | jq -r '.[] | "  - ID: \(.Id), Comment: \(.Comment), Status: \(.Status)"'
+        echo "$distributions" | jq -r '.[] | "  - ID: \(.Id), Comment: \(.Comment), Status: \(.Status), Enabled: \(.Enabled)"'
         
         if confirm_action "Delete CloudFront distributions?"; then
-            echo "$distributions" | jq -r '.[].Id' | while read -r dist_id; do
-                # First disable distribution
-                local etag=$(aws cloudfront get-distribution-config \
+            echo "$distributions" | jq -c '.[]' | while read -r dist_json; do
+                local dist_id=$(echo "$dist_json" | jq -r '.Id')
+                local enabled=$(echo "$dist_json" | jq -r '.Enabled')
+                local status=$(echo "$dist_json" | jq -r '.Status')
+                
+                log_info "Processing distribution $dist_id (Status: $status, Enabled: $enabled)"
+                
+                # Get current config and etag
+                local config_response=$(aws cloudfront get-distribution-config \
                     --id "$dist_id" \
                     --region "$region" \
-                    --query "ETag" \
-                    --output text 2>/dev/null || echo "")
+                    --output json 2>/dev/null || echo "{}")
                 
-                if [[ -n "$etag" ]]; then
-                    local config=$(aws cloudfront get-distribution-config \
-                        --id "$dist_id" \
-                        --region "$region" \
-                        --query "DistributionConfig" 2>/dev/null || echo "{}")
+                local etag=$(echo "$config_response" | jq -r '.ETag // ""')
+                local config=$(echo "$config_response" | jq '.DistributionConfig // {}')
+                
+                if [[ -z "$etag" || "$config" == "{}" ]]; then
+                    log_error "Failed to get configuration for distribution $dist_id"
+                    continue
+                fi
+                
+                # Check if distribution needs to be disabled first
+                if [[ "$enabled" == "true" ]]; then
+                    log_info "Distribution $dist_id is enabled, disabling it first..."
                     
-                    # Disable distribution first
-                    local disable_config=$(echo "$config" | jq '.Enabled = false')
-                    execute_aws_command \
-                        "echo '$disable_config' | aws cloudfront update-distribution --id '$dist_id' --distribution-config file:///dev/stdin --if-match '$etag' --region '$region'" \
-                        "Disabling CloudFront distribution $dist_id"
+                    # Create temp file for config to avoid JSON display issues
+                    local temp_config=$(mktemp)
+                    echo "$config" | jq '.Enabled = false' > "$temp_config"
                     
-                    # Note: Actual deletion requires waiting for disabled state
-                    log_warning "CloudFront distribution $dist_id disabled. Manual deletion required after it reaches 'Disabled' state."
+                    if [[ "$DRY_RUN" == "true" ]]; then
+                        log_info "[DRY RUN] Would disable CloudFront distribution $dist_id"
+                    else
+                        if aws cloudfront update-distribution \
+                            --id "$dist_id" \
+                            --distribution-config "file://$temp_config" \
+                            --if-match "$etag" \
+                            --region "$region" \
+                            --output json > /dev/null 2>&1; then
+                            log_success "Successfully disabled CloudFront distribution $dist_id"
+                            log_warning "Distribution $dist_id is now disabling. It will take 15-20 minutes to be ready for deletion."
+                        else
+                            log_error "Failed to disable CloudFront distribution $dist_id"
+                        fi
+                    fi
+                    
+                    rm -f "$temp_config"
+                    
+                elif [[ "$enabled" == "false" && "$status" == "Deployed" ]]; then
+                    # Distribution is disabled and deployed - ready for deletion
+                    log_info "Distribution $dist_id is disabled and deployed - attempting deletion..."
+                    
+                    if [[ "$DRY_RUN" == "true" ]]; then
+                        log_info "[DRY RUN] Would delete CloudFront distribution $dist_id"
+                    else
+                        if aws cloudfront delete-distribution \
+                            --id "$dist_id" \
+                            --if-match "$etag" \
+                            --region "$region" 2>/dev/null; then
+                            log_success "Successfully deleted CloudFront distribution $dist_id"
+                        else
+                            log_error "Failed to delete CloudFront distribution $dist_id - may need more time to finish disabling"
+                        fi
+                    fi
+                    
+                elif [[ "$enabled" == "false" && "$status" == "InProgress" ]]; then
+                    log_warning "Distribution $dist_id is still disabling (InProgress). Wait for it to reach 'Deployed' status before deletion."
+                    
+                else
+                    log_info "Distribution $dist_id in state: Status=$status, Enabled=$enabled"
                 fi
             done
+            
+            # Summary of distributions that need manual attention
+            local still_disabling=$(echo "$distributions" | jq '[.[] | select(.Enabled == false and .Status == "InProgress")] | length')
+            local ready_to_delete=$(echo "$distributions" | jq '[.[] | select(.Enabled == false and .Status == "Deployed")] | length')
+            
+            if [[ "$still_disabling" -gt 0 ]]; then
+                log_warning "$still_disabling distribution(s) are still disabling. Re-run this script in 15-20 minutes to delete them."
+            fi
+            
+            if [[ "$ready_to_delete" -gt 0 && "$DRY_RUN" == "false" ]]; then
+                log_info "Attempted to delete $ready_to_delete distribution(s) that were ready."
+            fi
         fi
     else
         log_info "No CloudFront distributions found."
@@ -301,14 +367,31 @@ cleanup_cloudwatch() {
             echo "$alarms" | jq -r '.[] | "  - \(.)"'
             
             if confirm_action "Delete CloudWatch alarms in $region?"; then
-                # Delete in batches to avoid API limits
-                echo "$alarms" | jq -r '.[]' | split -l $BATCH_SIZE - | while read -r batch_file; do
-                    if [[ -f "$batch_file" ]]; then
-                        local alarm_names=$(cat "$batch_file" | tr '\n' ' ')
+                # Convert alarms to array for batch processing
+                local alarm_array=()
+                while IFS= read -r alarm_name; do
+                    alarm_array+=("$alarm_name")
+                done < <(echo "$alarms" | jq -r '.[]')
+                
+                # Process in batches to avoid API limits
+                local total_alarms=${#alarm_array[@]}
+                for ((i=0; i<$total_alarms; i+=BATCH_SIZE)); do
+                    # Get batch of alarms
+                    local batch_end=$((i + BATCH_SIZE))
+                    if [[ $batch_end -gt $total_alarms ]]; then
+                        batch_end=$total_alarms
+                    fi
+                    
+                    # Create batch alarm list
+                    local batch_alarms=""
+                    for ((j=i; j<batch_end; j++)); do
+                        batch_alarms="$batch_alarms \"${alarm_array[$j]}\""
+                    done
+                    
+                    if [[ -n "$batch_alarms" ]]; then
                         execute_aws_command \
-                            "aws cloudwatch delete-alarms --alarm-names $alarm_names --region '$region'" \
-                            "CloudWatch alarms batch in $region"
-                        rm -f "$batch_file"
+                            "aws cloudwatch delete-alarms --alarm-names $batch_alarms --region '$region'" \
+                            "CloudWatch alarms batch $((i/BATCH_SIZE + 1)) ($(($batch_end - i)) alarms) in $region"
                     fi
                 done
             fi

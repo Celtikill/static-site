@@ -120,25 +120,23 @@ tags = {
 
 ### Environment-Specific Workflows
 
-Each environment has its own deployment workflow with specific triggers and configurations:
+Deployments use a unified workflow with environment-specific configurations:
 
-1. **Development Deployment** (`deploy-dev.yml`)
-   - Triggers: Push to `develop` or `feature/*` branches
-   - Auto-deploy: Yes
-   - Approval: Not required
-   - Purpose: Rapid testing and iteration
+1. **Unified Deployment** (`deploy.yml`)
+   - Handles all environments through environment parameter
+   - **Development** (env=dev): Rapid testing and iteration
+   - **Staging** (env=staging): Pre-production validation  
+   - **Production** (env=prod): Live website updates
 
-2. **Staging Deployment** (`deploy-staging.yml`)
-   - Triggers: Release candidate tags (v*-rc*)
-   - Auto-deploy: No (manual trigger)
-   - Approval: 1 reviewer required
-   - Purpose: Pre-production validation
+2. **Environment-Specific Behavior**:
+   - **Development**: Auto-deploy via RELEASE workflow, no approval required
+   - **Staging**: Manual trigger with approval (1 reviewer required)
+   - **Production**: Manual trigger with approval (2 reviewers + deployment window)
 
-3. **Production Deployment** (`deploy-prod.yml`)
-   - Triggers: Stable release tags (v*.*.*)
-   - Auto-deploy: No (manual trigger)
-   - Approval: 2 reviewers + deployment window
-   - Purpose: Live website updates
+3. **Trigger Sources**:
+   - RELEASE workflow orchestration (primary method)
+   - Manual dispatch with environment selection
+   - TEST workflow completion (for automated flows)
 
 ### Deployment Commands
 

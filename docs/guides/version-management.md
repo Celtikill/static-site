@@ -83,9 +83,9 @@ gh pr create --base develop --title "CloudFront optimization"
 ### 2. Release Candidate Creation
 
 ```bash
-# From develop branch
-git checkout develop
-git pull origin develop
+# From main branch (tag-based deployment)
+git checkout main
+git pull origin main
 
 # Create release candidate tag
 git tag -a v1.2.0-rc1 -m "Release candidate 1.2.0-rc1
@@ -160,7 +160,7 @@ The release workflow automates version tagging and deployment based on commit me
 
 ```mermaid
 graph LR
-    A[develop branch] -->|Continuous| B[Dev Environment]
+    A[main branch] -->|Tag-based| B[Dev Environment]
     C[v1.2.0-rc1] -->|Manual| D[Staging Environment]
     E[v1.2.0] -->|Approved| F[Production Environment]
     

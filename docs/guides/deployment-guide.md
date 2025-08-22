@@ -221,7 +221,7 @@ AWS_ROLE_ARN=$(tofu output -raw github_actions_role_arn)
 # AWS_REGION: us-east-1
 ```
 
-### 2. Complete Workflow Architecture
+### 2. Simplified Workflow Architecture
 
 ```mermaid
 graph LR
@@ -237,9 +237,11 @@ graph LR
     R --> R2[Release Notes]
     R --> R3[GitHub Release]
     
-    C -.->|RC Tags| D2[DEPLOY-STAGING]
-    C -.->|Stable Tags| D3[DEPLOY-PROD]
-    C -.->|Development| D1[DEPLOY-DEV]
+    C --> D[DEPLOY]
+    
+    D -->|env=dev| E1[Dev Infrastructure]
+    D -->|env=staging| E2[Staging Infrastructure]
+    D -->|env=prod| E3[Prod Infrastructure]
     
     B1[Infrastructure] --> B
     B2[Security] --> B
@@ -253,8 +255,12 @@ graph LR
     R1 & R2 & R3
     end
     
-    subgraph "Environment Deployments"
-    D1 & D2 & D3
+    subgraph "Unified Deployment"
+    D
+    end
+    
+    subgraph "Environment Targets"
+    E1 & E2 & E3
     end
     
     %% High-Contrast Styling for Accessibility
@@ -263,12 +269,14 @@ graph LR
     classDef triggerBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
     classDef stepBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
     classDef deployBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef envBox fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
     
     class R releaseBox
     class B,C phaseBox
     class A triggerBox
     class B1,B2,B3,B4,C1,C2,R1,R2,R3 stepBox
-    class D1,D2,D3 deployBox
+    class D deployBox
+    class E1,E2,E3 envBox
 ```
 
 ### 3. Available Workflows
@@ -325,41 +333,37 @@ Jobs:
 - Security compliance validation
 - Infrastructure state validation
 
-#### DEPLOY Workflows
+#### DEPLOY Workflow
 
-##### Development (`deploy-dev.yml`)
-Triggered on:
-- Push to develop/feature branches
-- Manual dispatch
+##### Unified Deployment (`deploy.yml`)
+Single workflow that handles all environments through environment parameter.
+
+**Trigger Conditions**:
+- Manual dispatch with environment selection
+- RELEASE workflow orchestration
 - TEST workflow completion
 
-Configuration:
+**Environment Configurations**:
+
+**Development** (env=dev):
 - CloudFront: PriceClass_100
 - WAF rate limit: 1000
 - Cross-region replication: disabled
 - Detailed monitoring: disabled
 
-##### Staging (`deploy-staging.yml`)
-Triggered on:
-- Successful DEPLOY-DEV completion
-- Manual dispatch (requires test_id and build_id)
-
-Configuration:
+**Staging** (env=staging):
 - CloudFront: PriceClass_200
 - WAF rate limit: 2000
 - Cross-region replication: enabled
 - Detailed monitoring: enabled
 
-##### Production (`deploy.yml`)
-Triggered on:
-- TEST workflow completion for main branch
-- Manual dispatch with environment selection
-
-Configuration:
-- CloudFront: PriceClass_All
+**Production** (env=prod):
+- CloudFront: PriceClass_All (global)
 - WAF rate limit: 5000
 - Cross-region replication: enabled
 - Detailed monitoring: enabled
+- Environment protection rules
+- Requires approval for deployment
 
 ### 4. Manual Workflow Dispatch
 

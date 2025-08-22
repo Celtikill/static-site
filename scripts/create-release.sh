@@ -1,6 +1,11 @@
 #!/bin/bash
 # create-release.sh - Helper script for creating releases
+# Version: 1.1.0
 # Usage: ./scripts/create-release.sh [major|minor|patch|rc|hotfix] [custom-version]
+#
+# Changelog:
+# v1.1.0 - Fixed handling of repositories with no existing tags (initial release)
+# v1.0.0 - Initial version
 
 set -e
 
@@ -20,8 +25,12 @@ echo "================================"
 
 # Function to get current version
 get_current_version() {
-    local latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-    echo "${latest_tag}"
+    local latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    if [[ -z "$latest_tag" ]]; then
+        echo ""
+    else
+        echo "${latest_tag}"
+    fi
 }
 
 # Function to parse version
@@ -35,6 +44,33 @@ parse_version() {
 # Function to calculate next version
 calculate_next_version() {
     local current=$(get_current_version)
+    
+    # If no tags exist, start with v1.0.0
+    if [[ -z "$current" ]]; then
+        case "$VERSION_TYPE" in
+            major)
+                echo "v1.0.0"
+                ;;
+            minor)
+                echo "v1.0.0"
+                ;;
+            patch)
+                echo "v1.0.0"
+                ;;
+            rc)
+                echo "v1.0.0-rc1"
+                ;;
+            hotfix)
+                echo "v1.0.1-hotfix.1"
+                ;;
+            *)
+                echo -e "${RED}❌ Invalid version type: $VERSION_TYPE${NC}"
+                exit 1
+                ;;
+        esac
+        return
+    fi
+    
     read -r major minor patch <<< $(parse_version "$current")
     
     case "$VERSION_TYPE" in
@@ -93,15 +129,24 @@ main() {
     # Show current version and changes
     CURRENT_VERSION=$(get_current_version)
     echo ""
-    echo -e "${BLUE}Current version:${NC} $CURRENT_VERSION"
+    if [[ -z "$CURRENT_VERSION" ]]; then
+        echo -e "${BLUE}Current version:${NC} None (first release)"
+    else
+        echo -e "${BLUE}Current version:${NC} $CURRENT_VERSION"
+    fi
     echo -e "${BLUE}New version:${NC}     $NEW_VERSION"
     echo ""
     
     # Show commit summary
-    echo -e "${BLUE}📋 Changes since $CURRENT_VERSION:${NC}"
-    git log "$CURRENT_VERSION"..HEAD --oneline | head -10
-    
-    COMMIT_COUNT=$(git log "$CURRENT_VERSION"..HEAD --oneline | wc -l)
+    if [[ -z "$CURRENT_VERSION" ]]; then
+        echo -e "${BLUE}📋 All commits (first release):${NC}"
+        git log --oneline | head -10
+        COMMIT_COUNT=$(git log --oneline | wc -l)
+    else
+        echo -e "${BLUE}📋 Changes since $CURRENT_VERSION:${NC}"
+        git log "$CURRENT_VERSION"..HEAD --oneline | head -10
+        COMMIT_COUNT=$(git log "$CURRENT_VERSION"..HEAD --oneline | wc -l)
+    fi
     echo ""
     echo -e "${YELLOW}Total commits: $COMMIT_COUNT${NC}"
     
@@ -130,24 +175,38 @@ main() {
     echo ""
     echo -e "${BLUE}📝 Creating release notes...${NC}"
     
+    if [[ -z "$CURRENT_VERSION" ]]; then
+        RELEASE_MESSAGE="Initial release:"
+    else
+        RELEASE_MESSAGE="Changes since $CURRENT_VERSION:"
+    fi
+    
     RELEASE_NOTES="Release $NEW_VERSION
 
 Type: $RELEASE_TYPE
 Target Environment: $TARGET_ENV
 Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
-Changes since $CURRENT_VERSION:
+$RELEASE_MESSAGE
 "
     
     # Add categorized changes
-    FEATURES=$(git log "$CURRENT_VERSION"..HEAD --grep="^feat" --oneline)
+    if [[ -z "$CURRENT_VERSION" ]]; then
+        FEATURES=$(git log --grep="^feat" --oneline)
+    else
+        FEATURES=$(git log "$CURRENT_VERSION"..HEAD --grep="^feat" --oneline)
+    fi
     if [[ -n "$FEATURES" ]]; then
         RELEASE_NOTES+="
 Features:
 $FEATURES"
     fi
     
-    FIXES=$(git log "$CURRENT_VERSION"..HEAD --grep="^fix" --oneline)
+    if [[ -z "$CURRENT_VERSION" ]]; then
+        FIXES=$(git log --grep="^fix" --oneline)
+    else
+        FIXES=$(git log "$CURRENT_VERSION"..HEAD --grep="^fix" --oneline)
+    fi
     if [[ -n "$FIXES" ]]; then
         RELEASE_NOTES+="
 Bug Fixes:
