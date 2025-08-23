@@ -35,13 +35,6 @@ on:
         required: false
         default: true
         type: boolean
-  pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - synchronize
-      - reopened
   workflow_run:
     workflows: ["TEST - Policy and Validation"]
     types: [completed]
@@ -61,7 +54,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: static-site-deployment-${{ github.event.inputs.environment || (github.event_name == 'pull_request' && 'staging') || (github.event_name == 'workflow_run' && 'dev') || 'dev' }}
+  group: static-site-deployment-${{ github.event.inputs.environment || (github.event_name == 'workflow_run' && 'dev') || 'dev' }}
   cancel-in-progress: false
 
 # Only run DEPLOY if TEST workflow completed successfully
@@ -111,7 +104,10 @@ jobs:
     name: Production Authorization Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.event.inputs.environment == 'prod' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    needs: [deploy-gate]
+    if: |
+      needs.deploy-gate.outputs.should_run_deployment == 'true' &&
+      (github.event.inputs.environment == 'prod' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'))
     outputs:
       authorized: ${{ steps.check-auth.outputs.authorized }}
     steps:
@@ -158,8 +154,10 @@ jobs:
     name: Deployment Information
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [production-authorization]
-    if: needs.production-authorization.result == 'success' || needs.production-authorization.result == 'skipped'
+    needs: [deploy-gate, production-authorization]
+    if: |
+      needs.deploy-gate.outputs.should_run_deployment == 'true' &&
+      (needs.production-authorization.result == 'success' || needs.production-authorization.result == 'skipped')
     outputs:
       deploy_id: ${{ steps.generate-id.outputs.deploy_id }}
       test_id: ${{ steps.generate-id.outputs.test_id }}
@@ -228,15 +226,6 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "### 🔀 Pull Request Context" >> $GITHUB_STEP_SUMMARY  
-            echo "- **PR Number**: #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **PR Title**: ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Base Branch**: ${{ github.event.pull_request.base.ref }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Head Branch**: ${{ github.event.pull_request.head.ref }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Draft**: ${{ github.event.pull_request.draft }}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
           
           # Secure input handling with validation
           TEST_ID_INPUT='${{ github.event.inputs.test_id }}'
@@ -296,10 +285,6 @@ jobs:
           if [ -n "$ENV_INPUT" ]; then
             TARGET_ENV="$ENV_INPUT"
             echo "✅ **Environment resolved from workflow input**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            # PRs always deploy to staging for validation  
-            TARGET_ENV="staging"
-            echo "✅ **Environment resolved from PR event**: $TARGET_ENV (PRs always use staging)" >> $GITHUB_STEP_SUMMARY
           elif [ "${{ github.event_name }}" = "workflow_run" ] && [[ "${{ github.event.workflow_run.head_branch }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
             # Feature/bugfix/hotfix branches auto-deploy to development after TEST completion
             TARGET_ENV="dev"
@@ -346,9 +331,6 @@ jobs:
             echo "- ✅ Production Authorization (REQUIRED for prod)" >> $GITHUB_STEP_SUMMARY
             echo "- ✅ Staging Health Check (validates staging before prod)" >> $GITHUB_STEP_SUMMARY
           fi
-          if [ "$TARGET_ENV" = "staging" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "- ✅ Development Health Check (validates dev before staging)" >> $GITHUB_STEP_SUMMARY
-          fi
           if [ "$DEPLOY_INFRASTRUCTURE" = "true" ]; then
             echo "- ✅ Deploy Infrastructure (infrastructure changes will be deployed)" >> $GITHUB_STEP_SUMMARY
           else
@@ -380,11 +362,6 @@ jobs:
             # For workflow_run events, get files from the triggering commit
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
             echo "📋 **Trigger**: workflow_run (analyzing single commit changes)" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            # For PR events, compare PR branch with the base branch (main)
-            git fetch origin main:main 2>/dev/null || true
-            CHANGED_FILES=$(git diff --name-only main...HEAD 2>/dev/null || echo "")
-            echo "📋 **Trigger**: pull_request (analyzing PR changes vs main)" >> $GITHUB_STEP_SUMMARY
           else
             # For manual workflow_dispatch or other events, compare with main branch
             git fetch origin main:main 2>/dev/null || true
@@ -534,7 +511,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: deploy-info
-    if: needs.deploy-info.outputs.target_environment == 'staging' && github.event_name == 'pull_request'
+    if: needs.deploy-info.outputs.target_environment == 'staging'
     outputs:
       dev_health: ${{ steps.check-dev.outputs.dev_health }}
       dev_deployment_id: ${{ steps.check-dev.outputs.dev_deployment_id }}
