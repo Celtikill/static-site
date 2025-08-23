@@ -10,7 +10,7 @@
 | **Production** | ![Production](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/celtikill/static-site/main/.github/badges/production-deployment.json) | ![Last Deploy](https://img.shields.io/badge/last%20deploy-not%20deployed-lightgrey) | ![Infra](https://img.shields.io/badge/infrastructure-unknown-lightgrey) | ![Web](https://img.shields.io/badge/website-unknown-lightgrey) | ![Health](https://img.shields.io/badge/health-unknown-lightgrey) |
 
 ### Pipeline Status
-![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg) ![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg) ![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg) ![Deploy](https://github.com/celtikill/static-site/actions/workflows/deploy.yml/badge.svg)
+![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg) ![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg) ![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg)
 
 ### Quality & Security
 ![Security Scan](https://img.shields.io/badge/security%20scan-passing-brightgreen) ![Policy Check](https://img.shields.io/badge/policy%20check-passing-brightgreen) ![Cost Monitor](https://img.shields.io/badge/cost%20monitor-on%20budget-brightgreen) ![Uptime](https://img.shields.io/badge/uptime-99.9%25-brightgreen)

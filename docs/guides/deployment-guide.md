@@ -407,10 +407,30 @@ gh run download --name "deploy-123-website-archive"
 
 ### 5. Environment Protection
 
-Configure branch protection rules:
-- **Development**: Auto-deploy on push to `develop` branch
-- **Staging**: Manual approval required
-- **Production**: Manual approval + required reviewers
+Configure branch protection rules with enhanced workflow architecture:
+- **Development**: ✨ Auto-deploy via DEPLOY workflow after successful TEST on feature branches (`feature/*`, `bugfix/*`, `hotfix/*`)
+- **Staging**: Manual approval required via DEPLOY workflow on pull requests to main
+- **Production**: Manual approval + required reviewers via DEPLOY workflow
+- **Branch Protection**: Compatible with enhanced badge update system using PR-based updates
+
+### 6. Architectural Improvements
+
+Recent workflow architecture improvements have enhanced deployment reliability and clarity:
+
+#### Corrected Deployment Responsibility
+- **Previous**: Development auto-deploy was incorrectly handled by TEST workflow
+- **Current**: All environment deployments unified under DEPLOY workflow
+- **Benefit**: Clear separation of concerns - TEST validates, DEPLOY deploys
+
+#### Enhanced Environment Resolution
+- **Feature Branches**: Automatically deploy to development environment after TEST success
+- **Main Branch**: Environment determined by RELEASE workflow orchestration
+- **Manual Dispatch**: Direct environment selection with parameter validation
+
+#### Improved Status Tracking
+- **GitHub Deployments API**: Accurate deployment record keeping
+- **Dynamic Badge System**: Real deployment status vs workflow completion
+- **Branch Protection Compatible**: PR-based badge updates avoid protection conflicts
 
 ---
 

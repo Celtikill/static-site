@@ -21,46 +21,54 @@ The architecture is presented through progressive disclosure:
 ```mermaid
 graph LR
     %% Accessibility
-    accTitle: CI/CD Pipeline High-Level Flow
-    accDescr: High-level view of CI/CD pipeline showing triggers leading to BUILD-TEST-RELEASE-DEPLOY phases with environment progression and monitoring outputs
+    accTitle: Corrected CI/CD Pipeline High-Level Flow
+    accDescr: Updated CI/CD pipeline showing corrected flow where TEST leads to DEPLOY for all environments, with enhanced badge tracking and branch protection
     
     subgraph "Triggers"
+        FEATURE[Feature Branch Push]
         PR[Pull Request]
-        PUSH[Push to main]
+        MAIN[Push to main]
         MANUAL[Manual Dispatch]
     end
     
     BUILD[BUILD<br/>Infrastructure Prep]
     TEST[TEST<br/>Validation & QA]
     RELEASE[RELEASE<br/>Version Management]
-    DEPLOY[DEPLOY<br/>Multi-Environment]
+    DEPLOY[DEPLOY<br/>Unified Deployment]
     
     subgraph "Environments"
-        DEV[Development]
-        STAGING[Staging]
-        PROD[Production]
+        DEV[Development<br/>Auto-deploy]
+        STAGING[Staging<br/>PR validation]
+        PROD[Production<br/>Manual approval]
     end
     
-    subgraph "Outputs"
+    subgraph "Enhanced Outputs"
         ARTIFACTS[Build Artifacts]
         REPORTS[Security Reports]
+        BADGES[Status Badges]
         NOTIFICATIONS[Notifications]
     end
     
+    FEATURE --> BUILD
+    FEATURE --> TEST
     PR --> BUILD
-    PUSH --> BUILD
-    MANUAL --> BUILD
+    PR --> TEST
+    MAIN --> BUILD
+    MAIN --> TEST
+    MANUAL --> DEPLOY
     
     BUILD --> TEST
-    TEST --> RELEASE
+    TEST --> DEPLOY
+    MAIN --> RELEASE
     RELEASE --> DEPLOY
     
     DEPLOY --> DEV
-    DEV --> STAGING
-    STAGING --> PROD
+    DEPLOY --> STAGING
+    DEPLOY --> PROD
     
     BUILD --> ARTIFACTS
     TEST --> REPORTS
+    DEPLOY --> BADGES
     DEPLOY --> NOTIFICATIONS
     
     %% Styling following Mermaid style guide
@@ -157,8 +165,8 @@ graph TB
 ```mermaid
 graph TB
     %% Accessibility
-    accTitle: TEST Phase Workflow Details
-    accDescr: Detailed view of TEST phase showing unit testing, policy validation, and integration testing with 269 total test assertions
+    accTitle: Corrected TEST Phase Workflow Details
+    accDescr: Updated TEST phase focused purely on validation - no deployment logic, 269 total test assertions, triggers DEPLOY workflow on success
     
     START[TEST Triggered]
     
@@ -176,8 +184,14 @@ graph TB
         COMPLIANCE[Compliance Validation]
     end
     
+    subgraph "Usability Testing"
+        HTTP_CHECK[HTTP Validation]
+        SSL_CHECK[SSL Certificate Check]
+        PERF_CHECK[Performance Validation]
+    end
     
     REPORTS_OUT[Test Reports & Summaries]
+    TRIGGER_DEPLOY[Trigger DEPLOY Workflow<br/>✨ Architecture Fix Applied]
     
     START --> UT_S3
     START --> UT_CF
@@ -189,13 +203,19 @@ graph TB
     OPA --> SEC_POL
     SEC_POL --> COMPLIANCE
     
+    START --> HTTP_CHECK
+    HTTP_CHECK --> SSL_CHECK
+    SSL_CHECK --> PERF_CHECK
+    
     UT_S3 --> REPORTS_OUT
     UT_CF --> REPORTS_OUT
     UT_WAF --> REPORTS_OUT
     UT_IAM --> REPORTS_OUT
     UT_MON --> REPORTS_OUT
-    
     COMPLIANCE --> REPORTS_OUT
+    PERF_CHECK --> REPORTS_OUT
+    
+    REPORTS_OUT --> TRIGGER_DEPLOY
     
     %% Styling
     classDef testBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
@@ -215,10 +235,16 @@ graph TB
 ```mermaid
 graph TB
     %% Accessibility
-    accTitle: DEPLOY Phase Workflow Details
-    accDescr: Detailed view of DEPLOY phase showing infrastructure deployment, content deployment, and multi-environment progression with approval gates
+    accTitle: Enhanced DEPLOY Phase Workflow Details
+    accDescr: Updated DEPLOY phase showing unified deployment handling all environments with enhanced badge tracking, branch protection compatibility, and development auto-deploy integration
     
     START[DEPLOY Triggered]
+    
+    subgraph "Environment Resolution"
+        ENV_CHECK[Determine Target Environment]
+        FEATURE_CHECK[Feature Branch Auto-Deploy Check]
+        TEST_VERIFY[Verify TEST Success]
+    end
     
     subgraph "Infrastructure Deployment"
         INFRA_DEPLOY[Terraform Apply]
@@ -231,25 +257,39 @@ graph TB
         VERIFY[Website Health Check]
     end
     
-    subgraph "Environment Progression"
-        DEV_GATE[Development<br/>Auto-Deploy]
-        STAGING_GATE[Staging<br/>Manual Approval]
-        PROD_GATE[Production<br/>Manual Approval]
+    subgraph "Enhanced Status Tracking"
+        GITHUB_DEPLOY[GitHub Deployments API]
+        BADGE_UPDATE[Dynamic Badge Generation]
+        BRANCH_PROTECT[Branch Protection Compatible]
     end
     
-    NOTIFICATIONS_OUT[Deployment Notifications]
+    subgraph "Environment Routing"
+        DEV_ROUTE[Development<br/>✨ Now in DEPLOY]
+        STAGING_ROUTE[Staging<br/>PR Validation]
+        PROD_ROUTE[Production<br/>Manual Approval]
+    end
     
-    START --> INFRA_DEPLOY
+    NOTIFICATIONS_OUT[Enhanced Notifications]
+    
+    START --> ENV_CHECK
+    ENV_CHECK --> FEATURE_CHECK
+    FEATURE_CHECK --> TEST_VERIFY
+    
+    TEST_VERIFY --> INFRA_DEPLOY
     INFRA_DEPLOY --> POST_VALIDATE
     POST_VALIDATE --> S3_SYNC
     S3_SYNC --> CF_INVALIDATE
     CF_INVALIDATE --> VERIFY
     
-    VERIFY --> DEV_GATE
-    DEV_GATE --> STAGING_GATE
-    STAGING_GATE --> PROD_GATE
+    VERIFY --> GITHUB_DEPLOY
+    GITHUB_DEPLOY --> BADGE_UPDATE
+    BADGE_UPDATE --> BRANCH_PROTECT
     
-    PROD_GATE --> NOTIFICATIONS_OUT
+    ENV_CHECK --> DEV_ROUTE
+    ENV_CHECK --> STAGING_ROUTE
+    ENV_CHECK --> PROD_ROUTE
+    
+    BRANCH_PROTECT --> NOTIFICATIONS_OUT
     
     %% Styling
     classDef deployBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#1b5e20
@@ -595,53 +635,67 @@ performance-targets:
 **4-Environment Deployment Pipeline**:
 
 ```yaml
-# Advanced multi-environment deployment strategy
+# Corrected multi-environment deployment strategy
 environments:
   development:
-    trigger: feature-branch-push
+    trigger: feature-branch-push-after-test-success
+    workflow: DEPLOY
+    prerequisite: TEST-workflow-success
     approval-required: false
     auto-deploy: true
     resource-limits: cost-optimized
     monitoring: basic
-    usability-testing: basic-http-checks
+    badge-tracking: enhanced-status-system
     
   staging:
     trigger: pull-request-to-main
-    approval-required: development-health-check
+    workflow: DEPLOY
+    prerequisite: development-health-check
     auto-deploy: true
     resource-limits: production-like
     monitoring: enhanced
     usability-testing: comprehensive-validation
+    badge-tracking: enhanced-status-system
     
   production:
     trigger: manual-workflow-dispatch
+    workflow: DEPLOY
+    prerequisite: staging-validation-passed
     approval-required: code-owner-authorization
     auto-deploy: false
-    prerequisites: staging-validation-passed
     resource-limits: full-capacity
     monitoring: comprehensive
     validation-testing: production-suite
+    badge-tracking: enhanced-status-system
     
   hotfix:
     trigger: manual-emergency-dispatch
+    workflow: DEPLOY
     approval-required: code-owner-authorization
     auto-deploy: conditional
     staging-bypass: optional-with-justification
     resource-limits: full-capacity
     monitoring: comprehensive
     audit-trail: mandatory
+    badge-tracking: enhanced-status-system
 ```
+
+**Critical Architecture Fix Applied**:
+- **Development auto-deploy moved from TEST to DEPLOY workflow** - ensuring proper separation of concerns
+- **All deployments now handled by DEPLOY workflow** - unified deployment logic
+- **Enhanced status tracking across all environments** - accurate badge reporting
+- **Branch protection integration** - badge updates work seamlessly with protected main branch
 
 **Environment Health Dependencies**:
 - **Development → Staging**: Staging deployments require healthy development environment
 - **Staging → Production**: Production deployments require validated staging environment
-- **Cross-Environment Validation**: GitHub Deployments API tracks environment health
+- **Cross-Environment Validation**: GitHub Deployments API tracks environment health with enhanced accuracy
 - **Usability Testing Integration**: Real HTTP/SSL/performance validation at each stage
 
 ### Deployment Strategies
 
-**Environment-Specific Deployment**:
-- **Development**: Continuous deployment with immediate feedback
+**Corrected Environment-Specific Deployment**:
+- **Development**: Feature branch push → BUILD + TEST → DEPLOY (auto-deploy after successful validation)
 - **Staging**: Manual deployment with validation requirements
 - **Production**: Controlled deployment with approval gates and deployment windows
 
@@ -673,17 +727,47 @@ deployment-strategies:
 ```mermaid
 graph LR
     %% Accessibility
-    accTitle: Workflow Orchestration and Dependencies
-    accDescr: Shows workflow execution flow and dependencies. BUILD workflow can trigger TEST workflow, which can trigger DEPLOY workflow. RELEASE workflow can independently trigger DEPLOY workflow. Manual triggers available for all workflows. Artifacts flow between workflows for data continuity.
+    accTitle: Enhanced Workflow Orchestration and Dependencies
+    accDescr: Updated workflow flow showing corrected architecture where DEPLOY handles all environments, enhanced badge tracking, and branch protection integration. All deployment logic unified in DEPLOY workflow.
     
-    BUILD[BUILD Workflow] --> TEST[TEST Workflow]
-    TEST --> DEPLOY[DEPLOY Workflow]
-    RELEASE[RELEASE Workflow] --> DEPLOY
+    subgraph "Trigger Sources"
+        FEATURE[Feature Branch Push]
+        PR[Pull Request]
+        MAIN[Main Branch Push]
+        MANUAL[Manual Triggers]
+    end
     
-    MANUAL[Manual Triggers] --> BUILD
+    BUILD[BUILD Workflow<br/>Infrastructure Prep]
+    TEST[TEST Workflow<br/>✨ Pure Validation]
+    DEPLOY[DEPLOY Workflow<br/>✨ Unified Deployment]
+    RELEASE[RELEASE Workflow]
+    
+    subgraph "Enhanced Features"
+        BADGES[Dynamic Badge System]
+        PROTECTION[Branch Protection Compatible]
+        GITHUB_API[GitHub Deployments API]
+    end
+    
+    FEATURE --> BUILD
+    FEATURE --> TEST
+    PR --> BUILD
+    PR --> TEST
+    MAIN --> BUILD
+    MAIN --> TEST
+    MAIN --> RELEASE
+    
+    BUILD --> TEST
+    TEST --> DEPLOY
+    RELEASE --> DEPLOY
+    
+    MANUAL --> BUILD
     MANUAL --> TEST
     MANUAL --> DEPLOY
     MANUAL --> RELEASE
+    
+    DEPLOY --> BADGES
+    DEPLOY --> PROTECTION
+    DEPLOY --> GITHUB_API
     
     BUILD --> ARTIFACTS[Build Artifacts]
     ARTIFACTS --> TEST
