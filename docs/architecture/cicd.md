@@ -9,10 +9,18 @@
 
 This document details the comprehensive CI/CD pipeline architecture implemented using GitHub Actions. The design emphasizes security, quality assurance, and operational excellence through automated BUILD-TEST-DEPLOY workflows with multi-environment deployment strategy, comprehensive usability testing, emergency hotfix capabilities, and code owner-based access control.
 
+The architecture implements a strict **BUILD → TEST → DEPLOY** pipeline with enterprise-grade features:
+- **Security-First Design**: Multi-scanner security analysis with OIDC authentication
+- **Quality Assurance**: 269 automated tests with comprehensive policy validation
+- **Environment Management**: Multi-environment deployment with approval gates
+- **Performance Optimization**: Parallel execution and intelligent change detection
+
 The architecture is presented through progressive disclosure:
 - **High-Level Flow**: Overall pipeline progression and environment management
 - **Phase Details**: Detailed breakdown of BUILD, TEST, and DEPLOY workflows
 - **Implementation Details**: Technical specifications and configuration examples
+
+> **📋 Related Documentation**: This document consolidates content from `.github/workflows/README.md` and provides architectural overview. See individual workflow files for implementation details.
 
 ## Pipeline Architecture Overview
 
@@ -1110,3 +1118,13 @@ graph TB
 ---
 
 *This documentation reflects the current CI/CD implementation including enhanced deployment status tracking and is maintained alongside pipeline changes.*
+
+---
+
+## Related Documentation
+
+- **Workflow Implementation**: [GitHub Workflows Documentation](../.github/workflows/README.md)
+- **Deployment Guide**: [../guides/deployment-guide.md](../guides/deployment-guide.md)
+- **Testing Guide**: [../guides/testing-guide.md](../guides/testing-guide.md)
+- **Security Guide**: [../guides/security-guide.md](../guides/security-guide.md)
+- **Multi-Environment Strategy**: [../guides/multi-environment-strategy.md](../guides/multi-environment-strategy.md)

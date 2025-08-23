@@ -1,5 +1,45 @@
 name: DEPLOY - Static Website Deployment
 
+# 🚀 DEPLOY Phase Documentation
+# 
+# Purpose: Deploy infrastructure and website content to target environments
+# 
+# Triggers:
+#   - Successful TEST workflow completion (workflow_run) 
+#   - Manual workflow dispatch with environment selection
+#
+# Duration: ~15-25 minutes (varies by environment)
+# Dependencies: Successful TEST workflow execution
+# 
+# Environment Resolution:
+#   - Feature branches → Development environment (auto-deploy)
+#   - Main branch → Determined by workflow context
+#   - Manual → User-specified environment
+# 
+# Jobs:
+#   1. deploy-gate: Validates TEST workflow success before proceeding
+#   2. production-authorization: Code owner approval for production deployments
+#   3. deploy-info: Generate deployment metadata and environment resolution
+#   4. development-health-check: Pre-deployment environment validation
+#   5. deploy-infrastructure: Infrastructure deployment via Terraform/OpenTofu
+#   6. deploy-website: Website content deployment to S3 with CDN invalidation
+#   7. staging-usability-tests: Post-deployment validation (staging only)
+#   8. production-validation: Enhanced validation suite (production only)
+#   9. update-deployment-status: GitHub Deployments API integration
+#   10. deployment-summary: Consolidate deployment results and status
+# 
+# Outputs:
+#   - Deployment status and URLs
+#   - Infrastructure deployment results
+#   - Website deployment confirmation  
+#   - Environment health validation
+#
+# Success Criteria:
+#   - Infrastructure deployment completes without errors
+#   - Website content successfully deployed and accessible
+#   - Post-deployment validation passes
+#   - GitHub Deployments API records updated
+
 on:
   workflow_dispatch:
     inputs:
@@ -52,6 +92,22 @@ permissions:
   id-token: write
   contents: read
   pull-requests: write
+
+# Global workflow configuration
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Shell and terminal configuration
+  TERM: xterm-256color
+  FORCE_COLOR: "1"
+  # AWS configuration
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_MAX_ATTEMPTS: 3
+  # Terraform/OpenTofu configuration
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
 
 concurrency:
   group: static-site-deployment-${{ github.event.inputs.environment || (github.event_name == 'workflow_run' && 'dev') || 'dev' }}
@@ -659,7 +715,7 @@ jobs:
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     needs: [deploy-info, development-auto-deploy-check]
     if: |
       always() &&

@@ -1,5 +1,37 @@
 name: TEST - Policy and Validation
 
+# 🧪 TEST Phase Documentation
+# 
+# Purpose: Comprehensive testing and validation of infrastructure and policies
+# 
+# Triggers:
+#   - Successful BUILD workflow completion (workflow_run)
+#   - Manual workflow dispatch
+#
+# Duration: ~10-15 minutes  
+# Dependencies: Successful BUILD workflow execution
+# 
+# Jobs:
+#   1. test-gate: Validates BUILD workflow success before proceeding
+#   2. test-info: Generate test metadata and artifact resolution
+#   3. development-health-check: Validate development environment health
+#   4. unit-tests: Infrastructure module unit tests (parallelized)
+#   5. policy-validation: Security and compliance policy validation
+#   6. usability-testing: End-to-end functionality validation
+#   7. test-summary: Consolidate all test results and status
+# 
+# Outputs:
+#   - Test results and reports
+#   - Policy validation status
+#   - Environment health status
+#   - Consolidated test summary for DEPLOY phase
+#
+# Success Criteria:
+#   - All unit tests pass for required modules
+#   - Policy validation completes successfully
+#   - Development environment health checks pass (when applicable)
+#   - No critical security policy violations detected
+
 on:
   workflow_dispatch:
     inputs:
@@ -40,6 +72,22 @@ permissions:
   contents: read
   security-events: write
   pull-requests: write
+
+# Global workflow configuration
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Shell and terminal configuration
+  TERM: xterm-256color
+  FORCE_COLOR: "1"
+  # AWS configuration
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_MAX_ATTEMPTS: 3
+  # Terraform/OpenTofu configuration
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
 
 concurrency:
   group: test-${{ github.ref }}

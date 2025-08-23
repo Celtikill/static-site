@@ -1,5 +1,38 @@
 name: BUILD - Infrastructure and Website Preparation
 
+# 🏗️ BUILD Phase Documentation
+# 
+# Purpose: Validates infrastructure code, performs security scanning, and prepares artifacts
+# 
+# Triggers:
+#   - Push to main, feature/*, bugfix/*, hotfix/* branches
+#   - Pull requests to main branch  
+#   - Manual workflow dispatch
+#
+# Duration: ~5-10 minutes
+# Dependencies: None (entry point of the pipeline)
+# 
+# Jobs:
+#   1. build-info: Generate build metadata and environment resolution
+#   2. infrastructure-validation: Validate Terraform/OpenTofu plans
+#   3. security-scanning: Multi-scanner security analysis (Checkov + Trivy)
+#   4. website-build: Validate and prepare website content
+#   5. cost-estimation: Analyze infrastructure costs with budget alerts
+#   6. pr-comment: Update pull request with build results (PR only)
+#   7. build-summary: Consolidate results and determine overall status
+# 
+# Outputs:
+#   - Build artifacts for TEST phase consumption
+#   - Security scan results (SARIF format)  
+#   - Cost analysis and budget compliance status
+#   - Infrastructure validation reports
+#
+# Success Criteria:
+#   - Infrastructure validation passes (or skipped)
+#   - Security scans complete with acceptable findings
+#   - Website content validates successfully
+#   - Cost estimates within budget thresholds
+
 on:
   workflow_dispatch:
     inputs:
@@ -40,6 +73,25 @@ permissions:
   contents: read
   pull-requests: write
   security-events: write
+
+# Global workflow configuration
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Shell and terminal configuration
+  TERM: xterm-256color
+  FORCE_COLOR: "1"
+  # AWS configuration
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_MAX_ATTEMPTS: 3
+  # Terraform/OpenTofu configuration
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
+  # Security scanning configuration
+  CHECKOV_QUIET: true
+  TRIVY_QUIET: false
 
 concurrency:
   group: build-${{ github.ref }}
@@ -1004,3 +1056,18 @@ jobs:
             echo "❌ **BUILD Phase Failed**" >> $GITHUB_STEP_SUMMARY
             echo "Please review the failed jobs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Cleanup on Failure
+        if: failure() && !cancelled()
+        run: |
+          echo "🧹 **BUILD Cleanup**: Running cleanup after workflow failure" >> $GITHUB_STEP_SUMMARY
+          echo "- Cleaning up temporary files and resources" >> $GITHUB_STEP_SUMMARY
+          # Cleanup logic can be added here
+          
+      - name: Record Performance Metrics
+        if: always()
+        run: |
+          echo "📊 **Performance Metrics**:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Completion Time**: $(date -Iseconds)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY

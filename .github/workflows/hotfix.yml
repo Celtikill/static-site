@@ -116,7 +116,7 @@ jobs:
   hotfix-staging-deploy:
     name: Hotfix Staging Deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     needs: hotfix-authorization
     if: needs.hotfix-authorization.outputs.authorized == 'true' && github.event.inputs.skip_staging != 'true'
     outputs:
@@ -272,7 +272,7 @@ jobs:
   hotfix-production-deploy:
     name: Hotfix Production Deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 25
     needs: [hotfix-authorization, hotfix-production-approval]
     if: needs.hotfix-production-approval.outputs.production_approved == 'true'
     outputs:
