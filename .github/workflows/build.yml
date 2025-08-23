@@ -163,6 +163,13 @@ jobs:
             echo "- **Configuration**: $HAS_CONFIG_CHANGES files" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             
+            # Debug: Show specific workflow files changed
+            if [ "$HAS_WORKFLOW_CHANGES" -gt 0 ]; then
+              echo "**🔧 Workflow Files Changed:**" >> $GITHUB_STEP_SUMMARY
+              echo "$CHANGED_FILES" | grep -E '^\.github/workflows/.*\.yml$' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+            
             # Show changed modules if any
             if [ "$TF_MODULES_CHANGED" -gt 0 ]; then
               echo "**Terraform Modules Changed:**" >> $GITHUB_STEP_SUMMARY
@@ -174,10 +181,19 @@ jobs:
             NEEDS_FULL_TESTS=0
             NEEDS_SECURITY_SCAN=0
             
+            echo "### 🔍 Security Scanning Logic Debug" >> $GITHUB_STEP_SUMMARY
+            echo "- **HAS_TF_CHANGES**: $HAS_TF_CHANGES" >> $GITHUB_STEP_SUMMARY
+            echo "- **HAS_WORKFLOW_CHANGES**: $HAS_WORKFLOW_CHANGES" >> $GITHUB_STEP_SUMMARY
+            echo "- **Condition**: TF changes ($HAS_TF_CHANGES > 0) OR workflow changes ($HAS_WORKFLOW_CHANGES > 0)" >> $GITHUB_STEP_SUMMARY
+            
             if [ "$HAS_TF_CHANGES" -gt 0 ] || [ "$HAS_WORKFLOW_CHANGES" -gt 0 ]; then
               NEEDS_FULL_TESTS=1
               NEEDS_SECURITY_SCAN=1
+              echo "- **Result**: ✅ NEEDS_SECURITY_SCAN=1 (condition met)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Result**: ❌ NEEDS_SECURITY_SCAN=0 (condition not met)" >> $GITHUB_STEP_SUMMARY
             fi
+            echo "" >> $GITHUB_STEP_SUMMARY
             
             if [ "$HAS_TEST_CHANGES" -gt 0 ]; then
               NEEDS_FULL_TESTS=1
@@ -192,6 +208,12 @@ jobs:
             echo "### 🎯 Pipeline Optimization" >> $GITHUB_STEP_SUMMARY
             echo "- **Full Testing Required**: $( [ "$NEEDS_FULL_TESTS" -eq 1 ] && echo "Yes" || echo "No" )" >> $GITHUB_STEP_SUMMARY
             echo "- **Security Scanning Required**: $( [ "$NEEDS_SECURITY_SCAN" -eq 1 ] && echo "Yes" || echo "No" )" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            echo "### 🔍 Final Debug Values" >> $GITHUB_STEP_SUMMARY
+            echo "- **NEEDS_SECURITY_SCAN**: $NEEDS_SECURITY_SCAN" >> $GITHUB_STEP_SUMMARY
+            echo "- **HAS_CHANGES**: $HAS_CHANGES" >> $GITHUB_STEP_SUMMARY
+            echo "- **Will output needs_security_scan**: ${NEEDS_SECURITY_SCAN:-1}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
