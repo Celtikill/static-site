@@ -41,7 +41,7 @@ Comprehensive compliance documentation for AWS static website infrastructure dem
 
 **Evidence**:
 - [Security design documentation](security.md)
-- [Threat model documentation](../ARCHITECTURE.md#risk-assessment)
+- [Threat model documentation](../architecture/infrastructure.md#threat-modeling-and-risk-assessment)
 - [Security requirements tracking](../SECURITY_EXCEPTIONS.md)
 
 **V2: Authentication**
@@ -156,7 +156,7 @@ Comprehensive compliance documentation for AWS static website infrastructure dem
 - Defense-in-depth implementation
 - Security controls at every layer
 
-**Evidence**: [Security Architecture](../ARCHITECTURE.md#security-compliance)
+**Evidence**: [Security Architecture](../architecture/infrastructure.md#compliance-and-standards)
 
 ### A05: Security Misconfiguration
 **Protection**:

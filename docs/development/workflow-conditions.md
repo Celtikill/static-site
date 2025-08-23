@@ -27,13 +27,11 @@ The CI/CD pipeline consists of multiple workflows including the new RELEASE work
 graph LR
     %% Accessibility
     accTitle: CI/CD Pipeline with RELEASE Workflow
-    accDescr: Shows enhanced CI/CD pipeline. BUILD validates infrastructure and website. TEST performs policy validation. RELEASE orchestrates version-based deployments. Traditional DEPLOY workflows handle specific environments.
+    accDescr: Shows enhanced CI/CD pipeline. BUILD validates infrastructure and website. TEST performs policy validation. RELEASE orchestrates version-based deployments. Unified DEPLOY workflow handles all environments with environment-specific configurations.
     
     A[BUILD] -.->|Optional| B[TEST]
     B -.->|Optional| R[RELEASE]
-    R -->|Tag-based| D1[DEPLOY-DEV]
-    R -->|RC Tags| D2[DEPLOY-STAGING]  
-    R -->|Stable Tags| D3[DEPLOY-PROD]
+    R -->|Manual/Automated| D[DEPLOY]
     
     A1[Infrastructure] --> A
     A2[Security] --> A
@@ -47,23 +45,29 @@ graph LR
     R2[GitHub Release] --> R
     R3[Environment Routing] --> R
     
-    D1S[Dev Settings] --> D1
-    D2S[Staging Settings] --> D2
-    D3S[Prod Settings] --> D3
+    D1[Dev Environment] --> D
+    D2[Staging Environment] --> D
+    D3[Prod Environment] --> D
+    
+    DS[Environment Settings] --> D1
+    DS --> D2
+    DS --> D3
     
     %% High-Contrast Styling for Accessibility
     classDef phaseBox fill:#fff3cd,stroke:#856404,stroke-width:4px,color:#212529
     classDef stepBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
     classDef releaseBox fill:#d4edda,stroke:#155724,stroke-width:3px,color:#155724
     classDef deployBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
-    classDef settingsBox fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+    classDef envBox fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+    classDef settingsBox fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
     
     class A,B phaseBox
     class A1,A2,A3,A4,B1,B2 stepBox
     class R releaseBox
     class R1,R2,R3 stepBox
-    class D1,D2,D3 deployBox
-    class D1S,D2S,D3S settingsBox
+    class D deployBox
+    class D1,D2,D3 envBox
+    class DS settingsBox
 ```
 
 ## BUILD Workflow Conditions
@@ -309,9 +313,10 @@ The RELEASE workflow triggers appropriate deployment workflows:
 - name: Trigger Staging Deployment
   if: steps.version-info.outputs.version_type == 'rc'
   run: |
-    gh workflow run deploy-staging.yml \
-      --field test_id="release-${{ github.run_id }}" \
-      --field build_id="release-${{ github.run_id }}"
+    gh workflow run deploy.yml \
+      --field environment=staging \
+      --field deploy_infrastructure=true \
+      --field deploy_website=true
 
 # For stable/hotfix → production  
 - name: Trigger Production Deployment
@@ -325,25 +330,29 @@ The RELEASE workflow triggers appropriate deployment workflows:
 
 ## Deployment Workflow Conditions
 
-### Development Deployment (`deploy-dev.yml`)
+### Unified Deployment Workflow (`deploy.yml`)
+
+The deployment workflow has been simplified to handle all environments through parameters.
 
 #### Trigger Conditions:
-1. **Push** to:
-   - `develop` branch
-   - `feature/*` branches
-
-2. **Manual Dispatch** with options:
+1. **Manual Dispatch** with environment selection:
+   - `environment`: Target environment (dev/staging/prod)
    - `test_id`: Optional reference
    - `build_id`: Optional reference
-   - `skip_test_check`: Development only
-   - `force_deploy`: Override change detection
+   - `skip_test_check`: Emergency override
+   - `deploy_infrastructure`: Infrastructure deployment toggle
+   - `deploy_website`: Website deployment toggle
 
-3. **Workflow Run**:
+2. **RELEASE Workflow Orchestration** (Primary Method):
+   - Triggered automatically by version tags
+   - Routes to appropriate environment based on version type
+
+3. **TEST Workflow Completion**:
    ```yaml
    workflow_run:
      workflows: ["TEST - Policy and Validation"]
      types: [completed]
-     branches: [develop, 'feature/*']
+     branches: [main]
    ```
 
 #### Environment Settings:
@@ -358,23 +367,21 @@ TF_VAR_monthly_budget_limit: "10"
 TF_VAR_log_retention_days: 7
 ```
 
-### Staging Deployment (`deploy-staging.yml`)
+#### Environment-Specific Settings:
 
-#### Trigger Conditions:
-1. **Manual Dispatch** with required inputs:
-   - `test_id`: Required for traceability
-   - `build_id`: Required for artifact reference
-   - `dev_deployment_id`: For deployment tracking
+**Development Environment** (env=dev):
+```yaml
+TF_VAR_environment: dev
+TF_VAR_cloudfront_price_class: PriceClass_100
+TF_VAR_waf_rate_limit: 1000
+TF_VAR_enable_cross_region_replication: false
+TF_VAR_enable_detailed_monitoring: false
+TF_VAR_force_destroy_bucket: true
+TF_VAR_monthly_budget_limit: "10"
+TF_VAR_log_retention_days: 7
+```
 
-2. **Workflow Run**:
-   ```yaml
-   workflow_run:
-     workflows: ["DEPLOY-DEV - Development Environment Deployment"]
-     types: [completed]
-     branches: [main, develop]
-   ```
-
-#### Environment Settings:
+**Staging Environment** (env=staging):
 ```yaml
 TF_VAR_environment: staging
 TF_VAR_cloudfront_price_class: PriceClass_200
@@ -386,24 +393,7 @@ TF_VAR_monthly_budget_limit: "25"
 TF_VAR_log_retention_days: 30
 ```
 
-### Production Deployment (`deploy.yml`)
-
-#### Trigger Conditions:
-1. **Manual Dispatch** with options:
-   - `environment`: Required (prod/staging/dev)
-   - `test_id`: Optional TEST workflow reference
-   - `build_id`: Optional BUILD reference
-   - `skip_test_check`: Emergency override
-
-2. **Workflow Run**:
-   ```yaml
-   workflow_run:
-     workflows: ["TEST - Security and Validation"]
-     types: [completed]
-     branches: [main]
-   ```
-
-#### Environment Settings:
+**Production Environment** (env=prod):
 ```yaml
 TF_VAR_environment: prod
 TF_VAR_cloudfront_price_class: PriceClass_All
@@ -414,6 +404,17 @@ TF_VAR_force_destroy_bucket: false
 TF_VAR_monthly_budget_limit: "50"
 TF_VAR_log_retention_days: 90
 ```
+
+#### Deployment Flow Priority:
+1. **RELEASE Workflow** (Recommended):
+   - Tag-based deployment with version routing
+   - Automatic environment determination
+   - Full traceability and audit trail
+
+2. **Manual Deployment**:
+   - Direct invocation with environment parameter
+   - Emergency override capabilities
+   - Requires manual approvals for production
 
 ### Deploy Infrastructure Job
 

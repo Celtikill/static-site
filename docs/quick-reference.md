@@ -89,13 +89,17 @@ tofu validate -var-file=terraform/environments/prod.tfvars
 ### Deployment Commands
 
 ```bash
-# Deploy to development (latest develop branch)
-gh workflow run deploy-dev.yml
+# Deploy to development (manual deployment)
+gh workflow run deploy.yml --field environment=dev --field deploy_infrastructure=true --field deploy_website=true
 
-# Deploy RC to staging
-gh workflow run deploy-staging.yml \
-  -f test_id="test-$(date +%s)" \
-  -f build_id="build-$(date +%s)"
+# Deploy RC to staging (via RELEASE workflow - preferred)
+git tag v1.0.0-rc1 && git push origin v1.0.0-rc1
+
+# Or manual staging deployment
+gh workflow run deploy.yml \
+  -f environment=staging \
+  -f deploy_infrastructure=true \
+  -f deploy_website=true
 
 # Deploy stable to production
 gh workflow run deploy.yml \

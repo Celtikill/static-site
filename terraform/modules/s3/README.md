@@ -296,13 +296,6 @@ cd ../../../test/unit
 ./test-s3.sh --verbose
 ```
 
-### Integration Tests
-
-```bash
-# Test with real AWS resources
-cd ../../../test/integration
-./test-s3-integration.sh
-```
 
 ### Security Tests
 

@@ -1,12 +1,9 @@
 # AWS Static Website Infrastructure
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6%2B-blue)](https://opentofu.org/)
-[![AWS](https://img.shields.io/badge/AWS-Well--Architected-orange)](https://aws.amazon.com/architecture/well-architected/)
-
-[![BUILD](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml)
-[![TEST](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
-[![DEPLOY](https://github.com/celtikill/static-site/actions/workflows/deploy.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/deploy.yml)
+[![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml)
+[![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
+[![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/release.yml)
+[![Deploy](https://github.com/celtikill/static-site/actions/workflows/deploy.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/deploy.yml)
 
 Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu/Terraform.
 
@@ -183,7 +180,7 @@ Complete documentation is available in the [docs](docs/) directory:
 - [Troubleshooting](docs/guides/troubleshooting.md) - Solve common issues
 
 ### Reference
-- [Architecture Details](ARCHITECTURE.md) - Complete architectural overview
+- [Architecture Documentation](docs/architecture/) - Complete architectural overview with dedicated infrastructure, Terraform, CI/CD, and testing documentation
 - [Security Policies](SECURITY.md) - Security overview and placeholder info
 - [Cost Analysis](docs/reference/cost-estimation.md) - Detailed cost breakdown
 - [Monitoring](docs/reference/monitoring.md) - CloudWatch setup and alerts

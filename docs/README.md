@@ -24,7 +24,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 **Primary Focus**: System design, architecture decisions, and technical implementation
 
 **Start Here**:
-1. **[Architecture Overview](../ARCHITECTURE.md)** ⭐⭐⭐ (15 min) - Complete system architecture and design patterns
+1. **[Architecture Documentation](architecture/)** ⭐⭐⭐ (30 min) - Complete system architecture including infrastructure, Terraform, CI/CD, and testing documentation
 2. **[Multi-Environment Strategy](guides/multi-environment-strategy.md)** ⭐⭐⭐ (15 min) - Environment configurations and promotion strategy
 3. **[Version Management](guides/version-management.md)** ⭐⭐⭐ (15 min) - Git-based versioning and release management
 
@@ -79,7 +79,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 **Primary Focus**: Business value, cost implications, and strategic alignment
 
 **Executive Overview**:
-- **[Architecture Overview](../ARCHITECTURE.md)** ⭐ (5 min skim) - High-level system design and business benefits
+- **[Architecture Documentation](architecture/)** ⭐ (5 min skim) - High-level system design and business benefits
 - **[Cost Analysis](reference/cost-estimation.md)** ⭐⭐ (15 min) - Infrastructure cost breakdown and optimization
 - **[Compliance Overview](reference/compliance.md)** ⭐ (10 min) - Regulatory compliance and security standards
 
@@ -111,7 +111,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 ### 🏗️ Architecture & Design
 | Document | Audience | Complexity | Reading Time | Purpose |
 |----------|----------|------------|--------------|---------|
-| **[Architecture Overview](../ARCHITECTURE.md)** | All | ⭐⭐⭐ | 15 min | System design and technical architecture |
+| **[Architecture Documentation](architecture/)** | All | ⭐⭐⭐ | 30 min | System design and technical architecture |
 | **[Multi-Environment Strategy](guides/multi-environment-strategy.md)** | Platform/DevOps | ⭐⭐⭐ | 15 min | Environment configurations and deployment strategy |
 | **[Version Management](guides/version-management.md)** | DevOps | ⭐⭐⭐ | 15 min | Git-based versioning and release management |
 
@@ -163,7 +163,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 **Total Time**: ~35 minutes | **Outcome**: Basic deployment capability
 
 ### 🏗️ **Architecture Mastery** (For comprehensive understanding)
-1. **[Architecture Overview](../ARCHITECTURE.md)** (15 min)
+1. **[Architecture Documentation](architecture/)** (30 min)
 2. **[Multi-Environment Strategy](guides/multi-environment-strategy.md)** (15 min)
 3. **[Security Guide](guides/security-guide.md)** (25 min)
 4. **[Version Management](guides/version-management.md)** (15 min)

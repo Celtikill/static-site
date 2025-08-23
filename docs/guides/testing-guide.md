@@ -5,10 +5,9 @@ Comprehensive guide for testing the AWS static website infrastructure.
 ## Overview
 
 The project includes a robust testing framework with:
-- **Unit Tests**: Validate individual Terraform modules
+- **Unit Tests**: Validate individual Terraform modules (269 comprehensive tests)
 - **Security Scanning**: Automated security analysis with Checkov and Trivy
-- **Policy Validation**: Infrastructure compliance checks (planned)
-- **Integration Tests**: End-to-end deployment validation (planned)
+- **Policy Validation**: Infrastructure compliance checks with OPA/Conftest
 
 ## Current Testing Status
 
@@ -19,10 +18,7 @@ The project includes a robust testing framework with:
 - Test execution framework using bash and jq
 
 ### ⚠️ Planned but Not Implemented
-- Integration tests with real AWS resources
-- OPA/Conftest policy validation
 - Accessibility testing automation
-- Performance testing suite
 
 ## Unit Testing
 
@@ -252,46 +248,6 @@ test/unit/test-results/
    - Check test-summary.json for details
    - Review failure messages for root causes
 
-## Integration Testing (Planned)
-
-### Proposed Integration Test Framework
-
-Integration tests would:
-1. Deploy infrastructure to test environment
-2. Validate resource creation
-3. Test functionality (website accessibility, CDN caching)
-4. Clean up resources
-
-### Example Integration Test
-
-```bash
-# Deploy test infrastructure
-tofu apply -auto-approve -var="environment=test"
-
-# Validate deployment
-aws s3 ls s3://test-static-site-bucket/
-aws cloudfront get-distribution --id DISTRIBUTION_ID
-
-# Test website
-curl -I https://test.example.com
-
-# Cleanup
-tofu destroy -auto-approve
-```
-
-## Performance Testing (Planned)
-
-### Proposed Metrics
-- Page load time < 2 seconds
-- Time to First Byte < 200ms
-- Cache hit ratio > 85%
-- Global latency < 100ms (95th percentile)
-
-### Tools for Performance Testing
-- Apache Bench (ab)
-- JMeter
-- Lighthouse CI
-- WebPageTest API
 
 ## Accessibility Testing
 
@@ -321,7 +277,5 @@ For accessibility testing, see the UX improvement documentation. Key areas:
 ## Next Steps
 
 1. **Fix Test Detection in CI/CD**: Resolve why tests are being skipped
-2. **Implement Integration Tests**: Create end-to-end testing suite
-3. **Add Policy Validation**: Integrate OPA/Conftest if needed
-4. **Performance Baselines**: Establish performance benchmarks
-5. **Automate Accessibility Tests**: Add automated WCAG compliance checking
+2. **Enhanced Policy Validation**: Expand OPA/Conftest rules as needed
+3. **Automate Accessibility Tests**: Add automated WCAG compliance checking

@@ -15,7 +15,7 @@ This guide establishes a comprehensive multi-environment deployment strategy for
 
 | Environment | Purpose | Branch | Version Strategy | Approval Required |
 |-------------|---------|--------|------------------|-------------------|
-| **Development** | Rapid iteration and testing | `develop`, `feature/*` | Latest commits | No |
+| **Development** | Rapid iteration and testing | Manual deployment | Latest commits | No |
 | **Staging** | Pre-production validation | `main` | Release candidates (v1.0.0-rc1) | 1 reviewer |
 | **Production** | Live website serving | `main` | Stable releases (v1.0.0) | 2 reviewers + deployment window |
 
@@ -160,16 +160,29 @@ terraform apply -var-file=environments/prod.tfvars
 
 ```mermaid
 graph LR
-    A[Feature Branch] -->|Merge| B[develop]
-    B -->|Auto Deploy| C[Dev Environment]
-    C -->|Create RC Tag| D[v1.0.0-rc1]
-    D -->|Manual Deploy| E[Staging Environment]
-    E -->|Testing Complete| F[Create Release Tag]
-    F -->|v1.0.0| G[Production Environment]
+    %% Accessibility
+    accTitle: Environment Promotion Flow
+    accDescr: Shows how code flows from feature branches through environments. Feature branches merge to main via PR. RC tags trigger staging deployment. Stable releases trigger production deployment. Manual deployment available for development environment.
     
-    style C fill:#e8f5e9
-    style E fill:#fff3cd
-    style G fill:#f8d7da
+    A[Feature Branch] -->|PR Merge| B[main]
+    B -->|Manual Deploy| C[Dev Environment]
+    B -->|RC Tag| D[v1.0.0-rc1]
+    D -->|Auto Deploy| E[Staging Environment]
+    B -->|Stable Tag| F[v1.0.0]
+    F -->|Approved Deploy| G[Production Environment]
+    
+    %% High-Contrast Styling for Accessibility
+    classDef devBox fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef stagingBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    classDef prodBox fill:#f8d7da,stroke:#721c24,stroke-width:2px,color:#721c24
+    classDef branchBox fill:#f8f9fa,stroke:#495057,stroke-width:2px,color:#212529
+    classDef tagBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    
+    class C devBox
+    class E stagingBox
+    class G prodBox
+    class A,B branchBox
+    class D,F tagBox
 ```
 
 ### Promotion Gates
@@ -352,7 +365,7 @@ The workflow resolves the target environment in this order:
 ### Development Environment
 - Can deploy independently
 - Optional test requirements
-- Automatic triggers on push to develop/feature branches
+- Manual deployment for rapid testing
 - Concurrent deployments allowed
 - Immediate cache invalidation
 
