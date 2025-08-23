@@ -26,6 +26,9 @@ on:
   push:
     branches:
       - main
+      - 'feature/*'
+      - 'bugfix/*'
+      - 'hotfix/*'
 
 # OIDC Authentication Permissions
 # id-token: write - REQUIRED for GitHub OIDC token generation to authenticate with AWS
@@ -945,4 +948,164 @@ jobs:
           else
             echo "❌ **BUILD Phase Failed**" >> $GITHUB_STEP_SUMMARY
             echo "Please review the failed jobs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  development-auto-deploy:
+    name: Development Auto-Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build-info, infrastructure-validation, security-scanning, website-build]
+    if: |
+      github.ref_name != 'main' && 
+      (needs.infrastructure-validation.result == 'success' || needs.infrastructure-validation.result == 'skipped') &&
+      needs.security-scanning.result == 'success' &&
+      (needs.website-build.result == 'success' || needs.website-build.result == 'skipped')
+    environment: development
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Infrastructure Tools
+        uses: ./.github/actions/setup-infrastructure
+        with:
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          aws-role: ${{ secrets.AWS_ASSUME_ROLE }}
+
+      - name: Create GitHub Deployment
+        id: deployment
+        run: |
+          # Create deployment record via GitHub API
+          DEPLOYMENT_ID=$(gh api repos/${{ github.repository }}/deployments \
+            --method POST \
+            --field ref="${{ github.sha }}" \
+            --field environment="development" \
+            --field description="Auto-deployment from ${{ github.ref_name }}" \
+            --field auto_merge=false \
+            --jq .id)
+          
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "**Deployment ID**: $DEPLOYMENT_ID" >> $GITHUB_STEP_SUMMARY
+
+      - name: Prepare Environment Variables
+        id: prepare-env
+        run: |
+          PROJECT_NAME=$(echo "${{ github.repository_owner }}-static-site" | tr '[:upper:]' '[:lower:]')
+          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
+          echo "**Project Name**: $PROJECT_NAME" >> $GITHUB_STEP_SUMMARY
+
+      - name: Deploy Infrastructure to Development
+        id: deploy-infra
+        working-directory: terraform
+        env:
+          TF_VAR_project_name: ${{ steps.prepare-env.outputs.project_name }}
+          TF_VAR_environment: dev
+          TF_VAR_github_repository: ${{ github.repository }}
+        run: |
+          echo "## 🚀 Deploying Infrastructure to Development" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Initialize Terraform
+          tofu init
+          
+          # Plan and apply
+          tofu plan -out=dev-deploy.tfplan
+          
+          if tofu apply -auto-approve dev-deploy.tfplan; then
+            echo "✅ Infrastructure deployment successful" >> $GITHUB_STEP_SUMMARY
+            
+            # Get CloudFront domain for site URL
+            CLOUDFRONT_DOMAIN=$(tofu output -raw cloudfront_domain_name 2>/dev/null || echo "")
+            if [[ -n "$CLOUDFRONT_DOMAIN" ]]; then
+              echo "cloudfront_domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
+              echo "📍 **Development Site**: https://$CLOUDFRONT_DOMAIN" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "deploy_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Infrastructure deployment failed" >> $GITHUB_STEP_SUMMARY
+            echo "deploy_status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Deploy Website Content
+        if: steps.deploy-infra.outputs.deploy_status == 'success'
+        run: |
+          echo "## 📄 Deploying Website Content" >> $GITHUB_STEP_SUMMARY
+          
+          # Get S3 bucket name from Terraform output
+          S3_BUCKET=$(cd terraform && tofu output -raw s3_bucket_name 2>/dev/null || echo "")
+          
+          if [[ -n "$S3_BUCKET" ]]; then
+            # Sync website content to S3
+            aws s3 sync src/ s3://$S3_BUCKET/ --delete
+            
+            # Invalidate CloudFront cache
+            CLOUDFRONT_ID=$(cd terraform && tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+            if [[ -n "$CLOUDFRONT_ID" ]]; then
+              aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"
+              echo "✅ CloudFront cache invalidation triggered" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "✅ Website content deployed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Could not determine S3 bucket name" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Run Development Health Check
+        id: health-check
+        run: |
+          echo "## 🩺 Development Environment Health Check" >> $GITHUB_STEP_SUMMARY
+          
+          SITE_URL="${{ steps.deploy-infra.outputs.cloudfront_domain }}"
+          
+          if [[ -n "$SITE_URL" ]]; then
+            # Wait for deployment to propagate
+            sleep 30
+            
+            # Run basic health check
+            if curl -f -s "https://$SITE_URL" > /dev/null; then
+              echo "✅ Development site is responding" >> $GITHUB_STEP_SUMMARY
+              echo "health_status=healthy" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Development site not yet responding (may need time to propagate)" >> $GITHUB_STEP_SUMMARY
+              echo "health_status=pending" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "⚠️ No site URL available for health check" >> $GITHUB_STEP_SUMMARY
+            echo "health_status=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Deployment Status
+        if: always()
+        run: |
+          # Determine deployment status
+          if [[ "${{ steps.deploy-infra.outputs.deploy_status }}" == "success" ]]; then
+            DEPLOY_STATE="success"
+            DEPLOY_DESCRIPTION="Development deployment successful"
+          else
+            DEPLOY_STATE="failure" 
+            DEPLOY_DESCRIPTION="Development deployment failed"
+          fi
+          
+          # Update deployment status
+          gh api repos/${{ github.repository }}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses \
+            --method POST \
+            --field state="$DEPLOY_STATE" \
+            --field description="$DEPLOY_DESCRIPTION" \
+            --field environment="development" \
+            --field log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Generate Deployment Summary
+        if: always()
+        run: |
+          echo "## 📋 Development Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: development" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ steps.deploy-infra.outputs.deploy_status }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ -n "${{ steps.deploy-infra.outputs.cloudfront_domain }}" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 **Live Development Site**: https://${{ steps.deploy-infra.outputs.cloudfront_domain }}" >> $GITHUB_STEP_SUMMARY
           fi

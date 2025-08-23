@@ -182,12 +182,66 @@ jobs:
           merge-multiple: true
         continue-on-error: true
 
+  development-health-check:
+    name: Development Environment Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: test-info
+    if: |
+      needs.test-info.outputs.resolved_environment == 'staging' ||
+      needs.test-info.outputs.resolved_environment == 'prod'
+    outputs:
+      dev_health_status: ${{ steps.health-check.outputs.health_status }}
+      dev_site_url: ${{ steps.health-check.outputs.site_url }}
+    steps:
+      - name: Check Development Environment Health
+        id: health-check
+        run: |
+          echo "## 🩺 Development Environment Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Query latest development deployment status via GitHub API
+          DEV_DEPLOYMENTS=$(gh api repos/${{ github.repository }}/deployments \
+            --paginate \
+            --jq '.[] | select(.environment=="development") | {id: .id, ref: .ref, created_at: .created_at}' | \
+            jq -s 'sort_by(.created_at) | reverse | .[0]')
+          
+          if [[ "$DEV_DEPLOYMENTS" == "null" ]] || [[ -z "$DEV_DEPLOYMENTS" ]]; then
+            echo "❌ No development deployments found" >> $GITHUB_STEP_SUMMARY
+            echo "   Staging/Production deployments require healthy development environment" >> $GITHUB_STEP_SUMMARY
+            echo "health_status=no_deployments" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Get the latest deployment ID and check its status
+          LATEST_DEV_ID=$(echo "$DEV_DEPLOYMENTS" | jq -r '.id')
+          DEV_STATUS=$(gh api repos/${{ github.repository }}/deployments/$LATEST_DEV_ID/statuses \
+            --jq '.[0].state // "unknown"')
+          
+          echo "**Latest Development Deployment**: $LATEST_DEV_ID" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: $DEV_STATUS" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "$DEV_STATUS" == "success" ]]; then
+            echo "✅ Development environment is healthy" >> $GITHUB_STEP_SUMMARY
+            echo "   Staging deployment can proceed" >> $GITHUB_STEP_SUMMARY
+            echo "health_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Development environment is unhealthy (status: $DEV_STATUS)" >> $GITHUB_STEP_SUMMARY
+            echo "   Staging deployment blocked until development is fixed" >> $GITHUB_STEP_SUMMARY
+            echo "   Please fix development environment and re-run tests" >> $GITHUB_STEP_SUMMARY
+            echo "health_status=$DEV_STATUS" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: test-info
-    if: needs.test-info.outputs.skip_tests != '1'
+    needs: [test-info, development-health-check]
+    if: |
+      always() && 
+      needs.test-info.outputs.skip_tests != '1' &&
+      (needs.development-health-check.result == 'success' || needs.development-health-check.result == 'skipped')
     strategy:
       matrix:
         module: [s3, cloudfront, waf, iam, monitoring]
@@ -541,11 +595,99 @@ jobs:
             terraform/compliance_results.txt
           retention-days: 30
 
+  usability-testing:
+    name: Usability Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [test-info, development-health-check]
+    if: |
+      always() && 
+      needs.test-info.outputs.resolved_environment == 'staging' &&
+      (needs.development-health-check.result == 'success')
+    outputs:
+      usability_test_status: ${{ steps.usability-tests.outputs.test_status }}
+      total_tests: ${{ steps.usability-tests.outputs.total_tests }}
+      passed_tests: ${{ steps.usability-tests.outputs.passed_tests }}
+      failed_tests: ${{ steps.usability-tests.outputs.failed_tests }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Test Environment
+        run: |
+          # Install required tools for usability testing
+          sudo apt-get update
+          sudo apt-get install -y curl jq bc openssl
+          
+          # Make test scripts executable
+          chmod +x test/usability/*.sh
+
+      - name: Run Staging Usability Tests
+        id: usability-tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## 🧪 Staging Usability Tests" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get staging site URL from deployment records or construct it
+          STAGING_URL=""
+          
+          # Try to get from latest staging deployment
+          STAGING_DEPLOYMENTS=$(gh api repos/${{ github.repository }}/deployments \
+            --paginate \
+            --jq '.[] | select(.environment=="staging") | {id: .id, ref: .ref, created_at: .created_at}' | \
+            jq -s 'sort_by(.created_at) | reverse | .[0]' || echo "{}")
+          
+          if [[ "$STAGING_DEPLOYMENTS" != "{}" ]] && [[ -n "$STAGING_DEPLOYMENTS" ]]; then
+            echo "📍 Found staging deployment records" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No staging deployment records found, using constructed URL" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Run comprehensive usability tests
+          if test/usability/staging-usability-tests.sh; then
+            echo "✅ All usability tests passed" >> $GITHUB_STEP_SUMMARY
+            echo "test_status=passed" >> $GITHUB_OUTPUT
+            TEST_EXIT_CODE=0
+          else
+            echo "❌ Some usability tests failed" >> $GITHUB_STEP_SUMMARY  
+            echo "test_status=failed" >> $GITHUB_OUTPUT
+            TEST_EXIT_CODE=1
+          fi
+          
+          # Export results if available
+          RESULTS_FILE=$(find test/usability/test-results -name "staging-usability-results-*.json" -type f | head -1)
+          if [[ -f "$RESULTS_FILE" ]]; then
+            echo "total_tests=$(jq -r '.summary.total_tests // 0' "$RESULTS_FILE")" >> $GITHUB_OUTPUT
+            echo "passed_tests=$(jq -r '.summary.passed_tests // 0' "$RESULTS_FILE")" >> $GITHUB_OUTPUT
+            echo "failed_tests=$(jq -r '.summary.failed_tests // 0' "$RESULTS_FILE")" >> $GITHUB_OUTPUT
+            
+            # Add detailed results to summary
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Test Results:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Total: $(jq -r '.summary.total_tests // 0' "$RESULTS_FILE")" >> $GITHUB_STEP_SUMMARY
+            echo "- Passed: $(jq -r '.summary.passed_tests // 0' "$RESULTS_FILE")" >> $GITHUB_STEP_SUMMARY
+            echo "- Failed: $(jq -r '.summary.failed_tests // 0' "$RESULTS_FILE")" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          exit $TEST_EXIT_CODE
+
+      - name: Upload Usability Test Results
+        if: always()
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: ${{ needs.test-info.outputs.test_id }}-usability-tests
+          path: |
+            test/usability/test-results/
+            test/usability/test-output.log
+          retention-days: 30
+
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test-info, unit-tests, policy-validation]
+    needs: [test-info, development-health-check, unit-tests, policy-validation, usability-testing]
     if: always()
     steps:
       - name: Download Unit Test Results

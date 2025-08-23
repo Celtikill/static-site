@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document details the comprehensive CI/CD pipeline architecture implemented using GitHub Actions. The design emphasizes security, quality assurance, and operational excellence through automated BUILD-TEST-RELEASE-DEPLOY workflows with comprehensive validation and approval gates.
+This document details the comprehensive CI/CD pipeline architecture implemented using GitHub Actions. The design emphasizes security, quality assurance, and operational excellence through automated BUILD-TEST-DEPLOY workflows with multi-environment deployment strategy, comprehensive usability testing, emergency hotfix capabilities, and code owner-based access control.
 
 The architecture is presented through progressive disclosure:
 - **High-Level Flow**: Overall pipeline progression and environment management
@@ -367,6 +367,28 @@ policy-validation:
 - **GitHub Releases**: Automated release creation with artifacts
 - **Environment Routing**: Tag-based deployment to appropriate environments
 
+### 4. HOTFIX Workflow (`hotfix.yml`)
+
+**Purpose**: Emergency deployment pipeline with code owner approval  
+**Triggers**: Manual dispatch for critical issues  
+
+**Key Features**:
+- **Code Owner Authorization**: Mandatory approval from repository code owners
+- **Staging Validation**: Optional staging deployment with validation
+- **Production Emergency Deploy**: Direct production deployment for critical issues
+- **Comprehensive Logging**: Full audit trail for emergency deployments
+
+### 5. ROLLBACK Workflow (`rollback.yml`)
+
+**Purpose**: Automated rollback capabilities for emergency recovery  
+**Triggers**: Manual dispatch for deployment issues  
+
+**Key Features**:
+- **Multiple Rollback Methods**: Last known good, specific commit, component-specific
+- **Code Owner Authorization**: Required for staging and production rollbacks
+- **Post-Rollback Validation**: Automated verification of rollback success
+- **Emergency Recovery**: Fast recovery procedures with comprehensive logging
+
 **Architecture Components**:
 
 #### Version Analysis Logic
@@ -570,28 +592,51 @@ performance-targets:
 
 ### Multi-Environment Strategy
 
-**Environment Configurations**:
+**4-Environment Deployment Pipeline**:
+
 ```yaml
-# Environment-specific pipeline behavior
+# Advanced multi-environment deployment strategy
 environments:
   development:
+    trigger: feature-branch-push
     approval-required: false
     auto-deploy: true
     resource-limits: cost-optimized
     monitoring: basic
-  
+    usability-testing: basic-http-checks
+    
   staging:
-    approval-required: 1-reviewer
-    auto-deploy: false
+    trigger: pull-request-to-main
+    approval-required: development-health-check
+    auto-deploy: true
     resource-limits: production-like
     monitoring: enhanced
-  
+    usability-testing: comprehensive-validation
+    
   production:
-    approval-required: 2-reviewers
+    trigger: manual-workflow-dispatch
+    approval-required: code-owner-authorization
     auto-deploy: false
+    prerequisites: staging-validation-passed
     resource-limits: full-capacity
     monitoring: comprehensive
+    validation-testing: production-suite
+    
+  hotfix:
+    trigger: manual-emergency-dispatch
+    approval-required: code-owner-authorization
+    auto-deploy: conditional
+    staging-bypass: optional-with-justification
+    resource-limits: full-capacity
+    monitoring: comprehensive
+    audit-trail: mandatory
 ```
+
+**Environment Health Dependencies**:
+- **Development → Staging**: Staging deployments require healthy development environment
+- **Staging → Production**: Production deployments require validated staging environment
+- **Cross-Environment Validation**: GitHub Deployments API tracks environment health
+- **Usability Testing Integration**: Real HTTP/SSL/performance validation at each stage
 
 ### Deployment Strategies
 
@@ -725,6 +770,62 @@ monitoring-metrics:
 - **Summary Reports**: Daily/weekly pipeline performance summaries
 - **Stakeholder Updates**: Release notifications and deployment status
 - **Integration Channels**: Slack, email, and webhook integrations
+
+## Access Control and Authorization
+
+### Code Owner-Based Access Control
+
+**Design Decision**: Due to GitHub's requirement for paid plans to use Environment Protection Rules with required reviewers, this implementation uses workflow-based code owner validation that provides equivalent security while maintaining compatibility with free GitHub plans.
+
+**Implementation Strategy**:
+```yaml
+# Code owner authorization check
+production-authorization:
+  validation-source: .github/CODEOWNERS
+  enforcement-level: blocking
+  scope: production-deployments
+  emergency-procedures: hotfix-rollback
+```
+
+**Authorization Flow**:
+1. **CODEOWNERS File**: Defines authorized users for production deployments
+2. **Workflow Validation**: Automatic verification of user authorization
+3. **Blocking Enforcement**: Unauthorized users cannot proceed with deployments
+4. **Emergency Access**: Code owners can approve hotfix and rollback operations
+
+### Multi-Environment Access Model
+
+**Environment-Specific Authorization**:
+```yaml
+# Environment access requirements
+access-control:
+  development:
+    authorization: none-required
+    deployment: automatic
+    
+  staging:
+    authorization: development-health-required
+    deployment: pull-request-triggered
+    
+  production:
+    authorization: code-owner-required
+    deployment: manual-workflow-dispatch
+    prerequisites: staging-validation-passed
+```
+
+### Emergency Procedures Authorization
+
+**Hotfix Deployment Authorization**:
+- **Code Owner Verification**: Mandatory for all hotfix deployments
+- **Staging Bypass**: Optional but requires explicit justification
+- **Audit Trail**: Complete logging of all emergency deployments
+- **Risk Assessment**: Built-in warnings for high-risk operations
+
+**Rollback Authorization**:
+- **Development**: Any authorized user
+- **Staging/Production**: Code owner approval required
+- **Emergency Context**: Fast-track approval for critical issues
+- **Post-Rollback Validation**: Automatic verification of rollback success
 
 ## Compliance and Governance
 

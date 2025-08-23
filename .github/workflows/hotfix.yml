@@ -1,0 +1,398 @@
+name: HOTFIX - Emergency Deployment Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      hotfix_reason:
+        description: 'Reason for emergency hotfix deployment (required)'
+        required: true
+        type: string
+      target_environment:
+        description: 'Target environment for hotfix'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+      skip_staging:
+        description: 'Skip staging and deploy directly to production (high risk)'
+        required: false
+        default: false
+        type: boolean
+
+# Enhanced permissions for hotfix operations
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  deployments: write
+
+concurrency:
+  group: hotfix-deployment-${{ github.event.inputs.target_environment }}
+  cancel-in-progress: false
+
+jobs:
+  hotfix-authorization:
+    name: Hotfix Authorization Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      authorized: ${{ steps.check-auth.outputs.authorized }}
+      approver: ${{ steps.check-auth.outputs.approver }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Check Code Owner Authorization for Hotfix
+        id: check-auth
+        run: |
+          echo "🚨 **HOTFIX AUTHORIZATION CHECK**" >> $GITHUB_STEP_SUMMARY
+          echo "=========================================" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get the actor (person triggering the hotfix)
+          ACTOR="${{ github.actor }}"
+          HOTFIX_REASON='${{ github.event.inputs.hotfix_reason }}'
+          TARGET_ENV="${{ github.event.inputs.target_environment }}"
+          SKIP_STAGING="${{ github.event.inputs.skip_staging }}"
+          
+          echo "**Requesting User**: $ACTOR" >> $GITHUB_STEP_SUMMARY
+          echo "**Hotfix Reason**: $HOTFIX_REASON" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Environment**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
+          echo "**Skip Staging**: $SKIP_STAGING" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Validate hotfix reason
+          if [ ${#HOTFIX_REASON} -lt 10 ]; then
+            echo "❌ **REJECTED**: Hotfix reason too short (minimum 10 characters)" >> $GITHUB_STEP_SUMMARY
+            echo "authorized=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Read CODEOWNERS file to check authorization
+          if [ -f ".github/CODEOWNERS" ]; then
+            # Extract code owners from CODEOWNERS file
+            CODE_OWNERS=$(grep -E '^(\*|/.github/workflows/)' .github/CODEOWNERS | grep -oE '@[a-zA-Z0-9_-]+' | sort -u || echo "")
+            
+            echo "**Authorized Code Owners**: $CODE_OWNERS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Check if actor is in the code owners list
+            if echo "$CODE_OWNERS" | grep -q "@$ACTOR"; then
+              echo "✅ **AUTHORIZED**: $ACTOR is a code owner" >> $GITHUB_STEP_SUMMARY
+              
+              # Additional warnings for risky operations
+              if [ "$SKIP_STAGING" = "true" ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "⚠️ **WARNING**: Direct production deployment requested" >> $GITHUB_STEP_SUMMARY
+                echo "This bypasses all staging validation - use only for critical emergencies" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              if [ "$TARGET_ENV" = "production" ]; then
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "🔥 **PRODUCTION HOTFIX**: This will directly affect live website" >> $GITHUB_STEP_SUMMARY
+                echo "Ensure you have tested changes and coordinated with team" >> $GITHUB_STEP_SUMMARY
+              fi
+              
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Hotfix deployment authorized - proceeding with emergency pipeline" >> $GITHUB_STEP_SUMMARY
+              echo "authorized=true" >> $GITHUB_OUTPUT
+              echo "approver=$ACTOR" >> $GITHUB_OUTPUT
+            else
+              echo "❌ **UNAUTHORIZED**: $ACTOR is not a code owner" >> $GITHUB_STEP_SUMMARY
+              echo "Hotfix deployments are restricted to code owners only" >> $GITHUB_STEP_SUMMARY
+              echo "** Authorized users**: $CODE_OWNERS" >> $GITHUB_STEP_SUMMARY
+              echo "authorized=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          else
+            echo "❌ **ERROR**: No CODEOWNERS file found" >> $GITHUB_STEP_SUMMARY
+            echo "Cannot verify authorization - hotfix deployment blocked" >> $GITHUB_STEP_SUMMARY
+            echo "authorized=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  hotfix-staging-deploy:
+    name: Hotfix Staging Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: hotfix-authorization
+    if: needs.hotfix-authorization.outputs.authorized == 'true' && github.event.inputs.skip_staging != 'true'
+    outputs:
+      staging_deployment_success: ${{ steps.deploy.outputs.deployment_success }}
+      staging_website_url: ${{ steps.deploy.outputs.website_url }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Deploy Hotfix to Staging
+        id: deploy
+        run: |
+          echo "🚨 **HOTFIX STAGING DEPLOYMENT**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Approved by**: ${{ needs.hotfix-authorization.outputs.approver }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason**: ${{ github.event.inputs.hotfix_reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Call the DEPLOY workflow for staging environment
+          gh workflow run deploy.yml \
+            --field environment=staging \
+            --field deploy_infrastructure=true \
+            --field deploy_website=true \
+            --ref ${{ github.ref }} \
+            --wait
+          
+          # Check the result
+          LATEST_RUN=$(gh run list --workflow=deploy.yml --limit=1 --json status,conclusion,url)
+          STATUS=$(echo "$LATEST_RUN" | jq -r '.[0].status')
+          CONCLUSION=$(echo "$LATEST_RUN" | jq -r '.[0].conclusion')
+          RUN_URL=$(echo "$LATEST_RUN" | jq -r '.[0].url')
+          
+          echo "**Deployment Status**: $STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Conclusion**: $CONCLUSION" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment URL**: $RUN_URL" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$CONCLUSION" = "success" ]; then
+            echo "✅ Hotfix staging deployment succeeded" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_success=true" >> $GITHUB_OUTPUT
+            echo "website_url=https://staging.example.com" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Hotfix staging deployment failed" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  hotfix-staging-validation:
+    name: Hotfix Staging Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [hotfix-authorization, hotfix-staging-deploy]
+    if: needs.hotfix-staging-deploy.outputs.staging_deployment_success == 'true'
+    outputs:
+      validation_passed: ${{ steps.validate.outputs.validation_passed }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Validate Hotfix in Staging
+        id: validate
+        run: |
+          echo "🔍 **HOTFIX STAGING VALIDATION**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          STAGING_URL="${{ needs.hotfix-staging-deploy.outputs.staging_website_url }}"
+          echo "**Staging URL**: $STAGING_URL" >> $GITHUB_STEP_SUMMARY
+          
+          # Wait for propagation
+          echo "⏳ Waiting for staging deployment propagation (60 seconds)..." >> $GITHUB_STEP_SUMMARY
+          sleep 60
+          
+          # Run basic validation tests
+          validation_passed=true
+          
+          # Basic connectivity test
+          if curl -s -f -I "$STAGING_URL" >/dev/null; then
+            echo "✅ Staging site is accessible" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Staging site is not accessible" >> $GITHUB_STEP_SUMMARY
+            validation_passed=false
+          fi
+          
+          # Basic performance test
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}\n' "$STAGING_URL" || echo "999")
+          if [ $(echo "$RESPONSE_TIME < 5.0" | bc -l) -eq 1 ]; then
+            echo "✅ Response time acceptable: ${RESPONSE_TIME}s" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Response time too slow: ${RESPONSE_TIME}s" >> $GITHUB_STEP_SUMMARY
+            validation_passed=false
+          fi
+          
+          if [ "$validation_passed" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Hotfix staging validation passed**" >> $GITHUB_STEP_SUMMARY
+            echo "Ready for production deployment consideration" >> $GITHUB_STEP_SUMMARY
+            echo "validation_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Hotfix staging validation failed**" >> $GITHUB_STEP_SUMMARY
+            echo "Fix issues before proceeding to production" >> $GITHUB_STEP_SUMMARY
+            echo "validation_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  hotfix-production-approval:
+    name: Production Hotfix Approval Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [hotfix-authorization, hotfix-staging-deploy, hotfix-staging-validation]
+    if: |
+      always() && 
+      needs.hotfix-authorization.outputs.authorized == 'true' && 
+      (
+        (github.event.inputs.target_environment == 'production' && needs.hotfix-staging-validation.outputs.validation_passed == 'true') ||
+        (github.event.inputs.target_environment == 'production' && github.event.inputs.skip_staging == 'true')
+      )
+    outputs:
+      production_approved: ${{ steps.approve.outputs.production_approved }}
+    steps:
+      - name: Production Hotfix Approval
+        id: approve
+        run: |
+          echo "🔥 **PRODUCTION HOTFIX APPROVAL**" >> $GITHUB_STEP_SUMMARY
+          echo "=================================" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          SKIP_STAGING="${{ github.event.inputs.skip_staging }}"
+          STAGING_VALIDATION="${{ needs.hotfix-staging-validation.outputs.validation_passed }}"
+          APPROVER="${{ needs.hotfix-authorization.outputs.approver }}"
+          REASON='${{ github.event.inputs.hotfix_reason }}'
+          
+          echo "**Approver**: $APPROVER" >> $GITHUB_STEP_SUMMARY
+          echo "**Hotfix Reason**: $REASON" >> $GITHUB_STEP_SUMMARY
+          echo "**Skip Staging**: $SKIP_STAGING" >> $GITHUB_STEP_SUMMARY
+          echo "**Staging Validation**: $STAGING_VALIDATION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Final validation before production
+          if [ "$SKIP_STAGING" = "true" ]; then
+            echo "⚠️ **HIGH RISK**: Direct production deployment without staging validation" >> $GITHUB_STEP_SUMMARY
+            echo "This should only be used for critical security issues or severe outages" >> $GITHUB_STEP_SUMMARY
+          elif [ "$STAGING_VALIDATION" = "true" ]; then
+            echo "✅ Staging validation passed - safer production deployment" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔥 **PRODUCTION DEPLOYMENT APPROVED**" >> $GITHUB_STEP_SUMMARY
+          echo "Code owner $APPROVER has authorized this emergency hotfix" >> $GITHUB_STEP_SUMMARY
+          echo "production_approved=true" >> $GITHUB_OUTPUT
+
+  hotfix-production-deploy:
+    name: Hotfix Production Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [hotfix-authorization, hotfix-production-approval]
+    if: needs.hotfix-production-approval.outputs.production_approved == 'true'
+    outputs:
+      production_deployment_success: ${{ steps.deploy.outputs.deployment_success }}
+      production_website_url: ${{ steps.deploy.outputs.website_url }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Deploy Hotfix to Production
+        id: deploy
+        run: |
+          echo "🔥 **HOTFIX PRODUCTION DEPLOYMENT**" >> $GITHUB_STEP_SUMMARY
+          echo "===================================" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Approved by**: ${{ needs.hotfix-authorization.outputs.approver }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason**: ${{ github.event.inputs.hotfix_reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Call the DEPLOY workflow for production environment
+          gh workflow run deploy.yml \
+            --field environment=prod \
+            --field deploy_infrastructure=true \
+            --field deploy_website=true \
+            --ref ${{ github.ref }} \
+            --wait
+          
+          # Check the result
+          LATEST_RUN=$(gh run list --workflow=deploy.yml --limit=1 --json status,conclusion,url)
+          STATUS=$(echo "$LATEST_RUN" | jq -r '.[0].status')
+          CONCLUSION=$(echo "$LATEST_RUN" | jq -r '.[0].conclusion')
+          RUN_URL=$(echo "$LATEST_RUN" | jq -r '.[0].url')
+          
+          echo "**Deployment Status**: $STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Conclusion**: $CONCLUSION" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment URL**: $RUN_URL" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$CONCLUSION" = "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **HOTFIX PRODUCTION DEPLOYMENT SUCCEEDED**" >> $GITHUB_STEP_SUMMARY
+            echo "🌐 Live website has been updated with hotfix" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_success=true" >> $GITHUB_OUTPUT
+            echo "website_url=https://production.example.com" >> $GITHUB_OUTPUT
+            
+            # Create deployment record
+            gh api repos/${{ github.repository }}/deployments \
+              --method POST \
+              --field ref="${{ github.sha }}" \
+              --field environment="production" \
+              --field auto_merge=false \
+              --field required_contexts='[]' \
+              --field description="Emergency hotfix deployment: ${{ github.event.inputs.hotfix_reason }}" \
+              --silent || true
+              
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **HOTFIX PRODUCTION DEPLOYMENT FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "Check deployment logs and consider rollback procedures" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_success=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  hotfix-summary:
+    name: Hotfix Deployment Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [hotfix-authorization, hotfix-staging-deploy, hotfix-staging-validation, hotfix-production-approval, hotfix-production-deploy]
+    if: always()
+    steps:
+      - name: Generate Hotfix Summary
+        run: |
+          echo "🚨 **HOTFIX DEPLOYMENT SUMMARY**" >> $GITHUB_STEP_SUMMARY
+          echo "===============================" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Hotfix Reason**: ${{ github.event.inputs.hotfix_reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Approved by**: ${{ needs.hotfix-authorization.outputs.approver }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Environment**: ${{ github.event.inputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Skip Staging**: ${{ github.event.inputs.skip_staging }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Deployment Steps Status" >> $GITHUB_STEP_SUMMARY
+          echo "- **Authorization**: ${{ needs.hotfix-authorization.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Staging Deploy**: ${{ needs.hotfix-staging-deploy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Staging Validation**: ${{ needs.hotfix-staging-validation.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production Approval**: ${{ needs.hotfix-production-approval.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production Deploy**: ${{ needs.hotfix-production-deploy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Final status
+          TARGET_ENV="${{ github.event.inputs.target_environment }}"
+          if [ "$TARGET_ENV" = "production" ]; then
+            PROD_SUCCESS="${{ needs.hotfix-production-deploy.outputs.production_deployment_success }}"
+            if [ "$PROD_SUCCESS" = "true" ]; then
+              echo "✅ **HOTFIX COMPLETED SUCCESSFULLY**" >> $GITHUB_STEP_SUMMARY
+              echo "🔥 Production website has been updated with emergency hotfix" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 🌐 **Live Site**: [${{ needs.hotfix-production-deploy.outputs.production_website_url }}](${{ needs.hotfix-production-deploy.outputs.production_website_url }})" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+              echo "- Monitor website performance and functionality" >> $GITHUB_STEP_SUMMARY
+              echo "- Verify the hotfix resolves the reported issue" >> $GITHUB_STEP_SUMMARY
+              echo "- Update team on hotfix status" >> $GITHUB_STEP_SUMMARY
+              echo "- Plan follow-up work if needed" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **HOTFIX FAILED**" >> $GITHUB_STEP_SUMMARY
+              echo "Emergency deployment to production was not successful" >> $GITHUB_STEP_SUMMARY
+              echo "Review logs and consider alternative mitigation strategies" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            STAGING_SUCCESS="${{ needs.hotfix-staging-deploy.outputs.staging_deployment_success }}"
+            if [ "$STAGING_SUCCESS" = "true" ]; then
+              echo "✅ **HOTFIX STAGING COMPLETED**" >> $GITHUB_STEP_SUMMARY
+              echo "Hotfix has been deployed to staging environment" >> $GITHUB_STEP_SUMMARY
+              echo "Ready for production deployment if validation passes" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ **HOTFIX STAGING FAILED**" >> $GITHUB_STEP_SUMMARY
+              echo "Staging deployment was not successful" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
