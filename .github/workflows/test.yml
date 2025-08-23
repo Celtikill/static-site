@@ -27,6 +27,8 @@ on:
     branches: 
       - main
       - 'feature/*'
+      - 'bugfix/*'
+      - 'hotfix/*'
 
 # OIDC Authentication Permissions for AWS Integration
 # id-token: write - CRITICAL: Enables OIDC token generation for AWS authentication
@@ -38,6 +40,10 @@ permissions:
   contents: read
   security-events: write
   pull-requests: write
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-info:

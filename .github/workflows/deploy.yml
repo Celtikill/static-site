@@ -42,11 +42,6 @@ on:
       - opened
       - synchronize
       - reopened
-  push:
-    branches:
-      - 'feature/*'
-      - 'bugfix/*'
-      - 'hotfix/*'
   workflow_run:
     workflows: ["TEST - Policy and Validation"]
     types: [completed]
@@ -66,7 +61,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: static-site-deployment-${{ github.event.inputs.environment || (github.event_name == 'pull_request' && 'staging') || 'dev' }}
+  group: static-site-deployment-${{ github.event.inputs.environment || (github.event_name == 'pull_request' && 'staging') || (github.event_name == 'workflow_run' && 'dev') || 'dev' }}
   cancel-in-progress: false
 
 jobs:
@@ -263,10 +258,10 @@ jobs:
             # PRs always deploy to staging for validation  
             TARGET_ENV="staging"
             echo "✅ **Environment resolved from PR event**: $TARGET_ENV (PRs always use staging)" >> $GITHUB_STEP_SUMMARY
-          elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
-            # Feature/bugfix/hotfix branches auto-deploy to development
+          elif [ "${{ github.event_name }}" = "workflow_run" ] && [[ "${{ github.event.workflow_run.head_branch }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+            # Feature/bugfix/hotfix branches auto-deploy to development after TEST completion
             TARGET_ENV="dev"
-            echo "✅ **Environment resolved from feature branch push**: $TARGET_ENV (feature branches auto-deploy to development)" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Environment resolved from feature branch workflow_run**: $TARGET_ENV (feature branches auto-deploy to development)" >> $GITHUB_STEP_SUMMARY
           elif [ -n "${{ vars.DEFAULT_ENVIRONMENT }}" ]; then
             TARGET_ENV="${{ vars.DEFAULT_ENVIRONMENT }}"
             echo "✅ **Environment resolved from repository variable**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
@@ -600,8 +595,8 @@ jobs:
     needs: [deploy-info]
     if: |
       needs.deploy-info.outputs.target_environment == 'dev' && 
-      github.event_name == 'push' && 
-      (startsWith(github.ref_name, 'feature/') || startsWith(github.ref_name, 'bugfix/') || startsWith(github.ref_name, 'hotfix/'))
+      github.event_name == 'workflow_run' && 
+      (startsWith(github.event.workflow_run.head_branch, 'feature/') || startsWith(github.event.workflow_run.head_branch, 'bugfix/') || startsWith(github.event.workflow_run.head_branch, 'hotfix/'))
     outputs:
       test_success: ${{ steps.check-test-status.outputs.test_success }}
       auto_deploy_enabled: ${{ steps.check-test-status.outputs.auto_deploy_enabled }}
@@ -612,7 +607,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo "## 🧪 Development Auto-Deploy Prerequisites" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           

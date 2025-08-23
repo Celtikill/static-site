@@ -42,7 +42,7 @@ permissions:
   security-events: write
 
 concurrency:
-  group: static-site-build-${{ github.ref }}
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
