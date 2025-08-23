@@ -1,0 +1,49 @@
+# Common environment variables and configurations for all workflows
+# This file can be imported by other workflows to maintain consistency
+
+env:
+  # Shell and terminal configuration
+  TERM: xterm-256color
+  FORCE_COLOR: "1"
+  
+  # AWS configuration
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_MAX_ATTEMPTS: 3
+  AWS_RETRY_MODE: adaptive
+  
+  # Terraform/OpenTofu configuration
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
+  TF_PLUGIN_CACHE_DIR: ~/.terraform.d/plugin-cache
+  
+  # Security scanning configuration
+  CHECKOV_QUIET: true
+  TRIVY_QUIET: false
+  
+  # Build and deployment
+  NODE_ENV: production
+  
+  # Workflow behavior
+  GITHUB_TOKEN_PERMISSIONS: read-only
+
+# Common defaults that can be referenced by other workflows
+defaults:
+  run:
+    shell: bash
+
+# Common timeout configurations (in minutes)
+timeouts:
+  gate_job: 2
+  info_job: 5
+  health_check: 5
+  unit_test: 10
+  security_scan: 15
+  deployment: 20
+  integration_test: 25
+  emergency_operation: 30
+
+# Common retry configurations
+retry:
+  aws_operations: 3
+  deployment_checks: 5
+  health_checks: 3

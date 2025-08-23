@@ -1,5 +1,37 @@
 name: TEST - Policy and Validation
 
+# 🧪 TEST Phase Documentation
+# 
+# Purpose: Comprehensive testing and validation of infrastructure and policies
+# 
+# Triggers:
+#   - Successful BUILD workflow completion (workflow_run)
+#   - Manual workflow dispatch
+#
+# Duration: ~10-15 minutes  
+# Dependencies: Successful BUILD workflow execution
+# 
+# Jobs:
+#   1. test-gate: Validates BUILD workflow success before proceeding
+#   2. test-info: Generate test metadata and artifact resolution
+#   3. development-health-check: Validate development environment health
+#   4. unit-tests: Infrastructure module unit tests (parallelized)
+#   5. policy-validation: Security and compliance policy validation
+#   6. usability-testing: End-to-end functionality validation
+#   7. test-summary: Consolidate all test results and status
+# 
+# Outputs:
+#   - Test results and reports
+#   - Policy validation status
+#   - Environment health status
+#   - Consolidated test summary for DEPLOY phase
+#
+# Success Criteria:
+#   - All unit tests pass for required modules
+#   - Policy validation completes successfully
+#   - Development environment health checks pass (when applicable)
+#   - No critical security policy violations detected
+
 on:
   workflow_dispatch:
     inputs:
@@ -41,15 +73,75 @@ permissions:
   security-events: write
   pull-requests: write
 
+# Global workflow configuration
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Shell and terminal configuration
+  TERM: xterm-256color
+  FORCE_COLOR: "1"
+  # AWS configuration
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_MAX_ATTEMPTS: 3
+  # Terraform/OpenTofu configuration
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
+
 concurrency:
   group: test-${{ github.ref }}
   cancel-in-progress: true
 
+# Only run TEST if BUILD workflow completed successfully
+# This prevents resource waste and ensures proper BUILD → TEST → DEPLOY flow
+run-name: |
+  ${{ 
+    github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && 
+    format('TEST - Skipped (BUILD {0})', github.event.workflow_run.conclusion) || 
+    'TEST - Policy and Validation' 
+  }}
+
 jobs:
+  # Gate job to validate BUILD workflow success before running any tests
+  test-gate:
+    name: Validate BUILD Success
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: |
+      github.event_name != 'workflow_run' || 
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      should_run_tests: ${{ steps.validate.outputs.should_run_tests }}
+      build_status: ${{ steps.validate.outputs.build_status }}
+    steps:
+      - name: Validate BUILD Workflow Success
+        id: validate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            BUILD_CONCLUSION="${{ github.event.workflow_run.conclusion }}"
+            if [ "$BUILD_CONCLUSION" = "success" ]; then
+              echo "✅ BUILD workflow completed successfully - proceeding with TEST"
+              echo "should_run_tests=true" >> $GITHUB_OUTPUT
+              echo "build_status=success" >> $GITHUB_OUTPUT
+            else
+              echo "❌ BUILD workflow failed with conclusion: $BUILD_CONCLUSION"
+              echo "🛑 Stopping TEST workflow execution"
+              echo "should_run_tests=false" >> $GITHUB_OUTPUT
+              echo "build_status=$BUILD_CONCLUSION" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          else
+            echo "✅ Manual trigger - proceeding with TEST"
+            echo "should_run_tests=true" >> $GITHUB_OUTPUT
+            echo "build_status=manual" >> $GITHUB_OUTPUT
+          fi
   test-info:
     name: Test Information
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: [test-gate]
+    if: needs.test-gate.outputs.should_run_tests == 'true'
     outputs:
       test_id: ${{ steps.generate-id.outputs.test_id }}
       build_id: ${{ steps.generate-id.outputs.build_id }}
@@ -199,10 +291,11 @@ jobs:
     name: Development Environment Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: test-info
+    needs: [test-gate, test-info]
     if: |
-      needs.test-info.outputs.resolved_environment == 'staging' ||
-      needs.test-info.outputs.resolved_environment == 'prod'
+      needs.test-gate.outputs.should_run_tests == 'true' &&
+      (needs.test-info.outputs.resolved_environment == 'staging' ||
+      needs.test-info.outputs.resolved_environment == 'prod')
     outputs:
       dev_health_status: ${{ steps.health-check.outputs.health_status }}
       dev_site_url: ${{ steps.health-check.outputs.site_url }}
@@ -250,9 +343,10 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [test-info, development-health-check]
+    needs: [test-gate, test-info, development-health-check]
     if: |
       always() && 
+      needs.test-gate.outputs.should_run_tests == 'true' &&
       needs.test-info.outputs.skip_tests != '1' &&
       (needs.development-health-check.result == 'success' || needs.development-health-check.result == 'skipped')
     strategy:
@@ -377,8 +471,8 @@ jobs:
     name: Policy Validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: test-info
-    if: needs.test-info.outputs.skip_tests != '1' && needs.test-info.outputs.has_tf_changes == '1'
+    needs: [test-gate, test-info]
+    if: needs.test-gate.outputs.should_run_tests == 'true' && needs.test-info.outputs.skip_tests != '1' && needs.test-info.outputs.has_tf_changes == '1'
     steps:
       - name: Checkout Code
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -612,9 +706,10 @@ jobs:
     name: Usability Testing
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [test-info, development-health-check]
+    needs: [test-gate, test-info, development-health-check]
     if: |
       always() && 
+      needs.test-gate.outputs.should_run_tests == 'true' &&
       needs.test-info.outputs.resolved_environment == 'staging' &&
       (needs.development-health-check.result == 'success')
     outputs:
@@ -700,7 +795,7 @@ jobs:
     name: Test Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test-info, development-health-check, unit-tests, policy-validation, usability-testing]
+    needs: [test-gate, test-info, development-health-check, unit-tests, policy-validation, usability-testing]
     if: always()
     steps:
       - name: Download Unit Test Results

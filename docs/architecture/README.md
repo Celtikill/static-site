@@ -75,6 +75,23 @@ This project implements a comprehensive serverless static website architecture d
 - Comprehensive testing and reporting
 - OIDC authentication and security practices
 
+### 🔄 [GitHub Workflows Reference](workflows.md)
+**Focus**: Detailed workflow implementation, configuration, troubleshooting
+
+**What's Inside**:
+- Individual workflow documentation and configuration
+- Troubleshooting guides and debug procedures
+- Performance optimization and best practices
+- Security and configuration management
+- Usage examples and common patterns
+
+**Key Topics**:
+- BUILD, TEST, DEPLOY workflow implementations
+- Specialized workflows (RELEASE, HOTFIX, ROLLBACK)
+- Error handling and recovery procedures
+- Performance monitoring and optimization
+- Workflow contribution guidelines
+
 ### 🧪 [Unit Testing Architecture](unit-testing.md)
 **Focus**: Unit testing framework, module validation, development testing
 
@@ -105,6 +122,7 @@ This project implements a comprehensive serverless static website architecture d
 | **Module structure** | [Terraform](terraform.md) | Module Architecture |
 | **Unit testing approach** | [Unit Testing](unit-testing.md) | Testing Framework |
 | **Deployment process** | [CI/CD](cicd.md) | Pipeline Architecture |
+| **Workflow implementation** | [Workflows](workflows.md) | Workflow Reference |
 | **Quality gates** | [CI/CD](cicd.md) | Validation Framework |
 | **Test development** | [Unit Testing](unit-testing.md) | Test Architecture |
 
@@ -114,7 +132,7 @@ This project implements a comprehensive serverless static website architecture d
 |------|------------------|----------------------|
 | **New AWS environment** | [Infrastructure](infrastructure.md) | [Multi-Environment Strategy](../guides/multi-environment-strategy.md) |
 | **Terraform modifications** | [Terraform](terraform.md) | [Unit Testing](unit-testing.md) |
-| **Pipeline enhancements** | [CI/CD](cicd.md) | [Workflow Conditions](../development/workflow-conditions.md) |
+| **Pipeline enhancements** | [CI/CD](cicd.md) | [Workflows](workflows.md), [Workflow Conditions](../development/workflow-conditions.md) |
 | **Security improvements** | [Infrastructure](infrastructure.md) | [Security Guide](../guides/security-guide.md) |
 | **Unit test improvements** | [Unit Testing](unit-testing.md) | [Testing Guide](../guides/testing-guide.md) |
 
@@ -124,7 +142,7 @@ This project implements a comprehensive serverless static website architecture d
 |------------|------------------|----------------------|
 | **Infrastructure failures** | [Infrastructure](infrastructure.md) | [Troubleshooting](../guides/troubleshooting.md) |
 | **Terraform errors** | [Terraform](terraform.md) | [Unit Testing](unit-testing.md) |
-| **Pipeline failures** | [CI/CD](cicd.md) | [Workflow Conditions](../development/workflow-conditions.md) |
+| **Pipeline failures** | [CI/CD](cicd.md) | [Workflows](workflows.md), [Workflow Conditions](../development/workflow-conditions.md) |
 | **Test failures** | [Unit Testing](unit-testing.md) | [Testing Guide](../guides/testing-guide.md) |
 | **Performance issues** | [Infrastructure](infrastructure.md) | [Monitoring Reference](../reference/monitoring.md) |
 

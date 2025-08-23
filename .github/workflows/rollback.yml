@@ -189,7 +189,7 @@ jobs:
   execute-rollback:
     name: Execute Rollback Deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     needs: rollback-authorization
     if: needs.rollback-authorization.outputs.authorized == 'true'
     outputs:

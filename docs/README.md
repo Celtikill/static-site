@@ -2,8 +2,8 @@
 
 > **🎯 Universal Access**: Role-based navigation for all stakeholders  
 > **📊 Complexity Levels**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced | ⭐⭐⭐⭐ Expert  
-> **⏱️ Total Reading Time**: ~120 minutes across all documentation  
-> **🔄 Last Updated**: 2025-08-21
+> **⏱️ Total Reading Time**: ~150 minutes across all documentation (updated for consolidated content)  
+> **🔄 Last Updated**: 2025-08-23 (unified documentation)
 
 Welcome to the AWS Static Website Infrastructure documentation. This guide provides role-based navigation to help you find relevant information quickly.
 
@@ -144,6 +144,9 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 | **[Cost Estimation](reference/cost-estimation.md)** | Executives/Platform | ⭐⭐ | 15 min | Infrastructure cost analysis |
 | **[Monitoring Setup](reference/monitoring.md)** | DevOps | ⭐⭐⭐ | 20 min | CloudWatch dashboards and alerts |
 | **[Compliance](reference/compliance.md)** | Security/Compliance | ⭐⭐ | 15 min | Regulatory compliance standards |
+| **[Terraform Modules](reference/terraform-modules.md)** | Platform/DevOps | ⭐⭐⭐ | 25 min | Complete module reference and usage |
+| **[CloudFront Module](reference/cloudfront-module.md)** | Platform | ⭐⭐⭐ | 15 min | CDN configuration and optimization |
+| **[S3 Module](reference/s3-module.md)** | Platform | ⭐⭐⭐ | 15 min | Storage configuration and security |
 
 ### 🔧 Development & Standards
 | Document | Audience | Complexity | Reading Time | Purpose |
@@ -151,6 +154,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 | **[UX Guidelines](development/ux-guidelines.md)** | UX/Content | ⭐⭐ | 15 min | User experience standards |
 | **[Workflow Conditions](development/workflow-conditions.md)** | DevOps | ⭐⭐⭐ | 20 min | GitHub Actions logic and optimization |
 | **[Policy Examples](development/policy-examples.md)** | Security/Platform | ⭐⭐⭐ | 15 min | IAM and security policy templates |
+| **[Mermaid Style Guide](development/mermaid-style-guide.md)** | All | ⭐⭐ | 10 min | Diagram standards and accessibility |
 
 ---
 
@@ -206,6 +210,9 @@ Detailed technical reference materials:
 - [Cost Estimation](reference/cost-estimation.md) - Infrastructure cost analysis
 - [Monitoring Setup](reference/monitoring.md) - CloudWatch dashboards and alerts
 - [Compliance](reference/compliance.md) - Security and compliance standards
+- [Terraform Modules](reference/terraform-modules.md) - Comprehensive module reference
+- [CloudFront Module](reference/cloudfront-module.md) - CloudFront-specific documentation
+- [S3 Module](reference/s3-module.md) - S3-specific documentation
 
 ## Development
 
@@ -214,31 +221,36 @@ Resources for developers and contributors:
 - [UX Guidelines](development/ux-guidelines.md) - User experience standards
 - [Workflow Conditions](development/workflow-conditions.md) - GitHub Actions logic
 - [Policy Examples](development/policy-examples.md) - IAM and security policy templates
+- [Mermaid Style Guide](development/mermaid-style-guide.md) - Diagram standards and accessibility
 
-## Archived Documentation
+## Consolidated Documentation
 
-The following files have been consolidated or are no longer relevant:
+The following documentation has been unified and consolidated into the `docs/` directory:
 
-### Consolidated into [guides/iam-setup.md](guides/iam-setup.md):
-- ~~manual-iam-setup.md~~ 
-- ~~manual-iam-management.md~~
-- ~~README-IAM-Setup.md~~
+### ✅ **Successfully Consolidated**
 
-### Consolidated into [guides/security-guide.md](guides/security-guide.md):
-- ~~security.md~~ (kept at root level for GitHub)
-- ~~security-scanning.md~~
-- ~~oidc-authentication.md~~
-- ~~oidc-security-hardening.md~~
+#### From `.github/workflows/README.md` → Consolidated into:
+- **[CI/CD Architecture](architecture/cicd.md)** - Comprehensive pipeline architecture
+- **[GitHub Workflows Reference](architecture/workflows.md)** - Detailed workflow implementation
 
-### Consolidated into [guides/testing-guide.md](guides/testing-guide.md):
-- ~~integration-testing.md~~
-- ~~integration-test-examples.md~~
-- ~~integration-test-environments.md~~
+#### From `terraform/modules/*/README.md` → Consolidated into:
+- **[Terraform Modules Reference](reference/terraform-modules.md)** - Complete module documentation
+- Individual module references maintain source documentation
 
-### Consolidated into [development/ux-guidelines.md](development/ux-guidelines.md):
-- ~~ux-improvement-recommendations.md~~
-- ~~ux-standards-guidelines.md~~
-- ~~accessibility-testing.md~~
+#### Legacy Documentation Consolidation:
+- **IAM Setup**: `guides/iam-setup.md` (consolidated multiple IAM guides)
+- **Security Implementation**: `guides/security-guide.md` (unified security documentation)
+- **Testing Framework**: `guides/testing-guide.md` (consolidated testing guides)
+- **UX Standards**: `development/ux-guidelines.md` (unified UX documentation)
+
+### 📋 **Documentation Location Strategy**
+
+| Content Type | Primary Location | Reason |
+|--------------|-----------------|--------|
+| **Workflows** | `docs/architecture/` | Centralized architectural documentation |
+| **Modules** | `docs/reference/` | Technical reference materials |
+| **Implementation** | Source locations | Maintain proximity to code |
+| **Cross-references** | Both locations | Ensure discoverability |
 
 ## Getting Help
 
