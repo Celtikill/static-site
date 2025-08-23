@@ -64,7 +64,49 @@ concurrency:
   group: static-site-deployment-${{ github.event.inputs.environment || (github.event_name == 'pull_request' && 'staging') || (github.event_name == 'workflow_run' && 'dev') || 'dev' }}
   cancel-in-progress: false
 
+# Only run DEPLOY if TEST workflow completed successfully
+# This prevents deployment of untested code and ensures proper BUILD → TEST → DEPLOY flow  
+run-name: |
+  ${{ 
+    github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && 
+    format('DEPLOY - Skipped (TEST {0})', github.event.workflow_run.conclusion) || 
+    'DEPLOY - Static Website Deployment' 
+  }}
+
 jobs:
+  # Gate job to validate TEST workflow success before running any deployment
+  deploy-gate:
+    name: Validate TEST Success
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: |
+      github.event_name != 'workflow_run' || 
+      github.event.workflow_run.conclusion == 'success'
+    outputs:
+      should_run_deployment: ${{ steps.validate.outputs.should_run_deployment }}
+      test_status: ${{ steps.validate.outputs.test_status }}
+    steps:
+      - name: Validate TEST Workflow Success
+        id: validate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            TEST_CONCLUSION="${{ github.event.workflow_run.conclusion }}"
+            if [ "$TEST_CONCLUSION" = "success" ]; then
+              echo "✅ TEST workflow completed successfully - proceeding with DEPLOY"
+              echo "should_run_deployment=true" >> $GITHUB_OUTPUT
+              echo "test_status=success" >> $GITHUB_OUTPUT
+            else
+              echo "❌ TEST workflow failed with conclusion: $TEST_CONCLUSION"
+              echo "🛑 Stopping DEPLOY workflow execution"
+              echo "should_run_deployment=false" >> $GITHUB_OUTPUT
+              echo "test_status=$TEST_CONCLUSION" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          else
+            echo "✅ Manual trigger or PR - proceeding with DEPLOY"
+            echo "should_run_deployment=true" >> $GITHUB_OUTPUT
+            echo "test_status=manual" >> $GITHUB_OUTPUT
+          fi
   production-authorization:
     name: Production Authorization Check
     runs-on: ubuntu-latest
