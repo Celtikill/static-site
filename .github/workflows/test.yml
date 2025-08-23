@@ -159,6 +159,13 @@ jobs:
               SKIP_TESTS=1
               echo "⚡ Only documentation changes detected - skipping tests" >> $GITHUB_STEP_SUMMARY
             fi
+            
+            # Skip tests if only badge changes
+            if echo "$CHANGED_FILES" | grep -qE '^\.github/badges/' && \
+               ! echo "$CHANGED_FILES" | grep -qvE '^\.github/badges/'; then
+              SKIP_TESTS=1
+              echo "🏷️ Only badge changes detected - skipping tests" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             # No changes detected, run all tests
             HAS_TF_CHANGES=1
@@ -683,199 +690,11 @@ jobs:
             test/usability/test-output.log
           retention-days: 30
 
-  development-auto-deploy:
-    name: Development Auto-Deploy
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [test-info, development-health-check, unit-tests, policy-validation, usability-testing]
-    if: |
-      github.ref_name != 'main' && 
-      (needs.unit-tests.result == 'success' || needs.unit-tests.result == 'skipped') &&
-      (needs.policy-validation.result == 'success' || needs.policy-validation.result == 'skipped') &&
-      (needs.usability-testing.result == 'success' || needs.usability-testing.result == 'skipped') &&
-      (needs.development-health-check.result == 'success' || needs.development-health-check.result == 'skipped')
-    environment: development
-    outputs:
-      deployment_success: ${{ steps.deployment-summary.outputs.deployment_success }}
-      website_url: ${{ steps.deployment-summary.outputs.website_url }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Setup Infrastructure Tools
-        uses: ./.github/actions/setup-infrastructure
-        with:
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-          aws-role: ${{ secrets.AWS_ASSUME_ROLE }}
-
-      - name: Create GitHub Deployment
-        id: deployment
-        run: |
-          echo "## 🚀 Development Auto-Deploy Started" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Test ID**: ${{ needs.test-info.outputs.test_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Create deployment record via GitHub API
-          DEPLOYMENT_ID=$(gh api repos/${{ github.repository }}/deployments \
-            --method POST \
-            --field ref="${{ github.sha }}" \
-            --field environment="development" \
-            --field description="Auto-deployment from ${{ github.ref_name }} after all tests passed" \
-            --field auto_merge=false \
-            --jq .id)
-          
-          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
-          echo "**Deployment ID**: $DEPLOYMENT_ID" >> $GITHUB_STEP_SUMMARY
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Prepare Environment Variables
-        id: prepare-env
-        run: |
-          PROJECT_NAME=$(echo "${{ github.repository_owner }}-static-site" | tr '[:upper:]' '[:lower:]')
-          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
-          echo "**Project Name**: $PROJECT_NAME" >> $GITHUB_STEP_SUMMARY
-
-      - name: Deploy Infrastructure to Development
-        id: deploy-infra
-        working-directory: terraform
-        env:
-          TF_VAR_project_name: ${{ steps.prepare-env.outputs.project_name }}
-          TF_VAR_environment: dev
-          TF_VAR_github_repository: ${{ github.repository }}
-        run: |
-          echo "### 🏗️ Deploying Infrastructure to Development" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Initialize Terraform
-          tofu init
-          
-          # Plan and apply
-          tofu plan -out=dev-deploy.tfplan
-          
-          if tofu apply -auto-approve dev-deploy.tfplan; then
-            echo "✅ Infrastructure deployment successful" >> $GITHUB_STEP_SUMMARY
-            
-            # Get CloudFront domain for site URL
-            CLOUDFRONT_DOMAIN=$(tofu output -raw cloudfront_domain_name 2>/dev/null || echo "")
-            if [[ -n "$CLOUDFRONT_DOMAIN" ]]; then
-              echo "cloudfront_domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
-              echo "📍 **Development Site**: https://$CLOUDFRONT_DOMAIN" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            echo "deploy_status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Infrastructure deployment failed" >> $GITHUB_STEP_SUMMARY
-            echo "deploy_status=failure" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-      - name: Deploy Website Content
-        if: steps.deploy-infra.outputs.deploy_status == 'success'
-        run: |
-          echo "### 📄 Deploying Website Content" >> $GITHUB_STEP_SUMMARY
-          
-          # Get S3 bucket name from Terraform output
-          S3_BUCKET=$(cd terraform && tofu output -raw s3_bucket_name 2>/dev/null || echo "")
-          
-          if [[ -n "$S3_BUCKET" ]]; then
-            # Sync website content to S3
-            aws s3 sync src/ s3://$S3_BUCKET/ --delete
-            
-            # Invalidate CloudFront cache
-            CLOUDFRONT_ID=$(cd terraform && tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
-            if [[ -n "$CLOUDFRONT_ID" ]]; then
-              aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"
-              echo "✅ CloudFront cache invalidation triggered" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            echo "✅ Website content deployed successfully" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Could not determine S3 bucket name" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Run Development Health Check
-        id: health-check
-        run: |
-          echo "### 🩺 Development Environment Health Check" >> $GITHUB_STEP_SUMMARY
-          
-          SITE_URL="${{ steps.deploy-infra.outputs.cloudfront_domain }}"
-          
-          if [[ -n "$SITE_URL" ]]; then
-            # Wait for deployment to propagation
-            sleep 30
-            
-            # Run basic health check
-            if curl -f -s "https://$SITE_URL" > /dev/null; then
-              echo "✅ Development site is responding" >> $GITHUB_STEP_SUMMARY
-              echo "health_status=healthy" >> $GITHUB_OUTPUT
-            else
-              echo "⚠️ Development site not yet responding (may need time to propagate)" >> $GITHUB_STEP_SUMMARY
-              echo "health_status=pending" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "⚠️ No site URL available for health check" >> $GITHUB_STEP_SUMMARY
-            echo "health_status=unknown" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Update Deployment Status
-        if: always()
-        run: |
-          # Determine deployment status
-          if [[ "${{ steps.deploy-infra.outputs.deploy_status }}" == "success" ]]; then
-            DEPLOY_STATE="success"
-            DEPLOY_DESCRIPTION="Development deployment successful after all tests passed"
-          else
-            DEPLOY_STATE="failure" 
-            DEPLOY_DESCRIPTION="Development deployment failed"
-          fi
-          
-          # Update deployment status
-          gh api repos/${{ github.repository }}/deployments/${{ steps.deployment.outputs.deployment_id }}/statuses \
-            --method POST \
-            --field state="$DEPLOY_STATE" \
-            --field description="$DEPLOY_DESCRIPTION" \
-            --field environment="development" \
-            --field log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-      - name: Generate Deployment Summary
-        id: deployment-summary
-        if: always()
-        run: |
-          echo "## 📋 Development Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: development" >> $GITHUB_STEP_SUMMARY
-          echo "**Status**: ${{ steps.deploy-infra.outputs.deploy_status }}" >> $GITHUB_STEP_SUMMARY
-          
-          # Set outputs for dependent workflows
-          if [[ "${{ steps.deploy-infra.outputs.deploy_status }}" == "success" ]]; then
-            echo "deployment_success=true" >> $GITHUB_OUTPUT
-            if [[ -n "${{ steps.deploy-infra.outputs.cloudfront_domain }}" ]]; then
-              WEBSITE_URL="https://${{ steps.deploy-infra.outputs.cloudfront_domain }}"
-              echo "website_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "🔗 **Live Development Site**: $WEBSITE_URL" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Quality Gate Passed**: All tests completed successfully" >> $GITHUB_STEP_SUMMARY
-            echo "Development environment now has fully validated code" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "deployment_success=false" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "❌ **Deployment Failed**: Check logs above for details" >> $GITHUB_STEP_SUMMARY
-          fi
-
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test-info, development-health-check, unit-tests, policy-validation, usability-testing, development-auto-deploy]
+    needs: [test-info, development-health-check, unit-tests, policy-validation, usability-testing]
     if: always()
     steps:
       - name: Download Unit Test Results
@@ -903,13 +722,12 @@ jobs:
             echo "- **Unit Tests**: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Policy Validation**: ${{ needs.policy-validation.result }}" >> $GITHUB_STEP_SUMMARY
             echo "- **Usability Testing**: ${{ needs.usability-testing.result }}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Development Deployment**: ${{ needs.development-auto-deploy.result }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             
             # Final assessment
             UNIT_OK=false
             POLICY_OK=false
-            DEPLOY_OK=false
+            USABILITY_OK=false
             
             if [ "${{ needs.unit-tests.result }}" = "success" ]; then
               UNIT_OK=true
@@ -919,20 +737,18 @@ jobs:
               POLICY_OK=true
             fi
             
-            # Development deployment success indicates all tests passed
-            if [ "${{ needs.development-auto-deploy.result }}" = "success" ] || [ "${{ needs.development-auto-deploy.result }}" = "skipped" ]; then
-              DEPLOY_OK=true
+            if [ "${{ needs.usability-testing.result }}" = "success" ] || [ "${{ needs.usability-testing.result }}" = "skipped" ]; then
+              USABILITY_OK=true
             fi
             
-            if [ "$UNIT_OK" = true ] && [ "$POLICY_OK" = true ] && [ "$DEPLOY_OK" = true ]; then
+            if [ "$UNIT_OK" = true ] && [ "$POLICY_OK" = true ] && [ "$USABILITY_OK" = true ]; then
               echo "✅ **TEST Phase Successful**" >> $GITHUB_STEP_SUMMARY
-              if [ "${{ needs.development-auto-deploy.result }}" = "success" ]; then
-                echo "🚀 **Development deployed**: All tests passed and code deployed to development environment" >> $GITHUB_STEP_SUMMARY
-                if [[ -n "${{ needs.development-auto-deploy.outputs.website_url }}" ]]; then
-                  echo "📍 **Development Site**: ${{ needs.development-auto-deploy.outputs.website_url }}" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
-              echo "➡️ **Next Phase**: Ready for staging deployment (via PR)" >> $GITHUB_STEP_SUMMARY
+              echo "All validation tests completed successfully" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "➡️ **Next Phase**: DEPLOY workflow will handle environment-specific deployments" >> $GITHUB_STEP_SUMMARY
+              echo "- **Feature branches**: Auto-deploy to development after successful TEST" >> $GITHUB_STEP_SUMMARY
+              echo "- **Pull requests**: Deploy to staging for validation" >> $GITHUB_STEP_SUMMARY
+              echo "- **Main branch**: Available for production deployment" >> $GITHUB_STEP_SUMMARY
             else
               echo "❌ **TEST Phase Failed**" >> $GITHUB_STEP_SUMMARY
               echo "Please review the failed tests and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY

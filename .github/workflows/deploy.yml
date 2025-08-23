@@ -42,11 +42,19 @@ on:
       - opened
       - synchronize
       - reopened
+  push:
+    branches:
+      - 'feature/*'
+      - 'bugfix/*'
+      - 'hotfix/*'
   workflow_run:
     workflows: ["TEST - Policy and Validation"]
     types: [completed]
     branches:
       - main
+      - 'feature/*'
+      - 'bugfix/*'
+      - 'hotfix/*'
 
 # OIDC Authentication Permissions for Production Deployment
 # id-token: write - ESSENTIAL: Enables secure OIDC token generation for AWS authentication
@@ -255,6 +263,10 @@ jobs:
             # PRs always deploy to staging for validation  
             TARGET_ENV="staging"
             echo "✅ **Environment resolved from PR event**: $TARGET_ENV (PRs always use staging)" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+            # Feature/bugfix/hotfix branches auto-deploy to development
+            TARGET_ENV="dev"
+            echo "✅ **Environment resolved from feature branch push**: $TARGET_ENV (feature branches auto-deploy to development)" >> $GITHUB_STEP_SUMMARY
           elif [ -n "${{ vars.DEFAULT_ENVIRONMENT }}" ]; then
             TARGET_ENV="${{ vars.DEFAULT_ENVIRONMENT }}"
             echo "✅ **Environment resolved from repository variable**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
@@ -581,12 +593,68 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  development-auto-deploy-check:
+    name: Development Auto-Deploy Prerequisites
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy-info]
+    if: |
+      needs.deploy-info.outputs.target_environment == 'dev' && 
+      github.event_name == 'push' && 
+      contains(fromJSON('["feature", "bugfix", "hotfix"]'), split(github.ref_name, '/')[0])
+    outputs:
+      test_success: ${{ steps.check-test-status.outputs.test_success }}
+      auto_deploy_enabled: ${{ steps.check-test-status.outputs.auto_deploy_enabled }}
+    steps:
+      - name: Check TEST Workflow Success
+        id: check-test-status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "## 🧪 Development Auto-Deploy Prerequisites" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "🔍 Checking if TEST workflow completed successfully for this commit..." >> $GITHUB_STEP_SUMMARY
+          
+          # Check for completed TEST workflow runs on this commit
+          TEST_RUNS=$(gh api repos/${{ github.repository }}/actions/runs \
+            --field event=push \
+            --field status=completed \
+            --field head_sha="${{ github.sha }}" \
+            --jq '.workflow_runs[] | select(.name == "TEST - Policy and Validation") | select(.conclusion == "success") | .id' \
+            2>/dev/null || echo "")
+          
+          if [ -n "$TEST_RUNS" ]; then
+            TEST_RUN_ID=$(echo "$TEST_RUNS" | head -n1)
+            echo "✅ **TEST workflow found**: Run #$TEST_RUN_ID completed successfully" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Auto-deploy enabled**: All prerequisites met for development deployment" >> $GITHUB_STEP_SUMMARY
+            echo "test_success=true" >> $GITHUB_OUTPUT
+            echo "auto_deploy_enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "⏸️ **TEST workflow not found or not successful**: Waiting for tests to complete" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Auto-deploy disabled**: Development deployment requires successful TEST workflow" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Next Steps**: The TEST workflow must complete successfully before auto-deployment can proceed." >> $GITHUB_STEP_SUMMARY
+            echo "test_success=false" >> $GITHUB_OUTPUT
+            echo "auto_deploy_enabled=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [deploy-info]
-    if: needs.deploy-info.outputs.deploy_infrastructure == 'true' && (needs.deploy-info.outputs.has_tf_changes == '1' || github.event.inputs.deploy_infrastructure == 'true')
+    needs: [deploy-info, development-auto-deploy-check]
+    if: |
+      always() &&
+      needs.deploy-info.outputs.deploy_infrastructure == 'true' && 
+      (
+        (needs.deploy-info.outputs.has_tf_changes == '1' || github.event.inputs.deploy_infrastructure == 'true') ||
+        (needs.deploy-info.outputs.target_environment == 'dev' && needs.development-auto-deploy-check.result == 'success')
+      ) &&
+      (needs.development-auto-deploy-check.result == 'success' || needs.development-auto-deploy-check.result == 'skipped')
     environment: ${{ needs.deploy-info.outputs.target_environment }}
     outputs:
       deployment_outputs: ${{ steps.deploy.outputs.deployment_outputs }}
@@ -762,8 +830,16 @@ jobs:
     name: Deploy Website Content
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [deploy-info, deploy-infrastructure]
-    if: needs.deploy-info.outputs.deploy_website == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') && (needs.deploy-info.outputs.has_content_changes == '1' || github.event.inputs.deploy_website == 'true')
+    needs: [deploy-info, deploy-infrastructure, development-auto-deploy-check]
+    if: |
+      always() &&
+      needs.deploy-info.outputs.deploy_website == 'true' && 
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') && 
+      (
+        (needs.deploy-info.outputs.has_content_changes == '1' || github.event.inputs.deploy_website == 'true') ||
+        (needs.deploy-info.outputs.target_environment == 'dev' && needs.development-auto-deploy-check.result == 'success')
+      ) &&
+      (needs.development-auto-deploy-check.result == 'success' || needs.development-auto-deploy-check.result == 'skipped')
     environment: ${{ needs.deploy-info.outputs.target_environment }}
     outputs:
       website_url: ${{ steps.deploy-content.outputs.website_url }}
@@ -1176,11 +1252,12 @@ jobs:
     name: Update Deployment Status & Badges
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [deploy-info, deploy-infrastructure, deploy-website, staging-usability-tests, production-validation]
+    needs: [deploy-info, deploy-infrastructure, deploy-website, staging-usability-tests, production-validation, development-auto-deploy-check]
     if: always()
     permissions:
-      contents: write  # Needed to commit badge updates
+      contents: write  # Needed to commit badge updates and create branches
       deployments: write  # Needed for GitHub Deployments API
+      pull-requests: write  # Needed to create and auto-merge PRs
     outputs:
       actual_deployment_occurred: ${{ steps.analyze-deployment.outputs.actual_deployment_occurred }}
       deployment_summary: ${{ steps.analyze-deployment.outputs.deployment_summary }}
@@ -1349,22 +1426,33 @@ jobs:
           echo "**Message**: $BADGE_MESSAGE" >> $GITHUB_STEP_SUMMARY
           echo "**Color**: $BADGE_COLOR" >> $GITHUB_STEP_SUMMARY
 
-      - name: Commit Badge Updates
+      - name: Create Badge Update PR
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
           
-          # Configure git
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Add and commit badge changes
+          # Check if there are changes to commit
           git add ".github/badges/${TARGET_ENV}-deployment.json"
           
           if git diff --staged --quiet; then
-            echo "ℹ️ No badge changes to commit" >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ No badge changes detected" >> $GITHUB_STEP_SUMMARY
           else
+            echo "### 🏷️ Badge Update Process" >> $GITHUB_STEP_SUMMARY
+            
+            # Configure git
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            
+            # Create a unique branch name for badge updates
+            BRANCH_NAME="badge-update-${TARGET_ENV}-${{ github.run_id }}"
+            echo "**Branch**: $BRANCH_NAME" >> $GITHUB_STEP_SUMMARY
+            
+            # Create and switch to new branch
+            git checkout -b "$BRANCH_NAME"
+            
             COMMIT_MSG="Update $TARGET_ENV deployment status badge
-          
+
           Deployment: ${{ steps.analyze-deployment.outputs.actual_deployment_occurred == 'true' && 'successful' || 'skipped/failed' }}
           Run: ${{ github.run_id }}
           Commit: ${{ github.sha }}
@@ -1372,16 +1460,49 @@ jobs:
           🤖 Generated by deploy.yml workflow"
           
             git commit -m "$COMMIT_MSG"
-            git push
+            git push -u origin "$BRANCH_NAME"
             
-            echo "✅ **Badge committed and pushed**" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Badge committed to branch**" >> $GITHUB_STEP_SUMMARY
+            
+            # Create PR for badge update
+            PR_TITLE="🏷️ Update $TARGET_ENV deployment status badge"
+            PR_BODY="**Automated badge update from deployment workflow**
+
+          - **Environment**: $TARGET_ENV  
+          - **Run ID**: ${{ github.run_id }}
+          - **Deployment Status**: ${{ steps.analyze-deployment.outputs.actual_deployment_occurred == 'true' && 'successful' || 'skipped/failed' }}
+
+          This PR updates the deployment status badge to reflect the current deployment state.
+
+          > **Note**: This PR contains only badge file changes and can be merged without status checks.
+
+          🤖 Auto-generated by deploy.yml workflow"
+
+            # Create PR
+            if PR_URL=$(gh pr create \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY" \
+              --base main \
+              --head "$BRANCH_NAME"); then
+              
+              echo "**PR Created**: $PR_URL" >> $GITHUB_STEP_SUMMARY
+              
+              # Note: The PR will need to be manually merged or approved since it will trigger status checks
+              # This is intentional to maintain the integrity of the branch protection
+              echo "ℹ️ **Next Steps**: PR created and ready for review/merge" >> $GITHUB_STEP_SUMMARY
+              echo "**Manual Action**: The badge update PR can be merged once created" >> $GITHUB_STEP_SUMMARY
+              
+            else
+              echo "❌ **Failed to create PR**" >> $GITHUB_STEP_SUMMARY
+              echo "Badge changes are committed to branch: $BRANCH_NAME" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
   deployment-summary:
     name: Deployment Summary  
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [deploy-info, deploy-infrastructure, deploy-website, staging-usability-tests, production-validation, update-deployment-status]
+    needs: [deploy-info, deploy-infrastructure, deploy-website, staging-usability-tests, production-validation, development-auto-deploy-check, update-deployment-status]
     if: always()
     outputs:
       website_url: ${{ steps.export-url.outputs.website_url }}
