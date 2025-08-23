@@ -24,7 +24,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 **Primary Focus**: System design, architecture decisions, and technical implementation
 
 **Start Here**:
-1. **[Architecture Documentation](architecture/)** ⭐⭐⭐ (30 min) - Complete system architecture including infrastructure, Terraform, CI/CD, and testing documentation
+1. **[Architecture Documentation](architecture/)** ⭐⭐⭐ (30 min) - Complete system architecture including infrastructure, Terraform, CI/CD with enhanced deployment status tracking, and testing documentation
 2. **[Multi-Environment Strategy](guides/multi-environment-strategy.md)** ⭐⭐⭐ (15 min) - Environment configurations and promotion strategy
 3. **[Version Management](guides/version-management.md)** ⭐⭐⭐ (15 min) - Git-based versioning and release management
 
@@ -60,7 +60,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 **Primary Focus**: CI/CD operations, deployment automation, and infrastructure management
 
 **Start Here**:
-1. **[Deployment Guide](guides/deployment-guide.md)** ⭐⭐ (20 min) - Complete deployment procedures and automation
+1. **[Deployment Guide](guides/deployment-guide.md)** ⭐⭐ (20 min) - Complete deployment procedures, automation, and enhanced status tracking
 2. **[Workflow Conditions](development/workflow-conditions.md)** ⭐⭐⭐ (20 min) - GitHub Actions workflow logic and optimization
 3. **[Version Management](guides/version-management.md)** ⭐⭐⭐ (15 min) - Release automation and rollback procedures
 
@@ -71,6 +71,7 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 
 **Key Takeaways**:
 - BUILD → TEST → RELEASE → DEPLOY pipeline with smart change detection
+- Enhanced deployment status tracking with accurate badge reporting
 - Environment-specific configurations with tfvars files
 - Automated security scanning and policy validation
 - Tag-based version deployment with automated release orchestration

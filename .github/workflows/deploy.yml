@@ -1172,15 +1172,221 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
-  deployment-summary:
-    name: Deployment Summary
+  update-deployment-status:
+    name: Update Deployment Status & Badges
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [deploy-info, deploy-infrastructure, deploy-website, staging-usability-tests, production-validation]
     if: always()
+    permissions:
+      contents: write  # Needed to commit badge updates
+      deployments: write  # Needed for GitHub Deployments API
+    outputs:
+      actual_deployment_occurred: ${{ steps.analyze-deployment.outputs.actual_deployment_occurred }}
+      deployment_summary: ${{ steps.analyze-deployment.outputs.deployment_summary }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          token: ${{ github.token }}
+
+      - name: Analyze Deployment Reality
+        id: analyze-deployment
+        run: |
+          echo "## 🔍 Deployment Reality Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
+          INFRA_RESULT="${{ needs.deploy-infrastructure.result }}"
+          WEBSITE_RESULT="${{ needs.deploy-website.result }}"
+          
+          echo "**Target Environment**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
+          echo "**Infrastructure Job**: $INFRA_RESULT" >> $GITHUB_STEP_SUMMARY
+          echo "**Website Job**: $WEBSITE_RESULT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Determine if actual deployment occurred
+          ACTUAL_DEPLOYMENT=false
+          DEPLOYMENT_TYPE=""
+          SKIP_REASON=""
+          
+          # First check for failures - any failure means no successful deployment
+          if [ "$INFRA_RESULT" = "failure" ] || [ "$WEBSITE_RESULT" = "failure" ]; then
+            ACTUAL_DEPLOYMENT=false
+            SKIP_REASON="deployment-failed"
+          elif [ "$INFRA_RESULT" = "success" ] || [ "$WEBSITE_RESULT" = "success" ]; then
+            # At least one deployment succeeded and no failures
+            ACTUAL_DEPLOYMENT=true
+            if [ "$INFRA_RESULT" = "success" ] && [ "$WEBSITE_RESULT" = "success" ]; then
+              DEPLOYMENT_TYPE="full"
+            elif [ "$INFRA_RESULT" = "success" ]; then
+              DEPLOYMENT_TYPE="infrastructure-only"
+            elif [ "$WEBSITE_RESULT" = "success" ]; then
+              DEPLOYMENT_TYPE="website-only"
+            fi
+          else
+            # Both were skipped or had other non-success, non-failure results
+            if [ "$INFRA_RESULT" = "skipped" ] && [ "$WEBSITE_RESULT" = "skipped" ]; then
+              SKIP_REASON="no-changes-detected"
+            else
+              SKIP_REASON="conditions-not-met"
+            fi
+          fi
+          
+          echo "actual_deployment_occurred=$ACTUAL_DEPLOYMENT" >> $GITHUB_OUTPUT
+          
+          # Generate deployment summary
+          if [ "$ACTUAL_DEPLOYMENT" = "true" ]; then
+            DEPLOYMENT_SUMMARY="✅ **Deployment Successful**: $DEPLOYMENT_TYPE deployment completed to $TARGET_ENV"
+            echo "deployment_summary=$DEPLOYMENT_SUMMARY" >> $GITHUB_OUTPUT
+            echo "$DEPLOYMENT_SUMMARY" >> $GITHUB_STEP_SUMMARY
+          else
+            case "$SKIP_REASON" in
+              "no-changes-detected")
+                DEPLOYMENT_SUMMARY="ℹ️ **Deployment Skipped**: No changes detected for $TARGET_ENV environment"
+                ;;
+              "deployment-failed")
+                DEPLOYMENT_SUMMARY="❌ **Deployment Failed**: Check logs for $TARGET_ENV deployment errors"
+                ;;
+              "conditions-not-met")
+                DEPLOYMENT_SUMMARY="⏭️ **Deployment Skipped**: Conditional requirements not met for $TARGET_ENV"
+                ;;
+            esac
+            echo "deployment_summary=$DEPLOYMENT_SUMMARY" >> $GITHUB_OUTPUT
+            echo "$DEPLOYMENT_SUMMARY" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Create/Update GitHub Deployment
+        id: github-deployment
+        if: steps.analyze-deployment.outputs.actual_deployment_occurred == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "### 🚀 Creating GitHub Deployment Record" >> $GITHUB_STEP_SUMMARY
+          
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
+          WEBSITE_URL="${{ needs.deploy-website.outputs.website_url }}"
+          
+          # Create deployment record
+          DEPLOYMENT_ID=$(gh api repos/${{ github.repository }}/deployments \
+            --method POST \
+            --field ref="${{ github.sha }}" \
+            --field environment="$TARGET_ENV" \
+            --field description="Deployment to $TARGET_ENV via ${{ github.event_name }}" \
+            --field auto_merge=false \
+            --jq .id)
+          
+          echo "**Deployment ID**: $DEPLOYMENT_ID" >> $GITHUB_STEP_SUMMARY
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          
+          # Update deployment status
+          DEPLOY_STATUS="success"
+          DEPLOY_DESCRIPTION="Successfully deployed to $TARGET_ENV environment"
+          
+          if [ -n "$WEBSITE_URL" ]; then
+            gh api repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses \
+              --method POST \
+              --field state="$DEPLOY_STATUS" \
+              --field description="$DEPLOY_DESCRIPTION" \
+              --field environment_url="$WEBSITE_URL" \
+              --field log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          else
+            gh api repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses \
+              --method POST \
+              --field state="$DEPLOY_STATUS" \
+              --field description="$DEPLOY_DESCRIPTION" \
+              --field log_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          fi
+          
+          echo "✅ GitHub deployment status updated" >> $GITHUB_STEP_SUMMARY
+
+      - name: Update Status Badge
+        run: |
+          echo "### 🏷️ Updating Status Badge" >> $GITHUB_STEP_SUMMARY
+          
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
+          ACTUAL_DEPLOYMENT="${{ steps.analyze-deployment.outputs.actual_deployment_occurred }}"
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          
+          # Determine badge data based on deployment reality
+          if [ "$ACTUAL_DEPLOYMENT" = "true" ]; then
+            BADGE_MESSAGE="deployed $CURRENT_DATE"
+            BADGE_COLOR="brightgreen"
+            echo "✅ **Badge Status**: Successfully deployed" >> $GITHUB_STEP_SUMMARY
+          else
+            # Check specific skip reason for better messaging
+            INFRA_RESULT="${{ needs.deploy-infrastructure.result }}"
+            WEBSITE_RESULT="${{ needs.deploy-website.result }}"
+            
+            if [ "$INFRA_RESULT" = "skipped" ] && [ "$WEBSITE_RESULT" = "skipped" ]; then
+              BADGE_MESSAGE="no changes detected"
+              BADGE_COLOR="yellow"
+              echo "ℹ️ **Badge Status**: No changes detected" >> $GITHUB_STEP_SUMMARY
+            elif [ "$INFRA_RESULT" = "failure" ] || [ "$WEBSITE_RESULT" = "failure" ]; then
+              BADGE_MESSAGE="deployment failed"
+              BADGE_COLOR="red"  
+              echo "❌ **Badge Status**: Deployment failed" >> $GITHUB_STEP_SUMMARY
+            else
+              BADGE_MESSAGE="conditions not met"
+              BADGE_COLOR="yellow"
+              echo "⏭️ **Badge Status**: Conditions not met" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Create badge JSON
+          cat > ".github/badges/${TARGET_ENV}-deployment.json" << EOF
+          {
+            "schemaVersion": 1,
+            "label": "$TARGET_ENV",
+            "message": "$BADGE_MESSAGE",
+            "color": "$BADGE_COLOR",
+            "namedLogo": "github",
+            "logoColor": "white"
+          }
+          EOF
+          
+          echo "**Badge File**: .github/badges/${TARGET_ENV}-deployment.json" >> $GITHUB_STEP_SUMMARY
+          echo "**Message**: $BADGE_MESSAGE" >> $GITHUB_STEP_SUMMARY
+          echo "**Color**: $BADGE_COLOR" >> $GITHUB_STEP_SUMMARY
+
+      - name: Commit Badge Updates
+        run: |
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
+          
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add and commit badge changes
+          git add ".github/badges/${TARGET_ENV}-deployment.json"
+          
+          if git diff --staged --quiet; then
+            echo "ℹ️ No badge changes to commit" >> $GITHUB_STEP_SUMMARY
+          else
+            COMMIT_MSG="Update $TARGET_ENV deployment status badge
+          
+          Deployment: ${{ steps.analyze-deployment.outputs.actual_deployment_occurred == 'true' && 'successful' || 'skipped/failed' }}
+          Run: ${{ github.run_id }}
+          Commit: ${{ github.sha }}
+          
+          🤖 Generated by deploy.yml workflow"
+          
+            git commit -m "$COMMIT_MSG"
+            git push
+            
+            echo "✅ **Badge committed and pushed**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  deployment-summary:
+    name: Deployment Summary  
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [deploy-info, deploy-infrastructure, deploy-website, staging-usability-tests, production-validation, update-deployment-status]
+    if: always()
     outputs:
       website_url: ${{ steps.export-url.outputs.website_url }}
       deployment_success: ${{ steps.export-url.outputs.deployment_success }}
+      actual_deployment_occurred: ${{ needs.update-deployment-status.outputs.actual_deployment_occurred }}
     steps:
       - name: Generate Summary
         run: |
@@ -1190,11 +1396,18 @@ jobs:
           echo "**Environment**: ${{ needs.deploy-info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
           echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          
+          # Show deployment reality first
+          echo "### 🎯 Deployment Reality" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.update-deployment-status.outputs.deployment_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📊 Job Execution Status" >> $GITHUB_STEP_SUMMARY
           echo "- **Infrastructure Deployment**: ${{ needs.deploy-infrastructure.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Website Deployment**: ${{ needs.deploy-website.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Staging Usability Tests**: ${{ needs.staging-usability-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Production Validation**: ${{ needs.production-validation.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status & Badge Update**: ${{ needs.update-deployment-status.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Show website URL if available
@@ -1205,50 +1418,46 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
-          # Final status assessment
-          INFRA_STATUS="${{ needs.deploy-infrastructure.result }}"
-          WEBSITE_STATUS="${{ needs.deploy-website.result }}"
+          # Final status assessment using improved deployment analysis
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
+          ACTUAL_DEPLOYMENT="${{ needs.update-deployment-status.outputs.actual_deployment_occurred }}"
           STAGING_TESTS_STATUS="${{ needs.staging-usability-tests.result }}"
           PRODUCTION_VALIDATION_STATUS="${{ needs.production-validation.result }}"
-          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
           
-          # Check if all required steps passed
-          all_passed=true
+          # Use the new deployment reality analysis
+          workflow_success=true
           
-          # Infrastructure deployment
-          if [ "$INFRA_STATUS" != "success" ] && [ "$INFRA_STATUS" != "skipped" ]; then
-            all_passed=false
+          # Check environment-specific validation requirements
+          if [ "$TARGET_ENV" = "staging" ] && [ "$STAGING_TESTS_STATUS" = "failure" ]; then
+            workflow_success=false
           fi
           
-          # Website deployment
-          if [ "$WEBSITE_STATUS" != "success" ] && [ "$WEBSITE_STATUS" != "skipped" ]; then
-            all_passed=false
-          fi
-          
-          # Staging usability tests (required for staging)
-          if [ "$TARGET_ENV" = "staging" ] && [ "$STAGING_TESTS_STATUS" != "success" ] && [ "$STAGING_TESTS_STATUS" != "skipped" ]; then
-            all_passed=false
-          fi
-          
-          # Production validation (required for production)
           if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
-            if [ "$PRODUCTION_VALIDATION_STATUS" != "success" ] && [ "$PRODUCTION_VALIDATION_STATUS" != "skipped" ]; then
-              all_passed=false
+            if [ "$PRODUCTION_VALIDATION_STATUS" = "failure" ]; then
+              workflow_success=false
             fi
           fi
           
-          if [ "$all_passed" = "true" ]; then
-            echo "✅ **DEPLOY Phase Successful**" >> $GITHUB_STEP_SUMMARY
-            if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
-              echo "Production deployment completed with full validation - website is live and validated." >> $GITHUB_STEP_SUMMARY
-            elif [ "$TARGET_ENV" = "staging" ]; then
-              echo "Staging deployment completed with full validation - ready for production consideration." >> $GITHUB_STEP_SUMMARY
+          # Enhanced status reporting that distinguishes deployment vs workflow success
+          echo "### 🎯 Final Status Assessment" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$workflow_success" = "true" ]; then
+            if [ "$ACTUAL_DEPLOYMENT" = "true" ]; then
+              echo "✅ **WORKFLOW SUCCESSFUL - DEPLOYMENT COMPLETED**" >> $GITHUB_STEP_SUMMARY
+              if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
+                echo "Production deployment completed with full validation - website is live and validated." >> $GITHUB_STEP_SUMMARY
+              elif [ "$TARGET_ENV" = "staging" ]; then
+                echo "Staging deployment completed with full validation - ready for production consideration." >> $GITHUB_STEP_SUMMARY
+              else
+                echo "Development deployment completed successfully." >> $GITHUB_STEP_SUMMARY
+              fi
             else
-              echo "Development deployment completed successfully." >> $GITHUB_STEP_SUMMARY
+              echo "✅ **WORKFLOW SUCCESSFUL - NO DEPLOYMENT NEEDED**" >> $GITHUB_STEP_SUMMARY
+              echo "All validations passed, but no deployment was required (likely no changes detected)." >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "❌ **DEPLOY Phase Failed**" >> $GITHUB_STEP_SUMMARY
-            echo "Please review the deployment logs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
+            echo "❌ **WORKFLOW FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed validations and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Export Public URL
@@ -1256,40 +1465,29 @@ jobs:
         run: |
           # Export the public URL for external access
           WEBSITE_URL="${{ needs.deploy-website.outputs.website_url }}"
-          INFRA_STATUS="${{ needs.deploy-infrastructure.result }}"
-          WEBSITE_STATUS="${{ needs.deploy-website.result }}"
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
+          ACTUAL_DEPLOYMENT="${{ needs.update-deployment-status.outputs.actual_deployment_occurred }}"
           STAGING_TESTS_STATUS="${{ needs.staging-usability-tests.result }}"
           PRODUCTION_VALIDATION_STATUS="${{ needs.production-validation.result }}"
-          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
           
           echo "website_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
           
-          # Determine overall deployment success (same logic as summary)
-          all_passed=true
+          # Determine overall deployment success using improved logic
+          workflow_success=true
           
-          # Infrastructure deployment
-          if [ "$INFRA_STATUS" != "success" ] && [ "$INFRA_STATUS" != "skipped" ]; then
-            all_passed=false
+          # Check environment-specific validation requirements (same logic as summary)
+          if [ "$TARGET_ENV" = "staging" ] && [ "$STAGING_TESTS_STATUS" = "failure" ]; then
+            workflow_success=false
           fi
           
-          # Website deployment
-          if [ "$WEBSITE_STATUS" != "success" ] && [ "$WEBSITE_STATUS" != "skipped" ]; then
-            all_passed=false
-          fi
-          
-          # Staging usability tests (required for staging)
-          if [ "$TARGET_ENV" = "staging" ] && [ "$STAGING_TESTS_STATUS" != "success" ] && [ "$STAGING_TESTS_STATUS" != "skipped" ]; then
-            all_passed=false
-          fi
-          
-          # Production validation (required for production)
           if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
-            if [ "$PRODUCTION_VALIDATION_STATUS" != "success" ] && [ "$PRODUCTION_VALIDATION_STATUS" != "skipped" ]; then
-              all_passed=false
+            if [ "$PRODUCTION_VALIDATION_STATUS" = "failure" ]; then
+              workflow_success=false
             fi
           fi
           
-          if [ "$all_passed" = "true" ]; then
+          # Set deployment success output (workflow success, not just deployment occurrence)
+          if [ "$workflow_success" = "true" ]; then
             echo "deployment_success=true" >> $GITHUB_OUTPUT
           else
             echo "deployment_success=false" >> $GITHUB_OUTPUT

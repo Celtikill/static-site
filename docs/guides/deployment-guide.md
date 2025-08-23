@@ -727,10 +727,92 @@ aws ce get-cost-and-usage \
 
 ---
 
-## 🚀 Advanced Deployment
+## 📊 Deployment Status Monitoring
 
+### Enhanced Status Badge System
+
+The deployment pipeline includes an advanced status reporting system that provides accurate, real-time deployment visibility:
+
+#### Status Badge Integration in README
+
+```markdown
+![Development](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/celtikill/static-site/main/.github/badges/dev-deployment.json)
+![Staging](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/celtikill/static-site/main/.github/badges/staging-deployment.json)
+![Production](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/celtikill/static-site/main/.github/badges/production-deployment.json)
+```
+
+#### Badge Meanings
+
+| Badge Color | Status | Message Format | Interpretation |
+|-------------|--------|----------------|----------------|
+| 🟢 **Green** | Deployed | `deployed YYYY-MM-DD` | Successful deployment completed |
+| 🟡 **Yellow** | Skipped | `no changes detected` | Workflow ran but no deployment needed |
+| 🔴 **Red** | Failed | `deployment failed` | Deployment attempt failed |
+| ⚪ **Grey** | Unknown | `not deployed` | Initial state or system unavailable |
+
+#### Key Improvements Over Traditional Badges
+
+| Traditional Workflow Badge | Enhanced Deployment Badge |
+|---------------------------|---------------------------|
+| ✅ "Passing" (workflow completed) | ✅ "deployed 2025-08-23" (actual deployment) |
+| ✅ "Passing" (jobs succeeded) | 🟡 "no changes detected" (validation only) |
+| ✅ "Passing" (misleading) | 🔴 "deployment failed" (accurate status) |
+
+### GitHub Deployments Integration
+
+The system automatically creates GitHub Deployment records for tracking:
+
+#### Viewing Deployment History
+1. Navigate to repository **Deployments** tab
+2. View environment-specific deployment timeline
+3. Access deployment details and workflow run links
+4. Track deployment frequency and success patterns
+
+#### Deployment Record Details
+- **Environment**: Target deployment environment
+- **Status**: Success/failure with detailed descriptions  
+- **Commit SHA**: Exact code version deployed
+- **Workflow Link**: Direct access to deployment logs
+- **Environment URL**: Live website URL (when available)
+
+### Status Dashboard Usage
+
+#### For Development Teams
+- **Quick Status Check**: README badge overview shows all environment states
+- **Deployment Debugging**: Failed badges link to detailed workflow logs
+- **Change Impact**: "No changes detected" badges confirm deployment logic
+
+#### For Stakeholders
+- **Environment Health**: At-a-glance status via comprehensive dashboard
+- **Deployment Timeline**: Badge timestamps show deployment cadence
+- **System Reliability**: Clear success/failure patterns over time
+
+#### For Operations Teams
+- **Incident Response**: Red badges immediately highlight deployment failures
+- **Maintenance Planning**: Badge history shows deployment patterns
+- **System Health**: Overall deployment success rates visible
+
+### Troubleshooting Status Issues
+
+#### Common Badge States and Actions
+
+| Badge State | Likely Cause | Recommended Action |
+|-------------|--------------|-------------------|
+| "no changes detected" | No infrastructure/content changes | Normal - no action needed |
+| "deployment failed" | Infrastructure or content deployment error | Check workflow logs, fix issues, retry |
+| "not deployed" | Badge not updated or system error | Check workflow execution, badge file commits |
+| Stale timestamp | Badge update automation issue | Verify workflow permissions and badge commit process |
+
+#### Badge Update Process
+1. **Deployment workflow runs** → analyzes actual deployment outcome
+2. **Badge file generated** → JSON file with current status and timestamp  
+3. **Automatic commit** → badge file committed to repository
+4. **Badge displays update** → shields.io renders new badge within minutes
+
+## 🚀 Advanced Deployment
 
 **Next Steps:**
 - 🔒 [Security Configuration](security.md)
 - 📊 [Monitoring Setup](monitoring.md)  
 - 🛠️ [Troubleshooting](troubleshooting.md)
+- 🏗️ [CI/CD Architecture](../architecture/cicd.md) - Detailed pipeline documentation

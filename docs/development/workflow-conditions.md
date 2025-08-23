@@ -653,6 +653,18 @@ cloudfront_distribution_id: CDN ID
 6. **Document custom conditions**: Add comments explaining complex conditions
 7. **Regular condition audits**: Review and optimize conditions quarterly
 
+## Development Tools
+
+### Badge Logic Validation
+Test the deployment status analysis logic used in workflows:
+
+```bash
+# Test badge generation logic
+./docs/development/test-badge-logic.sh
+```
+
+This script validates the deployment status analysis logic with 8 test scenarios covering all deployment outcome combinations.
+
 ## Related Documentation
 
 - [Deployment Guide](../guides/deployment-guide.md) - Overall deployment strategies and RELEASE workflow
@@ -660,3 +672,4 @@ cloudfront_distribution_id: CDN ID
 - [Testing Guide](../guides/testing-guide.md) - Test execution details  
 - [Quick Reference](../quick-reference.md) - Common workflow commands
 - [Troubleshooting](../guides/troubleshooting.md) - Debugging workflow issues
+- [CI/CD Architecture](../architecture/cicd.md) - Complete pipeline documentation including status tracking
