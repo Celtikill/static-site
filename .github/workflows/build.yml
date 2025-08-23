@@ -129,8 +129,27 @@ jobs:
             CHANGED_FILES="[main branch - full build]"
           fi
           
+          # Check for badge-only changes (skip BUILD for badge updates)
+          BADGE_ONLY_CHANGES=0
+          if [ "${{ github.event.inputs.force_build }}" != "true" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Check if only .github/badges/ files have changed
+            NON_BADGE_CHANGES=$(echo "$CHANGED_FILES" | grep -v '^\.github/badges/' | wc -l)
+            BADGE_CHANGES=$(echo "$CHANGED_FILES" | grep '^\.github/badges/' | wc -l)
+            
+            if [ "$NON_BADGE_CHANGES" -eq 0 ] && [ "$BADGE_CHANGES" -gt 0 ]; then
+              BADGE_ONLY_CHANGES=1
+              echo "### 🏷️ Badge-Only Changes Detected" >> $GITHUB_STEP_SUMMARY
+              echo "This PR contains only deployment status badge updates." >> $GITHUB_STEP_SUMMARY
+              echo "BUILD workflow will complete successfully without running full validation." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Files Changed**: $BADGE_CHANGES badge files" >> $GITHUB_STEP_SUMMARY
+              echo "$CHANGED_FILES" | grep '^\.github/badges/' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
           # Intelligent categorization of changes
-          if [ "${{ github.event.inputs.force_build }}" != "true" ] && [ "${{ github.ref_name }}" != "main" ]; then
+          if [ "${{ github.event.inputs.force_build }}" != "true" ] && [ "${{ github.ref_name }}" != "main" ] && [ "$BADGE_ONLY_CHANGES" -eq 0 ]; then
             # Infrastructure changes
             HAS_TF_CHANGES=$(echo "$CHANGED_FILES" | grep -E 'terraform/.*\.(tf|tfvars)$' | wc -l)
             TF_MODULES_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^terraform/modules/' | cut -d'/' -f1-3 | sort -u | wc -l)
@@ -217,15 +236,29 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
-          # Set outputs for job conditioning
-          echo "has_changes=$HAS_CHANGES" >> $GITHUB_OUTPUT
-          echo "has_tf_changes=$HAS_TF_CHANGES" >> $GITHUB_OUTPUT
-          echo "has_content_changes=$HAS_CONTENT_CHANGES" >> $GITHUB_OUTPUT
-          echo "has_workflow_changes=${HAS_WORKFLOW_CHANGES:-0}" >> $GITHUB_OUTPUT
-          echo "has_test_changes=${HAS_TEST_CHANGES:-0}" >> $GITHUB_OUTPUT
-          echo "has_doc_changes=${HAS_DOC_CHANGES:-0}" >> $GITHUB_OUTPUT
-          echo "needs_full_tests=${NEEDS_FULL_TESTS:-1}" >> $GITHUB_OUTPUT
-          echo "needs_security_scan=${NEEDS_SECURITY_SCAN:-1}" >> $GITHUB_OUTPUT
+          # Handle badge-only changes
+          if [ "$BADGE_ONLY_CHANGES" -eq 1 ]; then
+            echo "badge_only_changes=1" >> $GITHUB_OUTPUT
+            echo "has_changes=0" >> $GITHUB_OUTPUT
+            echo "has_tf_changes=0" >> $GITHUB_OUTPUT
+            echo "has_content_changes=0" >> $GITHUB_OUTPUT
+            echo "has_workflow_changes=0" >> $GITHUB_OUTPUT
+            echo "has_test_changes=0" >> $GITHUB_OUTPUT
+            echo "has_doc_changes=0" >> $GITHUB_OUTPUT
+            echo "needs_full_tests=0" >> $GITHUB_OUTPUT
+            echo "needs_security_scan=0" >> $GITHUB_OUTPUT
+          else
+            # Set outputs for job conditioning
+            echo "badge_only_changes=0" >> $GITHUB_OUTPUT
+            echo "has_changes=$HAS_CHANGES" >> $GITHUB_OUTPUT
+            echo "has_tf_changes=$HAS_TF_CHANGES" >> $GITHUB_OUTPUT
+            echo "has_content_changes=$HAS_CONTENT_CHANGES" >> $GITHUB_OUTPUT
+            echo "has_workflow_changes=${HAS_WORKFLOW_CHANGES:-0}" >> $GITHUB_OUTPUT
+            echo "has_test_changes=${HAS_TEST_CHANGES:-0}" >> $GITHUB_OUTPUT
+            echo "has_doc_changes=${HAS_DOC_CHANGES:-0}" >> $GITHUB_OUTPUT
+            echo "needs_full_tests=${NEEDS_FULL_TESTS:-1}" >> $GITHUB_OUTPUT
+            echo "needs_security_scan=${NEEDS_SECURITY_SCAN:-1}" >> $GITHUB_OUTPUT
+          fi
           
           # Summary message
           if [ "$HAS_CHANGES" -gt 0 ]; then
