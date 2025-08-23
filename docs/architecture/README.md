@@ -75,22 +75,23 @@ This project implements a comprehensive serverless static website architecture d
 - Comprehensive testing and reporting
 - OIDC authentication and security practices
 
-### 🧪 [Testing Architecture](testing.md)
-**Focus**: Testing framework, validation strategies, quality assurance
+### 🧪 [Unit Testing Architecture](unit-testing.md)
+**Focus**: Unit testing framework, module validation, development testing
 
 **What's Inside**:
 - Zero-dependency testing framework architecture
-- Comprehensive test coverage across all modules
+- Unit test coverage across all 5 modules (269 tests)
 - Parallel execution and performance optimization
-- Reporting and CI/CD integration strategies
+- CI/CD integration and JSON reporting
 - Test development and maintenance guidelines
 
 **Key Topics**:
-- Unit testing with 269 individual assertions
+- Module-specific testing with comprehensive assertions
 - Test execution workflows and parallel processing
-- JSON reporting and automation integration
-- Test development best practices
+- Framework implementation and core utilities
 - Performance optimization and caching strategies
+- Developer-focused testing workflows
+
 
 ## Quick Navigation
 
@@ -102,20 +103,20 @@ This project implements a comprehensive serverless static website architecture d
 | **Security implementation** | [Infrastructure](infrastructure.md) | Security Architecture |
 | **Cost projections** | [Infrastructure](infrastructure.md) | Cost Analysis |
 | **Module structure** | [Terraform](terraform.md) | Module Architecture |
-| **Testing approach** | [Testing](testing.md) | Testing Framework |
+| **Unit testing approach** | [Unit Testing](unit-testing.md) | Testing Framework |
 | **Deployment process** | [CI/CD](cicd.md) | Pipeline Architecture |
 | **Quality gates** | [CI/CD](cicd.md) | Validation Framework |
-| **Test development** | [Testing](testing.md) | Test Architecture |
+| **Test development** | [Unit Testing](unit-testing.md) | Test Architecture |
 
 ### 🔧 **I want to implement...**
 
 | Task | Primary Document | Supporting References |
 |------|------------------|----------------------|
 | **New AWS environment** | [Infrastructure](infrastructure.md) | [Multi-Environment Strategy](../guides/multi-environment-strategy.md) |
-| **Terraform modifications** | [Terraform](terraform.md) | [Testing Architecture](testing.md) |
+| **Terraform modifications** | [Terraform](terraform.md) | [Unit Testing](unit-testing.md) |
 | **Pipeline enhancements** | [CI/CD](cicd.md) | [Workflow Conditions](../development/workflow-conditions.md) |
 | **Security improvements** | [Infrastructure](infrastructure.md) | [Security Guide](../guides/security-guide.md) |
-| **Test improvements** | [Testing](testing.md) | [Testing Guide](../guides/testing-guide.md) |
+| **Unit test improvements** | [Unit Testing](unit-testing.md) | [Testing Guide](../guides/testing-guide.md) |
 
 ### 🚨 **I need to troubleshoot...**
 

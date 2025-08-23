@@ -176,11 +176,6 @@ graph TB
         COMPLIANCE[Compliance Validation]
     end
     
-    subgraph "Integration Testing"
-        TEST_DEPLOY[Test Infrastructure Deploy]
-        E2E[End-to-End Validation]
-        CLEANUP[Resource Cleanup]
-    end
     
     REPORTS_OUT[Test Reports & Summaries]
     
@@ -194,17 +189,13 @@ graph TB
     OPA --> SEC_POL
     SEC_POL --> COMPLIANCE
     
-    UT_S3 --> TEST_DEPLOY
-    UT_CF --> TEST_DEPLOY
-    UT_WAF --> TEST_DEPLOY
-    UT_IAM --> TEST_DEPLOY
-    UT_MON --> TEST_DEPLOY
-    
-    TEST_DEPLOY --> E2E
-    E2E --> CLEANUP
+    UT_S3 --> REPORTS_OUT
+    UT_CF --> REPORTS_OUT
+    UT_WAF --> REPORTS_OUT
+    UT_IAM --> REPORTS_OUT
+    UT_MON --> REPORTS_OUT
     
     COMPLIANCE --> REPORTS_OUT
-    CLEANUP --> REPORTS_OUT
     
     %% Styling
     classDef testBox fill:#f8f9fa,stroke:#495057,stroke-width:3px,color:#212529
@@ -216,7 +207,6 @@ graph TB
     class START testBox
     class UT_S3,UT_CF,UT_WAF,UT_IAM,UT_MON unitBox
     class OPA,SEC_POL,COMPLIANCE policyBox
-    class TEST_DEPLOY,E2E,CLEANUP integrationBox
     class REPORTS_OUT outputBox
 ```
 
@@ -335,7 +325,6 @@ The TEST phase (detailed in the diagram above) executes comprehensive validation
 **Key Features**:
 - **Unit Testing**: Parallel execution of 269 individual test assertions across all 5 infrastructure modules (Unit Testing subgraph)
 - **Policy Validation**: OPA/Conftest security and compliance rule enforcement (Policy Validation subgraph)
-- **Integration Testing**: End-to-end deployment validation with real AWS resources and automated cleanup (Integration Testing subgraph)
 - **Matrix Strategy**: Parallel test execution for optimal performance with consolidated reporting
 
 **Architecture Components**:
@@ -366,15 +355,6 @@ policy-validation:
     - external-policy-repository (roadmap)
 ```
 
-#### Integration Testing Pipeline
-```yaml
-# End-to-end validation with cleanup
-integration-testing:
-  deployment-validation: true
-  resource-verification: true
-  automated-cleanup: true
-  failure-handling: comprehensive
-```
 
 ### 3. RELEASE Workflow (`release.yml`)
 
@@ -525,10 +505,8 @@ oidc-configuration:
 
 **Multi-Layer Testing Approach**:
 1. **Unit Testing**: Individual module validation (269 tests)
-2. **Integration Testing**: Cross-module compatibility validation
-3. **End-to-End Testing**: Complete deployment validation
-4. **Policy Testing**: Security and compliance rule validation
-5. **Performance Testing**: Build and deployment performance validation
+2. **Policy Testing**: Security and compliance rule validation  
+3. **Performance Testing**: Build and deployment performance validation
 
 **Quality Gates**:
 ```yaml

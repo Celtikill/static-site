@@ -168,16 +168,10 @@ jobs:
             # Smart test optimization flags
             NEEDS_FULL_TESTS=0
             NEEDS_SECURITY_SCAN=0
-            NEEDS_INTEGRATION_TESTS=0
             
             if [ "$HAS_TF_CHANGES" -gt 0 ] || [ "$HAS_WORKFLOW_CHANGES" -gt 0 ]; then
               NEEDS_FULL_TESTS=1
               NEEDS_SECURITY_SCAN=1
-              NEEDS_INTEGRATION_TESTS=1
-            fi
-            
-            if [ "$HAS_CONTENT_CHANGES" -gt 0 ]; then
-              NEEDS_INTEGRATION_TESTS=1
             fi
             
             if [ "$HAS_TEST_CHANGES" -gt 0 ]; then
@@ -193,7 +187,6 @@ jobs:
             echo "### 🎯 Pipeline Optimization" >> $GITHUB_STEP_SUMMARY
             echo "- **Full Testing Required**: $( [ "$NEEDS_FULL_TESTS" -eq 1 ] && echo "Yes" || echo "No" )" >> $GITHUB_STEP_SUMMARY
             echo "- **Security Scanning Required**: $( [ "$NEEDS_SECURITY_SCAN" -eq 1 ] && echo "Yes" || echo "No" )" >> $GITHUB_STEP_SUMMARY
-            echo "- **Integration Testing Required**: $( [ "$NEEDS_INTEGRATION_TESTS" -eq 1 ] && echo "Yes" || echo "No" )" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
           
@@ -206,7 +199,6 @@ jobs:
           echo "has_doc_changes=${HAS_DOC_CHANGES:-0}" >> $GITHUB_OUTPUT
           echo "needs_full_tests=${NEEDS_FULL_TESTS:-1}" >> $GITHUB_OUTPUT
           echo "needs_security_scan=${NEEDS_SECURITY_SCAN:-1}" >> $GITHUB_OUTPUT
-          echo "needs_integration_tests=${NEEDS_INTEGRATION_TESTS:-1}" >> $GITHUB_OUTPUT
           
           # Summary message
           if [ "$HAS_CHANGES" -gt 0 ]; then
