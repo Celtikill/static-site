@@ -407,10 +407,30 @@ gh run download --name "deploy-123-website-archive"
 
 ### 5. Environment Protection
 
-Configure branch protection rules:
-- **Development**: Auto-deploy on push to `develop` branch
-- **Staging**: Manual approval required
-- **Production**: Manual approval + required reviewers
+Configure branch protection rules with streamlined workflow architecture:
+- **Development**: ✨ Auto-deploy via DEPLOY workflow after successful TEST on feature branches (`feature/*`, `bugfix/*`, `hotfix/*`)
+- **Staging**: Manual approval required via DEPLOY workflow on pull requests to main
+- **Production**: Manual approval + required reviewers via DEPLOY workflow
+- **Branch Protection**: Simplified without complex badge automation workflows
+
+### 6. Architectural Improvements
+
+Recent workflow architecture improvements have enhanced deployment reliability and clarity:
+
+#### Corrected Deployment Responsibility
+- **Previous**: Development auto-deploy was incorrectly handled by TEST workflow
+- **Current**: All environment deployments unified under DEPLOY workflow
+- **Benefit**: Clear separation of concerns - TEST validates, DEPLOY deploys
+
+#### Enhanced Environment Resolution
+- **Feature Branches**: Automatically deploy to development environment after TEST success
+- **Main Branch**: Environment determined by RELEASE workflow orchestration
+- **Manual Dispatch**: Direct environment selection with parameter validation
+
+#### Improved Status Tracking
+- **GitHub Deployments API**: Accurate deployment record keeping
+- **Simplified Badge System**: Clean status overview without complex automation
+- **Reduced Complexity**: Eliminated badge file commits and PR creation workflows
 
 ---
 
@@ -729,34 +749,23 @@ aws ce get-cost-and-usage \
 
 ## 📊 Deployment Status Monitoring
 
-### Enhanced Status Badge System
+### Status Monitoring
 
-The deployment pipeline includes an advanced status reporting system that provides accurate, real-time deployment visibility:
+The deployment pipeline provides status visibility through simplified badge display:
 
-#### Status Badge Integration in README
+#### Environment Status Overview
+
+The README displays a clean status line showing all environments at a glance:
 
 ```markdown
-![Development](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/celtikill/static-site/main/.github/badges/dev-deployment.json)
-![Staging](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/celtikill/static-site/main/.github/badges/staging-deployment.json)
-![Production](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/celtikill/static-site/main/.github/badges/production-deployment.json)
+**Environments:** ![Development](badge-url) ![Staging](badge-url) ![Production](badge-url)
 ```
 
-#### Badge Meanings
+#### Status Sources
 
-| Badge Color | Status | Message Format | Interpretation |
-|-------------|--------|----------------|----------------|
-| 🟢 **Green** | Deployed | `deployed YYYY-MM-DD` | Successful deployment completed |
-| 🟡 **Yellow** | Skipped | `no changes detected` | Workflow ran but no deployment needed |
-| 🔴 **Red** | Failed | `deployment failed` | Deployment attempt failed |
-| ⚪ **Grey** | Unknown | `not deployed` | Initial state or system unavailable |
-
-#### Key Improvements Over Traditional Badges
-
-| Traditional Workflow Badge | Enhanced Deployment Badge |
-|---------------------------|---------------------------|
-| ✅ "Passing" (workflow completed) | ✅ "deployed 2025-08-23" (actual deployment) |
-| ✅ "Passing" (jobs succeeded) | 🟡 "no changes detected" (validation only) |
-| ✅ "Passing" (misleading) | 🔴 "deployment failed" (accurate status) |
+- **Workflow badges**: Native GitHub Actions badges for BUILD, TEST, and RELEASE workflows
+- **Environment badges**: Simple static badges indicating environment state
+- **GitHub Deployments**: Native GitHub deployment tracking in the repository Deployments tab
 
 ### GitHub Deployments Integration
 
@@ -775,39 +784,22 @@ The system automatically creates GitHub Deployment records for tracking:
 - **Workflow Link**: Direct access to deployment logs
 - **Environment URL**: Live website URL (when available)
 
-### Status Dashboard Usage
+### Status Monitoring Usage
 
 #### For Development Teams
-- **Quick Status Check**: README badge overview shows all environment states
-- **Deployment Debugging**: Failed badges link to detailed workflow logs
-- **Change Impact**: "No changes detected" badges confirm deployment logic
+- **Quick Status Check**: Clean environment status line in README
+- **Deployment Debugging**: GitHub Deployments tab provides detailed deployment history
+- **Workflow Status**: Native GitHub Actions badges show pipeline health
 
-#### For Stakeholders
-- **Environment Health**: At-a-glance status via comprehensive dashboard
-- **Deployment Timeline**: Badge timestamps show deployment cadence
-- **System Reliability**: Clear success/failure patterns over time
+#### For Stakeholders  
+- **Environment Health**: Simple badge overview shows current environment states
+- **Deployment History**: GitHub Deployments tab tracks deployment timeline
+- **System Reliability**: Workflow badges indicate overall system health
 
 #### For Operations Teams
-- **Incident Response**: Red badges immediately highlight deployment failures
-- **Maintenance Planning**: Badge history shows deployment patterns
-- **System Health**: Overall deployment success rates visible
-
-### Troubleshooting Status Issues
-
-#### Common Badge States and Actions
-
-| Badge State | Likely Cause | Recommended Action |
-|-------------|--------------|-------------------|
-| "no changes detected" | No infrastructure/content changes | Normal - no action needed |
-| "deployment failed" | Infrastructure or content deployment error | Check workflow logs, fix issues, retry |
-| "not deployed" | Badge not updated or system error | Check workflow execution, badge file commits |
-| Stale timestamp | Badge update automation issue | Verify workflow permissions and badge commit process |
-
-#### Badge Update Process
-1. **Deployment workflow runs** → analyzes actual deployment outcome
-2. **Badge file generated** → JSON file with current status and timestamp  
-3. **Automatic commit** → badge file committed to repository
-4. **Badge displays update** → shields.io renders new badge within minutes
+- **Incident Response**: Workflow badges indicate build/test/deploy pipeline failures
+- **Deployment Tracking**: GitHub Deployments API provides comprehensive deployment records
+- **System Monitoring**: Simplified badge system reduces noise and focuses on key metrics
 
 ## 🚀 Advanced Deployment
 
