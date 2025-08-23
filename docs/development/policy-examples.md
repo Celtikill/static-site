@@ -606,6 +606,6 @@ deny[msg] {
 ## Related Documentation
 
 - [Policy Validation Guide](../policy-validation.md) - Using policies
-- [Policy Development Guide](../policy-development.md) - Writing policies
+- [Policy Governance Guide](../guides/policy-governance.md) - Policy framework and development
 - [Security Documentation](../guides/security-guide.md) - Security overview
 - [OPA Documentation](https://www.openpolicyagent.org/docs/) - Official OPA docs

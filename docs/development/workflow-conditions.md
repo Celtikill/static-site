@@ -657,6 +657,6 @@ cloudfront_distribution_id: CDN ID
 
 - [Deployment Guide](../guides/deployment-guide.md) - Overall deployment strategies and RELEASE workflow
 - [Version Management](../guides/version-management.md) - Git-based versioning and release process
-- [Integration Testing](../guides/testing-guide.md) - Test execution details  
+- [Testing Guide](../guides/testing-guide.md) - Test execution details  
 - [Quick Reference](../quick-reference.md) - Common workflow commands
 - [Troubleshooting](../guides/troubleshooting.md) - Debugging workflow issues

@@ -420,7 +420,7 @@ curl -I https://d1234567890123.cloudfront.net | grep -i "x-amz-cf-pop"
 
 ```bash
 # Run CloudFront module tests
-cd ../../../test/unit
+cd test/unit
 ./test-cloudfront.sh
 ```
 
@@ -458,4 +458,4 @@ openssl s_client -connect d1234567890123.cloudfront.net:443 -tls1_2
 3. **Regional testing**: Verify global performance
 4. **Cost analysis**: Monitor pricing impact
 
-**Questions?** → [Main Documentation](../../../docs/README.md) | [GitHub Issues](https://github.com/celtikill/static-site/issues)
+**Questions?** → [Main Documentation](../README.md) | [GitHub Issues](https://github.com/celtikill/static-site/issues)
