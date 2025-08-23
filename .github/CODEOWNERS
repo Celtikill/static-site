@@ -1,0 +1,30 @@
+# Global code ownership - all files require approval from primary maintainers
+* @celtikill
+
+# Infrastructure changes require infrastructure team review
+/terraform/ @celtikill
+terraform/ @celtikill
+
+# CI/CD workflow changes require DevOps approval
+/.github/workflows/ @celtikill
+.github/workflows/ @celtikill
+
+# Production deployment workflows - code owners only
+/.github/workflows/deploy.yml @celtikill
+/.github/workflows/release.yml @celtikill
+
+# Security and policy files
+/docs/iam-policies/ @celtikill
+/docs/security.md @celtikill
+SECURITY.md @celtikill
+
+# Documentation oversight
+/docs/ @celtikill
+
+# Test framework changes
+/test/ @celtikill
+
+# Configuration files
+*.yml @celtikill
+*.yaml @celtikill
+*.json @celtikill

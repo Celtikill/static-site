@@ -26,6 +26,9 @@ on:
   push:
     branches:
       - main
+      - 'feature/*'
+      - 'bugfix/*'
+      - 'hotfix/*'
 
 # OIDC Authentication Permissions
 # id-token: write - REQUIRED for GitHub OIDC token generation to authenticate with AWS
@@ -120,6 +123,8 @@ jobs:
             HAS_CONTENT_CHANGES=1
             HAS_WORKFLOW_CHANGES=1
             HAS_TEST_CHANGES=1
+            NEEDS_SECURITY_SCAN=1
+            NEEDS_FULL_TESTS=1
             echo "**Main Branch Push - Full Build Required**" >> $GITHUB_STEP_SUMMARY
             CHANGED_FILES="[main branch - full build]"
           fi

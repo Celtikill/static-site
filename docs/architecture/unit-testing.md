@@ -367,5 +367,3 @@ unit-testing:
 - Framework capability expansion
 
 ---
-
-*For integration testing architecture and end-to-end workflows, see [Integration Testing Architecture](integration-testing.md).*

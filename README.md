@@ -13,7 +13,9 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 - **🌍 Global CDN**: CloudFront distribution with edge locations worldwide
 - **📊 Monitoring**: Comprehensive CloudWatch dashboards and alerts
 - **💰 Cost Optimized**: S3 Intelligent Tiering, budget alerts
-- **🔄 CI/CD Ready**: GitHub Actions OIDC integration
+- **🔄 Advanced CI/CD**: Multi-environment pipeline with automated deployment and rollback
+- **🧪 Automated Testing**: Comprehensive usability and validation testing
+- **🚨 Emergency Response**: Hotfix and rollback capabilities with code owner approval
 - **🛡️ Compliance**: ASVS L1/L2 compliant, security scanning
 
 ## 📋 Prerequisites
@@ -35,6 +37,34 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
                     │     WAF     │
                     │ (Security)  │
                     └─────────────┘
+```
+
+## 🔄 Deployment Pipeline
+
+This project implements a comprehensive 4-environment deployment strategy:
+
+### 🔀 Deployment Paths
+
+1. **Development Auto-Deploy**: Feature branches → `development` environment
+2. **Staging Auto-Deploy**: Pull Requests → `staging` environment with validation
+3. **Production Manual Deploy**: Code owners only → `production` environment
+4. **Emergency Hotfix**: Code owner approved → `staging` → `production`
+
+### 🛡️ Validation Gates
+
+- **Development Health**: Required for staging deployments
+- **Usability Testing**: Comprehensive HTTP/SSL/performance validation
+- **Code Owner Approval**: Production deployments restricted to code owners
+- **Environment Dependencies**: Staging requires healthy development, production requires validated staging
+
+### 🚨 Emergency Procedures
+
+```bash
+# Emergency hotfix deployment
+gh workflow run hotfix.yml --field target_environment=production --field hotfix_reason="Critical security fix"
+
+# Emergency rollback
+gh workflow run rollback.yml --field environment=production --field rollback_reason="Performance regression"
 ```
 
 ## 🚀 Quick Start
@@ -73,18 +103,32 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 
 ```
 .
-├── .github/workflows/    # CI/CD pipelines
-├── docs/                 # Documentation and IAM policies
-├── scripts/              # Setup and utility scripts
-├── src/                  # Static website content
-├── terraform/            # Infrastructure as Code
-│   ├── modules/         # Reusable Terraform modules (4 modules)
-│   │   ├── cloudfront/  # CDN configuration
-│   │   ├── s3/          # Storage configuration
-│   │   ├── waf/         # Web Application Firewall
-│   │   └── monitoring/  # CloudWatch monitoring
-│   └── *.tf             # Root configuration files (includes IAM)
-└── test/                # Infrastructure tests
+├── .github/
+│   ├── CODEOWNERS           # Code ownership and access control
+│   └── workflows/           # CI/CD pipelines
+│       ├── build.yml        # BUILD - Artifact creation and security scanning
+│       ├── test.yml         # TEST - Policy validation and usability testing
+│       ├── deploy.yml       # DEPLOY - Multi-environment deployment
+│       ├── hotfix.yml       # HOTFIX - Emergency deployment pipeline
+│       ├── rollback.yml     # ROLLBACK - Automated rollback capabilities
+│       └── release.yml      # RELEASE - Version management
+├── docs/                    # Documentation and IAM policies
+├── scripts/
+│   └── decommission-environment.sh  # Environment cleanup with GitHub API integration
+├── src/                     # Static website content
+├── terraform/               # Infrastructure as Code
+│   ├── modules/            # Reusable Terraform modules (4 modules)
+│   │   ├── cloudfront/     # CDN configuration
+│   │   ├── s3/             # Storage configuration
+│   │   ├── waf/            # Web Application Firewall
+│   │   └── monitoring/     # CloudWatch monitoring
+│   └── *.tf                # Root configuration files (includes IAM)
+└── test/                   # Infrastructure and usability tests
+    ├── unit/               # Infrastructure module unit tests
+    └── usability/          # HTTP/SSL/performance validation tests
+        ├── usability-functions.sh      # Core testing functions
+        ├── run-usability-tests.sh      # Multi-environment test runner
+        └── staging-usability-tests.sh  # Staging-specific validation
 ```
 
 ## 🔧 Configuration
@@ -118,15 +162,25 @@ This project implements multiple security layers:
 
 See [SECURITY.md](SECURITY.md) for detailed security documentation.
 
-## 🧪 Testing
+## 🧪 Testing & Validation
 
-Run unit tests:
+### Unit Tests
 ```bash
 cd test/unit
 ./run-tests.sh
 ```
 
-**Note**: Integration tests are documented but not yet implemented. Unit tests cover all 4 infrastructure modules with comprehensive assertions.
+### Usability Testing
+```bash
+# Test development environment
+cd test/usability
+./run-usability-tests.sh dev
+
+# Test staging environment 
+./staging-usability-tests.sh
+```
+
+**Testing Framework**: Unit tests cover all 4 infrastructure modules. Usability tests validate real HTTP interactions, SSL certificates, performance, and security headers across all environments.
 
 ## 📊 Cost Estimation
 

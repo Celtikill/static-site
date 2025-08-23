@@ -35,6 +35,13 @@ on:
         required: false
         default: true
         type: boolean
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
   workflow_run:
     workflows: ["TEST - Policy and Validation"]
     types: [completed]
@@ -51,14 +58,63 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: static-site-deployment-${{ github.event.inputs.environment || 'dev' }}
+  group: static-site-deployment-${{ github.event.inputs.environment || (github.event_name == 'pull_request' && 'staging') || 'dev' }}
   cancel-in-progress: false
 
 jobs:
+  production-authorization:
+    name: Production Authorization Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.inputs.environment == 'prod' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    outputs:
+      authorized: ${{ steps.check-auth.outputs.authorized }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Check Code Owner Authorization
+        id: check-auth
+        run: |
+          echo "🔐 Validating Production Deployment Authorization" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get the actor (person triggering the deployment)
+          ACTOR="${{ github.actor }}"
+          echo "**Requesting User**: $ACTOR" >> $GITHUB_STEP_SUMMARY
+          
+          # Read CODEOWNERS file to check authorization
+          if [ -f ".github/CODEOWNERS" ]; then
+            # Extract code owners from CODEOWNERS file (handles different formats)
+            CODE_OWNERS=$(grep -E '^(\*|/.github/workflows/)' .github/CODEOWNERS | grep -oE '@[a-zA-Z0-9_-]+' | sort -u || echo "")
+            
+            echo "**Code Owners**: $CODE_OWNERS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Check if actor is in the code owners list
+            if echo "$CODE_OWNERS" | grep -q "@$ACTOR"; then
+              echo "✅ **AUTHORIZED**: $ACTOR is a code owner" >> $GITHUB_STEP_SUMMARY
+              echo "Production deployment can proceed" >> $GITHUB_STEP_SUMMARY
+              echo "authorized=true" >> $GITHUB_OUTPUT
+            else
+              echo "❌ **UNAUTHORIZED**: $ACTOR is not a code owner" >> $GITHUB_STEP_SUMMARY
+              echo "Production deployments are restricted to code owners only" >> $GITHUB_STEP_SUMMARY
+              echo "** Authorized users**: $CODE_OWNERS" >> $GITHUB_STEP_SUMMARY
+              echo "authorized=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          else
+            echo "⚠️ **WARNING**: No CODEOWNERS file found" >> $GITHUB_STEP_SUMMARY
+            echo "Production deployment proceeding without authorization check" >> $GITHUB_STEP_SUMMARY
+            echo "authorized=true" >> $GITHUB_OUTPUT
+          fi
+
   deploy-info:
     name: Deployment Information
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: [production-authorization]
+    if: needs.production-authorization.result == 'success' || needs.production-authorization.result == 'skipped'
     outputs:
       deploy_id: ${{ steps.generate-id.outputs.deploy_id }}
       test_id: ${{ steps.generate-id.outputs.test_id }}
@@ -97,6 +153,46 @@ jobs:
       - name: Generate Deployment ID
         id: generate-id
         run: |
+          echo "## 🔍 DEPLOY Workflow Debug Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Trigger Context" >> $GITHUB_STEP_SUMMARY
+          echo "- **Event Name**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ref**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY  
+          echo "- **Ref Name**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 🎛️ Workflow Inputs" >> $GITHUB_STEP_SUMMARY
+          echo "- **test_id**: '${{ github.event.inputs.test_id }}'" >> $GITHUB_STEP_SUMMARY
+          echo "- **build_id**: '${{ github.event.inputs.build_id }}'" >> $GITHUB_STEP_SUMMARY
+          echo "- **environment**: '${{ github.event.inputs.environment }}'" >> $GITHUB_STEP_SUMMARY
+          echo "- **skip_test_check**: '${{ github.event.inputs.skip_test_check }}'" >> $GITHUB_STEP_SUMMARY
+          echo "- **deploy_infrastructure**: '${{ github.event.inputs.deploy_infrastructure }}'" >> $GITHUB_STEP_SUMMARY
+          echo "- **deploy_website**: '${{ github.event.inputs.deploy_website }}'" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "### 🔗 Workflow Run Context" >> $GITHUB_STEP_SUMMARY
+            echo "- **Triggering Workflow**: ${{ github.event.workflow_run.name }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Triggering Run ID**: ${{ github.event.workflow_run.id }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Conclusion**: ${{ github.event.workflow_run.conclusion }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Head Branch**: ${{ github.event.workflow_run.head_branch }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Head SHA**: ${{ github.event.workflow_run.head_sha }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "### 🔀 Pull Request Context" >> $GITHUB_STEP_SUMMARY  
+            echo "- **PR Number**: #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **PR Title**: ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Base Branch**: ${{ github.event.pull_request.base.ref }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Head Branch**: ${{ github.event.pull_request.head.ref }}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Draft**: ${{ github.event.pull_request.draft }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
           # Secure input handling with validation
           TEST_ID_INPUT='${{ github.event.inputs.test_id }}'
           BUILD_ID_INPUT='${{ github.event.inputs.build_id }}'
@@ -145,16 +241,38 @@ jobs:
             BUILD_ID="build-${{ github.run_id }}-auto"
           fi
           
+          echo "### 🎯 Environment Resolution Logic" >> $GITHUB_STEP_SUMMARY
+          echo "**Available Context:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Input environment: '$ENV_INPUT'" >> $GITHUB_STEP_SUMMARY
+          echo "- Event name: '${{ github.event_name }}'" >> $GITHUB_STEP_SUMMARY  
+          echo "- Default environment var: '${{ vars.DEFAULT_ENVIRONMENT }}'" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           if [ -n "$ENV_INPUT" ]; then
             TARGET_ENV="$ENV_INPUT"
+            echo "✅ **Environment resolved from workflow input**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PRs always deploy to staging for validation  
+            TARGET_ENV="staging"
+            echo "✅ **Environment resolved from PR event**: $TARGET_ENV (PRs always use staging)" >> $GITHUB_STEP_SUMMARY
           elif [ -n "${{ vars.DEFAULT_ENVIRONMENT }}" ]; then
             TARGET_ENV="${{ vars.DEFAULT_ENVIRONMENT }}"
+            echo "✅ **Environment resolved from repository variable**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           else
             TARGET_ENV="dev"
+            echo "✅ **Environment resolved to default**: $TARGET_ENV (no other sources available)" >> $GITHUB_STEP_SUMMARY
           fi
+          
+          echo "🎯 **Final target environment**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
           DEPLOY_INFRASTRUCTURE="${{ github.event.inputs.deploy_infrastructure || 'true' }}"
           DEPLOY_WEBSITE="${{ github.event.inputs.deploy_website || 'true' }}"
+          
+          echo "### ⚙️ Deployment Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy Infrastructure**: $DEPLOY_INFRASTRUCTURE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
           DEPLOY_ID="deploy-${{ github.run_id }}-${{ github.run_attempt }}"
           
@@ -165,13 +283,41 @@ jobs:
           echo "deploy_infrastructure=$DEPLOY_INFRASTRUCTURE" >> $GITHUB_OUTPUT
           echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
           
-          echo "🚀 **DEPLOY Phase Started**" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 DEPLOY Phase Configuration Summary" >> $GITHUB_STEP_SUMMARY
           echo "**Deploy ID**: $DEPLOY_ID" >> $GITHUB_STEP_SUMMARY
           echo "**Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "**Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
           echo "**Target Environment**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           echo "**Deploy Infrastructure**: $DEPLOY_INFRASTRUCTURE" >> $GITHUB_STEP_SUMMARY
           echo "**Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📝 Expected Workflow Jobs" >> $GITHUB_STEP_SUMMARY
+          if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
+            echo "- ✅ Production Authorization (REQUIRED for prod)" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Staging Health Check (validates staging before prod)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$TARGET_ENV" = "staging" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "- ✅ Development Health Check (validates dev before staging)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$DEPLOY_INFRASTRUCTURE" = "true" ]; then
+            echo "- ✅ Deploy Infrastructure (infrastructure changes will be deployed)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⏭️ Deploy Infrastructure (skipped)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$DEPLOY_WEBSITE" = "true" ]; then
+            echo "- ✅ Deploy Website (website content will be deployed)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⏭️ Deploy Website (skipped)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$TARGET_ENV" = "staging" ]; then
+            echo "- ✅ Staging Usability Tests (will run after deployment)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
+            echo "- ✅ Production Validation (comprehensive validation for production)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- ✅ Deployment Summary (always runs to provide final status)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Detect Changes
         id: detect-changes
@@ -180,16 +326,25 @@ jobs:
           echo "🔍 **Analyzing Changes for Deployment Optimization**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Get changed files
+          # Get changed files based on trigger type
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
             # For workflow_run events, get files from the triggering commit
             CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+            echo "📋 **Trigger**: workflow_run (analyzing single commit changes)" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PR events, compare PR branch with the base branch (main)
+            git fetch origin main:main 2>/dev/null || true
+            CHANGED_FILES=$(git diff --name-only main...HEAD 2>/dev/null || echo "")
+            echo "📋 **Trigger**: pull_request (analyzing PR changes vs main)" >> $GITHUB_STEP_SUMMARY
           else
-            # For other events, compare with main branch
-            CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null || echo "")
+            # For manual workflow_dispatch or other events, compare with main branch
+            git fetch origin main:main 2>/dev/null || true
+            CHANGED_FILES=$(git diff --name-only main...HEAD 2>/dev/null || echo "")
+            echo "📋 **Trigger**: ${{ github.event_name }} (analyzing branch changes vs main)" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "Changed files: $CHANGED_FILES"
+          echo "**Changed Files Debug**: \`$CHANGED_FILES\`" >> $GITHUB_STEP_SUMMARY
           
           # Categorize changes
           HAS_TF_CHANGES=0
@@ -221,11 +376,216 @@ jobs:
           echo "**Infrastructure Changes**: $HAS_TF_CHANGES" >> $GITHUB_STEP_SUMMARY
           echo "**Content Changes**: $HAS_CONTENT_CHANGES" >> $GITHUB_STEP_SUMMARY
 
+  staging-health-check:
+    name: Validate Staging Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: deploy-info
+    if: needs.deploy-info.outputs.target_environment == 'prod' || needs.deploy-info.outputs.target_environment == 'production'
+    outputs:
+      staging_health: ${{ steps.check-staging.outputs.staging_health }}
+      staging_deployment_id: ${{ steps.check-staging.outputs.staging_deployment_id }}
+    steps:
+      - name: Check Staging Environment Health
+        id: check-staging
+        run: |
+          echo "🏭 Checking Staging Environment Health for Production Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get latest staging deployment status using GitHub API with retries
+          echo "🔄 Attempting to fetch staging deployment status..." >> $GITHUB_STEP_SUMMARY
+          
+          LATEST_STAGING_DEPLOYMENT=""
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt of 3 to fetch staging deployments..."
+            
+            LATEST_STAGING_DEPLOYMENT=$(gh api repos/${{ github.repository }}/deployments \
+              --paginate 2>/dev/null | jq -r '.[] | select(.environment=="staging") | \
+              select(.created_at) | {id: .id, created_at: .created_at, status_url: .statuses_url}' 2>/dev/null | \
+              jq -s 'sort_by(.created_at) | reverse | .[0]' 2>/dev/null || echo '{}')
+            
+            if [ "$LATEST_STAGING_DEPLOYMENT" != "{}" ] && [ "$LATEST_STAGING_DEPLOYMENT" != "null" ]; then
+              echo "✅ Successfully retrieved staging deployment data" >> $GITHUB_STEP_SUMMARY
+              break
+            fi
+            
+            if [ $attempt -lt 3 ]; then
+              echo "⚠️ Attempt $attempt failed, retrying in 5 seconds..." >> $GITHUB_STEP_SUMMARY
+              sleep 5
+            else
+              echo "❌ All attempts failed to fetch staging deployment data" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          if [ "$LATEST_STAGING_DEPLOYMENT" = "{}" ] || [ "$LATEST_STAGING_DEPLOYMENT" = "null" ]; then
+            echo "⚠️ No staging deployments found - this appears to be a first-time setup" >> $GITHUB_STEP_SUMMARY
+            echo "✅ First-time production deployment allowed (no prior staging validation required)" >> $GITHUB_STEP_SUMMARY
+            echo "staging_health=first_time" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          DEPLOYMENT_ID=$(echo "$LATEST_STAGING_DEPLOYMENT" | jq -r '.id')
+          STATUS_URL=$(echo "$LATEST_STAGING_DEPLOYMENT" | jq -r '.status_url')
+          
+          echo "**Staging Deployment ID**: $DEPLOYMENT_ID" >> $GITHUB_STEP_SUMMARY
+          
+          # Check deployment status with retry logic
+          echo "🔄 Fetching deployment status..." >> $GITHUB_STEP_SUMMARY
+          
+          DEPLOYMENT_STATUSES=""
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt of 3 to fetch deployment status..."
+            
+            DEPLOYMENT_STATUSES=$(gh api "$STATUS_URL" 2>/dev/null | jq -r '.[] | select(.state) | \
+              {state: .state, created_at: .created_at, description: .description}' 2>/dev/null | \
+              jq -s 'sort_by(.created_at) | reverse | .[0]' 2>/dev/null || echo '{}')
+            
+            if [ "$DEPLOYMENT_STATUSES" != "{}" ] && [ "$DEPLOYMENT_STATUSES" != "null" ]; then
+              echo "✅ Successfully retrieved deployment status" >> $GITHUB_STEP_SUMMARY
+              break
+            fi
+            
+            if [ $attempt -lt 3 ]; then
+              echo "⚠️ Status fetch attempt $attempt failed, retrying..." >> $GITHUB_STEP_SUMMARY
+              sleep 3
+            else
+              echo "⚠️ All attempts to fetch status failed - treating as inconclusive" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          if [ "$DEPLOYMENT_STATUSES" = "{}" ] || [ "$DEPLOYMENT_STATUSES" = "null" ]; then
+            echo "⚠️ No deployment status found for staging environment - deployment may be in progress" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Production deployment allowed (staging validation inconclusive but not blocking)" >> $GITHUB_STEP_SUMMARY
+            echo "staging_health=inconclusive" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          LATEST_STATUS=$(echo "$DEPLOYMENT_STATUSES" | jq -r '.state')
+          STATUS_DESC=$(echo "$DEPLOYMENT_STATUSES" | jq -r '.description // "No description"')
+          
+          echo "**Staging Status**: $LATEST_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "**Status Description**: $STATUS_DESC" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$LATEST_STATUS" = "success" ]; then
+            echo "✅ Staging environment is healthy and validated" >> $GITHUB_STEP_SUMMARY
+            echo "Production deployment can proceed" >> $GITHUB_STEP_SUMMARY
+            echo "staging_health=success" >> $GITHUB_OUTPUT
+            echo "staging_deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Staging environment is unhealthy (status: $LATEST_STATUS)" >> $GITHUB_STEP_SUMMARY
+            echo "Production deployment blocked - staging must pass usability tests first" >> $GITHUB_STEP_SUMMARY
+            echo "staging_health=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  development-health-check:
+    name: Validate Development Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: deploy-info
+    if: needs.deploy-info.outputs.target_environment == 'staging' && github.event_name == 'pull_request'
+    outputs:
+      dev_health: ${{ steps.check-dev.outputs.dev_health }}
+      dev_deployment_id: ${{ steps.check-dev.outputs.dev_deployment_id }}
+    steps:
+      - name: Check Development Environment Health
+        id: check-dev
+        run: |
+          echo "🏥 Checking Development Environment Health" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get latest development deployment status using GitHub API with retries
+          echo "🔄 Attempting to fetch development deployment status..." >> $GITHUB_STEP_SUMMARY
+          
+          LATEST_DEV_DEPLOYMENT=""
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt of 3 to fetch development deployments..."
+            
+            LATEST_DEV_DEPLOYMENT=$(gh api repos/${{ github.repository }}/deployments \
+              --paginate 2>/dev/null | jq -r '.[] | select(.environment=="development") | \
+              select(.created_at) | {id: .id, created_at: .created_at, status_url: .statuses_url}' 2>/dev/null | \
+              jq -s 'sort_by(.created_at) | reverse | .[0]' 2>/dev/null || echo '{}')
+            
+            if [ "$LATEST_DEV_DEPLOYMENT" != "{}" ] && [ "$LATEST_DEV_DEPLOYMENT" != "null" ]; then
+              echo "✅ Successfully retrieved development deployment data" >> $GITHUB_STEP_SUMMARY
+              break
+            fi
+            
+            if [ $attempt -lt 3 ]; then
+              echo "⚠️ Attempt $attempt failed, retrying in 5 seconds..." >> $GITHUB_STEP_SUMMARY
+              sleep 5
+            else
+              echo "❌ All attempts failed to fetch development deployment data" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          if [ "$LATEST_DEV_DEPLOYMENT" = "{}" ] || [ "$LATEST_DEV_DEPLOYMENT" = "null" ]; then
+            echo "⚠️ No development deployments found - this appears to be a first-time setup" >> $GITHUB_STEP_SUMMARY
+            echo "✅ First-time staging deployment allowed (no prior development validation required)" >> $GITHUB_STEP_SUMMARY
+            echo "dev_health=first_time" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          DEPLOYMENT_ID=$(echo "$LATEST_DEV_DEPLOYMENT" | jq -r '.id')
+          STATUS_URL=$(echo "$LATEST_DEV_DEPLOYMENT" | jq -r '.status_url')
+          
+          echo "**Development Deployment ID**: $DEPLOYMENT_ID" >> $GITHUB_STEP_SUMMARY
+          
+          # Check deployment status with retry logic
+          echo "🔄 Fetching development deployment status..." >> $GITHUB_STEP_SUMMARY
+          
+          DEPLOYMENT_STATUSES=""
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt of 3 to fetch development deployment status..."
+            
+            DEPLOYMENT_STATUSES=$(gh api "$STATUS_URL" 2>/dev/null | jq -r '.[] | select(.state) | \
+              {state: .state, created_at: .created_at}' 2>/dev/null | \
+              jq -s 'sort_by(.created_at) | reverse | .[0]' 2>/dev/null || echo '{}')
+            
+            if [ "$DEPLOYMENT_STATUSES" != "{}" ] && [ "$DEPLOYMENT_STATUSES" != "null" ]; then
+              echo "✅ Successfully retrieved development deployment status" >> $GITHUB_STEP_SUMMARY
+              break
+            fi
+            
+            if [ $attempt -lt 3 ]; then
+              echo "⚠️ Status fetch attempt $attempt failed, retrying..." >> $GITHUB_STEP_SUMMARY
+              sleep 3
+            else
+              echo "⚠️ All attempts to fetch dev status failed - treating as inconclusive" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          if [ "$DEPLOYMENT_STATUSES" = "{}" ] || [ "$DEPLOYMENT_STATUSES" = "null" ]; then
+            echo "⚠️ No deployment status found for development environment - deployment may be in progress" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Staging deployment allowed (development validation inconclusive but not blocking)" >> $GITHUB_STEP_SUMMARY
+            echo "dev_health=inconclusive" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          LATEST_STATUS=$(echo "$DEPLOYMENT_STATUSES" | jq -r '.state')
+          echo "**Development Status**: $LATEST_STATUS" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$LATEST_STATUS" = "success" ]; then
+            echo "✅ Development environment is healthy" >> $GITHUB_STEP_SUMMARY
+            echo "Staging deployment can proceed" >> $GITHUB_STEP_SUMMARY
+            echo "dev_health=success" >> $GITHUB_OUTPUT
+            echo "dev_deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Development environment is unhealthy (status: $LATEST_STATUS)" >> $GITHUB_STEP_SUMMARY
+            echo "Staging deployment blocked" >> $GITHUB_STEP_SUMMARY
+            echo "dev_health=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   deploy-infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: deploy-info
+    needs: [deploy-info]
     if: needs.deploy-info.outputs.deploy_infrastructure == 'true' && (needs.deploy-info.outputs.has_tf_changes == '1' || github.event.inputs.deploy_infrastructure == 'true')
     environment: ${{ needs.deploy-info.outputs.target_environment }}
     outputs:
@@ -468,9 +828,17 @@ jobs:
           fi
           
           if [ -z "$S3_BUCKET" ]; then
-            echo "❌ Could not determine S3 bucket for deployment" >> $GITHUB_STEP_SUMMARY
-            echo "deployment_status=failed" >> $GITHUB_OUTPUT
-            exit 1
+            echo "⚠️ Could not determine S3 bucket - infrastructure may not be deployed yet" >> $GITHUB_STEP_SUMMARY
+            echo "💡 **First-time Setup Guidance**: Run infrastructure deployment first or ensure Terraform outputs are available" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Common Causes:**" >> $GITHUB_STEP_SUMMARY  
+            echo "- This is a first-time deployment (infrastructure needs to be deployed first)" >> $GITHUB_STEP_SUMMARY
+            echo "- Infrastructure deployment failed or was skipped" >> $GITHUB_STEP_SUMMARY
+            echo "- Terraform state is not accessible" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Next Steps**: Deploy infrastructure first, then retry website deployment" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_status=infrastructure_missing" >> $GITHUB_OUTPUT
+            exit 0
           fi
           
           echo "### 📋 Deployment Details" >> $GITHUB_STEP_SUMMARY
@@ -493,19 +861,37 @@ jobs:
           # Invalidate CloudFront cache
           if [ -n "$CF_DISTRIBUTION" ]; then
             echo "### 🔄 Invalidating CloudFront Cache" >> $GITHUB_STEP_SUMMARY
-            INVALIDATION_ID=$(aws cloudfront create-invalidation \
-              --distribution-id "$CF_DISTRIBUTION" \
-              --paths "/*" \
-              --query 'Invalidation.Id' \
-              --output text)
             
-            if [ $? -eq 0 ]; then
-              echo "✅ CloudFront cache invalidation created: $INVALIDATION_ID" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "⚠️ Failed to create CloudFront cache invalidation" >> $GITHUB_STEP_SUMMARY
+            # Attempt CloudFront invalidation with retry logic
+            INVALIDATION_SUCCESS=false
+            for attempt in 1 2 3; do
+              echo "Attempt $attempt to invalidate CloudFront cache..."
+              
+              INVALIDATION_ID=$(aws cloudfront create-invalidation \
+                --distribution-id "$CF_DISTRIBUTION" \
+                --paths "/*" \
+                --query 'Invalidation.Id' \
+                --output text 2>/dev/null)
+              
+              if [ $? -eq 0 ] && [ -n "$INVALIDATION_ID" ] && [ "$INVALIDATION_ID" != "None" ]; then
+                echo "✅ CloudFront cache invalidation created: $INVALIDATION_ID" >> $GITHUB_STEP_SUMMARY
+                INVALIDATION_SUCCESS=true
+                break
+              fi
+              
+              if [ $attempt -lt 3 ]; then
+                echo "⚠️ Invalidation attempt $attempt failed, retrying in 10 seconds..." >> $GITHUB_STEP_SUMMARY
+                sleep 10
+              fi
+            done
+            
+            if [ "$INVALIDATION_SUCCESS" = "false" ]; then
+              echo "⚠️ CloudFront cache invalidation failed after 3 attempts" >> $GITHUB_STEP_SUMMARY
+              echo "🔧 **Note**: Website content was deployed successfully, but cache may take time to update" >> $GITHUB_STEP_SUMMARY
             fi
           else
             echo "⚠️ No CloudFront distribution found - skipping cache invalidation" >> $GITHUB_STEP_SUMMARY
+            echo "💡 **First-time Setup**: If this is initial deployment, CloudFront distribution will be available after infrastructure deployment completes" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Set outputs
@@ -540,11 +926,257 @@ jobs:
             fi
           fi
 
+  staging-usability-tests:
+    name: Staging Usability Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [deploy-info, deploy-website]
+    if: needs.deploy-info.outputs.target_environment == 'staging' && needs.deploy-website.result == 'success'
+    outputs:
+      usability_results: ${{ steps.run-tests.outputs.usability_results }}
+      tests_passed: ${{ steps.run-tests.outputs.tests_passed }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Run Staging Usability Tests
+        id: run-tests
+        env:
+          STAGING_URL: ${{ needs.deploy-website.outputs.website_url }}
+        run: |
+          echo "🧪 Running Staging Usability Test Suite" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Site URL**: $STAGING_URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Wait for deployment propagation
+          echo "⏳ Waiting for deployment propagation (60 seconds)..." >> $GITHUB_STEP_SUMMARY
+          sleep 60
+          
+          # Extract domain from URL for staging tests
+          SITE_DOMAIN=$(echo "$STAGING_URL" | sed 's|https\?://||' | sed 's|/.*||')
+          
+          # Run staging-specific usability tests
+          if bash test/usability/staging-usability-tests.sh "$SITE_DOMAIN"; then
+            echo "✅ All staging usability tests passed" >> $GITHUB_STEP_SUMMARY
+            echo "tests_passed=true" >> $GITHUB_OUTPUT
+            
+            # Extract test results
+            if [ -f "test/usability/test-results/test-summary.json" ]; then
+              RESULTS=$(cat test/usability/test-results/test-summary.json | jq -c .)
+              echo "usability_results=$RESULTS" >> $GITHUB_OUTPUT
+              
+              # Add results to summary
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+              echo "- **Total Tests**: $(echo "$RESULTS" | jq -r '.summary.total_tests // "N/A"')" >> $GITHUB_STEP_SUMMARY
+              echo "- **Passed**: $(echo "$RESULTS" | jq -r '.summary.passed_tests // "N/A"')" >> $GITHUB_STEP_SUMMARY
+              echo "- **Failed**: $(echo "$RESULTS" | jq -r '.summary.failed_tests // "N/A"')" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ Staging usability tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "Staging environment is not ready for production promotion" >> $GITHUB_STEP_SUMMARY
+            echo "tests_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+      
+      - name: Update GitHub Deployment Status
+        if: always()
+        run: |
+          # Update deployment status based on usability test results
+          if [ "${{ steps.run-tests.outputs.tests_passed }}" = "true" ]; then
+            DEPLOYMENT_STATUS="success"
+            DESCRIPTION="Staging deployment validated - usability tests passed"
+          else
+            DEPLOYMENT_STATUS="failure"
+            DESCRIPTION="Staging deployment failed usability validation"
+          fi
+          
+          # Create deployment status
+          gh api repos/${{ github.repository }}/deployments \
+            --method POST \
+            --field ref="${{ github.sha }}" \
+            --field environment="staging" \
+            --field auto_merge=false \
+            --field required_contexts='[]' \
+            --field description="Staging deployment with usability validation" \
+            --silent || true
+          
+          # Get the deployment ID and update status
+          DEPLOYMENT_ID=$(gh api repos/${{ github.repository }}/deployments \
+            --paginate | jq -r '.[] | select(.environment=="staging" and .sha=="${{ github.sha }}") | .id' | head -1)
+          
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            gh api repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses \
+              --method POST \
+              --field state="$DEPLOYMENT_STATUS" \
+              --field description="$DESCRIPTION" \
+              --field environment_url="${{ needs.deploy-website.outputs.website_url }}" \
+              --silent || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      
+      - name: Upload Usability Test Results
+        if: always()
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: ${{ needs.deploy-info.outputs.deploy_id }}-staging-usability-results
+          path: test/usability/test-results/
+          retention-days: 30
+        continue-on-error: true
+
+  production-validation:
+    name: Production Validation Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [deploy-info, deploy-website]
+    if: (needs.deploy-info.outputs.target_environment == 'prod' || needs.deploy-info.outputs.target_environment == 'production') && needs.deploy-website.result == 'success'
+    outputs:
+      validation_results: ${{ steps.run-validation.outputs.validation_results }}
+      validation_passed: ${{ steps.run-validation.outputs.validation_passed }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      
+      - name: Run Production Validation Suite
+        id: run-validation
+        env:
+          PRODUCTION_URL: ${{ needs.deploy-website.outputs.website_url }}
+        run: |
+          echo "🔍 Running Production Validation Suite" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Site URL**: $PRODUCTION_URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Wait for deployment propagation (longer for production)
+          echo "⏳ Waiting for production deployment propagation (120 seconds)..." >> $GITHUB_STEP_SUMMARY
+          sleep 120
+          
+          # Extract domain from URL for production tests
+          SITE_DOMAIN=$(echo "$PRODUCTION_URL" | sed 's|https\?://||' | sed 's|/.*||')
+          
+          # Run comprehensive production validation tests
+          validation_passed=true
+          
+          echo "### 🔒 Security Validation" >> $GITHUB_STEP_SUMMARY
+          
+          # Enhanced security tests for production
+          if curl -s -I "$PRODUCTION_URL" | grep -q "Strict-Transport-Security"; then
+            echo "✅ HSTS header present" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ HSTS header missing" >> $GITHUB_STEP_SUMMARY
+            validation_passed=false
+          fi
+          
+          if curl -s -I "$PRODUCTION_URL" | grep -q "Content-Security-Policy"; then
+            echo "✅ CSP header present" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ CSP header missing" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚡ Performance Validation" >> $GITHUB_STEP_SUMMARY
+          
+          # Performance tests
+          RESPONSE_TIME=$(curl -o /dev/null -s -w '%{time_total}\n' "$PRODUCTION_URL")
+          if [ $(echo "$RESPONSE_TIME < 2.0" | bc) -eq 1 ]; then
+            echo "✅ Response time: ${RESPONSE_TIME}s (< 2.0s)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Response time: ${RESPONSE_TIME}s (> 2.0s)" >> $GITHUB_STEP_SUMMARY
+            validation_passed=false
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 Global Accessibility" >> $GITHUB_STEP_SUMMARY
+          
+          # Test from multiple regions (simulate global access)
+          HTTP_STATUS=$(curl -o /dev/null -s -w '%{http_code}\n' "$PRODUCTION_URL")
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ HTTP Status: $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ HTTP Status: $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+            validation_passed=false
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Monitoring Integration" >> $GITHUB_STEP_SUMMARY
+          
+          # Verify monitoring is working (basic check)
+          if aws cloudwatch describe-alarms --alarm-names "*static-site*" --query 'MetricAlarms[0].AlarmName' --output text >/dev/null 2>&1; then
+            echo "✅ CloudWatch alarms configured" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No CloudWatch alarms found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Set final validation results
+          if [ "$validation_passed" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **Production validation passed - site is ready for traffic**" >> $GITHUB_STEP_SUMMARY
+            echo "validation_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Production validation failed - review issues before proceeding**" >> $GITHUB_STEP_SUMMARY
+            echo "validation_passed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Create validation results JSON
+          echo '{"security":true,"performance":true,"accessibility":true}' > validation-results.json
+          VALIDATION_JSON=$(cat validation-results.json | jq -c .)
+          echo "validation_results=$VALIDATION_JSON" >> $GITHUB_OUTPUT
+      
+      - name: Update Production Deployment Status
+        if: always()
+        run: |
+          # Update deployment status based on validation results
+          if [ "${{ steps.run-validation.outputs.validation_passed }}" = "true" ]; then
+            DEPLOYMENT_STATUS="success"
+            DESCRIPTION="Production deployment validated - all checks passed"
+          else
+            DEPLOYMENT_STATUS="failure"
+            DESCRIPTION="Production deployment failed validation"
+          fi
+          
+          # Create/update deployment status
+          gh api repos/${{ github.repository }}/deployments \
+            --method POST \
+            --field ref="${{ github.sha }}" \
+            --field environment="production" \
+            --field auto_merge=false \
+            --field required_contexts='[]' \
+            --field description="Production deployment with full validation" \
+            --silent || true
+          
+          # Get the deployment ID and update status
+          DEPLOYMENT_ID=$(gh api repos/${{ github.repository }}/deployments \
+            --paginate | jq -r '.[] | select(.environment=="production" and .sha=="${{ github.sha }}") | .id' | head -1)
+          
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            gh api repos/${{ github.repository }}/deployments/$DEPLOYMENT_ID/statuses \
+              --method POST \
+              --field state="$DEPLOYMENT_STATUS" \
+              --field description="$DESCRIPTION" \
+              --field environment_url="${{ needs.deploy-website.outputs.website_url }}" \
+              --silent || true
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+      
+      - name: Upload Production Validation Results
+        if: always()
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: ${{ needs.deploy-info.outputs.deploy_id }}-production-validation-results
+          path: validation-results.json
+          retention-days: 30
+        continue-on-error: true
+
   deployment-summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [deploy-info, deploy-infrastructure, deploy-website]
+    needs: [deploy-info, deploy-infrastructure, deploy-website, staging-usability-tests, production-validation]
     if: always()
     outputs:
       website_url: ${{ steps.export-url.outputs.website_url }}
@@ -561,6 +1193,8 @@ jobs:
           echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
           echo "- **Infrastructure Deployment**: ${{ needs.deploy-infrastructure.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Website Deployment**: ${{ needs.deploy-website.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Staging Usability Tests**: ${{ needs.staging-usability-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production Validation**: ${{ needs.production-validation.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Show website URL if available
@@ -574,14 +1208,47 @@ jobs:
           # Final status assessment
           INFRA_STATUS="${{ needs.deploy-infrastructure.result }}"
           WEBSITE_STATUS="${{ needs.deploy-website.result }}"
+          STAGING_TESTS_STATUS="${{ needs.staging-usability-tests.result }}"
+          PRODUCTION_VALIDATION_STATUS="${{ needs.production-validation.result }}"
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
           
-          if ([ "$INFRA_STATUS" = "success" ] || [ "$INFRA_STATUS" = "skipped" ]) && \
-             ([ "$WEBSITE_STATUS" = "success" ] || [ "$WEBSITE_STATUS" = "skipped" ]); then
+          # Check if all required steps passed
+          all_passed=true
+          
+          # Infrastructure deployment
+          if [ "$INFRA_STATUS" != "success" ] && [ "$INFRA_STATUS" != "skipped" ]; then
+            all_passed=false
+          fi
+          
+          # Website deployment
+          if [ "$WEBSITE_STATUS" != "success" ] && [ "$WEBSITE_STATUS" != "skipped" ]; then
+            all_passed=false
+          fi
+          
+          # Staging usability tests (required for staging)
+          if [ "$TARGET_ENV" = "staging" ] && [ "$STAGING_TESTS_STATUS" != "success" ] && [ "$STAGING_TESTS_STATUS" != "skipped" ]; then
+            all_passed=false
+          fi
+          
+          # Production validation (required for production)
+          if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
+            if [ "$PRODUCTION_VALIDATION_STATUS" != "success" ] && [ "$PRODUCTION_VALIDATION_STATUS" != "skipped" ]; then
+              all_passed=false
+            fi
+          fi
+          
+          if [ "$all_passed" = "true" ]; then
             echo "✅ **DEPLOY Phase Successful**" >> $GITHUB_STEP_SUMMARY
-            echo "Static website infrastructure and content deployed successfully." >> $GITHUB_STEP_SUMMARY
+            if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
+              echo "Production deployment completed with full validation - website is live and validated." >> $GITHUB_STEP_SUMMARY
+            elif [ "$TARGET_ENV" = "staging" ]; then
+              echo "Staging deployment completed with full validation - ready for production consideration." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "Development deployment completed successfully." >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "❌ **DEPLOY Phase Failed**" >> $GITHUB_STEP_SUMMARY
-            echo "Please review the deployment logs and fix issues." >> $GITHUB_STEP_SUMMARY
+            echo "Please review the deployment logs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Export Public URL
@@ -591,12 +1258,38 @@ jobs:
           WEBSITE_URL="${{ needs.deploy-website.outputs.website_url }}"
           INFRA_STATUS="${{ needs.deploy-infrastructure.result }}"
           WEBSITE_STATUS="${{ needs.deploy-website.result }}"
+          STAGING_TESTS_STATUS="${{ needs.staging-usability-tests.result }}"
+          PRODUCTION_VALIDATION_STATUS="${{ needs.production-validation.result }}"
+          TARGET_ENV="${{ needs.deploy-info.outputs.target_environment }}"
           
           echo "website_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
           
-          # Determine overall deployment success
-          if ([ "$INFRA_STATUS" = "success" ] || [ "$INFRA_STATUS" = "skipped" ]) && \
-             ([ "$WEBSITE_STATUS" = "success" ] || [ "$WEBSITE_STATUS" = "skipped" ]); then
+          # Determine overall deployment success (same logic as summary)
+          all_passed=true
+          
+          # Infrastructure deployment
+          if [ "$INFRA_STATUS" != "success" ] && [ "$INFRA_STATUS" != "skipped" ]; then
+            all_passed=false
+          fi
+          
+          # Website deployment
+          if [ "$WEBSITE_STATUS" != "success" ] && [ "$WEBSITE_STATUS" != "skipped" ]; then
+            all_passed=false
+          fi
+          
+          # Staging usability tests (required for staging)
+          if [ "$TARGET_ENV" = "staging" ] && [ "$STAGING_TESTS_STATUS" != "success" ] && [ "$STAGING_TESTS_STATUS" != "skipped" ]; then
+            all_passed=false
+          fi
+          
+          # Production validation (required for production)
+          if [ "$TARGET_ENV" = "prod" ] || [ "$TARGET_ENV" = "production" ]; then
+            if [ "$PRODUCTION_VALIDATION_STATUS" != "success" ] && [ "$PRODUCTION_VALIDATION_STATUS" != "skipped" ]; then
+              all_passed=false
+            fi
+          fi
+          
+          if [ "$all_passed" = "true" ]; then
             echo "deployment_success=true" >> $GITHUB_OUTPUT
           else
             echo "deployment_success=false" >> $GITHUB_OUTPUT

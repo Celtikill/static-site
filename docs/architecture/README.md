@@ -123,9 +123,9 @@ This project implements a comprehensive serverless static website architecture d
 | Issue Type | Primary Document | Troubleshooting Guide |
 |------------|------------------|----------------------|
 | **Infrastructure failures** | [Infrastructure](infrastructure.md) | [Troubleshooting](../guides/troubleshooting.md) |
-| **Terraform errors** | [Terraform](terraform.md) | [Testing Architecture](testing.md) |
+| **Terraform errors** | [Terraform](terraform.md) | [Unit Testing](unit-testing.md) |
 | **Pipeline failures** | [CI/CD](cicd.md) | [Workflow Conditions](../development/workflow-conditions.md) |
-| **Test failures** | [Testing](testing.md) | [Testing Guide](../guides/testing-guide.md) |
+| **Test failures** | [Unit Testing](unit-testing.md) | [Testing Guide](../guides/testing-guide.md) |
 | **Performance issues** | [Infrastructure](infrastructure.md) | [Monitoring Reference](../reference/monitoring.md) |
 
 ## Architecture Principles
