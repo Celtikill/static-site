@@ -149,6 +149,65 @@ jobs:
           echo "🔍 **Analyzing Changes**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
+          # Debug git state
+          echo "**Debug Info:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Ref: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          
+          # Verify git references exist
+          echo "Checking git references..." >> $GITHUB_STEP_SUMMARY
+          if git show-ref --verify --quiet refs/remotes/origin/main; then
+            echo "- ✅ origin/main reference found" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ❌ origin/main reference missing" >> $GITHUB_STEP_SUMMARY
+            echo "- Available refs:" >> $GITHUB_STEP_SUMMARY
+            git branch -r | head -5 | sed 's/^/  /' >> $GITHUB_STEP_SUMMARY || echo "  [git branch failed]" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Function to safely get changed files with multiple fallback strategies
+          get_changed_files() {
+            local context="$1"
+            echo "**Changed Files Detection ($context):**" >> $GITHUB_STEP_SUMMARY
+            
+            # Strategy 1: Compare against origin/main
+            if git show-ref --verify --quiet refs/remotes/origin/main; then
+              echo "Trying: git diff --name-only origin/main...HEAD" >> $GITHUB_STEP_SUMMARY
+              if CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null); then
+                echo "✅ Successfully compared against origin/main" >> $GITHUB_STEP_SUMMARY
+                return 0
+              else
+                echo "❌ Failed to compare against origin/main" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            # Strategy 2: Compare against github.event.pull_request.base.sha (PR only)
+            if [ "${{ github.event_name }}" = "pull_request" ] && [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+              echo "Trying: git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD" >> $GITHUB_STEP_SUMMARY
+              if CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD 2>/dev/null); then
+                echo "✅ Successfully compared against PR base SHA" >> $GITHUB_STEP_SUMMARY
+                return 0
+              else
+                echo "❌ Failed to compare against PR base SHA" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            # Strategy 3: Use git show for current commit
+            echo "Trying: git show --name-only --pretty=format: HEAD" >> $GITHUB_STEP_SUMMARY
+            if CHANGED_FILES=$(git show --name-only --pretty=format: HEAD 2>/dev/null | grep -v '^$'); then
+              echo "✅ Successfully got files from current commit" >> $GITHUB_STEP_SUMMARY
+              return 0
+            else
+              echo "❌ Failed to get files from current commit" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            # Strategy 4: Fallback to full build
+            echo "❌ All git diff strategies failed, defaulting to full build" >> $GITHUB_STEP_SUMMARY
+            CHANGED_FILES=""
+            return 1
+          }
+          
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.force_build }}" = "true" ]; then
               HAS_CHANGES=1
@@ -158,16 +217,34 @@ jobs:
               HAS_TEST_CHANGES=1
               echo "🔧 Force build enabled - processing all changes" >> $GITHUB_STEP_SUMMARY
             else
-              CHANGED_FILES=$(git diff --name-only origin/main...HEAD || echo "")
-              echo "**Changed Files Detection (Manual Dispatch):**" >> $GITHUB_STEP_SUMMARY
+              get_changed_files "Manual Dispatch" || {
+                echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
+                HAS_CHANGES=1
+                HAS_TF_CHANGES=1
+                HAS_CONTENT_CHANGES=1
+                HAS_WORKFLOW_CHANGES=1
+                HAS_TEST_CHANGES=1
+              }
             fi
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
-            echo "**Changed Files Detection (Pull Request):**" >> $GITHUB_STEP_SUMMARY
+            get_changed_files "Pull Request" || {
+              echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
+              HAS_CHANGES=1
+              HAS_TF_CHANGES=1
+              HAS_CONTENT_CHANGES=1
+              HAS_WORKFLOW_CHANGES=1
+              HAS_TEST_CHANGES=1
+            }
           elif [ "${{ github.ref_name }}" != "main" ]; then
             # Feature branch push - detect changes against main
-            CHANGED_FILES=$(git diff --name-only origin/main...HEAD)
-            echo "**Changed Files Detection (Feature Branch):**" >> $GITHUB_STEP_SUMMARY
+            get_changed_files "Feature Branch" || {
+              echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
+              HAS_CHANGES=1
+              HAS_TF_CHANGES=1
+              HAS_CONTENT_CHANGES=1
+              HAS_WORKFLOW_CHANGES=1
+              HAS_TEST_CHANGES=1
+            }
           else
             # Main branch push - assume all changes for safety
             HAS_CHANGES=1
