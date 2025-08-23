@@ -601,7 +601,7 @@ jobs:
     if: |
       needs.deploy-info.outputs.target_environment == 'dev' && 
       github.event_name == 'push' && 
-      contains(fromJSON('["feature", "bugfix", "hotfix"]'), split(github.ref_name, '/')[0])
+      (startsWith(github.ref_name, 'feature/') || startsWith(github.ref_name, 'bugfix/') || startsWith(github.ref_name, 'hotfix/'))
     outputs:
       test_success: ${{ steps.check-test-status.outputs.test_success }}
       auto_deploy_enabled: ${{ steps.check-test-status.outputs.auto_deploy_enabled }}
