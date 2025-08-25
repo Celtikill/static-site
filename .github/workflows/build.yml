@@ -167,15 +167,20 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Function to safely get changed files with multiple fallback strategies
+          # Returns success (0) and sets CHANGED_FILES and CHANGE_DETECTION_SUCCESS variables
           get_changed_files() {
             local context="$1"
             echo "**Changed Files Detection ($context):**" >> $GITHUB_STEP_SUMMARY
+            
+            # Initialize success indicator
+            CHANGE_DETECTION_SUCCESS=0
             
             # Strategy 1: Compare against origin/main
             if git show-ref --verify --quiet refs/remotes/origin/main; then
               echo "Trying: git diff --name-only origin/main...HEAD" >> $GITHUB_STEP_SUMMARY
               if CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null); then
                 echo "✅ Successfully compared against origin/main" >> $GITHUB_STEP_SUMMARY
+                CHANGE_DETECTION_SUCCESS=1
                 return 0
               else
                 echo "❌ Failed to compare against origin/main" >> $GITHUB_STEP_SUMMARY
@@ -187,6 +192,7 @@ jobs:
               echo "Trying: git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD" >> $GITHUB_STEP_SUMMARY
               if CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD 2>/dev/null); then
                 echo "✅ Successfully compared against PR base SHA" >> $GITHUB_STEP_SUMMARY
+                CHANGE_DETECTION_SUCCESS=1
                 return 0
               else
                 echo "❌ Failed to compare against PR base SHA" >> $GITHUB_STEP_SUMMARY
@@ -197,16 +203,21 @@ jobs:
             echo "Trying: git show --name-only --pretty=format: HEAD" >> $GITHUB_STEP_SUMMARY
             if CHANGED_FILES=$(git show --name-only --pretty=format: HEAD 2>/dev/null | grep -v '^$'); then
               echo "✅ Successfully got files from current commit" >> $GITHUB_STEP_SUMMARY
+              CHANGE_DETECTION_SUCCESS=1
               return 0
             else
               echo "❌ Failed to get files from current commit" >> $GITHUB_STEP_SUMMARY
             fi
             
-            # Strategy 4: Fallback to full build
-            echo "❌ All git diff strategies failed, defaulting to full build" >> $GITHUB_STEP_SUMMARY
+            # Strategy 4: Fallback - indicate failure but don't exit
+            echo "❌ All git diff strategies failed, will default to full build" >> $GITHUB_STEP_SUMMARY
             CHANGED_FILES=""
-            return 1
+            CHANGE_DETECTION_SUCCESS=0
+            return 0  # Return success to avoid bash -e exit, but indicate failure via variable
           }
+          
+          # Initialize change detection success flag
+          CHANGE_DETECTION_SUCCESS=0
           
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.force_build }}" = "true" ]; then
@@ -217,34 +228,37 @@ jobs:
               HAS_TEST_CHANGES=1
               echo "🔧 Force build enabled - processing all changes" >> $GITHUB_STEP_SUMMARY
             else
-              get_changed_files "Manual Dispatch" || {
+              get_changed_files "Manual Dispatch"
+              if [ "$CHANGE_DETECTION_SUCCESS" -eq 0 ]; then
                 echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
                 HAS_CHANGES=1
                 HAS_TF_CHANGES=1
                 HAS_CONTENT_CHANGES=1
                 HAS_WORKFLOW_CHANGES=1
                 HAS_TEST_CHANGES=1
-              }
+              fi
             fi
           elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            get_changed_files "Pull Request" || {
+            get_changed_files "Pull Request"
+            if [ "$CHANGE_DETECTION_SUCCESS" -eq 0 ]; then
               echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
               HAS_CHANGES=1
               HAS_TF_CHANGES=1
               HAS_CONTENT_CHANGES=1
               HAS_WORKFLOW_CHANGES=1
               HAS_TEST_CHANGES=1
-            }
+            fi
           elif [ "${{ github.ref_name }}" != "main" ]; then
             # Feature branch push - detect changes against main
-            get_changed_files "Feature Branch" || {
+            get_changed_files "Feature Branch"
+            if [ "$CHANGE_DETECTION_SUCCESS" -eq 0 ]; then
               echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
               HAS_CHANGES=1
               HAS_TF_CHANGES=1
               HAS_CONTENT_CHANGES=1
               HAS_WORKFLOW_CHANGES=1
               HAS_TEST_CHANGES=1
-            }
+            fi
           else
             # Main branch push - assume all changes for safety
             HAS_CHANGES=1
@@ -277,8 +291,8 @@ jobs:
             fi
           fi
 
-          # Intelligent categorization of changes
-          if [ "${{ github.event.inputs.force_build }}" != "true" ] && [ "${{ github.ref_name }}" != "main" ] && [ "$BADGE_ONLY_CHANGES" -eq 0 ]; then
+          # Intelligent categorization of changes (only if change detection succeeded and not a forced/main build)
+          if [ "${{ github.event.inputs.force_build }}" != "true" ] && [ "${{ github.ref_name }}" != "main" ] && [ "$BADGE_ONLY_CHANGES" -eq 0 ] && [ "$CHANGE_DETECTION_SUCCESS" -eq 1 ]; then
             # Infrastructure changes
             HAS_TF_CHANGES=$(echo "$CHANGED_FILES" | grep -E 'terraform/.*\.(tf|tfvars)$' | wc -l)
             TF_MODULES_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^terraform/modules/' | cut -d'/' -f1-3 | sort -u | wc -l)
@@ -359,6 +373,7 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             
             echo "### 🔍 Final Debug Values" >> $GITHUB_STEP_SUMMARY
+            echo "- **CHANGE_DETECTION_SUCCESS**: $CHANGE_DETECTION_SUCCESS" >> $GITHUB_STEP_SUMMARY
             echo "- **NEEDS_SECURITY_SCAN**: $NEEDS_SECURITY_SCAN" >> $GITHUB_STEP_SUMMARY
             echo "- **HAS_CHANGES**: $HAS_CHANGES" >> $GITHUB_STEP_SUMMARY
             echo "- **Will output needs_security_scan**: ${NEEDS_SECURITY_SCAN:-1}" >> $GITHUB_STEP_SUMMARY
