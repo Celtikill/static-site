@@ -596,7 +596,13 @@ jobs:
           elif [ $PLAN_EXIT_CODE -eq 2 ]; then
             echo "📝 Infrastructure changes detected:" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            tofu show -no-color plan.tfplan | head -50 >> $GITHUB_STEP_SUMMARY
+            # Safe plan output - avoid SIGPIPE by using temporary file
+            if tofu show -no-color plan.tfplan > temp_plan_output.txt 2>/dev/null; then
+              head -50 temp_plan_output.txt >> $GITHUB_STEP_SUMMARY
+            else
+              echo "[Error: Could not display plan output]" >> $GITHUB_STEP_SUMMARY
+            fi
+            rm -f temp_plan_output.txt
             echo '```' >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Plan failed:" >> $GITHUB_STEP_SUMMARY
