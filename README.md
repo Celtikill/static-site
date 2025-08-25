@@ -12,7 +12,7 @@
 
 ---
 
-Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu/Terraform.
+Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu (Terraform-compatible).
 
 ## 🚀 Features
 
@@ -52,17 +52,18 @@ This project implements a comprehensive 4-environment deployment strategy:
 
 ### 🔀 Deployment Paths
 
-1. **Development Auto-Deploy**: Feature branches → `development` environment
-2. **Staging Auto-Deploy**: Pull Requests → `staging` environment with validation
+1. **Development Auto-Deploy**: Feature branches → BUILD → TEST → `development` environment (after all tests pass)
+2. **Staging Auto-Deploy**: Pull Requests → BUILD → TEST → `staging` environment with validation
 3. **Production Manual Deploy**: Code owners only → `production` environment
-4. **Emergency Hotfix**: Code owner approved → `staging` → `production`
+4. **Emergency Hotfix**: Code owner approved → direct deployment to any environment
 
-### 🛡️ Validation Gates
+### 🛡️ Quality Gates
 
-- **Development Health**: Required for staging deployments
-- **Usability Testing**: Comprehensive HTTP/SSL/performance validation
+- **Security Scanning**: Checkov and Trivy analysis in BUILD phase
+- **Policy Validation**: OPA/Rego policy compliance in TEST phase  
+- **Usability Testing**: HTTP/SSL/performance validation for staging
 - **Code Owner Approval**: Production deployments restricted to code owners
-- **Environment Dependencies**: Staging requires healthy development, production requires validated staging
+- **Environment Health**: Staging validates development, production validates staging
 
 ### 🚨 Emergency Procedures
 
@@ -98,7 +99,7 @@ The project uses a simplified status monitoring approach:
    # Edit backend-dev.hcl with your S3 bucket details
    ```
 
-3. **Initialize Terraform**
+3. **Initialize OpenTofu**
    ```bash
    tofu init -backend-config=backend-dev.hcl
    ```
@@ -117,86 +118,31 @@ The project uses a simplified status monitoring approach:
 
 ## 📁 Project Structure
 
-```
-.
-├── .github/
-│   ├── CODEOWNERS           # Code ownership and access control
-│   └── workflows/           # CI/CD pipelines
-│       ├── build.yml        # BUILD - Artifact creation and security scanning
-│       ├── test.yml         # TEST - Policy validation and usability testing
-│       ├── deploy.yml       # DEPLOY - Multi-environment deployment
-│       ├── hotfix.yml       # HOTFIX - Emergency deployment pipeline
-│       ├── rollback.yml     # ROLLBACK - Automated rollback capabilities
-│       └── release.yml      # RELEASE - Version management
-├── docs/                    # Documentation and IAM policies
-├── scripts/
-│   └── decommission-environment.sh  # Environment cleanup with GitHub API integration
-├── src/                     # Static website content
-├── terraform/               # Infrastructure as Code
-│   ├── modules/            # Reusable Terraform modules (4 modules)
-│   │   ├── cloudfront/     # CDN configuration
-│   │   ├── s3/             # Storage configuration
-│   │   ├── waf/            # Web Application Firewall
-│   │   └── monitoring/     # CloudWatch monitoring
-│   └── *.tf                # Root configuration files (includes IAM)
-└── test/                   # Infrastructure and usability tests
-    ├── unit/               # Infrastructure module unit tests
-    └── usability/          # HTTP/SSL/performance validation tests
-        ├── usability-functions.sh      # Core testing functions
-        ├── run-usability-tests.sh      # Multi-environment test runner
-        └── staging-usability-tests.sh  # Staging-specific validation
-```
+- **.github/workflows/** - CI/CD pipelines (BUILD → TEST → DEPLOY)
+- **docs/** - Comprehensive documentation
+- **src/** - Static website content  
+- **terraform/** - Infrastructure as Code with 4 modules (S3, CloudFront, WAF, Monitoring)
+- **test/** - Unit tests and usability validation
 
-## 🔧 Configuration
+## ⚙️ Configuration & Security
 
-### Required Variables
+**Key Variables**: `project_name`, `environment`, `alert_email_addresses`, `github_repository`  
+**Security Features**: OIDC authentication, KMS encryption, WAF protection, CloudFront OAC  
+**Setup Required**: IAM roles must be created manually before deployment
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `project_name` | Project identifier | `my-website` |
-| `environment` | Deployment environment | `dev`, `staging`, `prod` |
-| `alert_email_addresses` | Email for alerts | `["admin@example.com"]` |
-| `github_repository` | GitHub repo for OIDC | `owner/repo` |
+📖 **Complete Details**: [Configuration Guide](docs/guides/iam-setup.md) | [Security Guide](SECURITY.md)
 
-### Optional Features
+## 🧪 Testing
 
-- **Custom Domain**: Set `domain_aliases` and `acm_certificate_arn`
-- **Cross-Region Replication**: Set `enable_cross_region_replication = true`
-- **Budget Alerts**: Configure `monthly_budget_limit`
-
-## 🔒 Security
-
-This project implements multiple security layers:
-
-- **IAM**: Least privilege access with OIDC authentication (configured in main.tf)
-- **Encryption**: KMS encryption for all data at rest
-- **WAF**: OWASP Top 10 protection with rate limiting
-- **Access Control**: S3 bucket access only through CloudFront OAC
-- **Monitoring**: Real-time security alerts and logging
-
-**Note**: IAM roles and policies must be manually created before deployment. See [docs/guides/iam-setup.md](docs/guides/iam-setup.md) for setup instructions.
-
-See [SECURITY.md](SECURITY.md) for detailed security documentation.
-
-## 🧪 Testing & Validation
-
-### Unit Tests
 ```bash
-cd test/unit
-./run-tests.sh
+# Unit tests (all 4 modules)
+./test/unit/run-tests.sh
+
+# Usability validation
+./test/usability/run-usability-tests.sh [env]
 ```
 
-### Usability Testing
-```bash
-# Test development environment
-cd test/usability
-./run-usability-tests.sh dev
-
-# Test staging environment 
-./staging-usability-tests.sh
-```
-
-**Testing Framework**: Unit tests cover all 4 infrastructure modules. Usability tests validate real HTTP interactions, SSL certificates, performance, and security headers across all environments.
+Tests cover infrastructure modules plus HTTP/SSL/performance validation.
 
 ## 📊 Cost Estimation
 
@@ -209,48 +155,14 @@ Estimated monthly costs (USD):
 
 *Costs vary by usage and region*
 
-## 🤝 Contributing
+## 📚 Documentation
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with [OpenTofu](https://opentofu.org/)
-- Follows [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
-- Security scanning by [Checkov](https://www.checkov.io/) and [Trivy](https://trivy.dev/)
+📖 **[Complete Documentation](docs/README.md)** - Role-based guides, architecture, security, and troubleshooting
 
 ## ⚠️ Important Notes
 
-- All example values in this repository are placeholders
-- Replace `123456789012` with your actual AWS account ID
-- Update email addresses and domain names with real values
-- Review and customize IAM policies before deployment
+⚠️ Replace all placeholder values (account IDs, emails, domains) before deployment  
+🔐 Review IAM policies and configure OIDC authentication  
+📄 Licensed under MIT - see [LICENSE](LICENSE)
 
-## 📚 Documentation
-
-Complete documentation is available in the [docs](docs/) directory:
-
-### Quick Start
-- [Documentation Index](docs/README.md) - Start here for all documentation
-- [Quick Start Guide](docs/quick-start.md) - Get up and running quickly
-
-### Guides
-- [IAM Setup](docs/guides/iam-setup.md) - Configure AWS roles and permissions
-- [Deployment Guide](docs/guides/deployment-guide.md) - Deploy your infrastructure
-- [Security Guide](docs/guides/security-guide.md) - Implement security best practices
-- [Testing Guide](docs/guides/testing-guide.md) - Run and write tests
-- [Troubleshooting](docs/guides/troubleshooting.md) - Solve common issues
-
-### Reference
-- [Architecture Documentation](docs/architecture/) - Complete architectural overview with dedicated infrastructure, Terraform, CI/CD, and testing documentation
-- [Security Policies](SECURITY.md) - Security overview and placeholder info
-- [Cost Analysis](docs/reference/cost-estimation.md) - Detailed cost breakdown
-- [Monitoring](docs/reference/monitoring.md) - CloudWatch setup and alerts
+Built with [OpenTofu](https://opentofu.org/) | [AWS Well-Architected](https://aws.amazon.com/architecture/well-architected/) | Security by [Checkov](https://www.checkov.io/) & [Trivy](https://trivy.dev/)
