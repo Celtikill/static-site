@@ -216,8 +216,17 @@ jobs:
             return 0  # Return success to avoid bash -e exit, but indicate failure via variable
           }
           
-          # Initialize change detection success flag
+          # Initialize change detection success flag and all change variables
           CHANGE_DETECTION_SUCCESS=0
+          HAS_CHANGES=0
+          HAS_TF_CHANGES=0
+          HAS_CONTENT_CHANGES=0
+          HAS_WORKFLOW_CHANGES=0
+          HAS_TEST_CHANGES=0
+          HAS_DOC_CHANGES=0
+          HAS_CONFIG_CHANGES=0
+          NEEDS_FULL_TESTS=0
+          NEEDS_SECURITY_SCAN=0
           
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             if [ "${{ github.event.inputs.force_build }}" = "true" ]; then
