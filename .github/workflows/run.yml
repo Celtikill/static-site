@@ -150,10 +150,10 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ 
+          role-to-assume: ${{
             needs.info.outputs.target_environment == 'dev' && secrets.AWS_ASSUME_ROLE_DEV ||
             needs.info.outputs.target_environment == 'staging' && secrets.AWS_ASSUME_ROLE_STAGING ||
-            secrets.AWS_ASSUME_ROLE 
+            secrets.AWS_ASSUME_ROLE
           }}
           role-session-name: github-actions-run-${{ needs.info.outputs.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
@@ -194,10 +194,10 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ 
+          role-to-assume: ${{
             needs.info.outputs.target_environment == 'dev' && secrets.AWS_ASSUME_ROLE_DEV ||
             needs.info.outputs.target_environment == 'staging' && secrets.AWS_ASSUME_ROLE_STAGING ||
-            secrets.AWS_ASSUME_ROLE 
+            secrets.AWS_ASSUME_ROLE
           }}
           role-session-name: github-actions-infra-${{ needs.info.outputs.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
@@ -277,10 +277,10 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ 
+          role-to-assume: ${{
             needs.info.outputs.target_environment == 'dev' && secrets.AWS_ASSUME_ROLE_DEV ||
             needs.info.outputs.target_environment == 'staging' && secrets.AWS_ASSUME_ROLE_STAGING ||
-            secrets.AWS_ASSUME_ROLE 
+            secrets.AWS_ASSUME_ROLE
           }}
           role-session-name: github-actions-website-${{ needs.info.outputs.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
