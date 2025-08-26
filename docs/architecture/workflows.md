@@ -19,7 +19,7 @@ This document provides comprehensive reference documentation for all GitHub Acti
 |----------|---------|----------|----------|--------------|
 | **BUILD** | Infrastructure validation, security scanning, artifact preparation | ~5-10 min | Push, PRs, Manual | None |
 | **TEST** | Policy validation, unit testing, environment health checks | ~10-15 min | BUILD success | BUILD ✅ |
-| **DEPLOY** | Infrastructure and website deployment to environments | ~15-25 min | TEST success, Manual | TEST ✅ |
+| **RUN** | Infrastructure and website deployment to environments | ~15-25 min | TEST success, Manual | TEST ✅ |
 
 ### Specialized Workflows
 
@@ -77,7 +77,7 @@ This document provides comprehensive reference documentation for all GitHub Acti
 
 ---
 
-## 🚀 DEPLOY Workflow (`deploy.yml`)
+## 🚀 RUN Workflow (`run.yml`)
 
 **Purpose**: Deploy infrastructure and content to target environments
 
@@ -108,7 +108,7 @@ Manual Trigger  → User-specified
 - Semantic versioning and release management
 - Automated release notes generation
 - Environment-specific deployment orchestration
-- Integration with BUILD-TEST-DEPLOY pipeline
+- Integration with BUILD-TEST-RUN pipeline
 
 ### HOTFIX Workflow (`hotfix.yml`)
 - Emergency deployment capabilities
@@ -130,7 +130,7 @@ Manual Trigger  → User-specified
 graph LR
     A[Push/PR] --> B[BUILD]
     B --> |Success| C[TEST] 
-    C --> |Success| D[DEPLOY]
+    C --> |Success| D[RUN]
     D --> E[Environment]
     
     B --> |Failure| F[Stop]
@@ -221,16 +221,16 @@ CHECKOV_QUIET: true
 2. Make changes and push: `git push origin feature/new-functionality`
 3. **BUILD** runs automatically → validates changes
 4. **TEST** runs after BUILD succeeds → comprehensive validation
-5. **DEPLOY** runs after TEST succeeds → deploys to development
+5. **RUN** runs after TEST succeeds → deploys to development
 6. Create PR to main for staging/production deployment
 
 ### Manual Deployment:
 ```bash
 # Deploy to specific environment
-gh workflow run deploy.yml --field environment=staging
+gh workflow run run.yml --field environment=staging
 
 # Force infrastructure-only deployment  
-gh workflow run deploy.yml --field environment=prod --field deploy_website=false
+gh workflow run run.yml --field environment=prod --field deploy_website=false
 
 # Emergency hotfix
 gh workflow run hotfix.yml --field target_environment=production
@@ -255,7 +255,7 @@ gh workflow run release.yml --field version_type=minor
 |-------|-------|----------|
 | BUILD fails | Security findings | Review and fix security issues |
 | TEST skipped | BUILD not successful | Check BUILD workflow results |
-| DEPLOY fails | Missing approvals | Ensure proper authorization |
+| RUN fails | Missing approvals | Ensure proper authorization |
 | Permission denied | OIDC configuration | Verify AWS role trust policy |
 
 ### Debug Commands:
@@ -277,7 +277,7 @@ gh run download <run-id>
 ### Target Performance:
 - **BUILD Phase**: < 10 minutes
 - **TEST Phase**: < 15 minutes  
-- **DEPLOY Phase**: < 25 minutes
+- **RUN Phase**: < 25 minutes
 - **Overall Pipeline**: < 50 minutes
 
 ### Success Rates:

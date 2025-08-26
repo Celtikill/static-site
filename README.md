@@ -124,7 +124,7 @@ The project uses a simplified status monitoring approach:
 
 ## 📁 Project Structure
 
-- **.github/workflows/** - CI/CD pipelines (BUILD → TEST → DEPLOY)
+- **.github/workflows/** - CI/CD pipelines (BUILD → TEST → RUN)
 - **docs/** - Comprehensive documentation
 - **src/** - Static website content  
 - **terraform/** - Infrastructure as Code with 4 modules (S3, CloudFront, WAF, Monitoring)

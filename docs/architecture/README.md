@@ -16,7 +16,7 @@ This project implements a comprehensive serverless static website architecture d
 **Key Architectural Highlights:**
 - **Serverless-first approach** with global CDN and edge computing
 - **Zero-trust security model** with defense-in-depth implementation  
-- **Enterprise CI/CD pipeline** with BUILD-TEST-DEPLOY automation
+- **Enterprise CI/CD pipeline** with BUILD-TEST-RUN automation
 - **Comprehensive testing framework** with 269 individual assertions
 - **Cost-optimized design** with intelligent resource management
 - **Multi-region resilience** with automated failover capabilities
@@ -62,7 +62,7 @@ This project implements a comprehensive serverless static website architecture d
 **Focus**: GitHub Actions workflows, deployment automation, quality gates
 
 **What's Inside**:
-- Comprehensive pipeline architecture (BUILD-TEST-DEPLOY)
+- Comprehensive pipeline architecture (BUILD-TEST-RUN)
 - Workflow orchestration and artifact management
 - Multi-environment deployment strategies
 - Quality assurance and security integration
@@ -86,7 +86,7 @@ This project implements a comprehensive serverless static website architecture d
 - Usage examples and common patterns
 
 **Key Topics**:
-- BUILD, TEST, DEPLOY workflow implementations
+- BUILD, TEST, RUN workflow implementations
 - Specialized workflows (RELEASE, HOTFIX, ROLLBACK)
 - Error handling and recovery procedures
 - Performance monitoring and optimization
@@ -188,7 +188,7 @@ This project implements a comprehensive serverless static website architecture d
 - **Documentation**: Self-documenting code with extensive comments
 
 ### 🚀 **Operations (CI/CD)**
-- **Automation**: Fully automated BUILD-TEST-DEPLOY pipeline
+- **Automation**: Fully automated BUILD-TEST-RUN pipeline
 - **Quality**: Multi-scanner security analysis with threshold enforcement
 - **Governance**: Policy-as-code validation with OPA/Conftest
 - **Environments**: Multi-environment support with approval gates

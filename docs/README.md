@@ -34,10 +34,10 @@ Welcome to the AWS Static Website Infrastructure documentation. This guide provi
 ### Key Technical Architecture
 
 #### CI/CD Pipeline Enhancement
-- **BUILD → TEST → DEPLOY Workflow**: Proper separation of concerns with smart change detection
+- **BUILD → TEST → RUN Workflow**: Proper separation of concerns with smart change detection
   - BUILD: Static analysis, security scanning (Checkov, Trivy), artifact creation
   - TEST: Policy validation (OPA/Rego), unit testing, integration testing
-  - DEPLOY: Environment-specific deployments with GitHub Deployments API integration
+  - RUN: Environment-specific deployments with GitHub Deployments API integration
 
 #### Security Testing Strategy ("Defense in Depth")
 - **BUILD Phase Security**: Static analysis with Checkov (IaC security), Trivy (vulnerability scanning)
