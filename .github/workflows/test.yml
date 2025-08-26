@@ -48,10 +48,14 @@ jobs:
     name: "📋 Test Information"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Only run if BUILD succeeded (when triggered by workflow_run) or if manual dispatch
+    # Always require BUILD success for automatic triggers
+    # Manual dispatch allowed only for non-dev environments or with explicit override
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' ||
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.environment == 'staging' || 
+        github.event.inputs.environment == 'prod' ||
+        github.event.inputs.skip_build_check == 'true'))
     outputs:
       test_id: ${{ steps.info.outputs.test_id }}
       build_id: ${{ steps.info.outputs.build_id }}
@@ -77,8 +81,27 @@ jobs:
             BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}"
           fi
 
-          # Determine environment
-          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          # Determine target environment based on branch
+          if [ -n "${{ github.event.inputs.environment }}" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+            ENV_SOURCE="Manual Input"
+          elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+            ENV="dev"
+            ENV_SOURCE="Feature Branch Auto-Test"
+          elif [ "${{ github.event.workflow_run.head_branch || github.ref_name }}" = "main" ]; then
+            ENV="staging"
+            ENV_SOURCE="Main Branch Auto-Test"
+          else
+            ENV="dev"
+            ENV_SOURCE="Default"
+          fi
+
+          # Validate dev deployment policy
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$ENV" = "dev" ] && [ "${{ github.event.inputs.skip_build_check }}" != "true" ]; then
+            echo "❌ **POLICY VIOLATION**: Manual dispatch to dev environment requires BUILD success" >> $GITHUB_STEP_SUMMARY
+            echo "   Use skip_build_check=true to override this policy (not recommended)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
 
           echo "test_id=$TEST_ID" >> $GITHUB_OUTPUT
           echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
@@ -87,7 +110,7 @@ jobs:
           echo "# 🧪 TEST Phase" >> $GITHUB_STEP_SUMMARY
           echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
