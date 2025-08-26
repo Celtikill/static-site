@@ -1,0 +1,349 @@
+name: EMERGENCY - Hotfix and Rollback Operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Emergency operation type'
+        required: true
+        type: choice
+        options:
+          - hotfix
+          - rollback
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [staging, prod]
+        default: staging
+      reason:
+        description: 'Emergency reason (required - minimum 10 characters)'
+        required: true
+        type: string
+      # Hotfix-specific inputs
+      deploy_immediately:
+        description: '[HOTFIX] Deploy immediately after build-test-run'
+        required: false
+        type: boolean
+        default: true
+      # Rollback-specific inputs
+      rollback_method:
+        description: '[ROLLBACK] Rollback method'
+        required: false
+        type: choice
+        options:
+          - last_known_good
+          - specific_commit
+          - infrastructure_only
+          - content_only
+        default: last_known_good
+      target_commit:
+        description: '[ROLLBACK] Target commit SHA (for specific_commit)'
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+  deployments: write
+
+concurrency:
+  group: emergency-${{ inputs.environment }}-${{ inputs.operation }}
+  cancel-in-progress: false
+
+jobs:
+  emergency:
+    name: Emergency ${{ inputs.operation }} - ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ inputs.environment }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Emergency Authorization
+        id: auth
+        run: |
+          echo "🚨 **EMERGENCY OPERATION AUTHORIZATION**" >> $GITHUB_STEP_SUMMARY
+          echo "=======================================" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          ACTOR="${{ github.actor }}"
+          OPERATION="${{ inputs.operation }}"
+          ENVIRONMENT="${{ inputs.environment }}"
+          REASON='${{ inputs.reason }}'
+          
+          echo "**Operation**: $OPERATION" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "**Requested by**: $ACTOR" >> $GITHUB_STEP_SUMMARY
+          echo "**Reason**: $REASON" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Validate reason length
+          if [ ${#REASON} -lt 10 ]; then
+            echo "❌ **REJECTED**: Emergency reason too short (minimum 10 characters)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          # Check CODEOWNERS authorization for production
+          if [ "$ENVIRONMENT" = "prod" ]; then
+            echo "🔥 **PRODUCTION EMERGENCY**: Requires code owner authorization" >> $GITHUB_STEP_SUMMARY
+            
+            if [ -f ".github/CODEOWNERS" ]; then
+              CODE_OWNERS=$(grep -E '^(\*|/\.github/workflows/)' .github/CODEOWNERS | grep -oE '@[a-zA-Z0-9_-]+' | sort -u || echo "")
+              
+              if echo "$CODE_OWNERS" | grep -q "@$ACTOR"; then
+                echo "✅ **AUTHORIZED**: $ACTOR is a code owner" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "❌ **UNAUTHORIZED**: $ACTOR is not authorized for production emergencies" >> $GITHUB_STEP_SUMMARY
+                echo "Authorized code owners: $CODE_OWNERS" >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+            else
+              echo "⚠️ No CODEOWNERS file found - proceeding with caution" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "🚧 **STAGING EMERGENCY**: Authorized for all team members" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **EMERGENCY AUTHORIZED** - Proceeding with $OPERATION" >> $GITHUB_STEP_SUMMARY
+
+      - name: Hotfix Operation
+        if: inputs.operation == 'hotfix'
+        run: |
+          echo "## 🔥 HOTFIX DEPLOYMENT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          ENVIRONMENT="${{ inputs.environment }}"
+          REASON='${{ inputs.reason }}'
+          
+          echo "**Hotfix Details:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "- Reason: $REASON" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Create hotfix tag
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          HOTFIX_TAG="v0.0.0-hotfix.$TIMESTAMP"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$HOTFIX_TAG" -m "Emergency Hotfix - $ENVIRONMENT
+
+          Reason: $REASON
+          Environment: $ENVIRONMENT
+          Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Authorized by: ${{ github.actor }}
+          Run: ${{ github.run_id }}"
+          
+          git push origin "$HOTFIX_TAG"
+          echo "🏷️ Created hotfix tag: $HOTFIX_TAG" >> $GITHUB_STEP_SUMMARY
+          
+          # Trigger deployment if requested
+          if [ "${{ inputs.deploy_immediately }}" = "true" ]; then
+            echo "🚀 Triggering immediate deployment..." >> $GITHUB_STEP_SUMMARY
+            echo "hotfix_tag=$HOTFIX_TAG" >> $GITHUB_ENV
+            echo "trigger_deployment=true" >> $GITHUB_ENV
+          else
+            echo "⏸️ Deployment will be triggered manually" >> $GITHUB_STEP_SUMMARY
+            echo "trigger_deployment=false" >> $GITHUB_ENV
+          fi
+
+      - name: Rollback Operation
+        if: inputs.operation == 'rollback'
+        run: |
+          echo "## 🔄 ROLLBACK OPERATION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          ENVIRONMENT="${{ inputs.environment }}"
+          METHOD="${{ inputs.rollback_method }}"
+          REASON='${{ inputs.reason }}'
+          TARGET_COMMIT="${{ inputs.target_commit }}"
+          
+          echo "**Rollback Details:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "- Method: $METHOD" >> $GITHUB_STEP_SUMMARY
+          echo "- Reason: $REASON" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Determine rollback target
+          case "$METHOD" in
+            "last_known_good")
+              # Find last successful deployment tag
+              ROLLBACK_TARGET=$(git tag -l "v*.*.*" --sort=-version:refname | head -1)
+              if [ -z "$ROLLBACK_TARGET" ]; then
+                ROLLBACK_TARGET=$(git rev-parse HEAD~5)
+              fi
+              echo "📍 Rolling back to last known good: $ROLLBACK_TARGET" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "specific_commit")
+              if [ -z "$TARGET_COMMIT" ]; then
+                echo "❌ Target commit required for specific_commit method" >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+              ROLLBACK_TARGET="$TARGET_COMMIT"
+              echo "📍 Rolling back to specific commit: $ROLLBACK_TARGET" >> $GITHUB_STEP_SUMMARY
+              ;;
+            *)
+              echo "⚠️ Rollback method $METHOD - preparing deployment reversal" >> $GITHUB_STEP_SUMMARY
+              ROLLBACK_TARGET="$METHOD"
+              ;;
+          esac
+          
+          # Create rollback tag
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          ROLLBACK_TAG="v0.0.0-rollback.$TIMESTAMP"
+          
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git tag -a "$ROLLBACK_TAG" -m "Emergency Rollback - $ENVIRONMENT
+
+          Reason: $REASON
+          Environment: $ENVIRONMENT
+          Method: $METHOD
+          Target: $ROLLBACK_TARGET
+          Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Authorized by: ${{ github.actor }}
+          Run: ${{ github.run_id }}"
+          
+          git push origin "$ROLLBACK_TAG"
+          echo "🏷️ Created rollback tag: $ROLLBACK_TAG" >> $GITHUB_STEP_SUMMARY
+          
+          # Set environment variables for deployment
+          echo "rollback_tag=$ROLLBACK_TAG" >> $GITHUB_ENV
+          echo "rollback_target=$ROLLBACK_TARGET" >> $GITHUB_ENV
+          echo "trigger_deployment=true" >> $GITHUB_ENV
+
+      - name: Configure AWS Credentials
+        if: env.trigger_deployment == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          role-session-name: emergency-${{ inputs.operation }}-${{ github.run_id }}
+          aws-region: us-east-1
+
+      - name: Emergency Deployment
+        if: env.trigger_deployment == 'true'
+        run: |
+          echo "## 🚀 EMERGENCY DEPLOYMENT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          OPERATION="${{ inputs.operation }}"
+          ENVIRONMENT="${{ inputs.environment }}"
+          
+          if [ "$OPERATION" = "rollback" ] && [ "${{ inputs.rollback_method }}" != "infrastructure_only" ]; then
+            # For rollback, checkout the target
+            TARGET="${{ env.rollback_target }}"
+            if git rev-parse "$TARGET" >/dev/null 2>&1; then
+              git checkout "$TARGET"
+              echo "✅ Checked out rollback target: $TARGET" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ Invalid rollback target: $TARGET" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+          fi
+          
+          # Install deployment tools
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+          
+          # Deploy based on operation type
+          if [ "$OPERATION" = "hotfix" ] || [ "${{ inputs.rollback_method }}" != "content_only" ]; then
+            echo "### Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
+            cd terraform
+            
+            if tofu init -reconfigure && tofu plan -var="environment=$ENVIRONMENT" -out=emergency.tfplan; then
+              if tofu apply -auto-approve emergency.tfplan; then
+                echo "✅ Infrastructure deployment completed" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "❌ Infrastructure deployment failed" >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+            else
+              echo "❌ Infrastructure planning failed" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            cd ..
+          fi
+          
+          if [ "$OPERATION" = "hotfix" ] || [ "${{ inputs.rollback_method }}" != "infrastructure_only" ]; then
+            echo "### Website Deployment" >> $GITHUB_STEP_SUMMARY
+            
+            # Get bucket name
+            BUCKET_NAME=$(cd terraform && tofu output -raw s3_bucket_name 2>/dev/null || echo "")
+            if [ -z "$BUCKET_NAME" ]; then
+              echo "❌ Could not determine S3 bucket name" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+            
+            # Deploy website content
+            if aws s3 sync src/ s3://$BUCKET_NAME/ --delete; then
+              echo "✅ Website content deployed" >> $GITHUB_STEP_SUMMARY
+              
+              # Invalidate CloudFront cache
+              DISTRIBUTION_ID=$(cd terraform && tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+              if [ -n "$DISTRIBUTION_ID" ]; then
+                aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+                echo "✅ CloudFront cache invalidated" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "❌ Website deployment failed" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
+          fi
+
+      - name: Trigger Build-Test-Run Pipeline
+        if: inputs.operation == 'hotfix' && inputs.deploy_immediately == false
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const environment = '${{ inputs.environment }}';
+            const hotfixTag = process.env.hotfix_tag;
+            
+            console.log(`🚀 Triggering build-test-run pipeline for hotfix deployment`);
+            
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'build.yml',
+              ref: 'refs/heads/main',
+              inputs: {
+                environment: environment,
+                force_build: 'true'
+              }
+            });
+
+      - name: Emergency Summary
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Emergency Operation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Operation | ${{ inputs.operation }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Authorized by | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | $(date -u +"%Y-%m-%d %H:%M:%S UTC") |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🚨 **EMERGENCY OPERATION COMPLETED**" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ inputs.operation }}" = "hotfix" ] && [ "${{ inputs.deploy_immediately }}" = "false" ]; then
+              echo "⏳ Build-Test-Run pipeline has been triggered" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ **EMERGENCY OPERATION FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "Review logs and consider manual intervention" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

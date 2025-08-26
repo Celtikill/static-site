@@ -42,7 +42,7 @@ jobs:
       approver: ${{ steps.check-auth.outputs.approver }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
       
       - name: Check Code Owner Authorization for Hotfix
         id: check-auth
@@ -124,7 +124,7 @@ jobs:
       staging_website_url: ${{ steps.deploy.outputs.website_url }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
       
       - name: Deploy Hotfix to Staging
         id: deploy
@@ -175,7 +175,7 @@ jobs:
       validation_passed: ${{ steps.validate.outputs.validation_passed }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
       
       - name: Validate Hotfix in Staging
         id: validate
@@ -280,7 +280,7 @@ jobs:
       production_website_url: ${{ steps.deploy.outputs.website_url }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
       
       - name: Deploy Hotfix to Production
         id: deploy

@@ -168,7 +168,7 @@ jobs:
       authorized: ${{ steps.check-auth.outputs.authorized }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
       
       - name: Check Code Owner Authorization
         id: check-auth
@@ -226,7 +226,7 @@ jobs:
       has_content_changes: ${{ steps.detect-changes.outputs.has_content_changes }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Check TEST Status
@@ -734,7 +734,7 @@ jobs:
       cloudfront_domain_name: ${{ steps.deploy.outputs.cloudfront_domain_name }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
 
       - name: Cache Infrastructure Dependencies
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
@@ -916,7 +916,7 @@ jobs:
       deployment_status: ${{ steps.deploy-content.outputs.deployment_status }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
 
       - name: Cache Website Dependencies
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
@@ -1083,7 +1083,7 @@ jobs:
       tests_passed: ${{ steps.run-tests.outputs.tests_passed }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
       
       - name: Run Staging Usability Tests
         id: run-tests
@@ -1183,7 +1183,7 @@ jobs:
       validation_passed: ${{ steps.run-validation.outputs.validation_passed }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
       
       - name: Run Production Validation Suite
         id: run-validation
@@ -1332,7 +1332,7 @@ jobs:
       deployment_summary: ${{ steps.analyze-deployment.outputs.deployment_summary }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
           persist-credentials: false
