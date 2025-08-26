@@ -2,44 +2,46 @@
 
 This document provides a comprehensive overview of all workflow conditions, dependencies, and execution logic in the static site deployment pipeline.
 
+> **Note**: All Mermaid diagrams have been optimized for GitHub rendering by removing special characters, emojis, and complex HTML formatting that can cause parse errors.
+
 ## Pipeline Architecture Overview
 
 ```mermaid
 graph TB
     subgraph "Manual Triggers"
-        BUILD_MANUAL[BUILD<br/>workflow_dispatch]
-        TEST_MANUAL[TEST<br/>workflow_dispatch]
-        RUN_MANUAL[RUN<br/>workflow_dispatch]
-        EMERGENCY[EMERGENCY<br/>workflow_dispatch]
+        BUILD_MANUAL[BUILD - workflow_dispatch]
+        TEST_MANUAL[TEST - workflow_dispatch]
+        RUN_MANUAL[RUN - workflow_dispatch]
+        EMERGENCY[EMERGENCY - workflow_dispatch]
     end
 
     subgraph "Automated Triggers"
-        PUSH[Push to main/<br/>feature/bugfix/hotfix]
+        PUSH[Push to main/feature/bugfix/hotfix]
     end
 
     subgraph "BUILD Workflow"
-        BUILD_AUTO[BUILD<br/>workflow_run]
-        BUILD_SUCCESS{BUILD<br/>Success?}
+        BUILD_AUTO[BUILD - workflow_run]
+        BUILD_SUCCESS{BUILD Success?}
     end
 
     subgraph "TEST Workflow"
-        TEST_AUTO[TEST<br/>workflow_run]
-        TEST_SUCCESS{TEST<br/>Success?}
+        TEST_AUTO[TEST - workflow_run]
+        TEST_SUCCESS{TEST Success?}
     end
 
     subgraph "RUN Workflow"
-        RUN_AUTO[RUN<br/>workflow_run]
-        RUN_INFO[Info Job<br/>Condition Check]
+        RUN_AUTO[RUN - workflow_run]
+        RUN_INFO[Info Job - Condition Check]
         RUN_DEPLOY[Deployment Jobs]
     end
 
     %% Automatic flow
     PUSH --> BUILD_AUTO
     BUILD_AUTO --> BUILD_SUCCESS
-    BUILD_SUCCESS -->|✅ Success| TEST_AUTO
+    BUILD_SUCCESS -->|Success| TEST_AUTO
     TEST_AUTO --> TEST_SUCCESS
-    TEST_SUCCESS -->|✅ Success| RUN_AUTO
-    TEST_SUCCESS -->|❌ Failure| RUN_BLOCKED[RUN Blocked]
+    TEST_SUCCESS -->|Success| RUN_AUTO
+    TEST_SUCCESS -->|Failure| RUN_BLOCKED[RUN Blocked]
 
     %% Manual overrides
     BUILD_MANUAL --> BUILD_SUCCESS
@@ -74,40 +76,40 @@ graph TB
     end
 
     subgraph "Info Job Condition"
-        INFO_JOB[📋 Info Job]
+        INFO_JOB[Info Job]
         INFO_CONDITION{Condition Check}
         INFO_SUCCESS[Info Job Success]
         INFO_SKIP[Info Job Skipped]
     end
 
     subgraph "Deployment Jobs"
-        SETUP[🔧 Setup]
-        INFRA[🏗️ Infrastructure]
-        WEBSITE[🌐 Website]
-        VALIDATION[🔍 Validation]
-        GITHUB_DEPLOY[📝 GitHub Deploy]
-        SUMMARY[📊 Summary]
+        SETUP[Setup]
+        INFRA[Infrastructure]
+        WEBSITE[Website]
+        VALIDATION[Validation]
+        GITHUB_DEPLOY[GitHub Deploy]
+        SUMMARY[Summary]
     end
 
     TRIGGER --> INFO_JOB
     MANUAL_TRIGGER --> INFO_JOB
     
     INFO_JOB --> INFO_CONDITION
-    INFO_CONDITION -->|github.event_name == 'workflow_dispatch'<br/>OR<br/>github.event.workflow_run.conclusion == 'success'| INFO_SUCCESS
-    INFO_CONDITION -->|TEST failed<br/>AND<br/>not manual dispatch| INFO_SKIP
+    INFO_CONDITION -->|Manual dispatch OR TEST success| INFO_SUCCESS
+    INFO_CONDITION -->|TEST failed AND not manual| INFO_SKIP
 
     INFO_SUCCESS --> SETUP
     INFO_SKIP --> ALL_SKIPPED[All Jobs Skipped]
 
-    %% Job Dependencies (Fixed Architecture)
-    SETUP -->|needs.info.result == 'success'<br/>AND<br/>needs.setup.result == 'success'| INFRA
-    SETUP -->|needs.info.result == 'success'<br/>AND<br/>needs.setup.result == 'success'| WEBSITE
+    %% Job Dependencies - Fixed Architecture
+    SETUP -->|Info + Setup success required| INFRA
+    SETUP -->|Info + Setup success required| WEBSITE
     
-    INFRA -->|needs.info.result == 'success'<br/>AND<br/>(infra OR website success)| VALIDATION
-    WEBSITE -->|needs.info.result == 'success'<br/>AND<br/>(infra OR website success)| VALIDATION
+    INFRA -->|Info success + deployment success| VALIDATION
+    WEBSITE -->|Info success + deployment success| VALIDATION
     
-    VALIDATION -->|needs.info.result == 'success'<br/>AND<br/>(validation success OR skipped)| GITHUB_DEPLOY
-    GITHUB_DEPLOY -->|needs.info.result == 'success'| SUMMARY
+    VALIDATION -->|Info success + validation OK| GITHUB_DEPLOY
+    GITHUB_DEPLOY -->|Info success required| SUMMARY
 
     %% Styling
     classDef successPath fill:#d4edda,stroke:#155724,color:#155724
@@ -176,13 +178,13 @@ graph TD
     AUTO_BUILD --> BUILD_RESULT{BUILD Success?}
     MANUAL_BUILD --> BUILD_RESULT
     
-    BUILD_RESULT -->|✅ Success| AUTO_TEST[Auto TEST]
-    BUILD_RESULT -->|❌ Failure| STOP_BUILD[Pipeline Stopped]
+    BUILD_RESULT -->|Success| AUTO_TEST[Auto TEST]
+    BUILD_RESULT -->|Failure| STOP_BUILD[Pipeline Stopped]
     
     AUTO_TEST --> TEST_RESULT{TEST Success?}
     
-    TEST_RESULT -->|✅ Success| RUN_TRIGGER[RUN Triggered]
-    TEST_RESULT -->|❌ Failure| BLOCK_RUN[RUN Blocked ✅ Architecture Fixed]
+    TEST_RESULT -->|Success| RUN_TRIGGER[RUN Triggered]
+    TEST_RESULT -->|Failure| BLOCK_RUN[RUN Blocked - Architecture Fixed]
     
     RUN_TRIGGER --> ENV_CHECK{Environment?}
     
@@ -190,8 +192,8 @@ graph TD
     ENV_CHECK -->|Staging| STAGING_DEPLOY[Deploy to Staging]
     ENV_CHECK -->|Production| PROD_AUTH{Code Owner?}
     
-    PROD_AUTH -->|✅ Authorized| PROD_DEPLOY[Deploy to Production]
-    PROD_AUTH -->|❌ Unauthorized| PROD_BLOCKED[Production Blocked]
+    PROD_AUTH -->|Authorized| PROD_DEPLOY[Deploy to Production]
+    PROD_AUTH -->|Unauthorized| PROD_BLOCKED[Production Blocked]
     
     DEV_DEPLOY --> SUCCESS[Deployment Complete]
     STAGING_DEPLOY --> SUCCESS
