@@ -225,6 +225,48 @@ jobs:
           export GITHUB_WORKFLOW="${{ github.workflow }}"
           export GITHUB_RUN_ID="${{ github.run_id }}"
           export GITHUB_RUN_NUMBER="${{ github.run_number }}"
+          
+          # Set environment-specific Terraform variables based on target environment
+          ENV="${{ needs.info.outputs.environment }}"
+          case "$ENV" in
+            "dev")
+              export TF_VAR_cloudfront_price_class="PriceClass_100"
+              export TF_VAR_waf_rate_limit="1000"
+              export TF_VAR_enable_cross_region_replication="false"
+              export TF_VAR_enable_detailed_monitoring="false"
+              export TF_VAR_force_destroy_bucket="true"
+              export TF_VAR_monthly_budget_limit="10"
+              export TF_VAR_log_retention_days="7"
+              ;;
+            "staging")
+              export TF_VAR_cloudfront_price_class="PriceClass_200"
+              export TF_VAR_waf_rate_limit="2000"
+              export TF_VAR_enable_cross_region_replication="true"
+              export TF_VAR_enable_detailed_monitoring="true"
+              export TF_VAR_force_destroy_bucket="false"
+              export TF_VAR_monthly_budget_limit="50"
+              export TF_VAR_log_retention_days="30"
+              ;;
+            "prod")
+              export TF_VAR_cloudfront_price_class="PriceClass_All"
+              export TF_VAR_waf_rate_limit="5000"
+              export TF_VAR_enable_cross_region_replication="true"
+              export TF_VAR_enable_detailed_monitoring="true"
+              export TF_VAR_force_destroy_bucket="false"
+              export TF_VAR_monthly_budget_limit="200"
+              export TF_VAR_log_retention_days="90"
+              ;;
+            *)
+              # Default to development values
+              export TF_VAR_cloudfront_price_class="PriceClass_100"
+              export TF_VAR_waf_rate_limit="1000"
+              export TF_VAR_enable_cross_region_replication="false"
+              export TF_VAR_enable_detailed_monitoring="false"
+              export TF_VAR_force_destroy_bucket="true"
+              export TF_VAR_monthly_budget_limit="10"
+              export TF_VAR_log_retention_days="7"
+              ;;
+          esac
 
           # Make test script executable and run
           chmod +x test/unit/test-environment-config.sh
