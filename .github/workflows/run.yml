@@ -206,8 +206,11 @@ jobs:
         run: |
           echo "## 🏗️ Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with backend
-          if tofu init -reconfigure; then
+          # Initialize with environment-specific backend configuration
+          BACKEND_CONFIG="backend-${{ needs.info.outputs.target_environment }}.hcl"
+          echo "Using backend config: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
+          
+          if tofu init -backend-config="$BACKEND_CONFIG" -reconfigure; then
             echo "✅ Terraform initialized" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform initialization failed" >> $GITHUB_STEP_SUMMARY
