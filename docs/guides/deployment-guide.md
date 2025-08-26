@@ -60,6 +60,14 @@ graph LR
 | **Stable Release** | `v1.2.0` | Production | 2 reviewers | Manual trigger |
 | **Hotfix** | `v1.2.1-hotfix.1` | Staging → Production | Emergency approval | Expedited |
 
+### Environment Deployment Conditions
+
+| Environment | Trigger Conditions | Authorization | Workflow Dependencies | Branch Requirements |
+|-------------|-------------------|---------------|----------------------|-------------------|
+| **Development** | • Feature/bugfix/hotfix branch push<br>• Manual dispatch | None | BUILD → TEST → RUN | `feature/*`, `bugfix/*`, `hotfix/*` |
+| **Staging** | • Main branch push<br>• Release candidate tags<br>• Manual dispatch | None | BUILD → TEST → RUN | `main` branch or manual |
+| **Production** | • Manual dispatch only<br>• Stable version tags | Code owner (@celtikill) | BUILD → TEST → RUN<br>Authorization validation | Manual trigger only |
+
 ### Creating Releases
 
 #### Method 1: Using Helper Script (Recommended)
