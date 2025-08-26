@@ -177,7 +177,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [info, setup]
-    if: needs.info.outputs.deploy_infrastructure == 'true'
+    if: always() && !failure() && needs.info.outputs.deploy_infrastructure == 'true'
     environment: ${{ needs.info.outputs.target_environment }}
     outputs:
       outputs: ${{ steps.deploy.outputs.outputs }}
@@ -259,7 +259,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [info, setup, infrastructure]
-    if: always() && !failure() && needs.info.outputs.deploy_website == 'true'
+    if: always() && !cancelled() && needs.info.outputs.deploy_website == 'true'
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     steps:
@@ -278,13 +278,20 @@ jobs:
         run: |
           echo "## 🌐 Website Content Deployment" >> $GITHUB_STEP_SUMMARY
           
-          # Get S3 bucket name from infrastructure job
+          # Get S3 bucket name from infrastructure job or use fallback
           BUCKET_NAME="${{ needs.infrastructure.outputs.bucket_name }}"
           
-          if [ -z "$BUCKET_NAME" ]; then
-            # Fallback to conventional naming
-            BUCKET_NAME="static-site-${{ needs.info.outputs.target_environment }}-$(date +%s | tail -c 6)"
-            echo "⚠️ Using fallback bucket name: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
+          if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "" ]; then
+            # Check if infrastructure was deployed
+            if [ "${{ needs.infrastructure.result }}" = "success" ]; then
+              echo "⚠️ Infrastructure succeeded but bucket name is empty" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            else
+              # Use fallback naming when infrastructure is skipped
+              BUCKET_NAME="static-site-${{ needs.info.outputs.target_environment }}-$(date +%s | tail -c 6)"
+              echo "⚠️ Infrastructure deployment skipped, using fallback bucket: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
+              echo "ℹ️ This may fail if bucket doesn't exist - infrastructure should be deployed first" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
           # Sync website content to S3
@@ -298,14 +305,18 @@ jobs:
           # Get CloudFront distribution ID and invalidate cache
           DISTRIBUTION_ID="${{ needs.infrastructure.outputs.distribution_id }}"
           
-          if [ -n "$DISTRIBUTION_ID" ]; then
+          if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "" ]; then
             if aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" --query 'Invalidation.Id' --output text; then
               echo "✅ CloudFront cache invalidated" >> $GITHUB_STEP_SUMMARY
             else
               echo "⚠️ Cache invalidation failed (non-blocking)" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "⚠️ No CloudFront distribution found" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ needs.infrastructure.result }}" = "success" ]; then
+              echo "⚠️ Infrastructure succeeded but distribution ID is empty" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ No CloudFront distribution available (infrastructure skipped)" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
           # Determine deployment URL from infrastructure outputs
@@ -324,47 +335,62 @@ jobs:
   validation:
     name: "🔍 Post-Deployment Validation"
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     needs: [info, infrastructure, website]
-    if: always() && !failure()
+    if: always() && !cancelled() && (needs.infrastructure.result == 'success' || needs.website.result == 'success')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Post-Deployment Validation
-        continue-on-error: true
+      - name: Post-Deployment Usability Testing
+        continue-on-error: ${{ needs.info.outputs.target_environment == 'dev' }}
         run: |
-          echo "## 🔍 Post-Deployment Validation" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Post-Deployment Usability Validation" >> $GITHUB_STEP_SUMMARY
+          echo "**Purpose**: Test newly deployed infrastructure and website" >> $GITHUB_STEP_SUMMARY
+          echo "**Target**: ${{ needs.info.outputs.target_environment }} environment (AFTER deployment)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
-          DEPLOYMENT_URL="${{ needs.website.outputs.deployment_url }}"
+          # Make usability test script executable
+          chmod +x test/usability/run-usability-tests.sh
           
-          if [ -n "$DEPLOYMENT_URL" ]; then
-            # Wait a moment for deployment to propagate
-            sleep 10
-            
-            # Test website accessibility
-            if curl -s -f -L "$DEPLOYMENT_URL" > /dev/null; then
-              echo "✅ Website is accessible" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "⚠️ Website may not be ready yet" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            # Test 404 page
-            if curl -s -f -L "$DEPLOYMENT_URL/nonexistent-page" > /dev/null; then
-              echo "⚠️ 404 handling may need verification" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "✅ 404 handling appears correct" >> $GITHUB_STEP_SUMMARY
-            fi
+          ENV="${{ needs.info.outputs.target_environment }}"
+          
+          if bash test/usability/run-usability-tests.sh "$ENV"; then
+            echo "✅ Post-deployment usability tests passed" >> $GITHUB_STEP_SUMMARY
+            echo "- New deployment to $ENV is working correctly" >> $GITHUB_STEP_SUMMARY
+            echo "- Website is accessible and performing well" >> $GITHUB_STEP_SUMMARY
+            echo "- All post-deployment validation completed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ No deployment URL available for testing" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Post-deployment usability tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "- New deployment to $ENV has issues" >> $GITHUB_STEP_SUMMARY
+            echo "- Immediate attention required" >> $GITHUB_STEP_SUMMARY
+            
+            # Environment-specific failure handling
+            if [ "$ENV" = "dev" ]; then
+              echo "⚠️ Development deployment failed validation - investigate but not blocking" >> $GITHUB_STEP_SUMMARY
+            elif [ "$ENV" = "staging" ]; then
+              echo "⚠️ **STAGING VALIDATION FAILED** - Do not promote to production" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            elif [ "$ENV" = "prod" ]; then
+              echo "🚨 **PRODUCTION VALIDATION FAILED** - Consider rollback" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            fi
           fi
+
+      - name: Upload Post-Deployment Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-deployment-usability-results-${{ needs.info.outputs.run_id }}
+          path: test/usability/test-results/
+          retention-days: 14
 
   github-deployment:
     name: "📝 Update GitHub Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure, website, validation]
-    if: always()
+    if: always() && !cancelled()
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -376,18 +402,45 @@ jobs:
           script: |
             const environment = '${{ needs.info.outputs.target_environment }}';
             const deploymentUrl = '${{ needs.website.outputs.deployment_url }}';
-            const success = '${{ job.status }}' === 'success';
+            const infraResult = '${{ needs.infrastructure.result }}';
+            const websiteResult = '${{ needs.website.result }}';
+            const validationResult = '${{ needs.validation.result }}';
             
-            // Create deployment status
-            await github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: context.payload.deployment?.id || 0,
-              state: success ? 'success' : 'failure',
-              description: `Deployment to ${environment} ${success ? 'successful' : 'failed'}`,
-              environment_url: deploymentUrl,
-              log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
-            });
+            // Determine overall success
+            const success = (infraResult === 'success' || infraResult === 'skipped') && 
+                           (websiteResult === 'success' || websiteResult === 'skipped') &&
+                           (validationResult === 'success' || validationResult === 'skipped');
+            
+            console.log(`Creating deployment status for ${environment}`);
+            console.log(`Infrastructure: ${infraResult}, Website: ${websiteResult}, Validation: ${validationResult}`);
+            
+            // Create a deployment first, then update its status
+            try {
+              const deployment = await github.rest.repos.createDeployment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: context.sha,
+                environment: environment,
+                description: `Deploy to ${environment}`,
+                auto_merge: false,
+                required_contexts: []
+              });
+              
+              await github.rest.repos.createDeploymentStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                deployment_id: deployment.data.id,
+                state: success ? 'success' : 'failure',
+                description: `Deployment to ${environment} ${success ? 'successful' : 'failed'}`,
+                environment_url: deploymentUrl || '',
+                log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+              });
+              
+              console.log(`✅ Deployment status updated successfully`);
+            } catch (error) {
+              console.log(`⚠️ GitHub deployment update failed: ${error.message}`);
+              // Don't fail the job for deployment API issues
+            }
 
   summary:
     name: "📊 Deployment Summary"
@@ -416,15 +469,25 @@ jobs:
           echo "| GitHub Deployment | ${{ needs.github-deployment.result == 'success' && '✅ Updated' || needs.github-deployment.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Check overall status
+          # Check overall status - consider skipped jobs as acceptable
           FAILED_JOBS=""
           if [ "${{ needs.authorization.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Authorization "; fi
           if [ "${{ needs.infrastructure.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
           if [ "${{ needs.website.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
           if [ "${{ needs.validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Validation "; fi
           
+          # Count successful/skipped jobs
+          SUCCESSFUL_JOBS=""
+          if [ "${{ needs.infrastructure.result }}" = "success" ]; then SUCCESSFUL_JOBS="${SUCCESSFUL_JOBS}Infrastructure "; fi
+          if [ "${{ needs.website.result }}" = "success" ]; then SUCCESSFUL_JOBS="${SUCCESSFUL_JOBS}Website "; fi
+          
           if [ -z "$FAILED_JOBS" ]; then
-            echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
+            if [ -n "$SUCCESSFUL_JOBS" ]; then
+              echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
+              echo "✅ **Completed**: $SUCCESSFUL_JOBS" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "ℹ️ **NO DEPLOYMENT NEEDED** - All components skipped" >> $GITHUB_STEP_SUMMARY
+            fi
             echo "status=success" >> $GITHUB_OUTPUT
             if [ -n "${{ needs.website.outputs.deployment_url }}" ]; then
               echo "🌐 **Website**: ${{ needs.website.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
