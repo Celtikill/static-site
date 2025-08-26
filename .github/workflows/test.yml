@@ -33,6 +33,7 @@ permissions:
   contents: read
   pull-requests: write
   security-events: write
+  actions: read
 
 env:
   AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
@@ -69,6 +70,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get Source Branch from BUILD Workflow
+        id: source-branch
+        run: |
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            BUILD_RUN_ID="${{ github.event.workflow_run.id }}"
+            SOURCE_BRANCH=$(gh api repos/${{ github.repository }}/actions/runs/$BUILD_RUN_ID | jq -r '.head_branch')
+            echo "Detected source branch from BUILD workflow: $SOURCE_BRANCH"
+            echo "branch=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
+          else
+            SOURCE_BRANCH="${{ github.ref_name }}"
+            echo "Using current branch: $SOURCE_BRANCH"
+            echo "branch=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
+          fi
+
       - name: Test Info
         id: info
         run: |
@@ -81,14 +96,17 @@ jobs:
             BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}"
           fi
 
-          # Determine target environment based on branch
+          # Get source branch from previous step
+          SOURCE_BRANCH="${{ steps.source-branch.outputs.branch }}"
+
+          # Determine target environment based on source branch
           if [ -n "${{ github.event.inputs.environment }}" ]; then
             ENV="${{ github.event.inputs.environment }}"
             ENV_SOURCE="Manual Input"
-          elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+          elif [[ "$SOURCE_BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
             ENV="dev"
             ENV_SOURCE="Feature Branch Auto-Test"
-          elif [ "${{ github.event.workflow_run.head_branch || github.ref_name }}" = "main" ]; then
+          elif [ "$SOURCE_BRANCH" = "main" ]; then
             ENV="staging"
             ENV_SOURCE="Main Branch Auto-Test"
           else
@@ -111,7 +129,8 @@ jobs:
           echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Current Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
           echo "- **Force All Jobs**: ${{ github.event.inputs.force_all_jobs || 'false' }}" >> $GITHUB_STEP_SUMMARY

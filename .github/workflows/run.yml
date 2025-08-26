@@ -33,6 +33,7 @@ permissions:
   contents: read
   pull-requests: write
   deployments: write
+  actions: read
 
 env:
   AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
@@ -63,19 +64,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Get Source Branch from TEST Workflow
+        id: source-branch
+        run: |
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            TEST_RUN_ID="${{ github.event.workflow_run.id }}"
+            # Get the BUILD workflow that triggered TEST by finding workflow_run event details
+            BUILD_RUN_ID=$(gh api repos/${{ github.repository }}/actions/runs/$TEST_RUN_ID | jq -r '.triggering_workflow_runs[0].id // empty')
+            if [ -n "$BUILD_RUN_ID" ] && [ "$BUILD_RUN_ID" != "null" ]; then
+              SOURCE_BRANCH=$(gh api repos/${{ github.repository }}/actions/runs/$BUILD_RUN_ID | jq -r '.head_branch')
+              echo "Detected source branch from BUILD workflow ($BUILD_RUN_ID): $SOURCE_BRANCH"
+            else
+              # Fallback: use the TEST workflow's triggering workflow
+              SOURCE_BRANCH=$(gh api repos/${{ github.repository }}/actions/runs/$TEST_RUN_ID | jq -r '.head_branch // "main"')
+              echo "Using TEST workflow branch as fallback: $SOURCE_BRANCH"
+            fi
+            echo "branch=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
+          else
+            SOURCE_BRANCH="${{ github.ref_name }}"
+            echo "Using current branch: $SOURCE_BRANCH"
+            echo "branch=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run Info
         id: info
         run: |
           RUN_ID="run-${{ github.run_id }}-${{ github.run_attempt }}"
 
-          # Determine target environment
+          # Get source branch from previous step
+          SOURCE_BRANCH="${{ steps.source-branch.outputs.branch }}"
+
+          # Determine target environment based on source branch
           if [ -n "${{ github.event.inputs.environment }}" ]; then
             TARGET_ENV="${{ github.event.inputs.environment }}"
             ENV_SOURCE="Manual Input"
-          elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+          elif [[ "$SOURCE_BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
             TARGET_ENV="dev"
             ENV_SOURCE="Feature Branch Auto-Deploy"
-          elif [ "${{ github.event.workflow_run.head_branch || github.ref_name }}" = "main" ]; then
+          elif [ "$SOURCE_BRANCH" = "main" ]; then
             TARGET_ENV="staging"
             ENV_SOURCE="Main Branch Auto-Deploy"
           else
@@ -95,7 +121,8 @@ jobs:
           echo "# 🚀 RUN Phase" >> $GITHUB_STEP_SUMMARY
           echo "- **Run ID**: $RUN_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $TARGET_ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Source Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Current Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Infrastructure**: $DEPLOY_INFRA" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
 
