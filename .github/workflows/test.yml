@@ -172,10 +172,30 @@ jobs:
           else
             echo "❌ Unit tests failed" >> $GITHUB_STEP_SUMMARY
 
-            # Display failure details if available
+            # Display detailed failure information
             if [ -f "test/unit/test-results/test-summary.json" ]; then
               FAILED_TESTS=$(jq -r '.individual_tests.failed' test/unit/test-results/test-summary.json)
-              echo "- Failed Tests: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+              TOTAL_TESTS=$(jq -r '.individual_tests.total' test/unit/test-results/test-summary.json)
+              PASSED_TESTS=$(jq -r '.individual_tests.passed' test/unit/test-results/test-summary.json)
+              
+              echo "**Test Results:**" >> $GITHUB_STEP_SUMMARY
+              echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+              echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
+              echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              
+              # Show failed test suites details
+              echo "**Failed Test Suites:**" >> $GITHUB_STEP_SUMMARY
+              for log_file in test/unit/test-results/*.log; do
+                if [ -f "$log_file" ] && grep -q "ERROR" "$log_file"; then
+                  suite_name=$(basename "$log_file" .log)
+                  echo "- **$suite_name**: " >> $GITHUB_STEP_SUMMARY
+                  # Show first few failure lines
+                  grep "ERROR" "$log_file" | head -3 | while read -r line; do
+                    echo "  - ${line#*ERROR}" >> $GITHUB_STEP_SUMMARY
+                  done
+                fi
+              done
             fi
 
             exit 1
