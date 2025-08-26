@@ -57,10 +57,14 @@ config
 
 # Backend Configuration (May contain sensitive backend details)
 backend.hcl
-backend-*.hcl
+!backend-dev.hcl
+!backend-staging.hcl
+!backend-prod.hcl
 !backend.hcl.example
 **/backend.hcl
-**/backend-*.hcl
+!**/backend-dev.hcl
+!**/backend-staging.hcl
+!**/backend-prod.hcl
 !**/backend.hcl.example
 backend.conf
 backend-*.conf
