@@ -103,8 +103,7 @@ gh workflow run run.yml --field environment=staging --field deploy_infrastructur
 gh workflow run build.yml --field force_build=true
 gh workflow run test.yml --field force_all_jobs=true
 
-# Monitor pipeline health
-gh workflow run pipeline-monitor.yml
+# Test pipeline health
 gh workflow run pipeline-test.yml --field test_scenario=full-pipeline
 ```
 

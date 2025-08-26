@@ -101,8 +101,8 @@ gh run list --limit=5
 # View specific workflow logs
 gh run view --log
 
-# Monitor pipeline health
-gh workflow run pipeline-monitor.yml
+# Test pipeline health
+gh workflow run pipeline-test.yml
 ```
 
 ## Development Workflow
