@@ -155,6 +155,10 @@ jobs:
           echo "- Ref: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- SHA: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           
+          # Ensure we have the main branch reference for comparison
+          echo "Fetching main branch for comparison..." >> $GITHUB_STEP_SUMMARY
+          git fetch origin main:refs/remotes/origin/main --depth=50 2>/dev/null || true
+          
           # Verify git references exist
           echo "Checking git references..." >> $GITHUB_STEP_SUMMARY
           if git show-ref --verify --quiet refs/remotes/origin/main; then

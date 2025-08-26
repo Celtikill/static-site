@@ -1,0 +1,114 @@
+name: Pipeline Health Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+  workflow_run:
+    workflows: ["DEPLOY - Static Website Deployment"]
+    types: [completed]
+
+jobs:
+  monitor:
+    name: Monitor Pipeline Health
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    steps:
+      - name: Check Pipeline Status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "## 🏥 Pipeline Health Check" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check BUILD workflow status
+          echo "### 🏗️ BUILD Workflow Status" >> $GITHUB_STEP_SUMMARY
+          BUILD_STATUS=$(gh api repos/${{ github.repository }}/actions/workflows/build.yml/runs \
+            --jq '.workflow_runs[0] | {conclusion: .conclusion, created_at: .created_at, run_number: .run_number}' \
+            2>/dev/null || echo '{"conclusion": "unknown"}')
+          
+          BUILD_CONCLUSION=$(echo "$BUILD_STATUS" | jq -r '.conclusion // "unknown"')
+          if [ "$BUILD_CONCLUSION" = "success" ]; then
+            echo "✅ Last BUILD: Success" >> $GITHUB_STEP_SUMMARY
+          elif [ "$BUILD_CONCLUSION" = "failure" ]; then
+            echo "❌ Last BUILD: Failed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Last BUILD: $BUILD_CONCLUSION" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check TEST workflow status
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🧪 TEST Workflow Status" >> $GITHUB_STEP_SUMMARY
+          TEST_STATUS=$(gh api repos/${{ github.repository }}/actions/workflows/test.yml/runs \
+            --jq '.workflow_runs[0] | {conclusion: .conclusion, created_at: .created_at}' \
+            2>/dev/null || echo '{"conclusion": "unknown"}')
+          
+          TEST_CONCLUSION=$(echo "$TEST_STATUS" | jq -r '.conclusion // "unknown"')
+          if [ "$TEST_CONCLUSION" = "success" ]; then
+            echo "✅ Last TEST: Success" >> $GITHUB_STEP_SUMMARY
+          elif [ "$TEST_CONCLUSION" = "failure" ]; then
+            echo "❌ Last TEST: Failed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Last TEST: $TEST_CONCLUSION" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Check DEPLOY workflow status
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 DEPLOY Workflow Status" >> $GITHUB_STEP_SUMMARY
+          DEPLOY_STATUS=$(gh api repos/${{ github.repository }}/actions/workflows/deploy.yml/runs \
+            --jq '.workflow_runs[0] | {conclusion: .conclusion, created_at: .created_at}' \
+            2>/dev/null || echo '{"conclusion": "unknown"}')
+          
+          DEPLOY_CONCLUSION=$(echo "$DEPLOY_STATUS" | jq -r '.conclusion // "unknown"')
+          if [ "$DEPLOY_CONCLUSION" = "success" ]; then
+            echo "✅ Last DEPLOY: Success" >> $GITHUB_STEP_SUMMARY
+          elif [ "$DEPLOY_CONCLUSION" = "failure" ]; then
+            echo "❌ Last DEPLOY: Failed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Last DEPLOY: $DEPLOY_CONCLUSION" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Calculate pipeline health score
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Pipeline Health Score" >> $GITHUB_STEP_SUMMARY
+          
+          HEALTH_SCORE=100
+          if [ "$BUILD_CONCLUSION" = "failure" ]; then
+            HEALTH_SCORE=$((HEALTH_SCORE - 40))
+          fi
+          if [ "$TEST_CONCLUSION" = "failure" ]; then
+            HEALTH_SCORE=$((HEALTH_SCORE - 30))
+          fi
+          if [ "$DEPLOY_CONCLUSION" = "failure" ]; then
+            HEALTH_SCORE=$((HEALTH_SCORE - 30))
+          fi
+          
+          if [ $HEALTH_SCORE -ge 80 ]; then
+            echo "🟢 **Health Score: ${HEALTH_SCORE}%** - Pipeline is healthy" >> $GITHUB_STEP_SUMMARY
+          elif [ $HEALTH_SCORE -ge 50 ]; then
+            echo "🟡 **Health Score: ${HEALTH_SCORE}%** - Pipeline needs attention" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🔴 **Health Score: ${HEALTH_SCORE}%** - Pipeline is unhealthy" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Provide recommendations
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 💡 Recommendations" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$BUILD_CONCLUSION" = "failure" ]; then
+            echo "- 🔧 Fix BUILD workflow failures before proceeding" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$TEST_CONCLUSION" = "failure" ]; then
+            echo "- 🧪 Investigate TEST workflow failures" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$DEPLOY_CONCLUSION" = "failure" ]; then
+            echo "- 🚀 Review DEPLOY workflow logs for issues" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ $HEALTH_SCORE -eq 100 ]; then
+            echo "- ✨ Pipeline is running smoothly!" >> $GITHUB_STEP_SUMMARY
+          fi

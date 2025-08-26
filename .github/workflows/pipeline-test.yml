@@ -1,0 +1,74 @@
+name: Pipeline Test - Verify Fixes
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_scenario:
+        description: 'Test scenario to run'
+        required: false
+        type: choice
+        options:
+          - full-pipeline
+          - build-only
+          - deploy-only
+        default: full-pipeline
+
+jobs:
+  test-pipeline:
+    name: Test Pipeline Fixes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Test Git References
+        run: |
+          echo "## 🧪 Testing Git Reference Handling" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Test fetching main branch
+          echo "Testing main branch fetch..."
+          if git fetch origin main:refs/remotes/origin/main --depth=50 2>/dev/null; then
+            echo "✅ Main branch fetched successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Failed to fetch main branch" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Test change detection
+          echo "Testing change detection..."
+          if git diff --name-only origin/main...HEAD 2>/dev/null; then
+            echo "✅ Change detection working" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Change detection needs fallback" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: Validate Workflow Syntax
+        run: |
+          echo "## 📋 Validating Workflow Files" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for workflow in .github/workflows/*.yml; do
+            if [ -f "$workflow" ]; then
+              filename=$(basename "$workflow")
+              echo "Checking $filename..."
+              
+              # Basic YAML syntax check
+              if python3 -c "import yaml; yaml.safe_load(open('$workflow'))" 2>/dev/null; then
+                echo "✅ $filename - Valid YAML" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "❌ $filename - Invalid YAML" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+          done
+          
+      - name: Summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Pipeline Test Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the test results above" >> $GITHUB_STEP_SUMMARY
+          echo "2. If all tests pass, proceed with pipeline execution" >> $GITHUB_STEP_SUMMARY
+          echo "3. Monitor the BUILD → TEST → DEPLOY flow" >> $GITHUB_STEP_SUMMARY
