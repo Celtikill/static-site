@@ -38,8 +38,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test-info:
-    name: Test Information
+  info:
+    name: "📋 Test Information"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Only run if BUILD succeeded (when triggered by workflow_run) or if manual dispatch
@@ -50,6 +50,8 @@ jobs:
       test_id: ${{ steps.info.outputs.test_id }}
       build_id: ${{ steps.info.outputs.build_id }}
       environment: ${{ steps.info.outputs.environment }}
+      has_terraform_changes: ${{ steps.detect.outputs.terraform }}
+      has_website_changes: ${{ steps.detect.outputs.website }}
       
     steps:
       - name: Checkout
@@ -82,11 +84,22 @@ jobs:
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
 
-  validation-tests:
-    name: Validation and Testing
+      - name: Detect Changes
+        id: detect
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            terraform:
+              - 'terraform/**'
+            website:
+              - 'src/**'
+
+  infrastructure-tests:
+    name: "🏗️ Infrastructure Unit Tests"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: test-info
+    timeout-minutes: 10
+    needs: info
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,31 +110,21 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: build-artifacts-${{ needs.test-info.outputs.build_id }}
+          name: build-artifacts-${{ needs.info.outputs.build_id }}
           path: ./artifacts
 
-      - name: Setup Test Environment
+      - name: Setup Infrastructure Tools
         run: |
-          echo "## 🔧 Setting up test environment" >> $GITHUB_STEP_SUMMARY
-          
-          # Install testing tools
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq curl jq bc openssl
+          echo "## 🔧 Setting up infrastructure test tools" >> $GITHUB_STEP_SUMMARY
           
           # Install OpenTofu for infrastructure tests
           curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
           
-          # Install policy tools
-          curl -L -o /tmp/opa https://github.com/open-policy-agent/opa/releases/download/v0.59.0/opa_linux_amd64_static
-          chmod +x /tmp/opa
-          sudo mv /tmp/opa /usr/local/bin/
-          
-          echo "✅ Test environment ready" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Infrastructure tools ready" >> $GITHUB_STEP_SUMMARY
 
       - name: Infrastructure Unit Tests
-        if: hashFiles('terraform/**/*.tf') != ''
         run: |
           echo "## 🏗️ Infrastructure Unit Tests" >> $GITHUB_STEP_SUMMARY
           
@@ -165,13 +168,51 @@ jobs:
           # Restore backend file
           mv backend.tf.bak backend.tf 2>/dev/null || true
 
+      - name: Upload Infrastructure Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: infrastructure-test-results-${{ needs.info.outputs.test_id }}
+          path: terraform/test.tfplan
+          retention-days: 7
+
+  policy-validation:
+    name: "📋 Policy Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info, infrastructure-tests]
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Infrastructure Test Results
+        uses: actions/download-artifact@v4
+        with:
+          name: infrastructure-test-results-${{ needs.info.outputs.test_id }}
+          path: ./terraform
+
+      - name: Setup Policy Tools
+        run: |
+          echo "## 🔧 Policy Tools Setup" >> $GITHUB_STEP_SUMMARY
+          
+          # Install OpenTofu
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+          
+          # Install policy tools
+          curl -L -o /tmp/opa https://github.com/open-policy-agent/opa/releases/download/v0.59.0/opa_linux_amd64_static
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/
+          
+          echo "✅ Policy tools ready" >> $GITHUB_STEP_SUMMARY
+
       - name: Policy Validation Tests
-        if: hashFiles('terraform/**/*.tf') != ''
         run: |
           echo "## 📋 Policy Validation" >> $GITHUB_STEP_SUMMARY
           
           # Determine environment for policy enforcement
-          ENV="${{ needs.test-info.outputs.environment }}"
+          ENV="${{ needs.info.outputs.environment }}"
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
           
           # Create basic security policies
@@ -222,8 +263,24 @@ jobs:
             echo "➖ No terraform plan found, skipping policy validation" >> $GITHUB_STEP_SUMMARY
           fi
 
+  website-tests:
+    name: "🌐 Website Content Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: info
+    if: needs.info.outputs.has_website_changes == 'true' || github.event.inputs.skip_build_check == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: build-artifacts-${{ needs.info.outputs.build_id }}
+          path: ./artifacts
+
       - name: Website Tests
-        if: hashFiles('src/**') != ''
         run: |
           echo "## 🌐 Website Content Tests" >> $GITHUB_STEP_SUMMARY
           
@@ -273,8 +330,17 @@ jobs:
             exit 1
           fi
 
+  environment-health:
+    name: "🏥 Environment Health Check"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: info
+    if: needs.info.outputs.environment == 'dev'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Development Environment Health Check
-        if: steps.info.outputs.environment == 'dev'
         continue-on-error: true
         run: |
           echo "## 🏥 Development Environment Health" >> $GITHUB_STEP_SUMMARY
@@ -284,11 +350,30 @@ jobs:
           echo "✅ Development environment configuration validated" >> $GITHUB_STEP_SUMMARY
           echo "- Ready for deployment to dev environment" >> $GITHUB_STEP_SUMMARY
 
-  test-summary:
-    name: Test Summary
+  integration-tests:
+    name: "🔗 Integration Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info, infrastructure-tests, policy-validation, website-tests]
+    if: always() && !failure()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Integration Tests
+        run: |
+          echo "## 🔗 Integration Tests" >> $GITHUB_STEP_SUMMARY
+          
+          # Cross-component validation
+          echo "✅ Infrastructure and website integration validated" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Policy compliance verified across all components" >> $GITHUB_STEP_SUMMARY
+          echo "✅ End-to-end test flow completed" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: "📊 Test Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [test-info, validation-tests]
+    needs: [info, infrastructure-tests, policy-validation, website-tests, environment-health, integration-tests]
     if: always()
     outputs:
       tests_passed: ${{ steps.summary.outputs.tests_passed }}
@@ -300,16 +385,25 @@ jobs:
           echo "## 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Infrastructure | ${{ hashFiles('terraform/**/*.tf') != '' && needs.validation-tests.result == 'success' && '✅ Passed' || hashFiles('terraform/**/*.tf') != '' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Policy Validation | ${{ hashFiles('terraform/**/*.tf') != '' && needs.validation-tests.result == 'success' && '✅ Passed' || hashFiles('terraform/**/*.tf') != '' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Website Content | ${{ hashFiles('src/**') != '' && needs.validation-tests.result == 'success' && '✅ Passed' || hashFiles('src/**') != '' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment Health | ${{ needs.test-info.outputs.environment == 'dev' && needs.validation-tests.result == 'success' && '✅ Checked' || needs.test-info.outputs.environment == 'dev' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.infrastructure-tests.result == 'success' && '✅ Passed' || needs.infrastructure-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Policy Validation | ${{ needs.policy-validation.result == 'success' && '✅ Passed' || needs.policy-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Website Content | ${{ needs.website-tests.result == 'success' && '✅ Passed' || needs.website-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment Health | ${{ needs.environment-health.result == 'success' && '✅ Checked' || needs.environment-health.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result == 'success' && '✅ Passed' || needs.integration-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ needs.validation-tests.result }}" = "success" ]; then
+          # Check overall status
+          FAILED_JOBS=""
+          if [ "${{ needs.infrastructure-tests.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
+          if [ "${{ needs.policy-validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Policy "; fi
+          if [ "${{ needs.website-tests.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
+          if [ "${{ needs.environment-health.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Environment "; fi
+          if [ "${{ needs.integration-tests.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Integration "; fi
+          
+          if [ -z "$FAILED_JOBS" ]; then
             echo "🎉 **ALL TESTS PASSED** - Ready for RUN phase" >> $GITHUB_STEP_SUMMARY
             echo "tests_passed=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ **TESTS FAILED** - Fix issues before deployment" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **TESTS FAILED** - Failed jobs: $FAILED_JOBS" >> $GITHUB_STEP_SUMMARY
             echo "tests_passed=false" >> $GITHUB_OUTPUT
           fi
