@@ -104,10 +104,10 @@ fi
 4. **Status:** ✅ Completed
 
 ### Phase 2: Parallel Testing
-1. Keep both workflows temporarily
-2. Run `build-simple.yml` alongside `build.yml`
-3. Compare results and timing
-4. **Status:** 🟡 Ready to implement
+1. Keep both workflows temporarily (now superseded)
+2. The simplified build workflow has been integrated into `build.yml`
+3. Complex workflows archived for rollback capability
+4. **Status:** ✅ Completed
 
 ### Phase 3: Gradual Migration
 1. Update TEST workflow to accept both BUILD outputs
@@ -116,10 +116,10 @@ fi
 4. **Status:** ⏳ Planned
 
 ### Phase 4: Full Migration
-1. Replace `build.yml` with `build-simple.yml`
-2. Update all dependent workflows
-3. Archive complex version
-4. **Status:** 📅 Future
+1. Complex workflows archived in `.github/workflows/archive/`
+2. Simplified build-test-run workflows active
+3. All dependent workflows updated
+4. **Status:** ✅ Completed
 
 ## Comparison Metrics
 
@@ -133,16 +133,15 @@ fi
 
 ## Testing Commands
 
-### Test the Simple Workflow
+### Test the Simplified Workflow
 ```bash
-# Run simple workflow
-gh workflow run build-simple.yml
+# Run simplified workflow (force build for full testing)
+gh workflow run build.yml -f force_build=true
 
-# Compare with complex workflow
+# Run normal workflow (change-detection enabled)
 gh workflow run build.yml
 
 # Check results
-gh run list --workflow=build-simple.yml --limit=1
 gh run list --workflow=build.yml --limit=1
 ```
 
@@ -150,15 +149,15 @@ gh run list --workflow=build.yml --limit=1
 ```bash
 # Test terraform changes
 echo "test" >> terraform/main.tf
-gh workflow run build-simple.yml
+gh workflow run build.yml
 
 # Test content changes
 echo "test" >> src/index.html
-gh workflow run build-simple.yml
+gh workflow run build.yml
 
 # Test documentation only
 echo "test" >> README.md
-gh workflow run build-simple.yml
+gh workflow run build.yml
 ```
 
 ## Best Practices Applied
@@ -192,14 +191,34 @@ If issues arise with the simplified workflow:
 3. **Investigation:** Compare outputs and identify gaps
 4. **Iteration:** Add missing features to simple workflow
 
+## Security Enforcement Updates
+
+### Restored Blocking Security (2025-08-26)
+1. ✅ **BUILD Phase**: Restored strict security enforcement from archived workflows
+   - Removed `continue-on-error: true` and `--soft-fail` flags
+   - Checkov and Trivy now **BLOCK builds** on HIGH/CRITICAL findings
+   - Error counting logic matches original complex workflow behavior
+
+2. ✅ **TEST Phase**: Implemented environment-specific policy enforcement
+   - **Production**: Policy violations **BLOCK** deployment
+   - **Staging**: Policy violations generate **WARNINGS** but allow deployment
+   - **Development**: Policy violations are **INFORMATIONAL** only
+
+### Security Architecture
+- **BUILD**: Static analysis blocks on critical vulnerabilities (all environments)
+- **TEST**: Policy validation with environment-appropriate enforcement
+- **Multi-layered**: Defense in depth with early failure and environment awareness
+
 ## Next Steps
 
 1. ✅ Fix immediate errors in current workflow
-2. ✅ Create simplified workflow (`build-simple.yml`)
-3. ⏳ Test simple workflow on feature branch
-4. ⏳ Update dependent workflows to accept both formats
-5. ⏳ Gradually migrate to simple workflow
-6. ⏳ Deprecate complex workflow
+2. ✅ Create simplified build-test-run workflows 
+3. ✅ Archive complex workflows for rollback capability
+4. ✅ Update dependent workflows and documentation
+5. ✅ Implement simplified workflow system
+6. ✅ Complete migration to build-test-run approach
+7. ✅ Restore security enforcement from archived workflows
+8. ✅ Implement environment-specific policy enforcement
 
 ## Conclusion
 
