@@ -3,7 +3,7 @@ name: RUN - Deployment Operations
 on:
   workflow_run:
     workflows: ["TEST - Quality Gates and Validation"]
-    types: [completed]
+    types: [completed]  # Triggers on all completions; success filtering happens in job conditions
     branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
   workflow_dispatch:
     inputs:
@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info, authorization]
-    if: always() && !failure()
+    if: needs.info.result == 'success' && (needs.authorization.result == 'success' || needs.authorization.result == 'skipped')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -181,7 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [info, setup]
-    if: always() && !failure() && needs.info.outputs.deploy_infrastructure == 'true'
+    if: needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
     environment: ${{ needs.info.outputs.target_environment }}
     outputs:
       outputs: ${{ steps.deploy.outputs.outputs }}
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [info, setup, infrastructure]
-    if: always() && !cancelled() && needs.info.outputs.deploy_website == 'true'
+    if: needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_website == 'true'
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     steps:
@@ -344,7 +344,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [info, infrastructure, website]
-    if: always() && !cancelled() && (needs.infrastructure.result == 'success' || needs.website.result == 'success')
+    if: needs.info.result == 'success' && (needs.infrastructure.result == 'success' || needs.website.result == 'success')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -397,7 +397,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure, website, validation]
-    if: always() && !cancelled()
+    if: needs.info.result == 'success' && (needs.validation.result == 'success' || needs.validation.result == 'skipped')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -454,7 +454,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure, website, validation, github-deployment]
-    if: always()
+    if: needs.info.result == 'success'
     outputs:
       deployment_status: ${{ steps.summary.outputs.status }}
       deployment_url: ${{ needs.website.outputs.deployment_url }}
