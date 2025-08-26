@@ -2,7 +2,8 @@
 
 > **🎯 Audience**: DevOps engineers, platform teams, architects  
 > **📊 Complexity**: Advanced  
-> **⏱️ Reading Time**: 25 minutes
+> **⏱️ Reading Time**: 25 minutes  
+> **📝 Note**: Mermaid diagrams optimized for GitHub rendering compatibility
 
 ## Overview
 
@@ -373,7 +374,7 @@ graph TD
 
     %% Environment Detection
     subgraph "Environment Input"
-        ENV_INPUT[Environment Parameter<br/>dev | staging | prod]
+        ENV_INPUT[Environment Parameter<br/>dev / staging / prod]
     end
 
     %% Configuration Matrix
