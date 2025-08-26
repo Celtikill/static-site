@@ -47,6 +47,9 @@ OVERALL_TESTS_RUN=0     # Total assertions executed across all suites
 OVERALL_TESTS_PASSED=0  # Total assertions that passed
 OVERALL_TESTS_FAILED=0  # Total assertions that failed
 
+# Array to track failed suites with details for enhanced reporting
+declare -a FAILED_SUITE_DETAILS
+
 # =============================================================================
 # USER INTERFACE FUNCTIONS
 # =============================================================================
@@ -367,6 +370,22 @@ run_tests_parallel() {
         if [[ $exit_code -ne 0 ]]; then
             failed_suites+=("$test_name")
             SUITES_FAILED=$((SUITES_FAILED + 1))
+            
+            # Capture failure details for enhanced reporting
+            local error_summary=""
+            if [[ -f "$output_file" ]]; then
+                # Extract first meaningful error line for concise reporting
+                error_summary=$(grep -E "(ERROR|FAILED|FAIL:|error:|failed:)" "$output_file" | head -1 | sed 's/^[[:space:]]*//' | cut -c1-100)
+                if [[ -z "$error_summary" ]]; then
+                    error_summary="Exit code: $exit_code"
+                fi
+            else
+                error_summary="Exit code: $exit_code (no output file)"
+            fi
+            
+            # Store failure details globally for reporting
+            FAILED_SUITE_DETAILS+=("$test_name: $error_summary")
+            
             log_error "Test suite failed: $test_name (exit code: $exit_code)"
         else
             SUITES_PASSED=$((SUITES_PASSED + 1))
@@ -471,6 +490,14 @@ generate_overall_report() {
     
     # Generate comprehensive JSON summary report for CI/CD systems
     local summary_report="${TEST_OUTPUT_DIR}/test-summary.json"
+    
+    # Convert failed suite details array to JSON format
+    local failed_suites_json="[]"
+    if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]]; then
+        # Create temporary JSON array from failed suite details
+        failed_suites_json=$(printf '%s\n' "${FAILED_SUITE_DETAILS[@]}" | jq -R . | jq -s .)
+    fi
+    
     jq -n \
         --arg timestamp "$(date -Iseconds)" \
         --argjson duration "$duration" \
@@ -482,6 +509,7 @@ generate_overall_report() {
         --argjson tests_passed "$OVERALL_TESTS_PASSED" \
         --argjson tests_failed "$OVERALL_TESTS_FAILED" \
         --argjson test_success_rate "$test_success_rate" \
+        --argjson failed_suite_details "$failed_suites_json" \
         --arg log_level "$TEST_LOG_LEVEL" \
         --arg parallel "$TEST_PARALLEL" \
         --arg output_dir "$TEST_OUTPUT_DIR" \
@@ -492,7 +520,8 @@ generate_overall_report() {
                 "total": $total_suites,
                 "passed": $suites_passed,
                 "failed": $suites_failed,
-                "success_rate": $suite_success_rate
+                "success_rate": $suite_success_rate,
+                "failed_details": $failed_suite_details
             },
             "individual_tests": {
                 "total": $tests_run,
@@ -513,6 +542,16 @@ generate_overall_report() {
     if [[ $SUITES_FAILED -gt 0 ]]; then
         echo ""
         log_error "❌ Tests failed!"
+        
+        # Display detailed failure information for debugging
+        if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]]; then
+            echo ""
+            echo "Failed Test Suites:"
+            for detail in "${FAILED_SUITE_DETAILS[@]}"; do
+                echo "  - $detail"
+            done
+        fi
+        
         return 1
     else
         echo ""
