@@ -424,10 +424,15 @@ collect_test_statistics() {
     local stats
     stats=$(jq -s 'map(.tests) | {total: (map(.total) | add), passed: (map(.passed) | add), failed: (map(.failed) | add)}' "${TEST_OUTPUT_DIR}"/*-report.json 2>/dev/null || echo '{"total":0,"passed":0,"failed":0}')
     
-    # Extract individual values and set global variables
-    OVERALL_TESTS_RUN=$(echo "$stats" | jq -r '.total')
-    OVERALL_TESTS_PASSED=$(echo "$stats" | jq -r '.passed')
-    OVERALL_TESTS_FAILED=$(echo "$stats" | jq -r '.failed')
+    # Extract individual values and set global variables with null checks
+    OVERALL_TESTS_RUN=$(echo "$stats" | jq -r '.total // 0')
+    OVERALL_TESTS_PASSED=$(echo "$stats" | jq -r '.passed // 0')
+    OVERALL_TESTS_FAILED=$(echo "$stats" | jq -r '.failed // 0')
+    
+    # Additional safety checks to ensure variables are set
+    OVERALL_TESTS_RUN=${OVERALL_TESTS_RUN:-0}
+    OVERALL_TESTS_PASSED=${OVERALL_TESTS_PASSED:-0}
+    OVERALL_TESTS_FAILED=${OVERALL_TESTS_FAILED:-0}
 }
 
 # Generate comprehensive overall test report and summary

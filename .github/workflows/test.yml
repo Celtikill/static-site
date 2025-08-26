@@ -195,7 +195,7 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
               
               # Show failed test suites details from JSON summary (more reliable than parsing logs)
-              if jq -e '.test_suites.failed_details | length > 0' test/unit/test-results/test-summary.json > /dev/null 2>&1; then
+              if [ -f "test/unit/test-results/test-summary.json" ] && jq -e '.test_suites.failed_details | length > 0' test/unit/test-results/test-summary.json > /dev/null 2>&1; then
                 echo "**Failed Test Suites:**"
                 echo "**Failed Test Suites:**" >> $GITHUB_STEP_SUMMARY
                 
