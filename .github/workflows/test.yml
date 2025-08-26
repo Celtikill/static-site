@@ -170,29 +170,45 @@ jobs:
               echo "- Success Rate: $SUCCESS_RATE%" >> $GITHUB_STEP_SUMMARY
             fi
           else
+            echo "❌ Unit tests failed"
             echo "❌ Unit tests failed" >> $GITHUB_STEP_SUMMARY
 
-            # Display detailed failure information
+            # Display detailed failure information both to console and step summary
             if [ -f "test/unit/test-results/test-summary.json" ]; then
               FAILED_TESTS=$(jq -r '.individual_tests.failed' test/unit/test-results/test-summary.json)
               TOTAL_TESTS=$(jq -r '.individual_tests.total' test/unit/test-results/test-summary.json)
               PASSED_TESTS=$(jq -r '.individual_tests.passed' test/unit/test-results/test-summary.json)
               
+              # Display to console (visible in logs)
+              echo ""
+              echo "**Test Results:**"
+              echo "- Total Tests: $TOTAL_TESTS"
+              echo "- Passed: $PASSED_TESTS"
+              echo "- Failed: $FAILED_TESTS"
+              echo ""
+              
+              # Also add to step summary
               echo "**Test Results:**" >> $GITHUB_STEP_SUMMARY
               echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
               echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
               echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
               
-              # Show failed test suites details
+              # Show failed test suites details in both console and summary
+              echo "**Failed Test Suites:**"
               echo "**Failed Test Suites:**" >> $GITHUB_STEP_SUMMARY
+              
               for log_file in test/unit/test-results/*.log; do
                 if [ -f "$log_file" ] && grep -q "ERROR" "$log_file"; then
                   suite_name=$(basename "$log_file" .log)
+                  echo "- **$suite_name**:"
                   echo "- **$suite_name**: " >> $GITHUB_STEP_SUMMARY
-                  # Show first few failure lines
+                  
+                  # Show first few failure lines in both places
                   grep "ERROR" "$log_file" | head -3 | while read -r line; do
-                    echo "  - ${line#*ERROR}" >> $GITHUB_STEP_SUMMARY
+                    clean_error="${line#*ERROR}"
+                    echo "  - $clean_error"
+                    echo "  - $clean_error" >> $GITHUB_STEP_SUMMARY
                   done
                 fi
               done
@@ -481,6 +497,13 @@ jobs:
     outputs:
       tests_passed: ${{ steps.summary.outputs.tests_passed }}
     steps:
+      - name: Download Unit Test Results
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: unit-test-results-${{ needs.info.outputs.test_id }}
+          path: ./test-results
+
       - name: Test Summary
         id: summary
         run: |
@@ -493,6 +516,45 @@ jobs:
           echo "| Website Content | ${{ needs.website-tests.result == 'success' && '✅ Passed' || needs.website-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Pre-Deployment Usability | ${{ needs.pre-deployment-usability.result == 'success' && '✅ Passed' || needs.pre-deployment-usability.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Display detailed unit test results if available
+          if [ -f "./test-results/test-summary.json" ]; then
+            TOTAL_TESTS=$(jq -r '.individual_tests.total' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            PASSED_TESTS=$(jq -r '.individual_tests.passed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            FAILED_TESTS=$(jq -r '.individual_tests.failed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            SUCCESS_RATE=$(jq -r '.individual_tests.success_rate' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            
+            echo "### 🏗️ Infrastructure Unit Tests Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Tests**: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Passed**: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Failed**: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Success Rate**: $SUCCESS_RATE%" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show failed test details if any failures occurred
+            if [ "$FAILED_TESTS" != "0" ] && [ "$FAILED_TESTS" != "N/A" ]; then
+              echo "### ❌ Failed Test Details" >> $GITHUB_STEP_SUMMARY
+              
+              # Look for failed test suite logs
+              for log_file in ./test-results/*.log; do
+                if [ -f "$log_file" ] && grep -q "ERROR" "$log_file"; then
+                  suite_name=$(basename "$log_file" .log)
+                  echo "#### **$suite_name**" >> $GITHUB_STEP_SUMMARY
+                  
+                  # Extract and show key failure information
+                  grep "ERROR" "$log_file" | head -5 | while read -r line; do
+                    clean_error="${line#*ERROR}"
+                    echo "- $clean_error" >> $GITHUB_STEP_SUMMARY
+                  done
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+            fi
+          elif [ "${{ needs.infrastructure-tests.result }}" = "failure" ]; then
+            echo "### 🏗️ Infrastructure Unit Tests Details" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Unit tests failed** - Test results not available for detailed analysis" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
 
           # Check overall status
           FAILED_JOBS=""
