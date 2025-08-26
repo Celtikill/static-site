@@ -160,6 +160,10 @@ jobs:
         run: |
           echo "## 📋 Policy Validation" >> $GITHUB_STEP_SUMMARY
           
+          # Determine environment for policy enforcement
+          ENV="${{ steps.info.outputs.environment }}"
+          echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
+          
           # Create basic security policies
           mkdir -p policies
           cat > policies/security.rego << 'EOF'
@@ -185,10 +189,24 @@ jobs:
           # Run policy validation
           if [ -f "terraform/test.tfplan" ]; then
             tofu -chdir=terraform show -json test.tfplan > plan.json
-            if opa eval -d policies/ -i plan.json "data.terraform.security.deny[x]" --format pretty | grep -q "true"; then
-              echo "⚠️ Policy violations found (non-blocking)" >> $GITHUB_STEP_SUMMARY
+            POLICY_VIOLATIONS=$(opa eval -d policies/ -i plan.json "data.terraform.security.deny[x]" --format pretty | grep -c "true" || echo "0")
+            
+            if [ "$POLICY_VIOLATIONS" -gt 0 ]; then
+              echo "⚠️ **$POLICY_VIOLATIONS policy violation(s) found**" >> $GITHUB_STEP_SUMMARY
+              
+              # Environment-specific enforcement
+              if [ "$ENV" = "prod" ]; then
+                echo "❌ **PRODUCTION DEPLOYMENT BLOCKED** - Policy violations not allowed in production" >> $GITHUB_STEP_SUMMARY
+                echo "Fix all policy violations before production deployment" >> $GITHUB_STEP_SUMMARY
+                exit 1
+              elif [ "$ENV" = "staging" ]; then
+                echo "⚠️ **WARNING**: Policy violations detected but allowing staging deployment" >> $GITHUB_STEP_SUMMARY
+                echo "These issues must be fixed before production deployment" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "ℹ️ Policy violations noted for development environment" >> $GITHUB_STEP_SUMMARY
+              fi
             else
-              echo "✅ Policy validation passed" >> $GITHUB_STEP_SUMMARY
+              echo "✅ Policy validation passed - no violations found" >> $GITHUB_STEP_SUMMARY
             fi
           else
             echo "➖ No terraform plan found, skipping policy validation" >> $GITHUB_STEP_SUMMARY

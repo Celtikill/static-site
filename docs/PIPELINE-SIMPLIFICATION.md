@@ -191,6 +191,24 @@ If issues arise with the simplified workflow:
 3. **Investigation:** Compare outputs and identify gaps
 4. **Iteration:** Add missing features to simple workflow
 
+## Security Enforcement Updates
+
+### Restored Blocking Security (2025-08-26)
+1. ✅ **BUILD Phase**: Restored strict security enforcement from archived workflows
+   - Removed `continue-on-error: true` and `--soft-fail` flags
+   - Checkov and Trivy now **BLOCK builds** on HIGH/CRITICAL findings
+   - Error counting logic matches original complex workflow behavior
+
+2. ✅ **TEST Phase**: Implemented environment-specific policy enforcement
+   - **Production**: Policy violations **BLOCK** deployment
+   - **Staging**: Policy violations generate **WARNINGS** but allow deployment
+   - **Development**: Policy violations are **INFORMATIONAL** only
+
+### Security Architecture
+- **BUILD**: Static analysis blocks on critical vulnerabilities (all environments)
+- **TEST**: Policy validation with environment-appropriate enforcement
+- **Multi-layered**: Defense in depth with early failure and environment awareness
+
 ## Next Steps
 
 1. ✅ Fix immediate errors in current workflow
@@ -199,6 +217,8 @@ If issues arise with the simplified workflow:
 4. ✅ Update dependent workflows and documentation
 5. ✅ Implement simplified workflow system
 6. ✅ Complete migration to build-test-run approach
+7. ✅ Restore security enforcement from archived workflows
+8. ✅ Implement environment-specific policy enforcement
 
 ## Conclusion
 

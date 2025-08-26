@@ -141,24 +141,38 @@ jobs:
 
       - name: Security Scanning
         if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
-        continue-on-error: true
         run: |
           echo "## 🔒 Security Scanning" >> $GITHUB_STEP_SUMMARY
           
-          # Run Checkov
+          # Initialize error counter
+          SECURITY_ERRORS=0
+          
+          # Run Checkov (blocking on critical/high findings)
           echo "### Checkov (Infrastructure as Code)" >> $GITHUB_STEP_SUMMARY
-          if checkov -d terraform --quiet --compact --skip-check CKV_AWS_20,CKV_AWS_117 --soft-fail; then
-            echo "✅ Checkov scan completed" >> $GITHUB_STEP_SUMMARY
+          if checkov -d terraform --quiet --compact --skip-check CKV_AWS_20,CKV_AWS_117; then
+            echo "✅ Checkov scan passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Checkov found issues (non-blocking)" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Checkov found security issues" >> $GITHUB_STEP_SUMMARY
+            SECURITY_ERRORS=$((SECURITY_ERRORS + 1))
           fi
           
-          # Run Trivy  
+          # Run Trivy (blocking on HIGH/CRITICAL vulnerabilities)
           echo "### Trivy (Vulnerability Scanner)" >> $GITHUB_STEP_SUMMARY
           if trivy fs --security-checks vuln,config terraform/ --severity HIGH,CRITICAL --quiet; then
-            echo "✅ Trivy scan completed" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Trivy scan passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Trivy found vulnerabilities (non-blocking)" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Trivy found HIGH/CRITICAL vulnerabilities" >> $GITHUB_STEP_SUMMARY
+            SECURITY_ERRORS=$((SECURITY_ERRORS + 1))
+          fi
+          
+          # Fail build if security issues found
+          if [ $SECURITY_ERRORS -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚨 **BUILD FAILED** - $SECURITY_ERRORS security issue(s) found" >> $GITHUB_STEP_SUMMARY
+            echo "Fix security issues before deployment" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ All security scans passed" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Validate Website Content
@@ -225,7 +239,7 @@ jobs:
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Terraform | ${{ steps.changes.outputs.terraform == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website | ${{ steps.changes.outputs.content == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | ${{ (steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true') && '✅ Scanned' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ (steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true') && '🔒 BLOCKING - Passed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Artifacts | ${{ steps.artifacts.outputs.created == 'true' && '✅ Created' || '➖ None needed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
