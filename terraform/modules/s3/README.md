@@ -13,15 +13,36 @@ Secure S3 bucket configuration for static website hosting with encryption, cross
 - **Compliance**: ASVS L1/L2 requirements and AWS security best practices
 
 **🏗️ Architecture**:
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Primary S3    │───▶│  Secondary S3   │    │   Access Logs   │
-│   (us-east-1)   │    │   (us-west-2)   │    │     Bucket      │
-│                 │    │                 │    │                 │
-│ • Website Files │    │ • Replicated    │    │ • Access Logs   │
-│ • Encryption    │    │ • Encryption    │    │ • Monitoring    │
-│ • Lifecycle     │    │ • Lifecycle     │    │ • Compliance    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+```mermaid
+graph LR
+    %% Accessibility
+    accTitle: S3 Module Architecture
+    accDescr: Shows primary S3 bucket in us-east-1 replicating to secondary bucket in us-west-2, with separate access logs bucket for monitoring and compliance.
+
+    subgraph "Primary Region (us-east-1)"
+        PRIMARY[📦 Primary S3 Bucket<br/>• Website Files<br/>• KMS Encryption<br/>• Intelligent Tiering<br/>• Lifecycle Policies]
+    end
+
+    subgraph "Secondary Region (us-west-2)"
+        SECONDARY[🔄 Secondary S3 Bucket<br/>• Replicated Content<br/>• Cross-Region Backup<br/>• Same Security Config<br/>• Disaster Recovery]
+    end
+
+    subgraph "Logging"
+        LOGS[📊 Access Logs Bucket<br/>• Request Logging<br/>• Security Monitoring<br/>• Compliance Tracking<br/>• CloudTrail Integration]
+    end
+
+    %% Flow
+    PRIMARY --> SECONDARY
+    PRIMARY --> LOGS
+
+    %% Styling
+    classDef primaryBox fill:#e3f2fd,stroke:#1565c0,stroke-width:3px,color:#0d47a1
+    classDef secondaryBox fill:#fff3cd,stroke:#856404,stroke-width:2px,color:#212529
+    classDef logsBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+
+    class PRIMARY primaryBox
+    class SECONDARY secondaryBox
+    class LOGS logsBox
 ```
 
 ## 🔧 Usage

@@ -2,13 +2,13 @@
 
 ## 🚀 Status Overview
 
-**Environments:** ![Development](https://img.shields.io/badge/development-unknown-lightgrey) ![Staging](https://img.shields.io/badge/staging-unknown-lightgrey) ![Production](https://img.shields.io/badge/production-unknown-lightgrey)
+**Environments:** [![Development](https://img.shields.io/badge/development-unknown-lightgrey)](https://dev.yourdomain.com) [![Staging](https://img.shields.io/badge/staging-unknown-lightgrey)](https://staging.yourdomain.com) [![Production](https://img.shields.io/badge/production-unknown-lightgrey)](https://yourdomain.com)
 
 ### Pipeline Status
-![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg) ![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg) ![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg)
+[![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml) [![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/release.yml)
 
 ### Quality & Security
-![Security Scan](https://img.shields.io/badge/security%20scan-passing-brightgreen) ![Policy Check](https://img.shields.io/badge/policy%20check-passing-brightgreen) ![Cost Monitor](https://img.shields.io/badge/cost%20monitor-on%20budget-brightgreen) ![Uptime](https://img.shields.io/badge/uptime-99.9%25-brightgreen)
+[![Security Scan](https://img.shields.io/badge/security%20scan-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Policy Check](https://img.shields.io/badge/policy%20check-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
 
 ---
 
@@ -20,7 +20,7 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 - **🌍 Global CDN**: CloudFront distribution with edge locations worldwide
 - **📊 Monitoring**: Comprehensive CloudWatch dashboards and alerts
 - **💰 Cost Optimized**: S3 Intelligent Tiering, budget alerts
-- **🔄 Build-Test-Run Pipeline**: Simplified 3-phase deployment with automated quality gates
+- **🔄 Build-Test-Run Pipeline**: Simplified 3-phase deployment with automated quality gates and workflow orchestration
 - **🧪 Automated Testing**: Comprehensive usability and validation testing
 - **🚨 Emergency Response**: Hotfix and rollback capabilities with code owner approval
 - **🛡️ Compliance**: ASVS L1/L2 compliant, security scanning
@@ -34,40 +34,84 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 
 ## 🏗️ Architecture
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Route 53  │────▶│ CloudFront  │────▶│     S3      │
-│    (DNS)    │     │    (CDN)    │     │  (Storage)  │
-└─────────────┘     └──────┬──────┘     └─────────────┘
-                           │
-                    ┌──────▼──────┐
-                    │     WAF     │
-                    │ (Security)  │
-                    └─────────────┘
+```mermaid
+graph LR
+    %% Accessibility
+    accTitle: AWS Static Website Infrastructure Architecture
+    accDescr: Shows the flow from Route 53 DNS through CloudFront CDN to S3 storage, with WAF providing security protection.
+
+    subgraph "Core Architecture"
+        R53[🌐 Route 53<br/>DNS Management]
+        CF[⚡ CloudFront<br/>Global CDN]
+        S3[📦 S3<br/>Static Storage]
+        WAF[🛡️ WAF<br/>Security Layer]
+    end
+
+    %% Flow
+    R53 --> CF
+    CF --> S3
+    CF --> WAF
+
+    %% Styling
+    classDef dnsBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    classDef cdnBox fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
+    classDef storageBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    classDef securityBox fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#b71c1c
+
+    class R53 dnsBox
+    class CF cdnBox
+    class S3 storageBox
+    class WAF securityBox
 ```
 
 ## 🔄 Build-Test-Run Pipeline
 
-This project implements a simplified 3-phase deployment strategy:
+This project implements a simplified 3-phase deployment strategy with comprehensive workflow orchestration:
 
 ### 🔀 Deployment Flow
 
-1. **BUILD Phase**: Code validation, security scanning, artifact creation
-2. **TEST Phase**: Quality gates, policy validation, health checks  
-3. **RUN Phase**: Environment-specific deployment operations
+1. **BUILD Phase**: Code validation, security scanning (Checkov/Trivy), artifact creation
+2. **TEST Phase**: Quality gates, policy validation (OPA/Rego), compliance checks
+3. **RUN Phase**: Environment-specific deployment operations (unified workflow)
 
-### 🎯 Environment Routing
+### 🎯 Environment Routing & Workflow Interaction
 
-1. **Feature Branches** (`feature/*`) → Automatic deployment to `dev` environment
-2. **Release Candidates** (`v*.*.*-rc*`) → Automatic deployment to `staging` environment  
-3. **Production Releases** (`v*.*.*`) → Automatic deployment to `prod` environment
-4. **Emergency Operations**: Code owner approved hotfix/rollback to any environment
+#### Automatic Deployment Patterns
+1. **Feature Development**: `feature/*` → BUILD → TEST → RUN (development)
+2. **Staging Deployment**: PR to `main` → BUILD → TEST → manual RUN (staging)
+3. **Production Deployment**: RELEASE workflow → BUILD → TEST → RUN (production)
+4. **Emergency Operations**: EMERGENCY workflow → expedited pipeline execution
+
+#### Version-Based Release Management
+1. **Release Candidates** (`v*.*.*-rc*`) → Staging deployment via RELEASE workflow
+2. **Stable Releases** (`v*.*.*`) → Production deployment with approval
+3. **Hotfix Releases** (`v*.*.*-hotfix.*`) → Emergency deployment path
+
+### 🔧 Workflow Commands
+
+```bash
+# Create release candidate (deploys to staging)
+gh workflow run release.yml --field version_type=rc
+
+# Create production release (requires approval)
+gh workflow run release.yml --field version_type=patch
+
+# Deploy to specific environment manually
+gh workflow run run.yml --field environment=staging --field deploy_infrastructure=true
+
+# Force security build and testing
+gh workflow run build.yml --field force_build=true
+gh workflow run test.yml --field force_all_jobs=true
+
+# Test pipeline health
+gh workflow run pipeline-test.yml --field test_scenario=full-pipeline
+```
 
 ### 🛡️ Quality Gates
 
-- **Security Scanning**: Checkov and Trivy analysis in BUILD phase
-- **Policy Validation**: OPA/Rego policy compliance in TEST phase  
-- **Usability Testing**: HTTP/SSL/performance validation for staging
+- **Security Scanning**: Checkov and Trivy analysis in BUILD phase (blocks on HIGH/CRITICAL)
+- **Policy Validation**: OPA/Rego policy compliance in TEST phase (environment-aware enforcement)
+- **Usability Testing**: Two-phase HTTP/SSL/performance validation (pre and post-deployment)
 - **Code Owner Approval**: Production deployments restricted to code owners
 - **Environment Health**: Staging validates development, production validates staging
 
@@ -79,6 +123,9 @@ gh workflow run emergency.yml --field operation=hotfix --field environment=prod 
 
 # Emergency rollback
 gh workflow run emergency.yml --field operation=rollback --field environment=prod --field reason="Performance regression" --field rollback_method=last_known_good
+
+# Create hotfix release (alternative emergency path)
+gh workflow run release.yml --field version_type=hotfix --field deploy_after_tag=true
 ```
 
 ## 📊 Status Overview
@@ -92,34 +139,51 @@ The project uses a simplified status monitoring approach:
 
 ## 🚀 Quick Start
 
-1. **Clone the repository**
+### Option 1: Automated Deployment (Recommended)
+
+1. **Set up repository**
    ```bash
    git clone https://github.com/yourusername/static-site.git
    cd static-site
    ```
 
-2. **Configure backend storage**
+2. **Configure GitHub secrets** (required for CI/CD)
+   ```bash
+   # Add these secrets to your GitHub repository:
+   # AWS_ASSUME_ROLE_DEV, AWS_ASSUME_ROLE_STAGING, AWS_ASSUME_ROLE
+   # See docs/guides/iam-setup.md for details
+   ```
+
+3. **Deploy via release workflow**
+   ```bash
+   # Create release candidate (deploys to staging)
+   gh workflow run release.yml --field version_type=rc
+   
+   # After validation, create production release
+   gh workflow run release.yml --field version_type=patch
+   ```
+
+### Option 2: Manual Deployment
+
+1. **Clone and configure**
+   ```bash
+   git clone https://github.com/yourusername/static-site.git
+   cd static-site
+   ```
+
+2. **Set up backend storage**
    ```bash
    cd terraform
    cp backend.hcl.example backend-dev.hcl
    # Edit backend-dev.hcl with your S3 bucket details
    ```
 
-3. **Initialize OpenTofu**
+3. **Initialize and deploy**
    ```bash
    tofu init -backend-config=backend-dev.hcl
-   ```
-
-4. **Configure variables**
-   ```bash
    cp terraform.tfvars.example terraform.tfvars
    # Edit terraform.tfvars with your values
-   ```
-
-5. **Deploy infrastructure**
-   ```bash
-   tofu plan
-   tofu apply
+   tofu plan && tofu apply
    ```
 
 ## 📁 Project Structure
@@ -136,7 +200,7 @@ The project uses a simplified status monitoring approach:
 **Security Features**: OIDC authentication, KMS encryption, WAF protection, CloudFront OAC  
 **Setup Required**: IAM roles must be created manually before deployment
 
-📖 **Complete Details**: [Configuration Guide](docs/guides/iam-setup.md) | [Security Guide](SECURITY.md)
+📖 **Complete Details**: [Configuration Guide](docs/guides/iam-setup.md) | [Security Guide](SECURITY.md) | [Workflow Guide](docs/workflows.md)
 
 ## 🧪 Testing
 
@@ -163,7 +227,9 @@ Estimated monthly costs (USD):
 
 ## 📚 Documentation
 
-📖 **[Complete Documentation](docs/README.md)** - Role-based guides, architecture, security, and troubleshooting
+📖 **[Complete Documentation](docs/README.md)** - Role-based guides, architecture, security, and troubleshooting  
+🔄 **[Workflow Guide](docs/workflows.md)** - Comprehensive CI/CD pipeline documentation  
+🚀 **[Deployment Guide](docs/guides/deployment-guide.md)** - Release management and deployment strategies
 
 ## ⚠️ Important Notes
 
