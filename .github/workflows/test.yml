@@ -21,6 +21,11 @@ on:
         description: 'Skip BUILD workflow dependency check'
         required: false
         type: boolean
+        default: true
+      force_all_jobs:
+        description: 'Force all jobs to run regardless of change detection'
+        required: false
+        type: boolean
         default: false
 
 permissions:
@@ -83,6 +88,10 @@ jobs:
           echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
+          echo "- **Force All Jobs**: ${{ github.event.inputs.force_all_jobs || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Build Check**: ${{ github.event.inputs.skip_build_check || 'false' }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Detect Changes
         id: detect
@@ -94,12 +103,23 @@ jobs:
             website:
               - 'src/**'
 
+      - name: Debug Change Detection
+        run: |
+          echo "- **Terraform Changes**: ${{ steps.detect.outputs.terraform }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Website Changes**: ${{ steps.detect.outputs.website }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Execution Logic:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Infrastructure Tests**: Will run if terraform changes OR skip_build_check OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Policy Validation**: Will run if terraform changes OR skip_build_check OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Website Tests**: Will run if website changes OR skip_build_check OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pre-Deployment Usability**: Will run if environment != dev OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+
   infrastructure-tests:
     name: "🏗️ Infrastructure Unit Tests"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: info
-    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true'
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -229,7 +249,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info, infrastructure-tests]
-    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true'
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -317,7 +337,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: info
-    if: needs.info.outputs.has_website_changes == 'true' || github.event.inputs.skip_build_check == 'true'
+    if: needs.info.outputs.has_website_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -384,7 +404,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: info
-    if: needs.info.outputs.environment != 'dev'
+    if: needs.info.outputs.environment != 'dev' || github.event.inputs.force_all_jobs == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
