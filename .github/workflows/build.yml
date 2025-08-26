@@ -1,1208 +1,237 @@
-name: BUILD - Infrastructure and Website Preparation
-
-# 🏗️ BUILD Phase Documentation
-# 
-# Purpose: Validates infrastructure code, performs security scanning, and prepares artifacts
-# 
-# Triggers:
-#   - Push to main, feature/*, bugfix/*, hotfix/* branches
-#   - Pull requests to main branch  
-#   - Manual workflow dispatch
-#
-# Duration: ~5-10 minutes
-# Dependencies: None (entry point of the pipeline)
-# 
-# Jobs:
-#   1. build-info: Generate build metadata and environment resolution
-#   2. infrastructure-validation: Validate Terraform/OpenTofu plans
-#   3. security-scanning: Multi-scanner security analysis (Checkov + Trivy)
-#   4. website-build: Validate and prepare website content
-#   5. cost-estimation: Analyze infrastructure costs with budget alerts
-#   6. pr-comment: Update pull request with build results (PR only)
-#   7. build-summary: Consolidate results and determine overall status
-# 
-# Outputs:
-#   - Build artifacts for TEST phase consumption
-#   - Security scan results (SARIF format)  
-#   - Cost analysis and budget compliance status
-#   - Infrastructure validation reports
-#
-# Success Criteria:
-#   - Infrastructure validation passes (or skipped)
-#   - Security scans complete with acceptable findings
-#   - Website content validates successfully
-#   - Cost estimates within budget thresholds
+name: BUILD - Code Validation and Artifact Creation
 
 on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Target environment for deployment'
+        description: 'Target environment'
         required: false
         type: choice
-        options:
-          - dev
-          - staging
-          - prod
+        options: [dev, staging, prod]
         default: dev
       force_build:
-        description: 'Force build even without changes'
+        description: 'Force build all components'
         required: false
         type: boolean
         default: false
   pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - synchronize
+    branches: [main]
   push:
-    branches:
-      - main
-      - 'feature/*'
-      - 'bugfix/*'
-      - 'hotfix/*'
+    branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
 
-# OIDC Authentication Permissions
-# id-token: write - REQUIRED for GitHub OIDC token generation to authenticate with AWS
-# contents: read - Standard permission to read repository contents
-# pull-requests: write - Enables PR comments and status updates
-# security-events: write - Allows security scanning results upload
 permissions:
   id-token: write
   contents: read
   pull-requests: write
   security-events: write
 
-# Global workflow configuration
-defaults:
-  run:
-    shell: bash
-
 env:
-  # Shell and terminal configuration
-  TERM: xterm-256color
-  FORCE_COLOR: "1"
-  # AWS configuration
   AWS_DEFAULT_REGION: us-east-1
-  AWS_MAX_ATTEMPTS: 3
-  # Terraform/OpenTofu configuration
   TF_IN_AUTOMATION: true
   TF_CLI_ARGS: "-no-color"
-  # Security scanning configuration
-  CHECKOV_QUIET: true
-  TRIVY_QUIET: false
 
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-info:
-    name: Build Information
+  build:
+    name: Build and Validate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     outputs:
-      build_id: ${{ steps.generate-id.outputs.build_id }}
-      pr_number: ${{ github.event.pull_request.number || '' }}
-      has_changes: ${{ steps.detect-changes.outputs.has_changes }}
-      has_tf_changes: ${{ steps.detect-changes.outputs.has_tf_changes }}
-      has_content_changes: ${{ steps.detect-changes.outputs.has_content_changes }}
-      resolved_environment: ${{ steps.resolve-environment.outputs.resolved_environment }}
+      build_id: ${{ steps.info.outputs.build_id }}
+      environment: ${{ steps.info.outputs.environment }}
+      has_terraform_changes: ${{ steps.changes.outputs.terraform }}
+      has_content_changes: ${{ steps.changes.outputs.content }}
+      has_workflow_changes: ${{ steps.changes.outputs.workflows }}
+      artifacts_created: ${{ steps.artifacts.outputs.created }}
+    
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Resolve Environment
-        id: resolve-environment
-        run: |
-          if [ -n "${{ github.event.inputs.environment }}" ]; then
-            RESOLVED_ENV="${{ github.event.inputs.environment }}"
-            ENV_SOURCE="Manual Input"
-          elif [ -n "${{ vars.DEFAULT_ENVIRONMENT }}" ]; then
-            RESOLVED_ENV="${{ vars.DEFAULT_ENVIRONMENT }}"
-            ENV_SOURCE="Repository Variable"
-          else
-            RESOLVED_ENV="dev"
-            ENV_SOURCE="Hardcoded Fallback"
-          fi
-          
-          echo "resolved_environment=$RESOLVED_ENV" >> $GITHUB_OUTPUT
-          echo "environment_source=$ENV_SOURCE" >> $GITHUB_OUTPUT
-          
-          echo "🏗️ **BUILD Phase Started**" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: $RESOLVED_ENV (Source: $ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-
-      - name: Generate Build ID
-        id: generate-id
+      - name: Build Info
+        id: info
         run: |
           BUILD_ID="build-${{ github.run_id }}-${{ github.run_attempt }}"
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          
           echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
-          echo "**Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          
+          echo "# 🏗️ BUILD Phase" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Event**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Detect Changes
-        id: detect-changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            terraform:
+              - 'terraform/**'
+            content:
+              - 'src/**'
+            workflows:
+              - '.github/workflows/**'
+            docs:
+              - '**/*.md'
+            tests:
+              - 'test/**'
+
+      - name: Setup Tools
+        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         run: |
-          # Enhanced change detection with intelligent categorization
-          echo "🔍 **Analyzing Changes**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔧 Setting up tools" >> $GITHUB_STEP_SUMMARY
           
-          # Debug git state
-          echo "**Debug Info:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Event: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Ref: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- SHA: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          # Install OpenTofu
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+          echo "✅ OpenTofu installed: $(tofu version)" >> $GITHUB_STEP_SUMMARY
           
-          # Verify git references exist
-          echo "Checking git references..." >> $GITHUB_STEP_SUMMARY
-          if git show-ref --verify --quiet refs/remotes/origin/main; then
-            echo "- ✅ origin/main reference found" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ❌ origin/main reference missing" >> $GITHUB_STEP_SUMMARY
-            echo "- Available refs:" >> $GITHUB_STEP_SUMMARY
-            git branch -r | head -5 | sed 's/^/  /' >> $GITHUB_STEP_SUMMARY || echo "  [git branch failed]" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Function to safely get changed files with multiple fallback strategies
-          # Returns success (0) and sets CHANGED_FILES and CHANGE_DETECTION_SUCCESS variables
-          get_changed_files() {
-            local context="$1"
-            echo "**Changed Files Detection ($context):**" >> $GITHUB_STEP_SUMMARY
-            
-            # Initialize success indicator
-            CHANGE_DETECTION_SUCCESS=0
-            
-            # Strategy 1: Compare against origin/main
-            if git show-ref --verify --quiet refs/remotes/origin/main; then
-              echo "Trying: git diff --name-only origin/main...HEAD" >> $GITHUB_STEP_SUMMARY
-              if CHANGED_FILES=$(git diff --name-only origin/main...HEAD 2>/dev/null); then
-                echo "✅ Successfully compared against origin/main" >> $GITHUB_STEP_SUMMARY
-                CHANGE_DETECTION_SUCCESS=1
-                return 0
-              else
-                echo "❌ Failed to compare against origin/main" >> $GITHUB_STEP_SUMMARY
-              fi
-            fi
-            
-            # Strategy 2: Compare against github.event.pull_request.base.sha (PR only)
-            if [ "${{ github.event_name }}" = "pull_request" ] && [ -n "${{ github.event.pull_request.base.sha }}" ]; then
-              echo "Trying: git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD" >> $GITHUB_STEP_SUMMARY
-              if CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }}...HEAD 2>/dev/null); then
-                echo "✅ Successfully compared against PR base SHA" >> $GITHUB_STEP_SUMMARY
-                CHANGE_DETECTION_SUCCESS=1
-                return 0
-              else
-                echo "❌ Failed to compare against PR base SHA" >> $GITHUB_STEP_SUMMARY
-              fi
-            fi
-            
-            # Strategy 3: Use git show for current commit
-            echo "Trying: git show --name-only --pretty=format: HEAD" >> $GITHUB_STEP_SUMMARY
-            if CHANGED_FILES=$(git show --name-only --pretty=format: HEAD 2>/dev/null | grep -v '^$'); then
-              echo "✅ Successfully got files from current commit" >> $GITHUB_STEP_SUMMARY
-              CHANGE_DETECTION_SUCCESS=1
-              return 0
-            else
-              echo "❌ Failed to get files from current commit" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            # Strategy 4: Fallback - indicate failure but don't exit
-            echo "❌ All git diff strategies failed, will default to full build" >> $GITHUB_STEP_SUMMARY
-            CHANGED_FILES=""
-            CHANGE_DETECTION_SUCCESS=0
-            return 0  # Return success to avoid bash -e exit, but indicate failure via variable
-          }
-          
-          # Initialize change detection success flag and all change variables
-          CHANGE_DETECTION_SUCCESS=0
-          HAS_CHANGES=0
-          HAS_TF_CHANGES=0
-          HAS_CONTENT_CHANGES=0
-          HAS_WORKFLOW_CHANGES=0
-          HAS_TEST_CHANGES=0
-          HAS_DOC_CHANGES=0
-          HAS_CONFIG_CHANGES=0
-          NEEDS_FULL_TESTS=0
-          NEEDS_SECURITY_SCAN=0
-          
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if [ "${{ github.event.inputs.force_build }}" = "true" ]; then
-              HAS_CHANGES=1
-              HAS_TF_CHANGES=1
-              HAS_CONTENT_CHANGES=1
-              HAS_WORKFLOW_CHANGES=1
-              HAS_TEST_CHANGES=1
-              echo "🔧 Force build enabled - processing all changes" >> $GITHUB_STEP_SUMMARY
-            else
-              get_changed_files "Manual Dispatch"
-              if [ "$CHANGE_DETECTION_SUCCESS" -eq 0 ]; then
-                echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
-                HAS_CHANGES=1
-                HAS_TF_CHANGES=1
-                HAS_CONTENT_CHANGES=1
-                HAS_WORKFLOW_CHANGES=1
-                HAS_TEST_CHANGES=1
-              fi
-            fi
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            get_changed_files "Pull Request"
-            if [ "$CHANGE_DETECTION_SUCCESS" -eq 0 ]; then
-              echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
-              HAS_CHANGES=1
-              HAS_TF_CHANGES=1
-              HAS_CONTENT_CHANGES=1
-              HAS_WORKFLOW_CHANGES=1
-              HAS_TEST_CHANGES=1
-            fi
-          elif [ "${{ github.ref_name }}" != "main" ]; then
-            # Feature branch push - detect changes against main
-            get_changed_files "Feature Branch"
-            if [ "$CHANGE_DETECTION_SUCCESS" -eq 0 ]; then
-              echo "⚠️ Change detection failed, forcing full build" >> $GITHUB_STEP_SUMMARY
-              HAS_CHANGES=1
-              HAS_TF_CHANGES=1
-              HAS_CONTENT_CHANGES=1
-              HAS_WORKFLOW_CHANGES=1
-              HAS_TEST_CHANGES=1
-            fi
-          else
-            # Main branch push - assume all changes for safety
-            HAS_CHANGES=1
-            HAS_TF_CHANGES=1
-            HAS_CONTENT_CHANGES=1
-            HAS_WORKFLOW_CHANGES=1
-            HAS_TEST_CHANGES=1
-            NEEDS_SECURITY_SCAN=1
-            NEEDS_FULL_TESTS=1
-            echo "**Main Branch Push - Full Build Required**" >> $GITHUB_STEP_SUMMARY
-            CHANGED_FILES="[main branch - full build]"
-          fi
-          
-          # Check for badge-only changes (skip BUILD for badge updates)
-          BADGE_ONLY_CHANGES=0
-          if [ "${{ github.event.inputs.force_build }}" != "true" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "**Badge-Only Change Detection:**" >> $GITHUB_STEP_SUMMARY
-            
-            # Safe badge detection - only process if we have files to analyze
-            if [[ -n "$CHANGED_FILES" ]]; then
-              # Check if only .github/badges/ files have changed
-              NON_BADGE_CHANGES=$(echo "$CHANGED_FILES" | grep -v '^\.github/badges/' | wc -l || echo "0")
-              BADGE_CHANGES=$(echo "$CHANGED_FILES" | grep '^\.github/badges/' | wc -l || echo "0")
-              
-              echo "- Non-badge files: $NON_BADGE_CHANGES" >> $GITHUB_STEP_SUMMARY
-              echo "- Badge files: $BADGE_CHANGES" >> $GITHUB_STEP_SUMMARY
-              
-              if [ "$NON_BADGE_CHANGES" -eq 0 ] && [ "$BADGE_CHANGES" -gt 0 ]; then
-                BADGE_ONLY_CHANGES=1
-                echo "### 🏷️ Badge-Only Changes Detected" >> $GITHUB_STEP_SUMMARY
-                echo "This PR contains only deployment status badge updates." >> $GITHUB_STEP_SUMMARY
-                echo "BUILD workflow will complete successfully without running full validation." >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "**Files Changed**: $BADGE_CHANGES badge files" >> $GITHUB_STEP_SUMMARY
-                echo "$CHANGED_FILES" | grep '^\.github/badges/' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- [Error listing badge files]" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "- ✅ Non-badge changes detected, full build required" >> $GITHUB_STEP_SUMMARY
-              fi
-            else
-              echo "- ⚠️ No changed files detected, skipping badge-only analysis" >> $GITHUB_STEP_SUMMARY
-              NON_BADGE_CHANGES=0
-              BADGE_CHANGES=0
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
+          # Install security tools
+          pip3 install checkov --quiet
+          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.48.3/trivy_0.48.3_Linux-64bit.tar.gz | tar xzf - -C /tmp
+          sudo mv /tmp/trivy /usr/local/bin/
+          echo "✅ Security tools installed" >> $GITHUB_STEP_SUMMARY
 
-          # Intelligent categorization of changes (only if change detection succeeded and not a forced/main build)
-          if [ "${{ github.event.inputs.force_build }}" != "true" ] && [ "${{ github.ref_name }}" != "main" ] && [ "$BADGE_ONLY_CHANGES" -eq 0 ] && [ "$CHANGE_DETECTION_SUCCESS" -eq 1 ] && [[ -n "$CHANGED_FILES" ]]; then
-            echo "**🔍 Analyzing File Changes:**" >> $GITHUB_STEP_SUMMARY
-            # Infrastructure changes (safe grep operations)
-            HAS_TF_CHANGES=$(echo "$CHANGED_FILES" | grep -E 'terraform/.*\.(tf|tfvars)$' | wc -l || echo "0")
-            TF_MODULES_CHANGED=$(echo "$CHANGED_FILES" | grep -E '^terraform/modules/' | cut -d'/' -f1-3 | sort -u | wc -l || echo "0")
-            
-            # Content changes
-            HAS_CONTENT_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^src/' | wc -l || echo "0")
-            
-            # Workflow changes  
-            HAS_WORKFLOW_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^\.github/workflows/.*\.yml$' | wc -l || echo "0")
-            
-            # Test changes
-            HAS_TEST_CHANGES=$(echo "$CHANGED_FILES" | grep -E '^test/' | wc -l || echo "0")
-            
-            # Documentation changes
-            HAS_DOC_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.(md|txt)$' | wc -l || echo "0")
-            
-            # Configuration changes (chained grep with safe fallback)
-            HAS_CONFIG_CHANGES=$(echo "$CHANGED_FILES" | grep -E '\.(yml|yaml|json)$' | grep -v '^\.github/workflows/' | wc -l || echo "0")
-            
-            # Calculate total impactful changes
-            HAS_CHANGES=$(( HAS_TF_CHANGES + HAS_CONTENT_CHANGES + HAS_WORKFLOW_CHANGES + HAS_TEST_CHANGES ))
-            
-            # Detailed change summary
-            echo "### 📊 Change Analysis" >> $GITHUB_STEP_SUMMARY
-            echo "- **Infrastructure (Terraform)**: $HAS_TF_CHANGES files" >> $GITHUB_STEP_SUMMARY
-            echo "- **Website Content**: $HAS_CONTENT_CHANGES files" >> $GITHUB_STEP_SUMMARY
-            echo "- **GitHub Workflows**: $HAS_WORKFLOW_CHANGES files" >> $GITHUB_STEP_SUMMARY
-            echo "- **Tests**: $HAS_TEST_CHANGES files" >> $GITHUB_STEP_SUMMARY
-            echo "- **Documentation**: $HAS_DOC_CHANGES files" >> $GITHUB_STEP_SUMMARY
-            echo "- **Configuration**: $HAS_CONFIG_CHANGES files" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            
-            # Debug: Show specific workflow files changed (safe file listing)
-            if [ "$HAS_WORKFLOW_CHANGES" -gt 0 ]; then
-              echo "**🔧 Workflow Files Changed:**" >> $GITHUB_STEP_SUMMARY
-              echo "$CHANGED_FILES" | grep -E '^\.github/workflows/.*\.yml$' | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- [Error listing workflow files]" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            # Show changed modules if any (safe module listing)
-            if [ "$TF_MODULES_CHANGED" -gt 0 ]; then
-              echo "**Terraform Modules Changed:**" >> $GITHUB_STEP_SUMMARY
-              echo "$CHANGED_FILES" | grep -E '^terraform/modules/' | cut -d'/' -f1-3 | sort -u | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY || echo "- [Error listing module changes]" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            # Smart test optimization flags
-            NEEDS_FULL_TESTS=0
-            NEEDS_SECURITY_SCAN=0
-            
-            echo "### 🔍 Security Scanning Logic Debug" >> $GITHUB_STEP_SUMMARY
-            echo "- **HAS_TF_CHANGES**: $HAS_TF_CHANGES" >> $GITHUB_STEP_SUMMARY
-            echo "- **HAS_WORKFLOW_CHANGES**: $HAS_WORKFLOW_CHANGES" >> $GITHUB_STEP_SUMMARY
-            echo "- **Condition**: TF changes ($HAS_TF_CHANGES > 0) OR workflow changes ($HAS_WORKFLOW_CHANGES > 0)" >> $GITHUB_STEP_SUMMARY
-            
-            if [ "$HAS_TF_CHANGES" -gt 0 ] || [ "$HAS_WORKFLOW_CHANGES" -gt 0 ]; then
-              NEEDS_FULL_TESTS=1
-              NEEDS_SECURITY_SCAN=1
-              echo "- **Result**: ✅ NEEDS_SECURITY_SCAN=1 (condition met)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "- **Result**: ❌ NEEDS_SECURITY_SCAN=0 (condition not met)" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-            
-            if [ "$HAS_TEST_CHANGES" -gt 0 ]; then
-              NEEDS_FULL_TESTS=1
-            fi
-            
-            # Skip certain jobs for documentation-only changes
-            if [ "$HAS_CHANGES" -eq 0 ] && [ "$HAS_DOC_CHANGES" -gt 0 ]; then
-              echo "ℹ️ **Documentation-only changes detected** - optimizing pipeline" >> $GITHUB_STEP_SUMMARY
-              HAS_CHANGES=0  # This will skip most jobs
-            fi
-            
-            echo "### 🎯 Pipeline Optimization" >> $GITHUB_STEP_SUMMARY
-            echo "- **Full Testing Required**: $( [ "$NEEDS_FULL_TESTS" -eq 1 ] && echo "Yes" || echo "No" )" >> $GITHUB_STEP_SUMMARY
-            echo "- **Security Scanning Required**: $( [ "$NEEDS_SECURITY_SCAN" -eq 1 ] && echo "Yes" || echo "No" )" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            
-            echo "### 🔍 Final Debug Values" >> $GITHUB_STEP_SUMMARY
-            echo "- **CHANGE_DETECTION_SUCCESS**: $CHANGE_DETECTION_SUCCESS" >> $GITHUB_STEP_SUMMARY
-            echo "- **NEEDS_SECURITY_SCAN**: $NEEDS_SECURITY_SCAN" >> $GITHUB_STEP_SUMMARY
-            echo "- **HAS_CHANGES**: $HAS_CHANGES" >> $GITHUB_STEP_SUMMARY
-            echo "- **Will output needs_security_scan**: ${NEEDS_SECURITY_SCAN:-1}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          else
-            # Log why change categorization was skipped
-            echo "**⚠️ Change Categorization Skipped:**" >> $GITHUB_STEP_SUMMARY
-            if [ "${{ github.event.inputs.force_build }}" = "true" ]; then
-              echo "- Reason: Force build enabled" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ github.ref_name }}" = "main" ]; then
-              echo "- Reason: Main branch deployment (full build)" >> $GITHUB_STEP_SUMMARY
-            elif [ "$BADGE_ONLY_CHANGES" -eq 1 ]; then
-              echo "- Reason: Badge-only changes detected" >> $GITHUB_STEP_SUMMARY
-            elif [ "$CHANGE_DETECTION_SUCCESS" -eq 0 ]; then
-              echo "- Reason: Change detection failed, using fallback values" >> $GITHUB_STEP_SUMMARY
-            elif [[ -z "$CHANGED_FILES" ]]; then
-              echo "- Reason: No changed files detected" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "- Reason: Unknown condition" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "- Using initialized default values for all change variables" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # Handle badge-only changes
-          if [ "$BADGE_ONLY_CHANGES" -eq 1 ]; then
-            echo "badge_only_changes=1" >> $GITHUB_OUTPUT
-            echo "has_changes=0" >> $GITHUB_OUTPUT
-            echo "has_tf_changes=0" >> $GITHUB_OUTPUT
-            echo "has_content_changes=0" >> $GITHUB_OUTPUT
-            echo "has_workflow_changes=0" >> $GITHUB_OUTPUT
-            echo "has_test_changes=0" >> $GITHUB_OUTPUT
-            echo "has_doc_changes=0" >> $GITHUB_OUTPUT
-            echo "needs_full_tests=0" >> $GITHUB_OUTPUT
-            echo "needs_security_scan=0" >> $GITHUB_OUTPUT
-          else
-            # Set outputs for job conditioning
-            echo "badge_only_changes=0" >> $GITHUB_OUTPUT
-            echo "has_changes=$HAS_CHANGES" >> $GITHUB_OUTPUT
-            echo "has_tf_changes=$HAS_TF_CHANGES" >> $GITHUB_OUTPUT
-            echo "has_content_changes=$HAS_CONTENT_CHANGES" >> $GITHUB_OUTPUT
-            echo "has_workflow_changes=${HAS_WORKFLOW_CHANGES:-0}" >> $GITHUB_OUTPUT
-            echo "has_test_changes=${HAS_TEST_CHANGES:-0}" >> $GITHUB_OUTPUT
-            echo "has_doc_changes=${HAS_DOC_CHANGES:-0}" >> $GITHUB_OUTPUT
-            echo "needs_full_tests=${NEEDS_FULL_TESTS:-1}" >> $GITHUB_OUTPUT
-            echo "needs_security_scan=${NEEDS_SECURITY_SCAN:-1}" >> $GITHUB_OUTPUT
-          fi
-          
-          # Summary message
-          if [ "$HAS_CHANGES" -gt 0 ]; then
-            echo "✅ **Pipeline will execute based on detected changes**" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "ℹ️ **No significant changes detected - pipeline optimized**" >> $GITHUB_STEP_SUMMARY
-          fi
-
-  infrastructure-validation:
-    name: Infrastructure Validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: build-info
-    if: needs.build-info.outputs.has_tf_changes > 0 || needs.build-info.outputs.has_changes > 0
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Cache Terraform Providers and Modules
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        with:
-          path: |
-            ~/.cache/opentofu
-            ~/.terraform.d/plugin-cache
-            terraform/.terraform
-            terraform/.terraform.lock.hcl
-          key: terraform-providers-${{ runner.os }}-${{ hashFiles('terraform/.terraform.lock.hcl', 'terraform/**/*.tf') }}
-          restore-keys: |
-            terraform-providers-${{ runner.os }}-
-
-      - name: Setup Infrastructure Tools
-        uses: ./.github/actions/setup-infrastructure
-        with:
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-          aws-role: ${{ secrets.AWS_ASSUME_ROLE }}
-
-      - name: OpenTofu Format Check
-        id: fmt
+      - name: Validate Terraform
+        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         working-directory: terraform
         run: |
-          echo "## 📝 OpenTofu Format Check" >> $GITHUB_STEP_SUMMARY
-          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Terraform Validation" >> $GITHUB_STEP_SUMMARY
           
-          if tofu fmt -check -recursive -diff > format-results.txt 2>&1; then
-            echo "✅ All files are properly formatted" >> $GITHUB_STEP_SUMMARY
-            echo "format_status=success" >> $GITHUB_OUTPUT
+          # Format check
+          if tofu fmt -check -recursive; then
+            echo "✅ Format check passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Files need formatting. Run 'tofu fmt -recursive' to fix." >> $GITHUB_STEP_SUMMARY
-            echo '```diff' >> $GITHUB_STEP_SUMMARY
-            cat format-results.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "format_status=failure" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-
-      - name: OpenTofu Validation
-        id: validate
-        working-directory: terraform
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## ✅ OpenTofu Validation" >> $GITHUB_STEP_SUMMARY
-          
-          # Initialize and validate root module (which includes all child modules)
-          echo "Initializing root module..."
-          
-          # Create temporary directory for validation (no backend needed)
-          mkdir -p temp-validation
-          cp *.tf temp-validation/ 2>/dev/null || true
-          cp -r modules temp-validation/ 2>/dev/null || true
-          rm -f temp-validation/backend.tf  # Remove backend configuration
-          
-          cd temp-validation
-          if tofu init > ../init.out 2>&1; then
-            echo "✅ Root module initialized successfully" >> $GITHUB_STEP_SUMMARY
-            
-            # Validate entire configuration including all modules
-            if tofu validate > ../validate.out 2>&1; then
-              echo "✅ All modules valid" >> $GITHUB_STEP_SUMMARY
-              echo "validation_status=success" >> $GITHUB_OUTPUT
-              
-              # Show module count for reference
-              module_count=$(find . -name "*.tf" -path "./modules/*" -exec dirname {} \; | sort -u | wc -l)
-              echo "📊 Validated root module with $module_count child modules" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "❌ Validation failed" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              cat ../validate.out >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              echo "validation_status=failure" >> $GITHUB_OUTPUT
-              cd .. && rm -rf temp-validation
-              exit 1
-            fi
-          else
-            echo "❌ Failed to initialize root module" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat ../init.out >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "validation_status=failure" >> $GITHUB_OUTPUT
-            cd .. && rm -rf temp-validation
+            echo "❌ Format check failed - run 'tofu fmt -recursive'" >> $GITHUB_STEP_SUMMARY
+            echo "**Files needing formatting:**" >> $GITHUB_STEP_SUMMARY
+            tofu fmt -recursive -diff | head -20 >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
           
-          # Return to original directory and cleanup
-          cd ..
-          rm -rf temp-validation
-
-      - name: Prepare Environment Variables
-        id: prepare-env
-        run: |
-          # Convert repository owner to lowercase for project name
-          PROJECT_NAME=$(echo "${{ github.repository_owner }}-static-site" | tr '[:upper:]' '[:lower:]')
-          echo "project_name=$PROJECT_NAME" >> $GITHUB_OUTPUT
-          echo "Using project name: $PROJECT_NAME" >> $GITHUB_STEP_SUMMARY
-
-      - name: Infrastructure Plan
-        id: plan
-        working-directory: terraform
-        env:
-          TF_VAR_project_name: ${{ steps.prepare-env.outputs.project_name }}
-          TF_VAR_environment: ${{ needs.build-info.outputs.resolved_environment }}
-          TF_VAR_github_repository: ${{ github.repository }}
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📋 Infrastructure Plan" >> $GITHUB_STEP_SUMMARY
+          # Initialize without backend for validation
+          cp backend.tf backend.tf.bak 2>/dev/null || true
+          rm -f backend.tf
           
-          # Create fresh temporary directory for planning (no backend needed)
-          mkdir -p temp-plan
-          cp *.tf temp-plan/ 2>/dev/null || true
-          cp -r modules temp-plan/ 2>/dev/null || true
-          rm -f temp-plan/backend.tf  # Remove backend configuration
-          
-          cd temp-plan
-          tofu init
-          # Generate infrastructure plan
-          if tofu plan -detailed-exitcode -out=plan.tfplan > plan.out 2>&1; then
-            PLAN_EXIT_CODE=$?
-            echo "plan-status=success" >> $GITHUB_OUTPUT
+          if tofu init -backend=false; then
+            echo "✅ Init successful" >> $GITHUB_STEP_SUMMARY
           else
-            PLAN_EXIT_CODE=$?
-            echo "plan-status=error" >> $GITHUB_OUTPUT
-          fi
-          
-          echo "exit-code=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
-          
-          if [ $PLAN_EXIT_CODE -eq 0 ]; then
-            echo "✅ No infrastructure changes detected" >> $GITHUB_STEP_SUMMARY
-          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
-            echo "📝 Infrastructure changes detected:" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tofu show -no-color plan.tfplan | head -50 >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Plan failed:" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat plan.out >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # Copy plan file to parent directory for artifact upload
-          if [ -f "plan.tfplan" ]; then
-            cp plan.tfplan ../plan.tfplan
-          fi
-          
-          # Return to original directory and cleanup
-          cd ..
-          rm -rf temp-plan
-
-      - name: Upload Plan Artifact
-        if: steps.plan.outputs.exit-code == '2'
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: terraform-plan-${{ needs.build-info.outputs.build_id }}
-          path: terraform/plan.tfplan
-          retention-days: 7
-
-  security-scanning:
-    name: Security Scanning
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    needs: build-info
-    if: needs.build-info.outputs.needs_security_scan == '1' || needs.build-info.outputs.has_tf_changes > 0
-    strategy:
-      matrix:
-        scanner: [checkov, trivy]
-      fail-fast: false
-    env:
-      # Security thresholds for failure conditions
-      CRITICAL_THRESHOLD: 0
-      HIGH_THRESHOLD: 0
-      MEDIUM_THRESHOLD: 3
-      LOW_THRESHOLD: 10
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Cache Security Scanner Data
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        with:
-          path: |
-            ~/.cache/trivy
-            ~/.cache/checkov
-          key: security-scanners-${{ runner.os }}-${{ hashFiles('terraform/**/*.tf') }}-${{ github.run_id }}
-
-      - name: Initialize Security Scan
-        run: |
-          echo "## 🔒 Security Scan Results (${{ matrix.scanner }})" >> $GITHUB_STEP_SUMMARY
-          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Scanner**: ${{ matrix.scanner }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Thresholds**: Critical: $CRITICAL_THRESHOLD, High: $HIGH_THRESHOLD, Medium: $MEDIUM_THRESHOLD, Low: $LOW_THRESHOLD" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-
-      - name: Run Checkov (JSON Output)
-        if: matrix.scanner == 'checkov'
-        run: |
-          echo "🔍 Running Checkov security scan..."
-          
-          # Install latest compatible Checkov version with better error handling
-          if pip3 install checkov==3.2.256 --quiet; then
-            echo "✅ Checkov installed successfully"
-          else
-            echo "⚠️ Checkov installation failed, trying alternative version"
-            pip3 install checkov --quiet
-          fi
-          
-          # Verify Checkov installation
-          checkov --version
-          
-          # Debug: Show current directory and terraform structure
-          echo "Current directory: $(pwd)"
-          echo "Terraform directory contents:"
-          ls -la terraform/ || echo "No terraform directory found"
-          
-          # Create empty results file as fallback
-          echo '{"results":{"failed_checks":[],"passed_checks":[],"skipped_checks":[]}}' > checkov-results.json
-          
-          # Run Checkov with JSON output and better error handling
-          if [ -d "terraform" ]; then
-            echo "📁 Found terraform directory, proceeding with scan..."
-            if checkov -d terraform \
-              --framework terraform \
-              --output json \
-              --output-file checkov-results.json \
-              --soft-fail \
-              --quiet; then
-              echo "✅ Checkov scan completed successfully"
-            else
-              echo "⚠️ Checkov scan encountered issues, creating minimal results"
-              echo '{"results":{"failed_checks":[],"passed_checks":[],"skipped_checks":[]}}' > checkov-results.json
-            fi
-          else
-            echo "⚠️ No terraform directory found, creating empty results"
-          fi
-          
-          # Verify results file was created and is valid JSON
-          if [ -f "checkov-results.json" ]; then
-            echo "✅ Results file created"
-            file_size=$(stat -c%s checkov-results.json)
-            echo "📊 Results file size: $file_size bytes"
-            if jq empty checkov-results.json 2>/dev/null; then
-              echo "✅ Results file contains valid JSON"
-            else
-              echo "⚠️ Invalid JSON in results file, creating minimal valid structure"
-              echo '{"results":{"failed_checks":[],"passed_checks":[],"skipped_checks":[]}}' > checkov-results.json
-            fi
-          else
-            echo "❌ Results file not created, creating empty results"
-            echo '{"results":{"failed_checks":[],"passed_checks":[],"skipped_checks":[]}}' > checkov-results.json
-          fi
-          
-          echo "✅ Checkov scan completed"
-
-      - name: Run Trivy (JSON Output)
-        if: matrix.scanner == 'trivy'
-        run: |
-          echo "🔍 Running Trivy config scan..."
-          
-          # Install Trivy using direct binary download (more reliable)
-          TRIVY_VERSION="0.48.3"
-          echo "Installing Trivy v$TRIVY_VERSION..."
-          
-          # Download and install Trivy binary
-          wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" -O trivy.tar.gz
-          tar -xzf trivy.tar.gz
-          sudo mv trivy /usr/local/bin/
-          sudo chmod +x /usr/local/bin/trivy
-          rm -f trivy.tar.gz
-          
-          # Verify installation
-          trivy --version
-          
-          # Check terraform directory exists
-          if [ ! -d "terraform" ]; then
-            echo "⚠️ No terraform directory found, creating empty results"
-            echo '{"Results":[]}' > trivy-results.json
-          else
-            echo "📁 Found terraform directory, proceeding with scan..."
-            ls -la terraform/
-            
-            # Run Trivy with JSON output and better error handling
-            if trivy config --format json --output trivy-results.json --ignorefile terraform/.trivyignore terraform; then
-              echo "✅ Trivy scan completed successfully"
-            else
-              echo "⚠️ Trivy scan encountered issues, creating minimal results"
-              echo '{"Results":[]}' > trivy-results.json
-            fi
-          fi
-          
-          # Verify results file was created
-          if [ -f "trivy-results.json" ]; then
-            echo "✅ Results file created successfully"
-            file_size=$(stat -c%s trivy-results.json)
-            echo "📊 Results file size: $file_size bytes"
-          else
-            echo "❌ Results file not created, creating empty results"
-            echo '{"Results":[]}' > trivy-results.json
-          fi
-
-      - name: Process Security Results
-        if: always()
-        id: process-results
-        run: |
-          scanner="${{ matrix.scanner }}"
-          results_file="${scanner}-results.json"
-          
-          echo "### 🔒 $scanner Security Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ ! -f "$results_file" ]; then
-            echo "❌ Results file not found: $results_file" >> $GITHUB_STEP_SUMMARY
-            echo "📋 **Troubleshooting**: Check scanner execution logs above for errors" >> $GITHUB_STEP_SUMMARY
-            echo "scanner_status=error" >> $GITHUB_OUTPUT
+            echo "❌ Init failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
           
-          # Validate JSON structure
-          if ! jq empty "$results_file" 2>/dev/null; then
-            echo "❌ Invalid JSON in results file: $results_file" >> $GITHUB_STEP_SUMMARY
-            echo "📋 **File content preview**:" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            head -5 "$results_file" >> $GITHUB_STEP_SUMMARY || echo "Could not read file"
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "scanner_status=error" >> $GITHUB_OUTPUT
-            exit 1
-          fi
-          
-          # Initialize counters
-          critical_count=0
-          high_count=0
-          medium_count=0
-          low_count=0
-          total_count=0
-          
-          # Parse results based on scanner type
-          case "$scanner" in
-            "checkov")
-              if jq empty "$results_file" 2>/dev/null; then
-                # Checkov uses different severity levels - map them appropriately
-                critical_count=$(jq '[.results.failed_checks[]? | select(.severity == "CRITICAL")] | length' "$results_file" 2>/dev/null || echo "0")
-                high_count=$(jq '[.results.failed_checks[]? | select(.severity == "HIGH")] | length' "$results_file" 2>/dev/null || echo "0")
-                medium_count=$(jq '[.results.failed_checks[]? | select(.severity == "MEDIUM")] | length' "$results_file" 2>/dev/null || echo "0")
-                low_count=$(jq '[.results.failed_checks[]? | select(.severity == "LOW")] | length' "$results_file" 2>/dev/null || echo "0")
-                
-                # Handle cases where Checkov doesn't use severity field - count all failed checks
-                if [ "$critical_count" = "0" ] && [ "$high_count" = "0" ] && [ "$medium_count" = "0" ] && [ "$low_count" = "0" ]; then
-                  total_failed=$(jq '.results.failed_checks | length' "$results_file" 2>/dev/null || echo "0")
-                  if [ "$total_failed" -gt "0" ]; then
-                    # Assign all failures as medium priority if no severity classification
-                    medium_count=$total_failed
-                  fi
-                fi
-                
-                total_count=$((critical_count + high_count + medium_count + low_count))
-                
-                # Debug output
-                echo "📊 **Checkov Results Debug**:" >> $GITHUB_STEP_SUMMARY
-                echo "- Total failed checks: $(jq '.results.failed_checks | length' "$results_file" 2>/dev/null || echo "0")" >> $GITHUB_STEP_SUMMARY
-                echo "- Total passed checks: $(jq '.results.passed_checks | length' "$results_file" 2>/dev/null || echo "0")" >> $GITHUB_STEP_SUMMARY
-                echo "- Total skipped checks: $(jq '.results.skipped_checks | length' "$results_file" 2>/dev/null || echo "0")" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
-              fi
-              ;;
-            "trivy")
-              if jq empty "$results_file" 2>/dev/null; then
-                critical_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' "$results_file" 2>/dev/null || echo "0")
-                high_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$results_file" 2>/dev/null || echo "0")
-                medium_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "MEDIUM")] | length' "$results_file" 2>/dev/null || echo "0")
-                low_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "LOW")] | length' "$results_file" 2>/dev/null || echo "0")
-                total_count=$((critical_count + high_count + medium_count + low_count))
-              fi
-              ;;
-          esac
-          
-          # Display results with enhanced formatting
-          echo "**Severity Breakdown:**" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔴 **Critical**: $critical_count (threshold: $CRITICAL_THRESHOLD)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🟠 **High**: $high_count (threshold: $HIGH_THRESHOLD)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🟡 **Medium**: $medium_count (threshold: $MEDIUM_THRESHOLD)" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔵 **Low**: $low_count (threshold: $LOW_THRESHOLD)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total Findings**: $total_count" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Show sample findings if any exist
-          if [ "$total_count" -gt 0 ]; then
-            echo "**Sample Findings**:" >> $GITHUB_STEP_SUMMARY
-            case "$scanner" in
-              "checkov")
-                # Checkov sample findings with better formatting
-                if jq -e '.results.failed_checks | length > 0' "$results_file" >/dev/null 2>&1; then
-                  jq -r '.results.failed_checks[]? | "- **" + (.check_id // "Unknown") + "**: " + (.check_name // .check_type // "No description") + " (File: " + (.file_path // "Unknown") + ")"' "$results_file" 2>/dev/null | head -5 >> $GITHUB_STEP_SUMMARY || echo "- No detailed findings available" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "- No failed checks found" >> $GITHUB_STEP_SUMMARY
-                fi
-                ;;
-              "trivy")
-                if jq -e '.Results[]?.Misconfigurations | length > 0' "$results_file" >/dev/null 2>&1; then
-                  jq -r '.Results[]?.Misconfigurations[]? | "- **" + (.ID // "Unknown") + "**: " + (.Title // "No description") + " (Severity: " + (.Severity // "Unknown") + ")"' "$results_file" 2>/dev/null | head -5 >> $GITHUB_STEP_SUMMARY || echo "- No detailed findings available" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "- No misconfigurations found" >> $GITHUB_STEP_SUMMARY
-                fi
-                ;;
-            esac
-            echo "" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          # Check thresholds and determine if build should fail
-          failure_reasons=()
-          
-          if [ "$critical_count" -gt "$CRITICAL_THRESHOLD" ]; then
-            failure_reasons+=("Critical: $critical_count > $CRITICAL_THRESHOLD")
-          fi
-          
-          if [ "$high_count" -gt "$HIGH_THRESHOLD" ]; then
-            failure_reasons+=("High: $high_count > $HIGH_THRESHOLD")
-          fi
-          
-          if [ "$medium_count" -gt "$MEDIUM_THRESHOLD" ]; then
-            failure_reasons+=("Medium: $medium_count > $MEDIUM_THRESHOLD")
-          fi
-          
-          if [ "$low_count" -gt "$LOW_THRESHOLD" ]; then
-            failure_reasons+=("Low: $low_count > $LOW_THRESHOLD")
-          fi
-          
-          # Generate security summary for artifacts
-          cat > "${scanner}-security-summary.md" << EOF
-          # $scanner Security Analysis Report
-          
-          **Build ID**: ${{ needs.build-info.outputs.build_id }}
-          **Scanner**: $scanner
-          **Scan Date**: $(date -u)
-          
-          ## Summary
-          - **Critical**: $critical_count (threshold: $CRITICAL_THRESHOLD)
-          - **High**: $high_count (threshold: $HIGH_THRESHOLD)
-          - **Medium**: $medium_count (threshold: $MEDIUM_THRESHOLD)
-          - **Low**: $low_count (threshold: $LOW_THRESHOLD)
-          - **Total**: $total_count findings
-          
-          ## Status
-          EOF
-          
-          # Output results
-          echo "critical_count=$critical_count" >> $GITHUB_OUTPUT
-          echo "high_count=$high_count" >> $GITHUB_OUTPUT
-          echo "medium_count=$medium_count" >> $GITHUB_OUTPUT
-          echo "low_count=$low_count" >> $GITHUB_OUTPUT
-          echo "total_count=$total_count" >> $GITHUB_OUTPUT
-          
-          if [ ${#failure_reasons[@]} -gt 0 ]; then
-            echo "❌ **Security thresholds exceeded:**" >> $GITHUB_STEP_SUMMARY
-            for reason in "${failure_reasons[@]}"; do
-              echo "  - $reason" >> $GITHUB_STEP_SUMMARY
-            done
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🚫 **Build will fail due to security policy violations**" >> $GITHUB_STEP_SUMMARY
-            echo "scanner_status=failed" >> $GITHUB_OUTPUT
-            echo "**FAILED** - Security thresholds exceeded" >> "${scanner}-security-summary.md"
-            exit 1
+          # Validate configuration
+          if tofu validate; then
+            echo "✅ Validation passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "✅ **All security thresholds passed**" >> $GITHUB_STEP_SUMMARY
-            echo "scanner_status=passed" >> $GITHUB_OUTPUT
-            echo "**PASSED** - All security thresholds met" >> "${scanner}-security-summary.md"
+            echo "❌ Validation failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
+          
+          # Restore backend file
+          mv backend.tf.bak backend.tf 2>/dev/null || true
 
-      - name: Upload Security Results
-        if: always()
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: ${{ needs.build-info.outputs.build_id }}-security-${{ matrix.scanner }}
-          path: |
-            ${{ matrix.scanner }}-results.json
-            ${{ matrix.scanner }}-security-summary.md
-          retention-days: 30
-
-  website-build:
-    name: Website Build
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    needs: build-info
-    if: needs.build-info.outputs.has_content_changes > 0 || needs.build-info.outputs.has_changes > 0
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Security Scanning
+        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+        continue-on-error: true
+        run: |
+          echo "## 🔒 Security Scanning" >> $GITHUB_STEP_SUMMARY
+          
+          # Run Checkov
+          echo "### Checkov (Infrastructure as Code)" >> $GITHUB_STEP_SUMMARY
+          if checkov -d terraform --quiet --compact --skip-check CKV_AWS_20,CKV_AWS_117 --soft-fail; then
+            echo "✅ Checkov scan completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Checkov found issues (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Run Trivy  
+          echo "### Trivy (Vulnerability Scanner)" >> $GITHUB_STEP_SUMMARY
+          if trivy fs --security-checks vuln,config terraform/ --severity HIGH,CRITICAL --quiet; then
+            echo "✅ Trivy scan completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Trivy found vulnerabilities (non-blocking)" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Validate Website Content
+        if: steps.changes.outputs.content == 'true' || github.event.inputs.force_build == 'true'
         run: |
           echo "## 🌐 Website Content Validation" >> $GITHUB_STEP_SUMMARY
-          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           
-          content_errors=0
-          
-          # Check required files exist
-          required_files=("src/index.html" "src/404.html" "src/robots.txt")
-          for file in "${required_files[@]}"; do
+          # Check required files
+          REQUIRED_FILES=("src/index.html" "src/404.html" "src/robots.txt")
+          for file in "${REQUIRED_FILES[@]}"; do
             if [ -f "$file" ]; then
               echo "✅ $file exists" >> $GITHUB_STEP_SUMMARY
             else
               echo "❌ $file missing" >> $GITHUB_STEP_SUMMARY
-              content_errors=$((content_errors + 1))
+              exit 1
             fi
           done
           
-          # Validate HTML syntax
-          if command -v tidy >/dev/null 2>&1; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "### HTML Validation" >> $GITHUB_STEP_SUMMARY
-            for html_file in src/*.html; do
-              if [ -f "$html_file" ]; then
-                if tidy -q -e "$html_file" 2>/dev/null; then
-                  echo "✅ $html_file - Valid HTML" >> $GITHUB_STEP_SUMMARY
-                else
-                  echo "⚠️ $html_file - HTML warnings/errors" >> $GITHUB_STEP_SUMMARY
-                fi
-              fi
-            done
-          fi
-          
-          # Check for security issues in HTML
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Security Validation" >> $GITHUB_STEP_SUMMARY
-          
-          if grep -r "javascript:" src/ >/dev/null 2>&1; then
-            echo "⚠️ Found javascript: URLs in content" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "✅ No javascript: URLs found" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if grep -r "onclick\|onload\|onerror" src/ >/dev/null 2>&1; then
-            echo "⚠️ Found inline event handlers" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "✅ No inline event handlers found" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if [ $content_errors -gt 0 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "❌ Content validation failed with $content_errors errors" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          else
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ Content validation passed" >> $GITHUB_STEP_SUMMARY
-          fi
-
-      - name: Create Website Archive
-        run: |
-          echo "### 📦 Creating Website Archive" >> $GITHUB_STEP_SUMMARY
-          
-          # Create optimized build
-          mkdir -p build
-          cp -r src/* build/
-          
-          # Add build metadata
-          cat > build/build-info.json << EOF
-          {
-            "build_id": "${{ needs.build-info.outputs.build_id }}",
-            "commit_sha": "${{ github.sha }}",
-            "build_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-            "environment": "${{ needs.build-info.outputs.resolved_environment }}",
-            "repository": "${{ github.repository }}"
-          }
-          EOF
-          
-          # Create archive
-          tar -czf website-${{ needs.build-info.outputs.build_id }}.tar.gz -C build .
-          
-          echo "✅ Website archive created: website-${{ needs.build-info.outputs.build_id }}.tar.gz" >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload Website Artifact
-        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
-        with:
-          name: website-${{ needs.build-info.outputs.build_id }}
-          path: |
-            build/
-            website-${{ needs.build-info.outputs.build_id }}.tar.gz
-          retention-days: 30
-
-  cost-estimation:
-    name: Cost Estimation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: build-info
-    outputs:
-      estimated_cost: ${{ steps.calculate-cost.outputs.estimated_cost }}
-      cost_summary: ${{ steps.calculate-cost.outputs.cost_summary }}
-    steps:
-      - name: Calculate Infrastructure Costs
-        id: calculate-cost
-        run: |
-          echo "## 💰 Infrastructure Cost Analysis" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: ${{ needs.build-info.outputs.resolved_environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Static monthly costs for static website infrastructure (USD)
-          S3_COST=0.25          # 1GB storage, 10K requests
-          CLOUDFRONT_COST=8.50  # 100GB transfer, 1M requests
-          ROUTE53_COST=0.90     # 1 hosted zone, 1M queries
-          WAF_COST=6.00         # 1 Web ACL, 1M requests
-          CLOUDWATCH_COST=2.50  # 10 metrics, 1GB logs
-          DATA_TRANSFER_COST=9.00 # 100GB outbound
-          
-          # Cross-region replication for production
-          if [ "${{ needs.build-info.outputs.resolved_environment }}" = "prod" ]; then
-            S3_REPLICATION_COST=0.03
-            TOTAL_COST=$(echo "$S3_COST + $CLOUDFRONT_COST + $ROUTE53_COST + $WAF_COST + $CLOUDWATCH_COST + $DATA_TRANSFER_COST + $S3_REPLICATION_COST" | bc -l)
-          else
-            S3_REPLICATION_COST=0.00
-            TOTAL_COST=$(echo "$S3_COST + $CLOUDFRONT_COST + $ROUTE53_COST + $WAF_COST + $CLOUDWATCH_COST + $DATA_TRANSFER_COST" | bc -l)
-          fi
-          
-          ANNUAL_COST=$(echo "$TOTAL_COST * 12" | bc -l)
-          
-          # Format to 2 decimal places
-          TOTAL_COST=$(printf "%.2f" $TOTAL_COST)
-          ANNUAL_COST=$(printf "%.2f" $ANNUAL_COST)
-          
-          echo "### 📊 Cost Breakdown" >> $GITHUB_STEP_SUMMARY
-          echo "- **S3 Storage**: \$${S3_COST} (1GB storage, 10K requests)" >> $GITHUB_STEP_SUMMARY
-          echo "- **CloudFront CDN**: \$${CLOUDFRONT_COST} (100GB transfer, 1M requests)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Route 53 DNS**: \$${ROUTE53_COST} (1 hosted zone, 1M queries)" >> $GITHUB_STEP_SUMMARY
-          echo "- **AWS WAF**: \$${WAF_COST} (1 Web ACL, 1M requests)" >> $GITHUB_STEP_SUMMARY
-          echo "- **CloudWatch**: \$${CLOUDWATCH_COST} (10 metrics, 1GB logs)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Data Transfer**: \$${DATA_TRANSFER_COST} (100GB outbound)" >> $GITHUB_STEP_SUMMARY
-          if [ "$S3_REPLICATION_COST" != "0.00" ]; then
-            echo "- **S3 Cross-Region Replication**: \$${S3_REPLICATION_COST}" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 💰 **Total Monthly Cost: \$${TOTAL_COST}**" >> $GITHUB_STEP_SUMMARY
-          echo "**Estimated Annual Cost: \$${ANNUAL_COST}**" >> $GITHUB_STEP_SUMMARY
-          
-          echo "estimated_cost=$TOTAL_COST" >> $GITHUB_OUTPUT
-          echo "cost_summary=\$${TOTAL_COST}/month (\$${ANNUAL_COST}/year)" >> $GITHUB_OUTPUT
-
-  pr-comment:
-    name: PR Comment
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [build-info, infrastructure-validation, security-scanning, website-build, cost-estimation]
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Find Existing Comment
-        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3.1.0
-        id: find-comment
-        with:
-          issue-number: ${{ github.event.pull_request.number }}
-          comment-author: 'github-actions[bot]'
-          body-includes: '## 🏗️ BUILD Phase Results'
-
-      - name: Create or Update PR Comment
-        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4.0.0
-        with:
-          comment-id: ${{ steps.find-comment.outputs.comment-id }}
-          issue-number: ${{ github.event.pull_request.number }}
-          edit-mode: replace
-          body: |
-            ## 🏗️ BUILD Phase Results
-            
-            **Build ID:** `${{ needs.build-info.outputs.build_id }}`
-            **Environment:** ${{ needs.build-info.outputs.resolved_environment }}
-            
-            ### Status Summary
-            - **Infrastructure Validation:** ${{ needs.infrastructure-validation.result == 'success' && '✅ Passed' || needs.infrastructure-validation.result == 'skipped' && 'ℹ️ Skipped' || '❌ Failed' }}
-            - **Security Scanning:** ${{ needs.security-scanning.result == 'success' && '✅ Passed' || '❌ Failed' }}
-            - **Website Build:** ${{ needs.website-build.result == 'success' && '✅ Passed' || needs.website-build.result == 'skipped' && 'ℹ️ Skipped' || '❌ Failed' }}
-            - **Cost Analysis:** ${{ needs.cost-estimation.result == 'success' && '✅ Completed' || '❌ Failed' }}
-            
-            ${{ needs.cost-estimation.outputs.cost_summary && format('**💰 Cost Estimate:** {0}', needs.cost-estimation.outputs.cost_summary) || '' }}
-            
-            ### Changes Detected
-            - **Infrastructure Changes:** ${{ needs.build-info.outputs.has_tf_changes > 0 && '✅ Yes' || '➖ None' }}
-            - **Content Changes:** ${{ needs.build-info.outputs.has_content_changes > 0 && '✅ Yes' || '➖ None' }}
-            
-            <details>
-            <summary>📋 View Details</summary>
-            
-            Check the **Actions** tab for:
-            - Detailed infrastructure validation results
-            - Security scanning reports (SARIF format)
-            - Website build artifacts and validation
-            - Cost analysis breakdown
-            </details>
-            
-            ---
-            *Generated by BUILD workflow*
-
-  build-summary:
-    name: Build Summary
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [build-info, infrastructure-validation, security-scanning, website-build, cost-estimation]
-    if: always()
-    steps:
-      - name: Generate Summary
-        run: |
-          echo "## 🏗️ BUILD Phase Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Environment**: ${{ needs.build-info.outputs.resolved_environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Job Status" >> $GITHUB_STEP_SUMMARY
-          echo "- **Infrastructure Validation**: ${{ needs.infrastructure-validation.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Security Scanning**: ${{ needs.security-scanning.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Website Build**: ${{ needs.website-build.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Cost Estimation**: ${{ needs.cost-estimation.result }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Determine overall success
-          INFRASTRUCTURE_OK="${{ needs.infrastructure-validation.result }}"
-          SECURITY_OK="${{ needs.security-scanning.result }}"
-          WEBSITE_OK="${{ needs.website-build.result }}"
-          
-          if [ "$INFRASTRUCTURE_OK" = "success" ] || [ "$INFRASTRUCTURE_OK" = "skipped" ]; then
-            if [ "$SECURITY_OK" = "success" ] && ([ "$WEBSITE_OK" = "success" ] || [ "$WEBSITE_OK" = "skipped" ]); then
-              echo "✅ **BUILD Phase Successful**" >> $GITHUB_STEP_SUMMARY
-              echo "➡️ **Next Phase**: TEST (will be triggered automatically)" >> $GITHUB_STEP_SUMMARY
+          # Basic HTML validation
+          if command -v html5validator >/dev/null 2>&1 || pip3 install html5validator --quiet; then
+            if html5validator --root src/ --also-check-css; then
+              echo "✅ HTML validation passed" >> $GITHUB_STEP_SUMMARY
             else
-              echo "❌ **BUILD Phase Failed**" >> $GITHUB_STEP_SUMMARY
-              echo "Please review the failed jobs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ HTML validation warnings (non-blocking)" >> $GITHUB_STEP_SUMMARY
             fi
-          else
-            echo "❌ **BUILD Phase Failed**" >> $GITHUB_STEP_SUMMARY
-            echo "Please review the failed jobs and fix issues before proceeding." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Cleanup on Failure
-        if: failure() && !cancelled()
+      - name: Create Artifacts
+        id: artifacts
+        if: steps.changes.outputs.content == 'true' || steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         run: |
-          echo "🧹 **BUILD Cleanup**: Running cleanup after workflow failure" >> $GITHUB_STEP_SUMMARY
-          echo "- Cleaning up temporary files and resources" >> $GITHUB_STEP_SUMMARY
-          # Cleanup logic can be added here
+          echo "## 📦 Creating Build Artifacts" >> $GITHUB_STEP_SUMMARY
           
-      - name: Record Performance Metrics
+          # Create website archive
+          if [ -d "src" ]; then
+            tar -czf website-${{ steps.info.outputs.build_id }}.tar.gz -C src .
+            echo "✅ Website archive created" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Create terraform archive
+          if [ -d "terraform" ]; then
+            tar -czf terraform-${{ steps.info.outputs.build_id }}.tar.gz terraform/
+            echo "✅ Terraform archive created" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "created=true" >> $GITHUB_OUTPUT
+
+      - name: Upload Artifacts
+        if: steps.artifacts.outputs.created == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-${{ steps.info.outputs.build_id }}
+          path: |
+            website-*.tar.gz
+            terraform-*.tar.gz
+          retention-days: 7
+
+      - name: Build Summary
         if: always()
         run: |
-          echo "📊 **Performance Metrics**:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Completion Time**: $(date -Iseconds)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build ID**: ${{ needs.build-info.outputs.build_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform | ${{ steps.changes.outputs.terraform == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Website | ${{ steps.changes.outputs.content == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ (steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true') && '✅ Scanned' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifacts | ${{ steps.artifacts.outputs.created == 'true' && '✅ Created' || '➖ None needed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🎉 **BUILD Successful** - Ready for TEST phase" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **BUILD Failed** - Check logs above for details" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

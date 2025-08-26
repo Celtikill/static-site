@@ -20,7 +20,7 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 - **🌍 Global CDN**: CloudFront distribution with edge locations worldwide
 - **📊 Monitoring**: Comprehensive CloudWatch dashboards and alerts
 - **💰 Cost Optimized**: S3 Intelligent Tiering, budget alerts
-- **🔄 Advanced CI/CD**: Multi-environment pipeline with automated deployment and rollback
+- **🔄 Build-Test-Run Pipeline**: Simplified 3-phase deployment with automated quality gates
 - **🧪 Automated Testing**: Comprehensive usability and validation testing
 - **🚨 Emergency Response**: Hotfix and rollback capabilities with code owner approval
 - **🛡️ Compliance**: ASVS L1/L2 compliant, security scanning
@@ -46,16 +46,22 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
                     └─────────────┘
 ```
 
-## 🔄 Deployment Pipeline
+## 🔄 Build-Test-Run Pipeline
 
-This project implements a comprehensive 4-environment deployment strategy:
+This project implements a simplified 3-phase deployment strategy:
 
-### 🔀 Deployment Paths
+### 🔀 Deployment Flow
 
-1. **Development Auto-Deploy**: Feature branches → BUILD → TEST → `development` environment (after all tests pass)
-2. **Staging Auto-Deploy**: Pull Requests → BUILD → TEST → `staging` environment with validation
-3. **Production Manual Deploy**: Code owners only → `production` environment
-4. **Emergency Hotfix**: Code owner approved → direct deployment to any environment
+1. **BUILD Phase**: Code validation, security scanning, artifact creation
+2. **TEST Phase**: Quality gates, policy validation, health checks  
+3. **RUN Phase**: Environment-specific deployment operations
+
+### 🎯 Environment Routing
+
+1. **Feature Branches** (`feature/*`) → Automatic deployment to `dev` environment
+2. **Release Candidates** (`v*.*.*-rc*`) → Automatic deployment to `staging` environment  
+3. **Production Releases** (`v*.*.*`) → Automatic deployment to `prod` environment
+4. **Emergency Operations**: Code owner approved hotfix/rollback to any environment
 
 ### 🛡️ Quality Gates
 
@@ -69,10 +75,10 @@ This project implements a comprehensive 4-environment deployment strategy:
 
 ```bash
 # Emergency hotfix deployment
-gh workflow run hotfix.yml --field target_environment=production --field hotfix_reason="Critical security fix"
+gh workflow run emergency.yml --field operation=hotfix --field environment=prod --field reason="Critical security fix"
 
 # Emergency rollback
-gh workflow run rollback.yml --field environment=production --field rollback_reason="Performance regression"
+gh workflow run emergency.yml --field operation=rollback --field environment=prod --field reason="Performance regression" --field rollback_method=last_known_good
 ```
 
 ## 📊 Status Overview

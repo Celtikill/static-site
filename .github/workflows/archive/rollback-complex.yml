@@ -53,7 +53,7 @@ jobs:
       rollback_target: ${{ steps.determine-target.outputs.rollback_target }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Need full history for rollback operations
       
@@ -197,7 +197,7 @@ jobs:
       rollback_url: ${{ steps.rollback.outputs.rollback_url }}
     steps:
       - name: Checkout Target Commit
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@v4
         with:
           ref: ${{ needs.rollback-authorization.outputs.rollback_target }}
           fetch-depth: 0
