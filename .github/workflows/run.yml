@@ -17,11 +17,6 @@ on:
         type: choice
         options: [dev, staging, prod]
         default: dev
-      skip_test_check:
-        description: 'Skip TEST workflow dependency check'
-        required: false
-        type: boolean
-        default: false
       deploy_infrastructure:
         description: 'Deploy infrastructure changes'
         required: false
@@ -53,10 +48,11 @@ jobs:
     name: "📋 Deployment Information"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Only run if TEST succeeded or if manual dispatch with skip
+    # Only run if TEST succeeded, or manual dispatch for production (which has authorization)
     if: |
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' ||
+      (github.event_name == 'workflow_dispatch' && 
+       github.event.inputs.environment == 'prod')
     outputs:
       run_id: ${{ steps.info.outputs.run_id }}
       target_environment: ${{ steps.info.outputs.target_environment }}
