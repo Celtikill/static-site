@@ -1,17 +1,22 @@
 # Security Guide
 
-Comprehensive security implementation guide for the AWS static website infrastructure.
+> **🎯 Purpose**: Comprehensive security implementation for AWS static website infrastructure  
+> **👥 Audience**: Security engineers, compliance teams, DevOps professionals  
+> **⏱️ Setup Time**: 15 min basic | 2-3 hours enterprise | 1 hour compliance review
 
-## Security Architecture Overview
+## Security Architecture
 
-The infrastructure implements defense-in-depth security with multiple layers:
+**Defense-in-Depth Implementation**:
+1. **Network Security**: WAF with OWASP Top 10 protection
+2. **Application Security**: Security headers and CSP
+3. **Data Security**: End-to-end encryption and access control
+4. **Infrastructure Security**: IAM least-privilege and OIDC authentication
+5. **Monitoring Security**: Real-time logging and alerting
 
-1. **Edge Security**: CloudFront + WAF protection
-2. **Access Control**: Origin Access Control (OAC) and IAM policies
-3. **Encryption**: At-rest and in-transit encryption
-4. **Authentication**: OIDC-based GitHub Actions with no long-lived credentials
-5. **Monitoring**: CloudWatch alerts and logging
-6. **Compliance**: ASVS L1/L2 and OWASP Top 10 protection
+**Compliance Standards**:
+- ✅ **ASVS Level 1 & 2** compliance
+- ✅ **OWASP Top 10** protection
+- ✅ **Zero-Trust Architecture** with GitHub OIDC
 
 ## GitHub Actions OIDC Authentication
 

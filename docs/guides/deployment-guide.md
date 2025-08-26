@@ -1,14 +1,9 @@
-# 🚀 Deployment Guide
+# Deployment Guide
 
-> **🎯 Target Audience**: DevOps engineers, platform teams, content managers  
-> **📊 Complexity**: ⭐⭐ Intermediate  
-> **📋 Prerequisites**: Basic AWS knowledge, Git familiarity, Terraform understanding  
-> **⏱️ Reading Time**: 20 minutes  
-> **🔄 Last Updated**: 2025-08-25
+> **👥 Audience**: DevOps engineers, platform teams, content managers  
+> **⏱️ Reading Time**: 15 minutes
 
-## Executive Summary
-
-This guide provides complete procedures for deploying and managing the AWS static website infrastructure. It covers both automated GitHub Actions workflows and manual deployment methods, with emphasis on the recommended automated approach that includes security scanning and policy validation.
+Complete procedures for deploying and managing AWS static website infrastructure using automated GitHub Actions workflows and manual methods.
 
 ## 🎯 Deployment Options
 
@@ -27,7 +22,7 @@ Local deployment for development and testing.
 
 ### Overview
 
-The Release workflow (`release.yml`) is the **primary deployment method** that orchestrates the entire deployment pipeline using semantic versioning and automated environment promotion. It integrates with existing BUILD, TEST, and DEPLOY workflows to provide a unified release management system.
+The Release workflow (`release.yml`) is the **primary deployment method** that orchestrates the entire deployment pipeline using semantic versioning and automated environment promotion. It integrates with existing BUILD, TEST, and RUN workflows to provide a unified release management system.
 
 ### Release Process Flow
 
@@ -227,7 +222,7 @@ AWS_ROLE_ARN=$(tofu output -raw github_actions_role_arn)
 graph LR
     %% Accessibility
     accTitle: Complete Deployment Workflow Architecture
-    accDescr: Shows complete workflow architecture including RELEASE workflow orchestration. RELEASE workflow coordinates BUILD, TEST, and environment-specific DEPLOY workflows based on version tags and semantic versioning strategy.
+    accDescr: Shows complete workflow architecture including RELEASE workflow orchestration. RELEASE workflow coordinates BUILD, TEST, and environment-specific RUN workflows based on version tags and semantic versioning strategy.
     
     A[Version Tag] --> R[RELEASE]
     R --> B[BUILD]
@@ -237,7 +232,7 @@ graph LR
     R --> R2[Release Notes]
     R --> R3[GitHub Release]
     
-    C --> D[DEPLOY]
+    C --> D[RUN]
     
     D -->|env=dev| E1[Dev Infrastructure]
     D -->|env=staging| E2[Staging Infrastructure]
@@ -333,9 +328,9 @@ Jobs:
 - Security compliance validation
 - Infrastructure state validation
 
-#### DEPLOY Workflow
+#### RUN Workflow
 
-##### Unified Deployment (`deploy.yml`)
+##### Unified Deployment (`run.yml`)
 Single workflow that handles all environments through environment parameter.
 
 **Trigger Conditions**:
@@ -371,19 +366,19 @@ Deploy to specific environments:
 
 ```bash
 # Full deployment to development
-gh workflow run deploy.yml \
+gh workflow run run.yml \
   --field environment=dev \
   --field deploy_infrastructure=true \
   --field deploy_website=true
 
 # Content-only deployment to production
-gh workflow run deploy.yml \
+gh workflow run run.yml \
   --field environment=prod \
   --field deploy_infrastructure=false \
   --field deploy_website=true
 
 # Infrastructure-only deployment
-gh workflow run deploy.yml \
+gh workflow run run.yml \
   --field environment=staging \
   --field deploy_infrastructure=true \
   --field deploy_website=false
@@ -393,7 +388,7 @@ gh workflow run deploy.yml \
 
 ```bash
 # Check workflow status
-gh run list --workflow=deploy.yml
+gh run list --workflow=run.yml
 
 # View specific workflow run
 gh run view --job deploy-info
@@ -408,9 +403,9 @@ gh run download --name "deploy-123-website-archive"
 ### 5. Environment Protection
 
 Configure branch protection rules with streamlined workflow architecture:
-- **Development**: ✨ Auto-deploy via DEPLOY workflow after successful TEST on feature branches (`feature/*`, `bugfix/*`, `hotfix/*`)
-- **Staging**: Manual approval required via DEPLOY workflow on pull requests to main
-- **Production**: Manual approval + required reviewers via DEPLOY workflow
+- **Development**: ✨ Auto-deploy via RUN workflow after successful TEST on feature branches (`feature/*`, `bugfix/*`, `hotfix/*`)
+- **Staging**: Manual approval required via RUN workflow on pull requests to main
+- **Production**: Manual approval + required reviewers via RUN workflow
 - **Branch Protection**: Simplified without complex badge automation workflows
 
 ### 6. Architectural Improvements
@@ -419,8 +414,8 @@ Recent workflow architecture improvements have enhanced deployment reliability a
 
 #### Corrected Deployment Responsibility
 - **Previous**: Development auto-deploy was incorrectly handled by TEST workflow
-- **Current**: All environment deployments unified under DEPLOY workflow
-- **Benefit**: Clear separation of concerns - TEST validates, DEPLOY deploys
+- **Current**: All environment deployments unified under RUN workflow
+- **Benefit**: Clear separation of concerns - TEST validates, RUN deploys
 
 #### Enhanced Environment Resolution
 - **Feature Branches**: Automatically deploy to development environment after TEST success

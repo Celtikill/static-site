@@ -1,29 +1,82 @@
-# Architecture Documentation
+# Architecture Overview
 
-> **🎯 Target Audience**: Architects, engineers, platform teams  
-> **📊 Complexity**: ⭐⭐⭐⭐ Advanced  
-> **📋 Prerequisites**: AWS knowledge, Terraform experience, CI/CD understanding  
-> **⏱️ Reading Time**: 30-45 minutes (complete suite)
+> **🎯 Audience**: Architects, engineers, platform teams  
+> **📊 Complexity**: Advanced  
+> **⏱️ Reading Time**: 20 minutes
 
-## Overview
+## System Architecture
 
-This directory contains comprehensive architectural documentation for the AWS static website infrastructure project. The documentation is organized into four focused areas covering infrastructure design, implementation details, operational workflows, and testing architecture.
+Enterprise-grade serverless static website infrastructure implementing AWS Well-Architected Framework principles with zero-trust security and automated CI/CD.
 
-## Executive Summary
+### Core Components
 
-This project implements a comprehensive serverless static website architecture demonstrating AWS Well-Architected Framework principles. The solution provides a scalable, secure, and cost-effective platform for hosting static content while showcasing modern cloud architectural patterns with enterprise-grade CI/CD automation.
+**Infrastructure Layer**:
+- **S3**: Primary storage with encryption, versioning, intelligent tiering
+- **CloudFront**: Global CDN with edge locations, custom headers, compression
+- **WAF**: OWASP Top 10 protection, rate limiting, geographic restrictions
+- **Route53**: DNS management with health checks and failover
 
-**Key Architectural Highlights:**
-- **Serverless-first approach** with global CDN and edge computing
-- **Zero-trust security model** with defense-in-depth implementation  
-- **Enterprise CI/CD pipeline** with BUILD-TEST-RUN automation
-- **Comprehensive testing framework** with 269 individual assertions
-- **Cost-optimized design** with intelligent resource management
-- **Multi-region resilience** with automated failover capabilities
+**Security Layer**:
+- **Origin Access Control**: Prevents direct S3 access
+- **KMS Encryption**: At-rest data protection
+- **OIDC Authentication**: GitHub Actions without stored credentials
+- **IAM Least Privilege**: Minimal required permissions
 
-## Architecture Documentation Structure
+**Monitoring Layer**:
+- **CloudWatch**: Metrics, logs, and alerting
+- **Cost Management**: Budget alerts and optimization
+- **Performance Tracking**: Core web vitals and availability
 
-### 📋 [Infrastructure Architecture](infrastructure.md)
+### CI/CD Pipeline
+
+**BUILD → TEST → RUN Strategy**:
+
+1. **BUILD** (5-10 min): Infrastructure validation, enhanced security scanning, artifact creation
+2. **TEST** (10-15 min): Policy validation, unit testing, environment health checks  
+3. **RUN** (15-25 min): Environment-specific deployment with approval gates
+
+**Security Integration**:
+- **Static Analysis**: Checkov (IaC) + Trivy (vulnerabilities) with detailed findings
+- **Policy Validation**: OPA/Rego with environment-aware enforcement
+- **Compliance**: ASVS L1/L2, OWASP Top 10 protection
+
+**Deployment Strategy**:
+- **Development**: Auto-deploy on feature branches
+- **Staging**: Manual approval via PR to main
+- **Production**: Code owner authorization with tagged releases
+
+## Terraform Modules
+
+**Module Architecture**:
+- **S3 Module**: Bucket configuration, encryption, access control, versioning
+- **CloudFront Module**: Distribution, origins, behaviors, security headers  
+- **WAF Module**: Web ACL, rules, IP sets, rate limiting
+- **Monitoring Module**: Dashboards, alarms, log groups, budget alerts
+
+**Module Dependencies**:
+```
+main.tf → S3 Module → CloudFront Module → WAF Module
+                   ↘ Monitoring Module
+```
+
+**Key Features**:
+- **Modular Design**: Reusable, testable components
+- **Variable Validation**: Input constraints and type checking
+- **Output Chaining**: Module outputs used as inputs
+- **Environment Scaling**: dev/staging/prod configurations
+
+## Implementation Details
+
+See individual Terraform modules in `/terraform/modules/` for detailed implementation:
+- `s3/` - Storage and access control
+- `cloudfront/` - CDN and distribution  
+- `waf/` - Web application firewall
+- `monitoring/` - Observability and alerting
+
+For operational procedures, see:
+- `../workflows.md` - CI/CD pipeline details
+- `../guides/deployment-guide.md` - Deployment procedures  
+- `../guides/troubleshooting.md` - Common issues and solutions
 **Focus**: AWS services, component relationships, security model
 
 **What's Inside**:
