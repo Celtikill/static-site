@@ -48,19 +48,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run:
-    name: Deploy to ${{ inputs.environment || 'auto' }}
+  info:
+    name: "📋 Deployment Information"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
     # Only run if TEST succeeded or if manual dispatch with skip
     if: |
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
-    environment: ${{ steps.info.outputs.target_environment }}
     outputs:
-      deployment_url: ${{ steps.website.outputs.deployment_url }}
-      infrastructure_outputs: ${{ steps.infrastructure.outputs.outputs }}
-      deployment_status: ${{ steps.summary.outputs.status }}
+      run_id: ${{ steps.info.outputs.run_id }}
+      target_environment: ${{ steps.info.outputs.target_environment }}
+      deploy_infrastructure: ${{ steps.info.outputs.deploy_infrastructure }}
+      deploy_website: ${{ steps.info.outputs.deploy_website }}
     
     steps:
       - name: Checkout
@@ -83,16 +83,33 @@ jobs:
             ENV_SOURCE="Default"
           fi
           
+          # Determine deployment flags
+          DEPLOY_INFRA="${{ github.event.inputs.deploy_infrastructure || 'true' }}"
+          DEPLOY_WEBSITE="${{ github.event.inputs.deploy_website || 'true' }}"
+          
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
           echo "target_environment=$TARGET_ENV" >> $GITHUB_OUTPUT
+          echo "deploy_infrastructure=$DEPLOY_INFRA" >> $GITHUB_OUTPUT
+          echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
           
           echo "# 🚀 RUN Phase" >> $GITHUB_STEP_SUMMARY
           echo "- **Run ID**: $RUN_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $TARGET_ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy Infrastructure**: $DEPLOY_INFRA" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
+
+  authorization:
+    name: "🔐 Production Authorization"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: info
+    if: needs.info.outputs.target_environment == 'prod'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Production Authorization
-        if: steps.info.outputs.target_environment == 'prod'
         run: |
           echo "🔐 **Production Deployment Authorization**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -120,11 +137,21 @@ jobs:
             echo "⚠️ No CODEOWNERS file found - proceeding" >> $GITHUB_STEP_SUMMARY
           fi
 
+  setup:
+    name: "🔧 Setup Deployment Tools"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info, authorization]
+    if: always() && !failure()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
-          role-session-name: github-actions-run-${{ steps.info.outputs.run_id }}
+          role-session-name: github-actions-run-${{ needs.info.outputs.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Setup Tools
@@ -145,9 +172,36 @@ jobs:
           
           echo "✅ Deployment tools ready" >> $GITHUB_STEP_SUMMARY
 
+  infrastructure:
+    name: "🏗️ Infrastructure Deployment"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [info, setup]
+    if: needs.info.outputs.deploy_infrastructure == 'true'
+    environment: ${{ needs.info.outputs.target_environment }}
+    outputs:
+      outputs: ${{ steps.deploy.outputs.outputs }}
+      bucket_name: ${{ steps.deploy.outputs.bucket_name }}
+      distribution_id: ${{ steps.deploy.outputs.distribution_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          role-session-name: github-actions-infra-${{ needs.info.outputs.run_id }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Setup OpenTofu
+        run: |
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+
       - name: Deploy Infrastructure
-        id: infrastructure
-        if: github.event.inputs.deploy_infrastructure != 'false'
+        id: deploy
         working-directory: terraform
         run: |
           echo "## 🏗️ Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
@@ -161,7 +215,7 @@ jobs:
           fi
           
           # Plan deployment
-          if tofu plan -var="environment=${{ steps.info.outputs.target_environment }}" -out=deploy.tfplan; then
+          if tofu plan -var="environment=${{ needs.info.outputs.target_environment }}" -out=deploy.tfplan; then
             echo "✅ Terraform plan created" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform plan failed" >> $GITHUB_STEP_SUMMARY
@@ -187,30 +241,49 @@ jobs:
           
           # Output important values
           OUTPUTS=$(tofu output -json 2>/dev/null || echo '{}')
+          BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.s3_bucket_name.value // ""')
+          DISTRIBUTION_ID=$(echo "$OUTPUTS" | jq -r '.cloudfront_distribution_id.value // ""')
+          CLOUDFRONT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // "N/A"')
+          
           echo "outputs=$OUTPUTS" >> $GITHUB_OUTPUT
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
           
           # Display key outputs
-          BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.s3_bucket_name.value // "N/A"')
-          CLOUDFRONT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // "N/A"')
           echo "**Deployment Results:**" >> $GITHUB_STEP_SUMMARY
           echo "- S3 Bucket: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY  
           echo "- CloudFront URL: $CLOUDFRONT_URL" >> $GITHUB_STEP_SUMMARY
 
+  website:
+    name: "🌐 Website Deployment"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [info, setup, infrastructure]
+    if: always() && !failure() && needs.info.outputs.deploy_website == 'true'
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          role-session-name: github-actions-website-${{ needs.info.outputs.run_id }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
       - name: Deploy Website
-        id: website
-        if: github.event.inputs.deploy_website != 'false'
+        id: deploy
         run: |
           echo "## 🌐 Website Content Deployment" >> $GITHUB_STEP_SUMMARY
           
-          # Get S3 bucket name from terraform outputs or use default naming
-          BUCKET_NAME=""
-          if [ -f "terraform/terraform.tfstate" ]; then
-            BUCKET_NAME=$(cd terraform && tofu output -raw s3_bucket_name 2>/dev/null || echo "")
-          fi
+          # Get S3 bucket name from infrastructure job
+          BUCKET_NAME="${{ needs.infrastructure.outputs.bucket_name }}"
           
           if [ -z "$BUCKET_NAME" ]; then
             # Fallback to conventional naming
-            BUCKET_NAME="static-site-${{ steps.info.outputs.target_environment }}-$(date +%s | tail -c 6)"
+            BUCKET_NAME="static-site-${{ needs.info.outputs.target_environment }}-$(date +%s | tail -c 6)"
             echo "⚠️ Using fallback bucket name: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           fi
           
@@ -223,10 +296,7 @@ jobs:
           fi
           
           # Get CloudFront distribution ID and invalidate cache
-          DISTRIBUTION_ID=""
-          if [ -f "terraform/terraform.tfstate" ]; then
-            DISTRIBUTION_ID=$(cd terraform && tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
-          fi
+          DISTRIBUTION_ID="${{ needs.infrastructure.outputs.distribution_id }}"
           
           if [ -n "$DISTRIBUTION_ID" ]; then
             if aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" --query 'Invalidation.Id' --output text; then
@@ -238,14 +308,12 @@ jobs:
             echo "⚠️ No CloudFront distribution found" >> $GITHUB_STEP_SUMMARY
           fi
           
-          # Determine deployment URL
-          if [ -f "terraform/terraform.tfstate" ]; then
-            DEPLOYMENT_URL=$(cd terraform && tofu output -raw cloudfront_domain_name 2>/dev/null || echo "")
-            if [ -n "$DEPLOYMENT_URL" ] && [[ "$DEPLOYMENT_URL" != "null" ]]; then
-              DEPLOYMENT_URL="https://$DEPLOYMENT_URL"
-            else
-              DEPLOYMENT_URL="https://$BUCKET_NAME.s3-website-${{ env.AWS_DEFAULT_REGION }}.amazonaws.com"
-            fi
+          # Determine deployment URL from infrastructure outputs
+          OUTPUTS='${{ needs.infrastructure.outputs.outputs }}'
+          DEPLOYMENT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // ""')
+          
+          if [ -n "$DEPLOYMENT_URL" ] && [[ "$DEPLOYMENT_URL" != "null" ]]; then
+            DEPLOYMENT_URL="https://$DEPLOYMENT_URL"
           else
             DEPLOYMENT_URL="https://$BUCKET_NAME.s3-website-${{ env.AWS_DEFAULT_REGION }}.amazonaws.com"
           fi
@@ -253,12 +321,22 @@ jobs:
           echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           echo "**Website URL**: $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
 
+  validation:
+    name: "🔍 Post-Deployment Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info, infrastructure, website]
+    if: always() && !failure()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Post-Deployment Validation
         continue-on-error: true
         run: |
           echo "## 🔍 Post-Deployment Validation" >> $GITHUB_STEP_SUMMARY
           
-          DEPLOYMENT_URL="${{ steps.website.outputs.deployment_url }}"
+          DEPLOYMENT_URL="${{ needs.website.outputs.deployment_url }}"
           
           if [ -n "$DEPLOYMENT_URL" ]; then
             # Wait a moment for deployment to propagate
@@ -281,13 +359,23 @@ jobs:
             echo "⚠️ No deployment URL available for testing" >> $GITHUB_STEP_SUMMARY
           fi
 
+  github-deployment:
+    name: "📝 Update GitHub Deployment"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, infrastructure, website, validation]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Update GitHub Deployment
         uses: actions/github-script@v7
         continue-on-error: true
         with:
           script: |
-            const environment = '${{ steps.info.outputs.target_environment }}';
-            const deploymentUrl = '${{ steps.website.outputs.deployment_url }}';
+            const environment = '${{ needs.info.outputs.target_environment }}';
+            const deploymentUrl = '${{ needs.website.outputs.deployment_url }}';
             const success = '${{ job.status }}' === 'success';
             
             // Create deployment status
@@ -301,27 +389,48 @@ jobs:
               log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });
 
+  summary:
+    name: "📊 Deployment Summary"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, infrastructure, website, validation, github-deployment]
+    if: always()
+    outputs:
+      deployment_status: ${{ steps.summary.outputs.status }}
+      deployment_url: ${{ needs.website.outputs.deployment_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Deployment Summary
         id: summary
-        if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📊 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Infrastructure | ${{ github.event.inputs.deploy_infrastructure != 'false' && '✅ Deployed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Website Content | ${{ github.event.inputs.deploy_website != 'false' && '✅ Deployed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Validation | ✅ Completed" >> $GITHUB_STEP_SUMMARY
+          echo "| Authorization | ${{ needs.authorization.result == 'success' && '✅ Authorized' || needs.authorization.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.infrastructure.result == 'success' && '✅ Deployed' || needs.infrastructure.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Website Content | ${{ needs.website.result == 'success' && '✅ Deployed' || needs.website.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation | ${{ needs.validation.result == 'success' && '✅ Completed' || needs.validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| GitHub Deployment | ${{ needs.github-deployment.result == 'success' && '✅ Updated' || needs.github-deployment.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ job.status }}" = "success" ]; then
+          # Check overall status
+          FAILED_JOBS=""
+          if [ "${{ needs.authorization.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Authorization "; fi
+          if [ "${{ needs.infrastructure.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
+          if [ "${{ needs.website.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
+          if [ "${{ needs.validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Validation "; fi
+          
+          if [ -z "$FAILED_JOBS" ]; then
             echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
             echo "status=success" >> $GITHUB_OUTPUT
-            if [ -n "${{ steps.website.outputs.deployment_url }}" ]; then
-              echo "🌐 **Website**: ${{ steps.website.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
+            if [ -n "${{ needs.website.outputs.deployment_url }}" ]; then
+              echo "🌐 **Website**: ${{ needs.website.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "❌ **DEPLOYMENT FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **DEPLOYMENT FAILED** - Failed jobs: $FAILED_JOBS" >> $GITHUB_STEP_SUMMARY
             echo "status=failed" >> $GITHUB_OUTPUT
             exit 1
           fi
