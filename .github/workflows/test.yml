@@ -144,6 +144,10 @@ jobs:
     timeout-minutes: 15
     needs: info
     if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    env:
+      AWS_ASSUME_ROLE_DEV: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
+      AWS_ASSUME_ROLE_STAGING: ${{ secrets.AWS_ASSUME_ROLE_STAGING }}
+      AWS_ASSUME_ROLE: ${{ secrets.AWS_ASSUME_ROLE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
