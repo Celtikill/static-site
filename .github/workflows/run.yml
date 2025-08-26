@@ -40,7 +40,8 @@ permissions:
   deployments: write
 
 env:
-  AWS_DEFAULT_REGION: us-east-1
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
   TF_IN_AUTOMATION: true
 
 concurrency:
@@ -78,6 +79,9 @@ jobs:
           elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
             TARGET_ENV="dev"
             ENV_SOURCE="Feature Branch Auto-Deploy"
+          elif [ "${{ github.event.workflow_run.head_branch || github.ref_name }}" = "main" ]; then
+            TARGET_ENV="staging"
+            ENV_SOURCE="Main Branch Auto-Deploy"
           else
             TARGET_ENV="dev"
             ENV_SOURCE="Default"
@@ -159,7 +163,7 @@ jobs:
           echo "## 🔧 Setting up deployment tools" >> $GITHUB_STEP_SUMMARY
 
           # Install OpenTofu
-          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
 
@@ -196,7 +200,7 @@ jobs:
 
       - name: Setup OpenTofu
         run: |
-          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
 

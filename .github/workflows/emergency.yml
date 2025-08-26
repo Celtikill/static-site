@@ -48,6 +48,11 @@ permissions:
   pull-requests: write
   deployments: write
 
+env:
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
+  TF_IN_AUTOMATION: true
+
 concurrency:
   group: emergency-${{ inputs.environment }}-${{ inputs.operation }}
   cancel-in-progress: false
@@ -229,7 +234,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
           role-session-name: emergency-${{ inputs.operation }}-${{ github.run_id }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
       - name: Emergency Deployment
         if: env.trigger_deployment == 'true'
@@ -253,7 +258,7 @@ jobs:
           fi
           
           # Install deployment tools
-          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
           
