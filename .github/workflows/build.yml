@@ -35,17 +35,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build and Validate
+  info:
+    name: "📋 Build Information"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     outputs:
       build_id: ${{ steps.info.outputs.build_id }}
       environment: ${{ steps.info.outputs.environment }}
       has_terraform_changes: ${{ steps.changes.outputs.terraform }}
       has_content_changes: ${{ steps.changes.outputs.content }}
       has_workflow_changes: ${{ steps.changes.outputs.workflows }}
-      artifacts_created: ${{ steps.artifacts.outputs.created }}
     
     steps:
       - name: Checkout
@@ -84,8 +83,17 @@ jobs:
             tests:
               - 'test/**'
 
+  infrastructure:
+    name: "🏗️ Infrastructure Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: info
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.force_build == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Setup Infrastructure Tools
-        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         run: |
           echo "## 🔧 Infrastructure Tools Setup" >> $GITHUB_STEP_SUMMARY
           
@@ -96,7 +104,6 @@ jobs:
           echo "✅ OpenTofu installed: $(tofu version)" >> $GITHUB_STEP_SUMMARY
 
       - name: Validate Terraform
-        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         working-directory: terraform
         run: |
           echo "## ✅ Terraform Validation" >> $GITHUB_STEP_SUMMARY
@@ -133,23 +140,30 @@ jobs:
           # Restore backend file
           mv backend.tf.bak backend.tf 2>/dev/null || true
 
-      - name: Setup Security Tools
-        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+  security-checkov:
+    name: "🔒 Checkov Security Scan"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: info
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.force_build == 'true'
+    outputs:
+      checkov_exit: ${{ steps.scan.outputs.checkov_exit }}
+      checkov_critical: ${{ steps.scan.outputs.checkov_critical }}
+      checkov_high: ${{ steps.scan.outputs.checkov_high }}
+      checkov_total: ${{ steps.scan.outputs.checkov_total }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Checkov
         run: |
-          echo "## 🔧 Security Tools Setup" >> $GITHUB_STEP_SUMMARY
-          
-          # Install Checkov
+          echo "## 🔧 Checkov Setup" >> $GITHUB_STEP_SUMMARY
           pip3 install checkov --quiet
           echo "✅ Checkov installed: $(checkov --version)" >> $GITHUB_STEP_SUMMARY
-          
-          # Install Trivy
-          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.48.3/trivy_0.48.3_Linux-64bit.tar.gz | tar xzf - -C /tmp
-          sudo mv /tmp/trivy /usr/local/bin/
-          echo "✅ Trivy installed: $(trivy --version)" >> $GITHUB_STEP_SUMMARY
+
 
       - name: Security Scanning - Checkov
-        id: security-checkov
-        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+        id: scan
         run: |
           echo "## 🔒 Checkov Security Analysis" >> $GITHUB_STEP_SUMMARY
           
@@ -202,7 +216,7 @@ jobs:
           cat > checkov-security-summary.md << EOF
           # Checkov Security Analysis Report
           
-          **Build ID**: ${{ steps.info.outputs.build_id }}
+          **Build ID**: ${{ needs.info.outputs.build_id }}
           **Scan Date**: $(date -u)
           **Status**: $([ $CHECKOV_EXIT -eq 0 ] && echo "PASSED" || echo "FAILED")
           
@@ -227,9 +241,39 @@ jobs:
             echo "❌ **Checkov found security issues**" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Upload Checkov Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-results-${{ needs.info.outputs.build_id }}
+          path: |
+            checkov-security-summary.md
+            checkov-results.json
+          retention-days: 7
+
+  security-trivy:
+    name: "🛡️ Trivy Security Scan"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: info
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.force_build == 'true'
+    outputs:
+      trivy_exit: ${{ steps.scan.outputs.trivy_exit }}
+      trivy_critical: ${{ steps.scan.outputs.trivy_critical }}
+      trivy_high: ${{ steps.scan.outputs.trivy_high }}
+      trivy_total: ${{ steps.scan.outputs.trivy_total }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Trivy
+        run: |
+          echo "## 🔧 Trivy Setup" >> $GITHUB_STEP_SUMMARY
+          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.48.3/trivy_0.48.3_Linux-64bit.tar.gz | tar xzf - -C /tmp
+          sudo mv /tmp/trivy /usr/local/bin/
+          echo "✅ Trivy installed: $(trivy --version)" >> $GITHUB_STEP_SUMMARY
+
       - name: Security Scanning - Trivy
-        id: security-trivy
-        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+        id: scan
         run: |
           echo "## 🛡️ Trivy Security Analysis" >> $GITHUB_STEP_SUMMARY
           
@@ -273,7 +317,7 @@ jobs:
           cat > trivy-security-summary.md << EOF
           # Trivy Security Analysis Report
           
-          **Build ID**: ${{ steps.info.outputs.build_id }}
+          **Build ID**: ${{ needs.info.outputs.build_id }}
           **Scan Date**: $(date -u)
           **Status**: $([ $TRIVY_EXIT -eq 0 ] && echo "PASSED" || echo "FAILED")
           
@@ -297,18 +341,36 @@ jobs:
             echo "❌ **Trivy found security issues**" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Upload Trivy Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results-${{ needs.info.outputs.build_id }}
+          path: |
+            trivy-security-summary.md
+            trivy-results.json
+          retention-days: 7
+
+  security-analysis:
+    name: "📊 Security Analysis"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, security-checkov, security-trivy]
+    if: always() && (needs.security-checkov.result != 'skipped' || needs.security-trivy.result != 'skipped')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Process Security Results
-        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         run: |
           echo "## 🏁 Security Results Summary" >> $GITHUB_STEP_SUMMARY
           
           # Get results from previous steps
-          CHECKOV_EXIT="${{ steps.security-checkov.outputs.checkov_exit || '0' }}"
-          TRIVY_EXIT="${{ steps.security-trivy.outputs.trivy_exit || '0' }}"
-          CHECKOV_CRITICAL="${{ steps.security-checkov.outputs.checkov_critical || '0' }}"
-          TRIVY_CRITICAL="${{ steps.security-trivy.outputs.trivy_critical || '0' }}"
-          CHECKOV_HIGH="${{ steps.security-checkov.outputs.checkov_high || '0' }}"
-          TRIVY_HIGH="${{ steps.security-trivy.outputs.trivy_high || '0' }}"
+          CHECKOV_EXIT="${{ needs.security-checkov.outputs.checkov_exit || '0' }}"
+          TRIVY_EXIT="${{ needs.security-trivy.outputs.trivy_exit || '0' }}"
+          CHECKOV_CRITICAL="${{ needs.security-checkov.outputs.checkov_critical || '0' }}"
+          TRIVY_CRITICAL="${{ needs.security-trivy.outputs.trivy_critical || '0' }}"
+          CHECKOV_HIGH="${{ needs.security-checkov.outputs.checkov_high || '0' }}"
+          TRIVY_HIGH="${{ needs.security-trivy.outputs.trivy_high || '0' }}"
           
           TOTAL_CRITICAL=$((CHECKOV_CRITICAL + TRIVY_CRITICAL))
           TOTAL_HIGH=$((CHECKOV_HIGH + TRIVY_HIGH))
@@ -343,8 +405,17 @@ jobs:
             echo "✅ **All security scans passed** - No critical or high severity findings" >> $GITHUB_STEP_SUMMARY
           fi
 
+  website:
+    name: "🌐 Website Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: info
+    if: needs.info.outputs.has_content_changes == 'true' || github.event.inputs.force_build == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Validate Website Content
-        if: steps.changes.outputs.content == 'true' || github.event.inputs.force_build == 'true'
         run: |
           echo "## 🌐 Website Content Validation" >> $GITHUB_STEP_SUMMARY
           
@@ -368,31 +439,49 @@ jobs:
             fi
           fi
 
+  artifacts:
+    name: "📦 Create Artifacts"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, infrastructure, security-analysis, website]
+    if: always() && !failure()
+    outputs:
+      artifacts_created: ${{ steps.create.outputs.created }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Create Artifacts
-        id: artifacts
-        if: steps.changes.outputs.content == 'true' || steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+        id: create
         run: |
           echo "## 📦 Creating Build Artifacts" >> $GITHUB_STEP_SUMMARY
           
           # Create website archive
           if [ -d "src" ]; then
-            tar -czf website-${{ steps.info.outputs.build_id }}.tar.gz -C src .
+            tar -czf website-${{ needs.info.outputs.build_id }}.tar.gz -C src .
             echo "✅ Website archive created" >> $GITHUB_STEP_SUMMARY
           fi
           
           # Create terraform archive
           if [ -d "terraform" ]; then
-            tar -czf terraform-${{ steps.info.outputs.build_id }}.tar.gz terraform/
+            tar -czf terraform-${{ needs.info.outputs.build_id }}.tar.gz terraform/
             echo "✅ Terraform archive created" >> $GITHUB_STEP_SUMMARY
           fi
           
           echo "created=true" >> $GITHUB_OUTPUT
 
+      - name: Download Security Results
+        if: needs.security-checkov.result == 'success' || needs.security-trivy.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-results-${{ needs.info.outputs.build_id }}'
+          merge-multiple: true
+
       - name: Upload Artifacts
-        if: steps.artifacts.outputs.created == 'true'
+        if: steps.create.outputs.created == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts-${{ steps.info.outputs.build_id }}
+          name: build-artifacts-${{ needs.info.outputs.build_id }}
           path: |
             website-*.tar.gz
             terraform-*.tar.gz
@@ -408,15 +497,21 @@ jobs:
           echo "## 📊 Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Terraform | ${{ steps.changes.outputs.terraform == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Website | ${{ steps.changes.outputs.content == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | ${{ (steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true') && '🔒 Enhanced Analysis - Passed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Artifacts | ${{ steps.artifacts.outputs.created == 'true' && '✅ Created' || '➖ None needed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.infrastructure.result == 'success' && '✅ Validated' || needs.infrastructure.result == 'skipped' && '➖ No changes' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Website | ${{ needs.website.result == 'success' && '✅ Validated' || needs.website.result == 'skipped' && '➖ No changes' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security-analysis.result == 'success' && '🔒 Enhanced Analysis - Passed' || needs.security-analysis.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifacts | ${{ steps.create.outputs.created == 'true' && '✅ Created' || '➖ None needed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ job.status }}" = "success" ]; then
+          # Check overall status
+          FAILED_JOBS=""
+          if [ "${{ needs.infrastructure.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
+          if [ "${{ needs.security-analysis.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Security "; fi
+          if [ "${{ needs.website.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
+          
+          if [ -z "$FAILED_JOBS" ]; then
             echo "🎉 **BUILD Successful** - Ready for TEST phase" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **BUILD Failed** - Check logs above for details" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **BUILD Failed** - Failed jobs: $FAILED_JOBS" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
