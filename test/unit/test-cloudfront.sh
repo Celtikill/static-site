@@ -7,8 +7,17 @@ set -euo pipefail
 # Import test functions
 source "$(dirname "$0")/../functions/test-functions.sh"
 
-# Test configuration
-readonly MODULE_PATH="../../terraform/modules/cloudfront"
+# Test configuration - determine path based on current directory
+if [ -d "terraform/modules/cloudfront" ]; then
+    # Running from repository root (GitHub Actions)
+    readonly MODULE_PATH="terraform/modules/cloudfront"
+elif [ -d "../../terraform/modules/cloudfront" ]; then
+    # Running from test/unit directory (local testing)
+    readonly MODULE_PATH="../../terraform/modules/cloudfront"
+else
+    echo "ERROR: Cannot find CloudFront module directory"
+    exit 1
+fi
 readonly TEST_NAME="cloudfront-module-tests"
 
 # Test functions

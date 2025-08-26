@@ -8,7 +8,17 @@ set -euo pipefail
 source "$(dirname "$0")/../functions/test-functions.sh"
 
 # Test configuration
-readonly MODULE_PATH="../../terraform/modules/monitoring"
+# Test configuration - determine path based on current directory
+if [ -d "terraform/modules/monitoring" ]; then
+    # Running from repository root (GitHub Actions)
+    readonly MODULE_PATH="terraform/modules/monitoring"
+elif [ -d "../../terraform/modules/monitoring" ]; then
+    # Running from test/unit directory (local testing)
+    readonly MODULE_PATH="../../terraform/modules/monitoring"
+else
+    echo "ERROR: Cannot find module directory"
+    exit 1
+fi
 readonly TEST_NAME="monitoring-module-tests"
 
 # Test functions

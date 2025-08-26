@@ -61,16 +61,16 @@ jobs:
       target_environment: ${{ steps.info.outputs.target_environment }}
       deploy_infrastructure: ${{ steps.info.outputs.deploy_infrastructure }}
       deploy_website: ${{ steps.info.outputs.deploy_website }}
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run Info  
+      - name: Run Info
         id: info
         run: |
           RUN_ID="run-${{ github.run_id }}-${{ github.run_attempt }}"
-          
+
           # Determine target environment
           if [ -n "${{ github.event.inputs.environment }}" ]; then
             TARGET_ENV="${{ github.event.inputs.environment }}"
@@ -82,16 +82,16 @@ jobs:
             TARGET_ENV="dev"
             ENV_SOURCE="Default"
           fi
-          
+
           # Determine deployment flags
           DEPLOY_INFRA="${{ github.event.inputs.deploy_infrastructure || 'true' }}"
           DEPLOY_WEBSITE="${{ github.event.inputs.deploy_website || 'true' }}"
-          
+
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
           echo "target_environment=$TARGET_ENV" >> $GITHUB_OUTPUT
           echo "deploy_infrastructure=$DEPLOY_INFRA" >> $GITHUB_OUTPUT
           echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
-          
+
           echo "# 🚀 RUN Phase" >> $GITHUB_STEP_SUMMARY
           echo "- **Run ID**: $RUN_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $TARGET_ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
@@ -113,19 +113,19 @@ jobs:
         run: |
           echo "🔐 **Production Deployment Authorization**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check if triggered by manual dispatch (requires authorization)
           if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "❌ Production deployments require manual authorization" >> $GITHUB_STEP_SUMMARY
             echo "Use: gh workflow run run.yml --field environment=prod" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Check CODEOWNERS authorization
           ACTOR="${{ github.actor }}"
           if [ -f ".github/CODEOWNERS" ]; then
             CODE_OWNERS=$(grep -E '^(\*|/\.github/workflows/)' .github/CODEOWNERS | grep -oE '@[a-zA-Z0-9_-]+' | sort -u || echo "")
-            
+
             if echo "$CODE_OWNERS" | grep -q "@$ACTOR"; then
               echo "✅ **AUTHORIZED**: $ACTOR is a code owner" >> $GITHUB_STEP_SUMMARY
             else
@@ -157,19 +157,19 @@ jobs:
       - name: Setup Tools
         run: |
           echo "## 🔧 Setting up deployment tools" >> $GITHUB_STEP_SUMMARY
-          
+
           # Install OpenTofu
           curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
-          
+
           # Install AWS CLI (if not already available)
           if ! command -v aws &> /dev/null; then
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip -q awscliv2.zip
             sudo ./aws/install
           fi
-          
+
           echo "✅ Deployment tools ready" >> $GITHUB_STEP_SUMMARY
 
   infrastructure:
@@ -205,7 +205,7 @@ jobs:
         working-directory: terraform
         run: |
           echo "## 🏗️ Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
-          
+
           # Initialize with backend
           if tofu init -reconfigure; then
             echo "✅ Terraform initialized" >> $GITHUB_STEP_SUMMARY
@@ -213,7 +213,7 @@ jobs:
             echo "❌ Terraform initialization failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Plan deployment
           if tofu plan -var="environment=${{ needs.info.outputs.target_environment }}" -out=deploy.tfplan; then
             echo "✅ Terraform plan created" >> $GITHUB_STEP_SUMMARY
@@ -221,7 +221,7 @@ jobs:
             echo "❌ Terraform plan failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Show what will be deployed
           PLAN_SUMMARY=$(tofu show -json deploy.tfplan | jq -r '.resource_changes[] | select(.change.actions[] | . != "no-op") | "\(.change.actions | join(",")) \(.type).\(.name)"' | head -10)
           if [ -n "$PLAN_SUMMARY" ]; then
@@ -230,7 +230,7 @@ jobs:
           else
             echo "No infrastructure changes to apply" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Apply changes
           if tofu apply -auto-approve deploy.tfplan; then
             echo "✅ Infrastructure deployment successful" >> $GITHUB_STEP_SUMMARY
@@ -238,20 +238,20 @@ jobs:
             echo "❌ Infrastructure deployment failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Output important values
           OUTPUTS=$(tofu output -json 2>/dev/null || echo '{}')
           BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.s3_bucket_name.value // ""')
           DISTRIBUTION_ID=$(echo "$OUTPUTS" | jq -r '.cloudfront_distribution_id.value // ""')
           CLOUDFRONT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // "N/A"')
-          
+
           echo "outputs=$OUTPUTS" >> $GITHUB_OUTPUT
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
           echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
-          
+
           # Display key outputs
           echo "**Deployment Results:**" >> $GITHUB_STEP_SUMMARY
-          echo "- S3 Bucket: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY  
+          echo "- S3 Bucket: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- CloudFront URL: $CLOUDFRONT_URL" >> $GITHUB_STEP_SUMMARY
 
   website:
@@ -277,10 +277,10 @@ jobs:
         id: deploy
         run: |
           echo "## 🌐 Website Content Deployment" >> $GITHUB_STEP_SUMMARY
-          
+
           # Get S3 bucket name from infrastructure job or use fallback
           BUCKET_NAME="${{ needs.infrastructure.outputs.bucket_name }}"
-          
+
           if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "" ]; then
             # Check if infrastructure was deployed
             if [ "${{ needs.infrastructure.result }}" = "success" ]; then
@@ -293,7 +293,7 @@ jobs:
               echo "ℹ️ This may fail if bucket doesn't exist - infrastructure should be deployed first" >> $GITHUB_STEP_SUMMARY
             fi
           fi
-          
+
           # Sync website content to S3
           if aws s3 sync src/ s3://$BUCKET_NAME/ --delete --quiet; then
             echo "✅ Website content uploaded to S3" >> $GITHUB_STEP_SUMMARY
@@ -301,10 +301,10 @@ jobs:
             echo "❌ Website upload failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Get CloudFront distribution ID and invalidate cache
           DISTRIBUTION_ID="${{ needs.infrastructure.outputs.distribution_id }}"
-          
+
           if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "" ]; then
             if aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" --query 'Invalidation.Id' --output text; then
               echo "✅ CloudFront cache invalidated" >> $GITHUB_STEP_SUMMARY
@@ -318,17 +318,17 @@ jobs:
               echo "⚠️ No CloudFront distribution available (infrastructure skipped)" >> $GITHUB_STEP_SUMMARY
             fi
           fi
-          
+
           # Determine deployment URL from infrastructure outputs
           OUTPUTS='${{ needs.infrastructure.outputs.outputs }}'
           DEPLOYMENT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // ""')
-          
+
           if [ -n "$DEPLOYMENT_URL" ] && [[ "$DEPLOYMENT_URL" != "null" ]]; then
             DEPLOYMENT_URL="https://$DEPLOYMENT_URL"
           else
             DEPLOYMENT_URL="https://$BUCKET_NAME.s3-website-${{ env.AWS_DEFAULT_REGION }}.amazonaws.com"
           fi
-          
+
           echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
           echo "**Website URL**: $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
 
@@ -349,12 +349,12 @@ jobs:
           echo "**Purpose**: Test newly deployed infrastructure and website" >> $GITHUB_STEP_SUMMARY
           echo "**Target**: ${{ needs.info.outputs.target_environment }} environment (AFTER deployment)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Make usability test script executable
           chmod +x test/usability/run-usability-tests.sh
-          
+
           ENV="${{ needs.info.outputs.target_environment }}"
-          
+
           if bash test/usability/run-usability-tests.sh "$ENV"; then
             echo "✅ Post-deployment usability tests passed" >> $GITHUB_STEP_SUMMARY
             echo "- New deployment to $ENV is working correctly" >> $GITHUB_STEP_SUMMARY
@@ -364,7 +364,7 @@ jobs:
             echo "❌ Post-deployment usability tests failed" >> $GITHUB_STEP_SUMMARY
             echo "- New deployment to $ENV has issues" >> $GITHUB_STEP_SUMMARY
             echo "- Immediate attention required" >> $GITHUB_STEP_SUMMARY
-            
+
             # Environment-specific failure handling
             if [ "$ENV" = "dev" ]; then
               echo "⚠️ Development deployment failed validation - investigate but not blocking" >> $GITHUB_STEP_SUMMARY
@@ -405,15 +405,15 @@ jobs:
             const infraResult = '${{ needs.infrastructure.result }}';
             const websiteResult = '${{ needs.website.result }}';
             const validationResult = '${{ needs.validation.result }}';
-            
+
             // Determine overall success
-            const success = (infraResult === 'success' || infraResult === 'skipped') && 
+            const success = (infraResult === 'success' || infraResult === 'skipped') &&
                            (websiteResult === 'success' || websiteResult === 'skipped') &&
                            (validationResult === 'success' || validationResult === 'skipped');
-            
+
             console.log(`Creating deployment status for ${environment}`);
             console.log(`Infrastructure: ${infraResult}, Website: ${websiteResult}, Validation: ${validationResult}`);
-            
+
             // Create a deployment first, then update its status
             try {
               const deployment = await github.rest.repos.createDeployment({
@@ -425,7 +425,7 @@ jobs:
                 auto_merge: false,
                 required_contexts: []
               });
-              
+
               await github.rest.repos.createDeploymentStatus({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -435,7 +435,7 @@ jobs:
                 environment_url: deploymentUrl || '',
                 log_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
               });
-              
+
               console.log(`✅ Deployment status updated successfully`);
             } catch (error) {
               console.log(`⚠️ GitHub deployment update failed: ${error.message}`);
@@ -468,19 +468,19 @@ jobs:
           echo "| Validation | ${{ needs.validation.result == 'success' && '✅ Completed' || needs.validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| GitHub Deployment | ${{ needs.github-deployment.result == 'success' && '✅ Updated' || needs.github-deployment.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check overall status - consider skipped jobs as acceptable
           FAILED_JOBS=""
           if [ "${{ needs.authorization.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Authorization "; fi
           if [ "${{ needs.infrastructure.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
           if [ "${{ needs.website.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
           if [ "${{ needs.validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Validation "; fi
-          
+
           # Count successful/skipped jobs
           SUCCESSFUL_JOBS=""
           if [ "${{ needs.infrastructure.result }}" = "success" ]; then SUCCESSFUL_JOBS="${SUCCESSFUL_JOBS}Infrastructure "; fi
           if [ "${{ needs.website.result }}" = "success" ]; then SUCCESSFUL_JOBS="${SUCCESSFUL_JOBS}Website "; fi
-          
+
           if [ -z "$FAILED_JOBS" ]; then
             if [ -n "$SUCCESSFUL_JOBS" ]; then
               echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
