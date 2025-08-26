@@ -136,7 +136,11 @@ jobs:
           fi
           
           # Plan validation
-          if tofu plan -input=false -out=test.tfplan; then
+          if tofu plan -input=false \
+            -var="github_repository=${{ github.repository }}" \
+            -var="environment=test" \
+            -var="project_name=static-site-test" \
+            -out=test.tfplan; then
             echo "✅ Terraform plan successful" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform plan failed" >> $GITHUB_STEP_SUMMARY
