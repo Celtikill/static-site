@@ -9,8 +9,8 @@ region                     = "us-east-2"
 encrypt                    = true
 # Use default AWS managed key instead of non-existent alias
 
-# Native S3 State Locking (recommended over DynamoDB)
-use_lockfile              = true
+# S3 State Locking (native S3 object locking)
+# S3 backend automatically handles state locking
 
 # Enhanced Security and Validation Settings
 skip_credentials_validation = false
