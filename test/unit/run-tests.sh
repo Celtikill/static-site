@@ -252,9 +252,12 @@ run_test_file() {
     # Ensure test file is executable (required for direct execution)
     chmod +x "$test_file"
     
-    # Execute test file and capture exit code
+    # Execute test file from repository root (two levels up from test/unit)
+    # This ensures tests can find terraform modules at terraform/modules/*
+    local repo_root="$(cd "${SCRIPT_DIR}/../.." && pwd)"
     local exit_code=0
-    if ! "$test_file"; then
+    
+    if ! (cd "$repo_root" && "$test_file"); then
         exit_code=$?
         log_error "Test suite failed: $test_name (exit code: $exit_code)"
         SUITES_FAILED=$((SUITES_FAILED + 1))
@@ -336,8 +339,12 @@ run_tests_parallel() {
         local output_file="${TEST_OUTPUT_DIR}/${test_name}.log"
         
         # Run test in subshell to capture output and exit code
+        # Execute from repository root for consistent module path resolution
+        local repo_root="$(cd "${SCRIPT_DIR}/../.." && pwd)"
         (
-            run_test_file "$test_file" > "$output_file" 2>&1
+            cd "$repo_root"
+            chmod +x "$test_file"
+            "$test_file" > "$output_file" 2>&1
             echo $? > "${output_file}.exit"
         ) &
         
@@ -360,8 +367,10 @@ run_tests_parallel() {
         if [[ $exit_code -ne 0 ]]; then
             failed_suites+=("$test_name")
             SUITES_FAILED=$((SUITES_FAILED + 1))
+            log_error "Test suite failed: $test_name (exit code: $exit_code)"
         else
             SUITES_PASSED=$((SUITES_PASSED + 1))
+            log_success "Test suite passed: $test_name"
         fi
         
         # Display captured output from test suite

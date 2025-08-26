@@ -7,9 +7,19 @@ set -euo pipefail
 # Import test functions
 source "$(dirname "$0")/../functions/test-functions.sh"
 
-# Test configuration
-readonly MAIN_CONFIG_PATH="../../terraform"
-readonly DOCS_PATH="../../docs"
+# Test configuration - determine paths based on current directory
+if [ -d "terraform" ]; then
+    # Running from repository root (GitHub Actions)
+    readonly MAIN_CONFIG_PATH="terraform"
+    readonly DOCS_PATH="docs"
+elif [ -d "../../terraform" ]; then
+    # Running from test/unit directory (local testing)
+    readonly MAIN_CONFIG_PATH="../../terraform"
+    readonly DOCS_PATH="../../docs"
+else
+    echo "ERROR: Cannot find terraform directory"
+    exit 1
+fi
 readonly TEST_NAME="iam-configuration-tests"
 
 # Test functions
