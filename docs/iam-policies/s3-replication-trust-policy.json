@@ -1,0 +1,20 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "s3.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole",
+            "Condition": {
+                "StringEquals": {
+                    "aws:SourceAccount": "223938610551"
+                },
+                "StringLike": {
+                    "aws:SourceArn": "arn:aws:s3:::*static-site*"
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,43 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "SourceBucketPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObjectVersionForReplication",
+                "s3:GetObjectVersionAcl"
+            ],
+            "Resource": [
+                "arn:aws:s3:::static-site-dev-*/*",
+                "arn:aws:s3:::static-site-staging-*/*",
+                "arn:aws:s3:::static-site-prod-*/*"
+            ]
+        },
+        {
+            "Sid": "DestinationBucketPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ReplicateObject",
+                "s3:ReplicateDelete"
+            ],
+            "Resource": [
+                "arn:aws:s3:::static-site-dev-*/*",
+                "arn:aws:s3:::static-site-staging-*/*",
+                "arn:aws:s3:::static-site-prod-*/*"
+            ]
+        },
+        {
+            "Sid": "BucketListPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::static-site-dev-*",
+                "arn:aws:s3:::static-site-staging-*",
+                "arn:aws:s3:::static-site-prod-*"
+            ]
+        }
+    ]
+}
