@@ -38,10 +38,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: Quality Gates and Validation
+  test-info:
+    name: Test Information
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     # Only run if BUILD succeeded (when triggered by workflow_run) or if manual dispatch
     if: |
       github.event_name == 'workflow_dispatch' ||
@@ -50,7 +50,6 @@ jobs:
       test_id: ${{ steps.info.outputs.test_id }}
       build_id: ${{ steps.info.outputs.build_id }}
       environment: ${{ steps.info.outputs.environment }}
-      tests_passed: ${{ steps.summary.outputs.tests_passed }}
       
     steps:
       - name: Checkout
@@ -83,11 +82,22 @@ jobs:
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
 
+  validation-tests:
+    name: Validation and Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: test-info
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download Build Artifacts
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: build-artifacts-${{ steps.info.outputs.build_id }}
+          name: build-artifacts-${{ needs.test-info.outputs.build_id }}
           path: ./artifacts
 
       - name: Setup Test Environment
@@ -161,7 +171,7 @@ jobs:
           echo "## 📋 Policy Validation" >> $GITHUB_STEP_SUMMARY
           
           # Determine environment for policy enforcement
-          ENV="${{ steps.info.outputs.environment }}"
+          ENV="${{ needs.test-info.outputs.environment }}"
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
           
           # Create basic security policies
@@ -274,25 +284,32 @@ jobs:
           echo "✅ Development environment configuration validated" >> $GITHUB_STEP_SUMMARY
           echo "- Ready for deployment to dev environment" >> $GITHUB_STEP_SUMMARY
 
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [test-info, validation-tests]
+    if: always()
+    outputs:
+      tests_passed: ${{ steps.summary.outputs.tests_passed }}
+    steps:
       - name: Test Summary
         id: summary
-        if: always()
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Infrastructure | ${{ hashFiles('terraform/**/*.tf') != '' && '✅ Passed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Policy Validation | ${{ hashFiles('terraform/**/*.tf') != '' && '✅ Passed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Website Content | ${{ hashFiles('src/**') != '' && '✅ Passed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Environment Health | ${{ steps.info.outputs.environment == 'dev' && '✅ Checked' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ hashFiles('terraform/**/*.tf') != '' && needs.validation-tests.result == 'success' && '✅ Passed' || hashFiles('terraform/**/*.tf') != '' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Policy Validation | ${{ hashFiles('terraform/**/*.tf') != '' && needs.validation-tests.result == 'success' && '✅ Passed' || hashFiles('terraform/**/*.tf') != '' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Website Content | ${{ hashFiles('src/**') != '' && needs.validation-tests.result == 'success' && '✅ Passed' || hashFiles('src/**') != '' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment Health | ${{ needs.test-info.outputs.environment == 'dev' && needs.validation-tests.result == 'success' && '✅ Checked' || needs.test-info.outputs.environment == 'dev' && '❌ Failed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ "${{ job.status }}" = "success" ]; then
+          if [ "${{ needs.validation-tests.result }}" = "success" ]; then
             echo "🎉 **ALL TESTS PASSED** - Ready for RUN phase" >> $GITHUB_STEP_SUMMARY
             echo "tests_passed=true" >> $GITHUB_OUTPUT
           else
             echo "❌ **TESTS FAILED** - Fix issues before deployment" >> $GITHUB_STEP_SUMMARY
             echo "tests_passed=false" >> $GITHUB_OUTPUT
-            exit 1
           fi

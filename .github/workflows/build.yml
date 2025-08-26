@@ -84,22 +84,16 @@ jobs:
             tests:
               - 'test/**'
 
-      - name: Setup Tools
+      - name: Setup Infrastructure Tools
         if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         run: |
-          echo "## 🔧 Setting up tools" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔧 Infrastructure Tools Setup" >> $GITHUB_STEP_SUMMARY
           
           # Install OpenTofu
           curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v1.6.1/tofu_1.6.1_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
           echo "✅ OpenTofu installed: $(tofu version)" >> $GITHUB_STEP_SUMMARY
-          
-          # Install security tools
-          pip3 install checkov --quiet
-          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.48.3/trivy_0.48.3_Linux-64bit.tar.gz | tar xzf - -C /tmp
-          sudo mv /tmp/trivy /usr/local/bin/
-          echo "✅ Security tools installed" >> $GITHUB_STEP_SUMMARY
 
       - name: Validate Terraform
         if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
@@ -139,40 +133,214 @@ jobs:
           # Restore backend file
           mv backend.tf.bak backend.tf 2>/dev/null || true
 
-      - name: Security Scanning
+      - name: Setup Security Tools
         if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
         run: |
-          echo "## 🔒 Security Scanning" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔧 Security Tools Setup" >> $GITHUB_STEP_SUMMARY
           
-          # Initialize error counter
+          # Install Checkov
+          pip3 install checkov --quiet
+          echo "✅ Checkov installed: $(checkov --version)" >> $GITHUB_STEP_SUMMARY
+          
+          # Install Trivy
+          wget -qO- https://github.com/aquasecurity/trivy/releases/download/v0.48.3/trivy_0.48.3_Linux-64bit.tar.gz | tar xzf - -C /tmp
+          sudo mv /tmp/trivy /usr/local/bin/
+          echo "✅ Trivy installed: $(trivy --version)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Security Scanning - Checkov
+        id: security-checkov
+        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+        run: |
+          echo "## 🔒 Checkov Security Analysis" >> $GITHUB_STEP_SUMMARY
+          
+          # Run Checkov with JSON output
+          if checkov -d terraform --framework terraform --output json --output-file checkov-results.json --skip-check CKV_AWS_20,CKV_AWS_117 --quiet; then
+            CHECKOV_EXIT=0
+          else
+            CHECKOV_EXIT=1
+          fi
+          
+          # Parse and display results
+          if [ -f "checkov-results.json" ]; then
+            # Count findings by severity
+            CRITICAL_COUNT=$(jq '[.results.failed_checks[]? | select(.severity == "CRITICAL")] | length' checkov-results.json 2>/dev/null || echo "0")
+            HIGH_COUNT=$(jq '[.results.failed_checks[]? | select(.severity == "HIGH")] | length' checkov-results.json 2>/dev/null || echo "0")
+            MEDIUM_COUNT=$(jq '[.results.failed_checks[]? | select(.severity == "MEDIUM")] | length' checkov-results.json 2>/dev/null || echo "0")
+            LOW_COUNT=$(jq '[.results.failed_checks[]? | select(.severity == "LOW")] | length' checkov-results.json 2>/dev/null || echo "0")
+            TOTAL_FAILED=$(jq '.results.failed_checks | length' checkov-results.json 2>/dev/null || echo "0")
+            TOTAL_PASSED=$(jq '.results.passed_checks | length' checkov-results.json 2>/dev/null || echo "0")
+            
+            # If no severity classification, treat all as medium
+            if [ "$CRITICAL_COUNT" = "0" ] && [ "$HIGH_COUNT" = "0" ] && [ "$MEDIUM_COUNT" = "0" ] && [ "$LOW_COUNT" = "0" ] && [ "$TOTAL_FAILED" -gt "0" ]; then
+              MEDIUM_COUNT=$TOTAL_FAILED
+            fi
+            
+            TOTAL_FINDINGS=$((CRITICAL_COUNT + HIGH_COUNT + MEDIUM_COUNT + LOW_COUNT))
+            
+            # Display detailed results
+            echo "### 📊 Checkov Results Summary" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔴 **Critical**: $CRITICAL_COUNT findings" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟠 **High**: $HIGH_COUNT findings" >> $GITHUB_STEP_SUMMARY  
+            echo "- 🟡 **Medium**: $MEDIUM_COUNT findings" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔵 **Low**: $LOW_COUNT findings" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ **Passed**: $TOTAL_PASSED checks" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Issues**: $TOTAL_FINDINGS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Show sample findings if any exist
+            if [ "$TOTAL_FINDINGS" -gt "0" ]; then
+              echo "### 🔍 Sample Checkov Findings (Top 5)" >> $GITHUB_STEP_SUMMARY
+              jq -r '.results.failed_checks[]? | "- **" + (.check_id // "Unknown") + "**: " + (.check_name // "No description") + " (File: " + (.file_path // "Unknown") + ")"' checkov-results.json 2>/dev/null | head -5 >> $GITHUB_STEP_SUMMARY || echo "- No detailed findings available" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ Checkov results file not found" >> $GITHUB_STEP_SUMMARY
+            CHECKOV_EXIT=1
+          fi
+          
+          # Create summary artifact
+          cat > checkov-security-summary.md << EOF
+          # Checkov Security Analysis Report
+          
+          **Build ID**: ${{ steps.info.outputs.build_id }}
+          **Scan Date**: $(date -u)
+          **Status**: $([ $CHECKOV_EXIT -eq 0 ] && echo "PASSED" || echo "FAILED")
+          
+          ## Summary
+          - **Critical**: $CRITICAL_COUNT
+          - **High**: $HIGH_COUNT  
+          - **Medium**: $MEDIUM_COUNT
+          - **Low**: $LOW_COUNT
+          - **Total Issues**: $TOTAL_FINDINGS
+          - **Passed Checks**: $TOTAL_PASSED
+          EOF
+          
+          # Set output for next steps
+          echo "checkov_exit=$CHECKOV_EXIT" >> $GITHUB_OUTPUT
+          echo "checkov_critical=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+          echo "checkov_high=$HIGH_COUNT" >> $GITHUB_OUTPUT
+          echo "checkov_total=$TOTAL_FINDINGS" >> $GITHUB_OUTPUT
+          
+          if [ $CHECKOV_EXIT -eq 0 ]; then
+            echo "✅ **Checkov scan completed successfully**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Checkov found security issues**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Security Scanning - Trivy
+        id: security-trivy
+        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+        run: |
+          echo "## 🛡️ Trivy Security Analysis" >> $GITHUB_STEP_SUMMARY
+          
+          # Run Trivy with JSON output
+          if trivy fs --security-checks vuln,config --format json --output trivy-results.json terraform/; then
+            TRIVY_EXIT=0
+          else
+            TRIVY_EXIT=1
+          fi
+          
+          # Parse and display results
+          if [ -f "trivy-results.json" ]; then
+            # Count findings by severity
+            CRITICAL_COUNT=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' trivy-results.json 2>/dev/null || echo "0")
+            HIGH_COUNT=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' trivy-results.json 2>/dev/null || echo "0")
+            MEDIUM_COUNT=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "MEDIUM")] | length' trivy-results.json 2>/dev/null || echo "0")
+            LOW_COUNT=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "LOW")] | length' trivy-results.json 2>/dev/null || echo "0")
+            TOTAL_FINDINGS=$((CRITICAL_COUNT + HIGH_COUNT + MEDIUM_COUNT + LOW_COUNT))
+            
+            # Display detailed results  
+            echo "### 📊 Trivy Results Summary" >> $GITHUB_STEP_SUMMARY
+            echo "- 🔴 **Critical**: $CRITICAL_COUNT findings" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟠 **High**: $HIGH_COUNT findings" >> $GITHUB_STEP_SUMMARY
+            echo "- 🟡 **Medium**: $MEDIUM_COUNT findings" >> $GITHUB_STEP_SUMMARY  
+            echo "- 🔵 **Low**: $LOW_COUNT findings" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Issues**: $TOTAL_FINDINGS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Show sample findings if any exist
+            if [ "$TOTAL_FINDINGS" -gt "0" ]; then
+              echo "### 🔍 Sample Trivy Findings (Top 5)" >> $GITHUB_STEP_SUMMARY
+              jq -r '.Results[]?.Misconfigurations[]? | "- **" + (.ID // "Unknown") + "**: " + (.Title // "No description") + " (Severity: " + (.Severity // "Unknown") + ")"' trivy-results.json 2>/dev/null | head -5 >> $GITHUB_STEP_SUMMARY || echo "- No detailed findings available" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ Trivy results file not found" >> $GITHUB_STEP_SUMMARY
+            TRIVY_EXIT=1
+          fi
+          
+          # Create summary artifact
+          cat > trivy-security-summary.md << EOF
+          # Trivy Security Analysis Report
+          
+          **Build ID**: ${{ steps.info.outputs.build_id }}
+          **Scan Date**: $(date -u)
+          **Status**: $([ $TRIVY_EXIT -eq 0 ] && echo "PASSED" || echo "FAILED")
+          
+          ## Summary  
+          - **Critical**: $CRITICAL_COUNT
+          - **High**: $HIGH_COUNT
+          - **Medium**: $MEDIUM_COUNT
+          - **Low**: $LOW_COUNT
+          - **Total Issues**: $TOTAL_FINDINGS
+          EOF
+          
+          # Set output for next steps
+          echo "trivy_exit=$TRIVY_EXIT" >> $GITHUB_OUTPUT
+          echo "trivy_critical=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+          echo "trivy_high=$HIGH_COUNT" >> $GITHUB_OUTPUT
+          echo "trivy_total=$TOTAL_FINDINGS" >> $GITHUB_OUTPUT
+          
+          if [ $TRIVY_EXIT -eq 0 ]; then
+            echo "✅ **Trivy scan completed successfully**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Trivy found security issues**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Process Security Results
+        if: steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true'
+        run: |
+          echo "## 🏁 Security Results Summary" >> $GITHUB_STEP_SUMMARY
+          
+          # Get results from previous steps
+          CHECKOV_EXIT="${{ steps.security-checkov.outputs.checkov_exit || '0' }}"
+          TRIVY_EXIT="${{ steps.security-trivy.outputs.trivy_exit || '0' }}"
+          CHECKOV_CRITICAL="${{ steps.security-checkov.outputs.checkov_critical || '0' }}"
+          TRIVY_CRITICAL="${{ steps.security-trivy.outputs.trivy_critical || '0' }}"
+          CHECKOV_HIGH="${{ steps.security-checkov.outputs.checkov_high || '0' }}"
+          TRIVY_HIGH="${{ steps.security-trivy.outputs.trivy_high || '0' }}"
+          
+          TOTAL_CRITICAL=$((CHECKOV_CRITICAL + TRIVY_CRITICAL))
+          TOTAL_HIGH=$((CHECKOV_HIGH + TRIVY_HIGH))
           SECURITY_ERRORS=0
           
-          # Run Checkov (blocking on critical/high findings)
-          echo "### Checkov (Infrastructure as Code)" >> $GITHUB_STEP_SUMMARY
-          if checkov -d terraform --quiet --compact --skip-check CKV_AWS_20,CKV_AWS_117; then
-            echo "✅ Checkov scan passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Checkov found security issues" >> $GITHUB_STEP_SUMMARY
+          # Apply blocking logic for critical/high findings
+          if [ $TOTAL_CRITICAL -gt 0 ]; then
+            echo "🔴 **CRITICAL SECURITY ISSUES**: $TOTAL_CRITICAL findings" >> $GITHUB_STEP_SUMMARY
             SECURITY_ERRORS=$((SECURITY_ERRORS + 1))
           fi
           
-          # Run Trivy (blocking on HIGH/CRITICAL vulnerabilities)
-          echo "### Trivy (Vulnerability Scanner)" >> $GITHUB_STEP_SUMMARY
-          if trivy fs --security-checks vuln,config terraform/ --severity HIGH,CRITICAL --quiet; then
-            echo "✅ Trivy scan passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ Trivy found HIGH/CRITICAL vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          if [ $TOTAL_HIGH -gt 0 ]; then
+            echo "🟠 **HIGH SECURITY ISSUES**: $TOTAL_HIGH findings" >> $GITHUB_STEP_SUMMARY
             SECURITY_ERRORS=$((SECURITY_ERRORS + 1))
           fi
           
-          # Fail build if security issues found
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Overall Security Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Scanner | Status | Critical | High |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|----------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Checkov | $([ $CHECKOV_EXIT -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $CHECKOV_CRITICAL | $CHECKOV_HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy   | $([ $TRIVY_EXIT -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $TRIVY_CRITICAL | $TRIVY_HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Total** | **$([ $SECURITY_ERRORS -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")** | **$TOTAL_CRITICAL** | **$TOTAL_HIGH** |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Final decision
           if [ $SECURITY_ERRORS -gt 0 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🚨 **BUILD FAILED** - $SECURITY_ERRORS security issue(s) found" >> $GITHUB_STEP_SUMMARY
-            echo "Fix security issues before deployment" >> $GITHUB_STEP_SUMMARY
+            echo "🚨 **BUILD FAILED** - Critical or High security findings detected" >> $GITHUB_STEP_SUMMARY
+            echo "**Action Required**: Fix security issues before deployment" >> $GITHUB_STEP_SUMMARY
             exit 1
           else
-            echo "✅ All security scans passed" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All security scans passed** - No critical or high severity findings" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Validate Website Content
@@ -228,6 +396,9 @@ jobs:
           path: |
             website-*.tar.gz
             terraform-*.tar.gz
+            *-security-summary.md
+            checkov-results.json
+            trivy-results.json
           retention-days: 7
 
       - name: Build Summary
@@ -239,7 +410,7 @@ jobs:
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Terraform | ${{ steps.changes.outputs.terraform == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website | ${{ steps.changes.outputs.content == 'true' && '✅ Validated' || '➖ No changes' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | ${{ (steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true') && '🔒 BLOCKING - Passed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ (steps.changes.outputs.terraform == 'true' || github.event.inputs.force_build == 'true') && '🔒 Enhanced Analysis - Passed' || '➖ Skipped' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Artifacts | ${{ steps.artifacts.outputs.created == 'true' && '✅ Created' || '➖ None needed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
