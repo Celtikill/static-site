@@ -156,35 +156,35 @@ module "waf" {
 # Wait for WAF Web ACL to be fully propagated
 resource "time_sleep" "waf_propagation" {
   depends_on = [module.waf]
-  
+
   create_duration = "30s"
 }
 
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
-  source = "./modules/cloudfront"
+  source     = "./modules/cloudfront"
   depends_on = [time_sleep.waf_propagation]
 
-  distribution_name         = local.distribution_name
-  distribution_comment      = "Static website CDN for ${local.project_name}"
-  s3_bucket_id              = module.s3.bucket_id
-  s3_bucket_domain_name     = module.s3.bucket_regional_domain_name
-  web_acl_id                = module.waf.web_acl_id
-  waf_web_acl_dependency    = module.waf.web_acl_arn
-  price_class               = var.cloudfront_price_class
-  acm_certificate_arn       = var.acm_certificate_arn
-  domain_aliases            = var.domain_aliases
-  geo_restriction_type      = var.geo_restriction_type
-  geo_restriction_locations = var.geo_restriction_locations
-  custom_error_responses    = var.custom_error_responses
-  logging_bucket            = var.enable_access_logging ? module.s3.access_logs_bucket_domain_name : null
-  logging_prefix            = "cloudfront-logs/"
-  content_security_policy   = var.content_security_policy
-  cors_origins              = var.cors_origins
-  alarm_actions                        = [aws_sns_topic.cloudfront_alerts.arn]
-  managed_caching_disabled_policy_id   = var.managed_caching_disabled_policy_id
-  managed_cors_s3_origin_policy_id     = var.managed_cors_s3_origin_policy_id
-  common_tags                          = local.common_tags
+  distribution_name                  = local.distribution_name
+  distribution_comment               = "Static website CDN for ${local.project_name}"
+  s3_bucket_id                       = module.s3.bucket_id
+  s3_bucket_domain_name              = module.s3.bucket_regional_domain_name
+  web_acl_id                         = module.waf.web_acl_id
+  waf_web_acl_dependency             = module.waf.web_acl_arn
+  price_class                        = var.cloudfront_price_class
+  acm_certificate_arn                = var.acm_certificate_arn
+  domain_aliases                     = var.domain_aliases
+  geo_restriction_type               = var.geo_restriction_type
+  geo_restriction_locations          = var.geo_restriction_locations
+  custom_error_responses             = var.custom_error_responses
+  logging_bucket                     = var.enable_access_logging ? module.s3.access_logs_bucket_domain_name : null
+  logging_prefix                     = "cloudfront-logs/"
+  content_security_policy            = var.content_security_policy
+  cors_origins                       = var.cors_origins
+  alarm_actions                      = [aws_sns_topic.cloudfront_alerts.arn]
+  managed_caching_disabled_policy_id = var.managed_caching_disabled_policy_id
+  managed_cors_s3_origin_policy_id   = var.managed_cors_s3_origin_policy_id
+  common_tags                        = local.common_tags
 }
 
 # IAM Resources - Manually managed for security
