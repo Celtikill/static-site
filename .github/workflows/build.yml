@@ -399,7 +399,7 @@ jobs:
           echo "### 📋 Overall Security Status" >> $GITHUB_STEP_SUMMARY
           echo "| Scanner | Status | Critical | High |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|----------|------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Checkov | $([ $CHECKOV_EXIT -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $CHECKOV_CRITICAL | $CHECKOV_HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Checkov | $([ $CHECKOV_CRITICAL -eq 0 ] && [ $CHECKOV_HIGH -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $CHECKOV_CRITICAL | $CHECKOV_HIGH |" >> $GITHUB_STEP_SUMMARY
           echo "| Trivy   | $([ $TRIVY_EXIT -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $TRIVY_CRITICAL | $TRIVY_HIGH |" >> $GITHUB_STEP_SUMMARY
           echo "| **Total** | **$([ $SECURITY_ERRORS -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")** | **$TOTAL_CRITICAL** | **$TOTAL_HIGH** |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
