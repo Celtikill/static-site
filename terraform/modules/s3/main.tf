@@ -280,16 +280,19 @@ resource "aws_s3_bucket_logging" "website" {
 }
 
 # Replica bucket access logging
-resource "aws_s3_bucket_logging" "replica" {
-  count    = var.enable_access_logging && var.enable_replication ? 1 : 0
-  provider = aws.replica
-  bucket   = aws_s3_bucket.replica[0].id
-
-  target_bucket = var.access_logging_bucket != "" ? var.access_logging_bucket : aws_s3_bucket.access_logs[0].id
-  target_prefix = "${var.access_logging_prefix}replica/"
-
-  depends_on = [aws_s3_bucket.access_logs]
-}
+# Note: Cross-region logging is disabled due to AWS restrictions
+# Replica bucket cannot log to a bucket in a different region
+# TODO: Consider creating a separate logging bucket in the replica region
+# resource "aws_s3_bucket_logging" "replica" {
+#   count    = var.enable_access_logging && var.enable_replication ? 1 : 0
+#   provider = aws.replica
+#   bucket   = aws_s3_bucket.replica[0].id
+#
+#   target_bucket = var.access_logging_bucket != "" ? var.access_logging_bucket : aws_s3_bucket.access_logs[0].id
+#   target_prefix = "${var.access_logging_prefix}replica/"
+#
+#   depends_on = [aws_s3_bucket.access_logs]
+# }
 
 # Access logging bucket lifecycle configuration to prevent log accumulation
 resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
