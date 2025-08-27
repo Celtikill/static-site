@@ -40,7 +40,6 @@
         "StringEquals": {
           "aws:RequestedRegion": [
             "us-east-1",
-            "us-east-2",
             "us-west-2"
           ]
         }
@@ -102,7 +101,6 @@
         "StringEquals": {
           "aws:RequestedRegion": [
             "us-east-1",
-            "us-east-2",
             "us-west-2"
           ]
         }
@@ -154,7 +152,6 @@
         "StringEquals": {
           "aws:RequestedRegion": [
             "us-east-1",
-            "us-east-2",
             "us-west-2"
           ]
         }
