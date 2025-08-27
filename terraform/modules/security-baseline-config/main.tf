@@ -158,15 +158,6 @@ resource "aws_config_configuration_recorder" "main" {
     exclusion_by_resource_types {
       resource_types = var.excluded_resource_types
     }
-    
-    dynamic "recording_mode_override" {
-      for_each = var.recording_mode_overrides
-      content {
-        description         = recording_mode_override.value.description
-        resource_types      = recording_mode_override.value.resource_types
-        recording_frequency = recording_mode_override.value.recording_frequency
-      }
-    }
   }
 
   depends_on = [aws_config_delivery_channel.main]
@@ -326,12 +317,7 @@ resource "aws_config_config_rule" "custom" {
     }
   }
 
-  dynamic "input_parameters" {
-    for_each = each.value.input_parameters != null ? [each.value.input_parameters] : []
-    content {
-      input_parameters = input_parameters.value
-    }
-  }
+  input_parameters = each.value.input_parameters
 
   depends_on = [aws_config_configuration_recorder.main]
 }

@@ -39,7 +39,7 @@ variable "s3_key_prefix" {
 variable "log_retention_days" {
   description = "Number of days to retain CloudTrail logs in S3 (null for no expiration)"
   type        = number
-  default     = 2555  # ~7 years for compliance
+  default     = 2555 # ~7 years for compliance
 }
 
 # Trail Configuration
@@ -97,9 +97,9 @@ variable "cloudwatch_log_retention_days" {
 variable "data_event_selectors" {
   description = "Configuration for data event selectors"
   type = list(object({
-    read_write_type                   = optional(string, "All")
-    include_management_events         = optional(bool, true)
-    exclude_management_event_sources  = optional(list(string), [])
+    read_write_type                  = optional(string, "All")
+    include_management_events        = optional(bool, true)
+    exclude_management_event_sources = optional(list(string), [])
     data_resources = list(object({
       type   = string
       values = list(string)
@@ -130,7 +130,7 @@ variable "advanced_event_selectors" {
 variable "enable_insights" {
   description = "Enable CloudTrail Insights for anomaly detection"
   type        = bool
-  default     = false  # Additional cost
+  default     = false # Additional cost
 }
 
 # API Call Monitoring
@@ -176,9 +176,9 @@ variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default = {
-    ManagedBy       = "terraform"
-    Module          = "security-baseline-cloudtrail"
-    SecurityTool    = "CloudTrail"
-    Architecture    = "sra-aligned"
+    ManagedBy    = "terraform"
+    Module       = "security-baseline-cloudtrail"
+    SecurityTool = "CloudTrail"
+    Architecture = "sra-aligned"
   }
 }

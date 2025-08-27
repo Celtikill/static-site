@@ -87,7 +87,7 @@ output "finding_aggregator_arn" {
   description = "ARN of the Security Hub finding aggregator"
   value       = var.is_security_tooling_account ? (
     length(aws_securityhub_finding_aggregator.main) > 0 ?
-    aws_securityhub_finding_aggregator.main[0].arn : null
+    "arn:aws:securityhub:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:finding-aggregator/${aws_securityhub_finding_aggregator.main[0].linking_mode}" : null
   ) : null
 }
 

@@ -10,6 +10,10 @@ terraform {
   }
 }
 
+# Get current region and account ID
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
 # Enable Security Hub in the current account
 resource "aws_securityhub_account" "main" {
   enable_default_standards = var.enable_default_standards
@@ -106,8 +110,8 @@ resource "aws_securityhub_insight" "failed_controls" {
 resource "aws_securityhub_action_target" "remediation_workflow" {
   count = var.enable_custom_actions ? 1 : 0
   
-  name        = "Send to remediation workflow"
-  identifier  = "remediation-workflow"
+  name        = "Send to workflow"
+  identifier  = "remediationworkflow"
   description = "Send Security Hub finding to remediation workflow for ${var.account_name}"
 }
 
@@ -115,7 +119,7 @@ resource "aws_securityhub_action_target" "security_team_notification" {
   count = var.enable_custom_actions ? 1 : 0
   
   name        = "Notify security team"
-  identifier  = "security-team-notification"
+  identifier  = "securitynotify"
   description = "Send immediate notification to security team for ${var.account_name}"
 }
 
@@ -182,13 +186,6 @@ resource "aws_securityhub_finding_aggregator" "main" {
   count = var.is_security_tooling_account ? 1 : 0
   
   linking_mode = var.finding_aggregation_mode
-  
-  dynamic "specified_regions" {
-    for_each = var.finding_aggregation_mode == "SPECIFIED_REGIONS" ? [1] : []
-    content {
-      region_names = var.aggregation_regions
-    }
-  }
   
   depends_on = [aws_securityhub_organization_configuration.main]
 }
