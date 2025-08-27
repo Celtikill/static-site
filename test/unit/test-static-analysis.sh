@@ -208,10 +208,10 @@ test_configuration_consistency() {
 
 # Main test execution
 main() {
-    log_message "Starting static analysis tests at $(date)"
-    
-    # Create output directory
+    # Create output directory first (before any logging)
     mkdir -p "$TEST_OUTPUT_DIR"
+    
+    log_message "Starting static analysis tests at $(date)"
     
     # Run all test functions
     test_arn_format
