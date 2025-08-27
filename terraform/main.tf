@@ -165,8 +165,7 @@ resource "time_sleep" "waf_propagation" {
 
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
-  source     = "./modules/cloudfront"
-  depends_on = var.enable_waf ? [time_sleep.waf_propagation[0]] : []
+  source = "./modules/cloudfront"
 
   distribution_name                  = local.distribution_name
   distribution_comment               = "Static website CDN for ${local.project_name}"
