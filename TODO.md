@@ -85,6 +85,24 @@ Organization (o-0hh51yjgxw)
 
 ---
 
+## Workflow Safety Measures Implemented
+
+**✅ CRITICAL SAFETY**: All automatic workflow triggers have been disabled during migration to prevent:
+- Deployments to decommissioned single-account infrastructure
+- Build failures due to missing AWS resources
+- Accidental modification of existing (empty) accounts
+
+**Current Workflow Status:**
+- ✅ BUILD: Manual trigger only (`workflow_dispatch`)
+- ✅ TEST: Manual trigger only (`workflow_dispatch`) 
+- ✅ RUN: Manual trigger only (`workflow_dispatch`)
+- ✅ RELEASE: Manual trigger only (`workflow_dispatch`)
+- ✅ EMERGENCY: Already manual-only (no changes needed)
+
+**Post-Migration Re-enablement**: Automatic triggers will be restored in Phase 6 with proper multi-account routing logic.
+
+---
+
 ## Key Benefits of Multi-Account Architecture
 
 **Security Benefits:**
