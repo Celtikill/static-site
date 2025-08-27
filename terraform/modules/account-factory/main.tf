@@ -43,7 +43,6 @@ resource "time_sleep" "account_creation" {
 resource "aws_iam_role" "terraform_deployment" {
   for_each = var.accounts
   
-  provider = aws.target
   name     = "TerraformDeploymentRole"
   
   assume_role_policy = jsonencode({
@@ -80,7 +79,6 @@ resource "aws_iam_role_policy_attachment" "terraform_deployment_admin" {
     if lookup(v, "account_type", "workload") != "log-archive"
   }
 
-  provider   = aws.target
   role       = aws_iam_role.terraform_deployment[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 
@@ -94,7 +92,6 @@ resource "aws_iam_role_policy_attachment" "terraform_deployment_logs" {
     if lookup(v, "account_type", "workload") == "log-archive"
   }
 
-  provider   = aws.target
   role       = aws_iam_role.terraform_deployment[each.key].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/CloudWatchLogsFullAccess"
 
@@ -105,7 +102,6 @@ resource "aws_iam_role_policy_attachment" "terraform_deployment_logs" {
 resource "aws_s3_bucket" "terraform_state" {
   for_each = var.accounts
 
-  provider = aws.target
   bucket   = "${var.project_name}-tf-state-${each.key}"
 
   tags = merge(var.common_tags, {
@@ -121,7 +117,6 @@ resource "aws_s3_bucket" "terraform_state" {
 resource "aws_s3_bucket_versioning" "terraform_state" {
   for_each = var.accounts
 
-  provider = aws.target
   bucket   = aws_s3_bucket.terraform_state[each.key].id
 
   versioning_configuration {
@@ -133,7 +128,6 @@ resource "aws_s3_bucket_versioning" "terraform_state" {
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" {
   for_each = var.accounts
 
-  provider = aws.target
   bucket   = aws_s3_bucket.terraform_state[each.key].id
 
   rule {
@@ -148,7 +142,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" 
 resource "aws_s3_bucket_public_access_block" "terraform_state" {
   for_each = var.accounts
 
-  provider = aws.target
   bucket   = aws_s3_bucket.terraform_state[each.key].id
 
   block_public_acls       = true
