@@ -239,7 +239,7 @@ jobs:
                 TEST_FAILED=1
                 
                 # Extract failure details from test result file if it exists
-                result_file="test/unit/test-results/${test_name/test-/}-tests-report.json"
+                result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
                 if [ -f "$result_file" ]; then
                   # Get basic stats
                   suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
