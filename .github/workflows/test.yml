@@ -70,19 +70,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get Source Branch from BUILD Workflow
-        id: source-branch
-        run: |
-          if [ -n "${{ github.event.workflow_run.id }}" ]; then
-            BUILD_RUN_ID="${{ github.event.workflow_run.id }}"
-            SOURCE_BRANCH=$(gh api repos/${{ github.repository }}/actions/runs/$BUILD_RUN_ID | jq -r '.head_branch')
-            echo "Detected source branch from BUILD workflow: $SOURCE_BRANCH"
-            echo "branch=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
-          else
-            SOURCE_BRANCH="${{ github.ref_name }}"
-            echo "Using current branch: $SOURCE_BRANCH"
-            echo "branch=$SOURCE_BRANCH" >> $GITHUB_OUTPUT
-          fi
+      # Branch detection simplified - workflow runs on the triggering branch by default
+      # No need for API calls to detect branch - github.ref_name gives us the correct branch
 
       - name: Test Info
         id: info
@@ -96,8 +85,8 @@ jobs:
             BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}"
           fi
 
-          # Get source branch from previous step
-          SOURCE_BRANCH="${{ steps.source-branch.outputs.branch }}"
+          # Use the triggering branch directly (workflow runs on the correct branch by default)
+          SOURCE_BRANCH="${{ github.ref_name }}"
 
           # Determine target environment based on source branch
           if [ -n "${{ github.event.inputs.environment }}" ]; then
@@ -129,8 +118,7 @@ jobs:
           echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Source Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
-          echo "- **Current Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
           echo "- **Force All Jobs**: ${{ github.event.inputs.force_all_jobs || 'false' }}" >> $GITHUB_STEP_SUMMARY

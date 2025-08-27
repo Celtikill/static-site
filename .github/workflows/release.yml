@@ -250,7 +250,7 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: 'build.yml',
-                ref: context.ref.includes('refs/tags/') ? context.ref : 'refs/heads/main',
+                ref: context.ref,
                 inputs: {
                   environment: environment,
                   force_build: 'true'
