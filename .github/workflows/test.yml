@@ -52,13 +52,13 @@ jobs:
     # Always require BUILD success for automatic triggers
     # Manual dispatch allowed only for non-dev environments or with explicit override
     if: |
-      (github.event.workflow_run.conclusion == 'success' && 
+      (github.event.workflow_run.conclusion == 'success' &&
        (github.event.workflow_run.head_branch == 'main' ||
         startsWith(github.event.workflow_run.head_branch, 'feature/') ||
         startsWith(github.event.workflow_run.head_branch, 'bugfix/') ||
         startsWith(github.event.workflow_run.head_branch, 'hotfix/'))) ||
-      (github.event_name == 'workflow_dispatch' && 
-       (github.event.inputs.environment == 'staging' || 
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.environment == 'staging' ||
         github.event.inputs.environment == 'prod' ||
         github.event.inputs.skip_build_check == 'true'))
     outputs:
@@ -210,18 +210,18 @@ jobs:
           TOTAL_INDIVIDUAL_TESTS=0
           PASSED_INDIVIDUAL_TESTS=0
           FAILED_TEST_DETAILS=()
-          
+
           echo "**Running Individual Test Suites:**" >> $GITHUB_STEP_SUMMARY
-          
+
           for test_file in test/unit/test-*.sh; do
             if [[ -f "$test_file" && ! "$test_file" == *".disabled" ]]; then
               test_name=$(basename "$test_file" .sh)
               echo "Running $test_name..."
-              
+
               if bash "$test_file"; then
                 echo "- ✅ $test_name: PASSED" >> $GITHUB_STEP_SUMMARY
-                
-                # Update individual test counts for passing tests  
+
+                # Update individual test counts for passing tests
                 result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
                 if [ -f "$result_file" ]; then
                   suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
@@ -231,18 +231,18 @@ jobs:
               else
                 echo "- ❌ $test_name: FAILED" >> $GITHUB_STEP_SUMMARY
                 TEST_FAILED=1
-                
+
                 # Extract failure details from test result file if it exists
                 result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
                 if [ -f "$result_file" ]; then
                   # Get basic stats
                   suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
                   suite_failed=$(jq -r '.summary.failed_tests // 0' "$result_file" 2>/dev/null || echo "0")
-                  
+
                   # Add to overall counts
                   TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
                   PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total - suite_failed))
-                  
+
                   # Extract specific failure details from log file
                   log_file="test/unit/test-results/test-${test_name/test-/}-tests.log"
                   if [ -f "$log_file" ]; then
@@ -259,22 +259,22 @@ jobs:
                   FAILED_TEST_DETAILS+=("$test_name: Test suite failed (details not available)")
                 fi
               fi
-              
+
               TOTAL_TESTS=$((TOTAL_TESTS + 1))
             fi
           done
-          
+
           # Display comprehensive summary
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Test Suite Summary:**" >> $GITHUB_STEP_SUMMARY
           echo "- Test Suites: $(($TOTAL_TESTS - $TEST_FAILED)) passed, $TEST_FAILED failed, $TOTAL_TESTS total" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ $TOTAL_INDIVIDUAL_TESTS -gt 0 ]; then
             success_rate=$(( (PASSED_INDIVIDUAL_TESTS * 100) / TOTAL_INDIVIDUAL_TESTS ))
             echo "- Individual Tests: $PASSED_INDIVIDUAL_TESTS passed, $(($TOTAL_INDIVIDUAL_TESTS - $PASSED_INDIVIDUAL_TESTS)) failed, $TOTAL_INDIVIDUAL_TESTS total" >> $GITHUB_STEP_SUMMARY
             echo "- Success Rate: ${success_rate}%" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Show specific failure details
           if [ $TEST_FAILED -gt 0 ] && [ ${#FAILED_TEST_DETAILS[@]} -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -283,7 +283,7 @@ jobs:
               echo "- $detail" >> $GITHUB_STEP_SUMMARY
             done
           fi
-          
+
           if [ $TEST_FAILED -eq 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
@@ -545,7 +545,7 @@ jobs:
             PASSED_TESTS=$(jq -r '.individual_tests.passed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
             FAILED_TESTS=$(jq -r '.individual_tests.failed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
             SUCCESS_RATE=$(jq -r '.individual_tests.success_rate' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
-            
+
             echo "### 🏗️ Infrastructure Unit Tests Details" >> $GITHUB_STEP_SUMMARY
             echo "- **Total Tests**: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
             echo "- **Passed**: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
@@ -556,13 +556,13 @@ jobs:
             # Show failed test details if any failures occurred
             if [ "$FAILED_TESTS" != "0" ] && [ "$FAILED_TESTS" != "N/A" ]; then
               echo "### ❌ Failed Test Details" >> $GITHUB_STEP_SUMMARY
-              
+
               # Look for failed test suite logs
               for log_file in ./test-results/*.log; do
                 if [ -f "$log_file" ] && grep -q "ERROR" "$log_file"; then
                   suite_name=$(basename "$log_file" .log)
                   echo "#### **$suite_name**" >> $GITHUB_STEP_SUMMARY
-                  
+
                   # Extract and show key failure information
                   grep "ERROR" "$log_file" | head -5 | while read -r line; do
                     clean_error="${line#*ERROR}"

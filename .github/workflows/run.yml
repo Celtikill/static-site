@@ -51,7 +51,7 @@ jobs:
     timeout-minutes: 5
     # Only run if TEST succeeded, or manual dispatch (any environment)
     if: |
-      (github.event.workflow_run.conclusion == 'success' && 
+      (github.event.workflow_run.conclusion == 'success' &&
        (github.event.workflow_run.head_branch == 'main' ||
         startsWith(github.event.workflow_run.head_branch, 'feature/') ||
         startsWith(github.event.workflow_run.head_branch, 'bugfix/') ||
@@ -225,11 +225,11 @@ jobs:
 
           # Debug environment variables
           echo "Alert emails configured: $(echo $TF_VAR_alert_email_addresses | grep -o '\[' || echo 'NOT SET')" >> $GITHUB_STEP_SUMMARY
-          
+
           # Initialize with environment-specific backend configuration
           BACKEND_CONFIG="backend-${{ needs.info.outputs.target_environment }}.hcl"
           echo "Using backend config: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
-          
+
           if tofu init -backend-config="$BACKEND_CONFIG" -reconfigure; then
             echo "✅ Terraform initialized" >> $GITHUB_STEP_SUMMARY
           else
@@ -305,7 +305,7 @@ jobs:
 
           # Get S3 bucket name from infrastructure job or use fallback
           BUCKET_NAME="${{ needs.infrastructure.outputs.bucket_name }}"
-          
+
           # Debug: Show what we received from infrastructure job
           echo "**Debug Info:**" >> $GITHUB_STEP_SUMMARY
           echo "- Infrastructure result: ${{ needs.infrastructure.result }}" >> $GITHUB_STEP_SUMMARY
