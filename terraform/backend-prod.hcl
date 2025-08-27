@@ -21,7 +21,7 @@ skip_metadata_api_check   = false
 
 # Enhanced Performance and Reliability
 max_retries               = 5
-force_path_style          = false
+use_path_style            = false
 
 # Production Environment Security
 # - Maximum validation and security

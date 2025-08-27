@@ -20,7 +20,7 @@ skip_s3_checksum          = false
 
 # Performance and Reliability
 max_retries               = 5
-force_path_style          = false
+use_path_style            = false
 
 # Staging Environment Features
 # - Production-like validation
