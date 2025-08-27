@@ -182,11 +182,10 @@ test_infrastructure_policy_security() {
         "sts:AssumeRole"
     )
     
-    # Check for truly dangerous global wildcard (not service-specific wildcards)
+    # Check for truly dangerous global wildcard in Action field (not Resource field)
     local global_wildcard_patterns=(
-        '"\*",'  # Matches Action: ["*", or Action: "*",
-        '"\*"$'  # Matches Action: "*" at end of line
-        '"\*"\s*\]'  # Matches Action: ["*"]
+        '"Action"\s*:\s*"\*"'          # "Action": "*"
+        '"Action"\s*:\s*\[\s*"\*"'     # "Action": ["*"
     )
     
     for permission in "${dangerous_permissions[@]}"; do
@@ -223,7 +222,7 @@ test_infrastructure_policy_security() {
         fi
     done
     
-    # Check for dangerous global wildcard permissions (not service-specific)
+    # Check for dangerous global wildcard permissions in Action field (not Resource field)
     local has_global_wildcard=false
     for pattern in "${global_wildcard_patterns[@]}"; do
         if echo "$policy_content" | grep -qE "$pattern"; then
@@ -233,9 +232,9 @@ test_infrastructure_policy_security() {
     done
     
     if [ "$has_global_wildcard" = true ]; then
-        record_test_result "policy_no_wildcard_permissions" "FAILED" "Policy contains dangerous global wildcard permission: *"
+        record_test_result "policy_no_wildcard_permissions" "FAILED" "Policy contains dangerous global Action wildcard: Action: '*'"
     else
-        record_test_result "policy_no_wildcard_permissions" "PASSED" "Policy correctly uses service-scoped permissions (s3:*, cloudfront:*, etc.)"
+        record_test_result "policy_no_wildcard_permissions" "PASSED" "Policy correctly uses service-scoped permissions (s3:*, cloudfront:*, etc.) - no global Action wildcards"
     fi
     
     # Check that policy contains required service-level permissions (supports both specific and wildcard)
@@ -284,7 +283,17 @@ test_infrastructure_policy_security() {
                 fi
                 ;;
             "cloudfront"|"wafv2"|"cloudwatch")
-                if echo "$policy_content" | grep -A5 "${service^}Operations" | grep -q "us-east-1"; then
+                # Map service names to actual Sid names in the policy
+                local sid_name
+                case "$service" in
+                    "cloudfront") sid_name="CloudFrontOperations" ;;
+                    "wafv2") sid_name="WAFOperations" ;;  
+                    "cloudwatch") sid_name="MonitoringOperations" ;;
+                esac
+                
+                # Check if the service operations section has us-east-1 region constraint
+                local service_section=$(echo "$policy_content" | jq -r '.Statement[] | select(.Sid == "'$sid_name'")')
+                if echo "$service_section" | grep -q "us-east-1"; then
                     record_test_result "$test_name" "PASSED" "${service^} permissions properly region-constrained to us-east-1"
                 else
                     record_test_result "$test_name" "FAILED" "${service^} permissions should be region-constrained to us-east-1"
