@@ -227,8 +227,8 @@ jobs:
               if bash "$test_file"; then
                 echo "- ✅ $test_name: PASSED" >> $GITHUB_STEP_SUMMARY
                 
-                # Update individual test counts for passing tests
-                result_file="test/unit/test-results/${test_name/test-/}-tests-report.json"
+                # Update individual test counts for passing tests  
+                result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
                 if [ -f "$result_file" ]; then
                   suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
                   TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
