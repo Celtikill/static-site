@@ -184,10 +184,39 @@ test_infrastructure_policy_security() {
     )
     
     for permission in "${dangerous_permissions[@]}"; do
+        # Create descriptive test names for special cases
+        local test_name
+        case "$permission" in
+            "*:*")
+                test_name="policy_no_wildcard_permissions"
+                ;;
+            "iam:CreateRole")
+                test_name="policy_no_iam_create_role"
+                ;;
+            "iam:CreatePolicy") 
+                test_name="policy_no_iam_create_policy"
+                ;;
+            "iam:AttachRolePolicy")
+                test_name="policy_no_iam_attach_role_policy"
+                ;;
+            "iam:PutRolePolicy")
+                test_name="policy_no_iam_put_role_policy"
+                ;;
+            "iam:DeleteRole")
+                test_name="policy_no_iam_delete_role"
+                ;;
+            "sts:AssumeRole")
+                test_name="policy_no_sts_assume_role"
+                ;;
+            *)
+                test_name="policy_no_${permission//[:\*]/_}"
+                ;;
+        esac
+        
         if echo "$policy_content" | grep -q "$permission"; then
-            record_test_result "policy_no_${permission//[:\*]/_}" "FAILED" "Policy contains dangerous permission: $permission"
+            record_test_result "$test_name" "FAILED" "Policy contains dangerous permission: $permission"
         else
-            record_test_result "policy_no_${permission//[:\*]/_}" "PASSED" "Policy correctly excludes: $permission"
+            record_test_result "$test_name" "PASSED" "Policy correctly excludes: $permission"
         fi
     done
     
@@ -201,10 +230,33 @@ test_infrastructure_policy_security() {
     )
     
     for permission in "${required_permissions[@]}"; do
+        # Create descriptive test names for required permissions
+        local test_name
+        case "$permission" in
+            "s3:CreateBucket")
+                test_name="policy_has_s3_create_bucket"
+                ;;
+            "s3:PutBucketPolicy")
+                test_name="policy_has_s3_put_bucket_policy"
+                ;;
+            "cloudfront:CreateDistribution")
+                test_name="policy_has_cloudfront_create_distribution"
+                ;;
+            "wafv2:CreateWebACL")
+                test_name="policy_has_wafv2_create_web_acl"
+                ;;
+            "cloudwatch:PutMetricAlarm")
+                test_name="policy_has_cloudwatch_put_metric_alarm"
+                ;;
+            *)
+                test_name="policy_has_${permission//[:_]/_}"
+                ;;
+        esac
+        
         if echo "$policy_content" | grep -q "$permission"; then
-            record_test_result "policy_has_${permission//[:_]/_}" "PASSED" "Policy includes required permission: $permission"
+            record_test_result "$test_name" "PASSED" "Policy includes required permission: $permission"
         else
-            record_test_result "policy_has_${permission//[:_]/_}" "FAILED" "Policy missing required permission: $permission"
+            record_test_result "$test_name" "FAILED" "Policy missing required permission: $permission"
         fi
     done
 }
