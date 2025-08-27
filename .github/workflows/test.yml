@@ -115,7 +115,8 @@ jobs:
           echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Testing Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Note**: This workflow runs on main branch but tests code from the above branch" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
           echo "- **Force All Jobs**: ${{ github.event.inputs.force_all_jobs || 'false' }}" >> $GITHUB_STEP_SUMMARY
