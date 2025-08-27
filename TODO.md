@@ -4,17 +4,16 @@
 
 **Multi-Account Architecture Migration** - CRITICAL Priority ⚡
 
-### Current Status: Phase 3 Execution
+### Current Status: Ready for Phase 4 Deployment
 **Completed:**
 - ✅ Phase 0: Clean Slate Preparation - All existing resources decommissioned
 - ✅ Phase 1: AWS Organizations Foundation - Organization o-0hh51yjgxw created, Management Account 223938610551
 - ✅ Phase 2: SRA-Aligned Terraform Module Development - All security baseline modules created and validated
-
-**In Progress:**
 - ✅ Phase 3: Management Account Infrastructure Configuration - **READY FOR DEPLOYMENT**
 
 **Next Steps:**
-- [ ] Phase 4: Security OU Account Deployment
+- [ ] **Deploy Phase 3**: Execute `tofu apply` in `terraform/management-account/` to create Security OU accounts
+- [ ] Phase 4: Security OU Account Deployment (deploy security baselines to new accounts)
 - [ ] Phase 5: Workload OU Account Deployment  
 - [ ] Phase 6: CI/CD Pipeline Migration
 - [ ] Phase 7: Website Content Migration
@@ -49,14 +48,17 @@ Organization (o-0hh51yjgxw)
 - [x] Create deployment documentation and validation guides
 - [x] **READY FOR DEPLOYMENT**: Configuration validated, awaiting `tofu apply`
 
-### Phase 4: Security OU Account Deployment
+### Phase 4: Security OU Account Deployment (Next)
+- [ ] **Prerequisites**: Complete Phase 3 deployment to create Security OU accounts
+- [ ] Create account-specific Terraform configurations for Security Tooling and Log Archive accounts
 - [ ] Deploy security baselines to Security Tooling Account:
   - GuardDuty (organization-wide threat detection)
-  - Security Hub (centralized findings aggregation)
+  - Security Hub (centralized findings aggregation)  
   - Config (compliance monitoring)
   - CloudTrail (organization trail)
 - [ ] Configure Log Archive Account for centralized logging
-- [ ] Establish cross-account log delivery
+- [ ] Establish cross-account log delivery and aggregation
+- [ ] Validate security service integration and monitoring
 
 ### Phase 5: Workload OU Account Deployment
 - [ ] Create Development, Staging, Production accounts
@@ -176,6 +178,35 @@ Organization (o-0hh51yjgxw)
 
 ---
 
+---
+
+## Phase 3 Deployment Instructions
+
+**Location**: `terraform/management-account/`
+
+**Pre-Deployment Checklist:**
+1. ✅ Configuration created and validated
+2. ✅ AWS CLI configured with Management Account credentials
+3. ⚠️  Update `domain_suffix` in `terraform.tfvars` with your actual domain
+4. ⚠️  Review and customize `cost_allocation_tags` if needed
+
+**Deployment Commands:**
+```bash
+cd terraform/management-account
+# Review the plan
+tofu plan -var-file=terraform.tfvars
+# Deploy (when ready)
+tofu apply -var-file=terraform.tfvars
+```
+
+**Expected Results:**
+- Security OU with 2 new accounts created
+- Service Control Policies applied
+- Cross-account deployment roles configured
+- State backend established
+
+---
+
 *Last Updated: 2025-08-27*  
-*Status: Phase 3 Execution - Management Account Infrastructure Configuration*
+*Status: Phase 3 READY FOR DEPLOYMENT - Management Account Infrastructure Configuration*
 *Organization: o-0hh51yjgxw | Management Account: 223938610551*
