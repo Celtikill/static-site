@@ -51,11 +51,7 @@ jobs:
     timeout-minutes: 5
     # Only run if TEST succeeded, or manual dispatch (any environment)
     if: |
-      (github.event.workflow_run.conclusion == 'success' &&
-       (github.event.workflow_run.head_branch == 'main' ||
-        startsWith(github.event.workflow_run.head_branch, 'feature/') ||
-        startsWith(github.event.workflow_run.head_branch, 'bugfix/') ||
-        startsWith(github.event.workflow_run.head_branch, 'hotfix/'))) ||
+      github.event.workflow_run.conclusion == 'success' ||
       github.event_name == 'workflow_dispatch'
     outputs:
       run_id: ${{ steps.info.outputs.run_id }}
@@ -70,8 +66,19 @@ jobs:
           # For workflow_run triggers, explicitly check out the branch that triggered the original workflow
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
 
-      # Branch detection simplified - workflow runs on the triggering branch by default
-      # No need for API calls to detect branch - github.ref_name gives us the correct branch
+      # Branch validation - exit early if triggered from wrong branch
+      - name: Branch Check
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "Running on branch: $BRANCH"
+          
+          if [[ "$BRANCH" != "main" && ! "$BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
+            echo "❌ Workflow triggered from unsupported branch: $BRANCH"
+            echo "Supported branches: main, feature/*, bugfix/*, hotfix/*"
+            exit 1
+          fi
+          
+          echo "✅ Branch validation passed: $BRANCH"
 
       - name: Run Info
         id: info
