@@ -252,10 +252,13 @@ jobs:
                   # Extract specific failure details from log file
                   log_file="test/unit/test-results/test-${test_name/test-/}-tests.log"
                   if [ -f "$log_file" ]; then
-                    failed_details=$(grep "❌" "$log_file" | head -3 | sed 's/.*❌ //' | sed 's/: /: /' || true)
-                    if [ -n "$failed_details" ]; then
-                      FAILED_TEST_DETAILS+=("$test_name: $(echo "$failed_details" | tr '\n' '; ' | sed 's/; $//')")
-                    fi
+                    # Extract each failed test as a separate bullet point
+                    while IFS= read -r failed_line; do
+                      if [ -n "$failed_line" ]; then
+                        test_detail=$(echo "$failed_line" | sed 's/.*❌ //' | sed 's/: /: /')
+                        FAILED_TEST_DETAILS+=("$test_detail")
+                      fi
+                    done < <(grep "❌" "$log_file" | head -5)
                   fi
                 else
                   # Fallback if no result file
