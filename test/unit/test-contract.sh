@@ -432,10 +432,10 @@ test_workflow_integration() {
 
 # Main test execution
 main() {
-    log_message "Starting contract testing at $(date)"
-    
-    # Create output directory and temp directory
+    # Create output directory first (before any logging)
     mkdir -p "$TEST_OUTPUT_DIR"
+    
+    log_message "Starting contract testing at $(date)"
     TEMP_DIR=$(mktemp -d)
     
     # Cleanup function
