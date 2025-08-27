@@ -75,7 +75,8 @@
         "cloudfront:CreateFunction",
         "cloudfront:UpdateFunction",
         "cloudfront:DeleteFunction",
-        "cloudfront:PublishFunction"
+        "cloudfront:PublishFunction",
+        "cloudfront:DescribeFunction"
       ],
       "Resource": "*",
       "Condition": {
