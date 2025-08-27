@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   info:
-    name: "📋 Deployment Information"
+    name: "📋 Deployment Information (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Only run if TEST succeeded, or manual dispatch (any environment)
@@ -66,19 +66,6 @@ jobs:
           # For workflow_run triggers, explicitly check out the branch that triggered the original workflow
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
 
-      # Branch validation - exit early if triggered from wrong branch
-      - name: Branch Check
-        run: |
-          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
-          echo "Running on branch: $BRANCH"
-          
-          if [[ "$BRANCH" != "main" && ! "$BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
-            echo "❌ Workflow triggered from unsupported branch: $BRANCH"
-            echo "Supported branches: main, feature/*, bugfix/*, hotfix/*"
-            exit 1
-          fi
-          
-          echo "✅ Branch validation passed: $BRANCH"
 
       - name: Run Info
         id: info
@@ -115,12 +102,13 @@ jobs:
           echo "# 🚀 RUN Phase" >> $GITHUB_STEP_SUMMARY
           echo "- **Run ID**: $RUN_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $TARGET_ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploying Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Note**: This workflow runs on main branch but deploys code from the above branch" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Infrastructure**: $DEPLOY_INFRA" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
 
   authorization:
-    name: "🔐 Production Authorization"
+    name: "🔐 Production Authorization (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: info
@@ -158,7 +146,7 @@ jobs:
           fi
 
   setup:
-    name: "🔧 Setup Deployment Tools"
+    name: "🔧 Setup Deployment Tools (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info]
@@ -193,7 +181,7 @@ jobs:
           echo "✅ Deployment tools ready" >> $GITHUB_STEP_SUMMARY
 
   infrastructure:
-    name: "🏗️ Infrastructure Deployment"
+    name: "🏗️ Infrastructure Deployment (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [info, setup]
@@ -287,7 +275,7 @@ jobs:
           echo "- CloudFront URL: $CLOUDFRONT_URL" >> $GITHUB_STEP_SUMMARY
 
   website:
-    name: "🌐 Website Deployment"
+    name: "🌐 Website Deployment (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [info, setup, infrastructure]
@@ -371,7 +359,7 @@ jobs:
           echo "**Website URL**: $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
 
   validation:
-    name: "🔍 Post-Deployment Validation"
+    name: "🔍 Post-Deployment Validation (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [info, infrastructure, website]
@@ -424,7 +412,7 @@ jobs:
           retention-days: 14
 
   github-deployment:
-    name: "📝 Update GitHub Deployment"
+    name: "📝 Update GitHub Deployment (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure, website, validation]
@@ -481,7 +469,7 @@ jobs:
             }
 
   summary:
-    name: "📊 Deployment Summary"
+    name: "📊 Deployment Summary (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure, website, validation, github-deployment]

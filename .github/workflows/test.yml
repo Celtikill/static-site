@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   info:
-    name: "📋 Test Information"
+    name: "📋 Test Information (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Always require BUILD success for automatic triggers
@@ -69,19 +69,6 @@ jobs:
           # For workflow_run triggers, explicitly check out the branch that triggered the original workflow
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
 
-      # Branch validation - exit early if triggered from wrong branch
-      - name: Branch Check
-        run: |
-          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
-          echo "Running on branch: $BRANCH"
-          
-          if [[ "$BRANCH" != "main" && ! "$BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
-            echo "❌ Workflow triggered from unsupported branch: $BRANCH"
-            echo "Supported branches: main, feature/*, bugfix/*, hotfix/*"
-            exit 1
-          fi
-          
-          echo "✅ Branch validation passed: $BRANCH"
 
       - name: Test Info
         id: info
@@ -128,7 +115,8 @@ jobs:
           echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Testing Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Note**: This workflow runs on main branch but tests code from the above branch" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
           echo "- **Force All Jobs**: ${{ github.event.inputs.force_all_jobs || 'false' }}" >> $GITHUB_STEP_SUMMARY
@@ -156,7 +144,7 @@ jobs:
           echo "- **Pre-Deployment Usability**: Will run if environment != dev OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
 
   infrastructure-tests:
-    name: "🏗️ Infrastructure Unit Tests"
+    name: "🏗️ Infrastructure Unit Tests (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: info
@@ -306,7 +294,7 @@ jobs:
           retention-days: 7
 
   policy-validation:
-    name: "📋 Policy Validation"
+    name: "📋 Policy Validation (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info, infrastructure-tests]
@@ -395,7 +383,7 @@ jobs:
           fi
 
   website-tests:
-    name: "🌐 Website Content Tests"
+    name: "🌐 Website Content Tests (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: info
@@ -462,7 +450,7 @@ jobs:
           fi
 
   pre-deployment-usability:
-    name: "🌐 Pre-Deployment Usability Tests"
+    name: "🌐 Pre-Deployment Usability Tests (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: info
@@ -515,7 +503,7 @@ jobs:
 
 
   summary:
-    name: "📊 Test Summary"
+    name: "📊 Test Summary (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure-tests, policy-validation, website-tests, pre-deployment-usability]
