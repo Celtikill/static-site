@@ -172,6 +172,19 @@
       ]
     },
     {
+      "Sid": "S3ReplicationPassRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::*:role/static-site-s3-replication",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "s3.amazonaws.com"
+        }
+      }
+    },
+    {
       "Sid": "TerraformStateManagement",
       "Effect": "Allow",
       "Action": [
