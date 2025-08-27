@@ -13,7 +13,7 @@
 set -euo pipefail
 
 # Configuration
-REGIONS=("us-east-2" "us-east-1")  # Primary and CloudFront regions
+REGIONS=("us-east-1" "us-west-2" "us-east-2")  # Primary, replica, and old primary regions
 PROJECT_PATTERNS=("static-site" "static-website")
 DRY_RUN=${DRY_RUN:-true}  # Set to false to actually delete resources
 FORCE_DELETE=${FORCE_DELETE:-false}  # Set to true to skip confirmations
@@ -755,7 +755,7 @@ This script will find and delete AWS resources created by the static website pip
 - AWS Budgets
 - Any other resources tagged by the pipeline
 
-Regions searched: us-east-1, us-east-2
+Regions searched: us-east-1, us-west-2, us-east-2
 Project patterns: static-site, static-website
 
 WARNING: This will permanently delete resources and data!
