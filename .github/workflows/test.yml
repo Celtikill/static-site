@@ -210,63 +210,33 @@ jobs:
             exit 1
           fi
 
-          # Run remaining unit tests (skip authentication tests)
-          export SKIP_AUTH_TESTS=true
-          if bash test/unit/run-tests.sh; then
-            echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
-
-            # Display test summary
-            if [ -f "test/unit/test-results/test-summary.json" ]; then
-              TOTAL_TESTS=$(jq -r '.individual_tests.total' test/unit/test-results/test-summary.json)
-              PASSED_TESTS=$(jq -r '.individual_tests.passed' test/unit/test-results/test-summary.json)
-              SUCCESS_RATE=$(jq -r '.individual_tests.success_rate' test/unit/test-results/test-summary.json)
-
-              echo "**Test Results:**" >> $GITHUB_STEP_SUMMARY
-              echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Success Rate: $SUCCESS_RATE%" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "❌ Unit tests failed"
-            echo "❌ Unit tests failed" >> $GITHUB_STEP_SUMMARY
-
-            # Display detailed failure information both to console and step summary
-            if [ -f "test/unit/test-results/test-summary.json" ]; then
-              FAILED_TESTS=$(jq -r '.individual_tests.failed' test/unit/test-results/test-summary.json)
-              TOTAL_TESTS=$(jq -r '.individual_tests.total' test/unit/test-results/test-summary.json)
-              PASSED_TESTS=$(jq -r '.individual_tests.passed' test/unit/test-results/test-summary.json)
+          # Run unit tests individually to avoid orchestrator hanging issues
+          TEST_FAILED=0
+          TOTAL_TESTS=0
+          
+          echo "**Running Individual Test Suites:**" >> $GITHUB_STEP_SUMMARY
+          
+          for test_file in test/unit/test-*.sh; do
+            if [[ -f "$test_file" && ! "$test_file" == *".disabled" ]]; then
+              test_name=$(basename "$test_file" .sh)
+              echo "Running $test_name..."
               
-              # Display to console (visible in logs)
-              echo ""
-              echo "**Test Results:**"
-              echo "- Total Tests: $TOTAL_TESTS"
-              echo "- Passed: $PASSED_TESTS"
-              echo "- Failed: $FAILED_TESTS"
-              echo ""
-              
-              # Also add to step summary
-              echo "**Test Results:**" >> $GITHUB_STEP_SUMMARY
-              echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              
-              # Show failed test suites details from JSON summary (more reliable than parsing logs)
-              if [ -f "test/unit/test-results/test-summary.json" ] && jq -e '.test_suites.failed_details | length > 0' test/unit/test-results/test-summary.json > /dev/null 2>&1; then
-                echo "**Failed Test Suites:**"
-                echo "**Failed Test Suites:**" >> $GITHUB_STEP_SUMMARY
-                
-                # Extract failed suite details from JSON
-                jq -r '.test_suites.failed_details[]' test/unit/test-results/test-summary.json | while IFS= read -r failure_detail; do
-                  echo "- $failure_detail"
-                  echo "- $failure_detail" >> $GITHUB_STEP_SUMMARY
-                done
+              if bash "$test_file"; then
+                echo "- ✅ $test_name: PASSED" >> $GITHUB_STEP_SUMMARY
               else
-                echo "**Note:** Test suite failures detected but no specific details available"
-                echo "**Note:** Test suite failures detected but no specific details available" >> $GITHUB_STEP_SUMMARY
+                echo "- ❌ $test_name: FAILED" >> $GITHUB_STEP_SUMMARY
+                TEST_FAILED=1
               fi
+              TOTAL_TESTS=$((TOTAL_TESTS + 1))
             fi
-
+          done
+          
+          echo "**Summary:** $TOTAL_TESTS test suites executed" >> $GITHUB_STEP_SUMMARY
+          
+          if [ $TEST_FAILED -eq 0 ]; then
+            echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ One or more unit tests failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 

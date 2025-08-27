@@ -215,20 +215,9 @@ get_test_files() {
     esac
     
     # Validate that test files actually exist and filter out missing ones
-    # Also skip authentication tests if SKIP_AUTH_TESTS is set
     local existing_files=()
     for file in "${test_files[@]}"; do
         if [[ -f "$file" ]]; then
-            # Skip authentication tests if environment variable is set
-            if [[ -n "${SKIP_AUTH_TESTS:-}" ]] && [[ "$(basename "$file")" == *"authentication"* ]]; then
-                log_info "Skipping authentication tests: $(basename "$file")"
-                continue
-            fi
-            # Skip environment config tests that have auth dependencies
-            if [[ -n "${SKIP_AUTH_TESTS:-}" ]] && [[ "$(basename "$file")" == *"environment-config"* ]]; then
-                log_info "Skipping environment config tests with auth dependencies: $(basename "$file")"
-                continue
-            fi
             existing_files+=("$file")
         else
             log_warn "Test file not found: $file"
@@ -509,7 +498,7 @@ generate_overall_report() {
     
     # Convert failed suite details array to JSON format
     local failed_suites_json="[]"
-    if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]]; then
+    if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]] 2>/dev/null; then
         # Create temporary JSON array from failed suite details
         failed_suites_json=$(printf '%s\n' "${FAILED_SUITE_DETAILS[@]}" | jq -R . | jq -s .)
     fi
@@ -560,7 +549,7 @@ generate_overall_report() {
         log_error "❌ Tests failed!"
         
         # Display detailed failure information for debugging
-        if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]]; then
+        if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]] 2>/dev/null; then
             echo ""
             echo "Failed Test Suites:"
             for detail in "${FAILED_SUITE_DETAILS[@]}"; do
