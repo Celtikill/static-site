@@ -276,7 +276,7 @@ resource "aws_cloudwatch_metric_alarm" "cloudfront_billing" {
 
 # AWS Budget for Cost Control
 resource "aws_budgets_budget" "monthly_cost" {
-  name              = "${var.project_name}-monthly-budget"
+  name              = "${var.project_name}-monthly-budget-${substr(md5("${var.project_name}-${var.aws_region}"), 0, 8)}"
   budget_type       = "COST"
   limit_amount      = var.monthly_budget_limit
   limit_unit        = "USD"
@@ -356,4 +356,8 @@ resource "aws_cloudwatch_log_group" "github_actions" {
     Name   = "/aws/github-actions/${var.project_name}"
     Module = "monitoring"
   })
+
+  lifecycle {
+    ignore_changes = [kms_key_id]
+  }
 }
