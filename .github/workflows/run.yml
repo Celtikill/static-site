@@ -51,7 +51,11 @@ jobs:
     timeout-minutes: 5
     # Only run if TEST succeeded, or manual dispatch (any environment)
     if: |
-      github.event.workflow_run.conclusion == 'success' ||
+      (github.event.workflow_run.conclusion == 'success' && 
+       (github.event.workflow_run.head_branch == 'main' ||
+        startsWith(github.event.workflow_run.head_branch, 'feature/') ||
+        startsWith(github.event.workflow_run.head_branch, 'bugfix/') ||
+        startsWith(github.event.workflow_run.head_branch, 'hotfix/'))) ||
       github.event_name == 'workflow_dispatch'
     outputs:
       run_id: ${{ steps.info.outputs.run_id }}
