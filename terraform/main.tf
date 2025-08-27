@@ -181,8 +181,10 @@ module "cloudfront" {
   logging_prefix            = "cloudfront-logs/"
   content_security_policy   = var.content_security_policy
   cors_origins              = var.cors_origins
-  alarm_actions             = [aws_sns_topic.cloudfront_alerts.arn]
-  common_tags               = local.common_tags
+  alarm_actions                        = [aws_sns_topic.cloudfront_alerts.arn]
+  managed_caching_disabled_policy_id   = var.managed_caching_disabled_policy_id
+  managed_cors_s3_origin_policy_id     = var.managed_cors_s3_origin_policy_id
+  common_tags                          = local.common_tags
 }
 
 # IAM Resources - Manually managed for security

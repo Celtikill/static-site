@@ -62,7 +62,7 @@ resource "aws_cloudfront_distribution" "website" {
     viewer_protocol_policy = "redirect-to-https"
 
     cache_policy_id            = aws_cloudfront_cache_policy.website.id
-    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.cors_s3_origin.id
+    origin_request_policy_id   = var.managed_cors_s3_origin_policy_id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
 
     function_association {
@@ -80,8 +80,8 @@ resource "aws_cloudfront_distribution" "website" {
     compress               = true
     viewer_protocol_policy = "redirect-to-https"
 
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.cors_s3_origin.id
+    cache_policy_id          = var.managed_caching_disabled_policy_id
+    origin_request_policy_id = var.managed_cors_s3_origin_policy_id
   }
 
   # Geographic Restrictions
@@ -221,14 +221,6 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
   }
 }
 
-# Data sources for AWS managed policies
-data "aws_cloudfront_cache_policy" "caching_disabled" {
-  name = "Managed-CachingDisabled"
-}
-
-data "aws_cloudfront_origin_request_policy" "cors_s3_origin" {
-  name = "Managed-CORS-S3Origin"
-}
 
 # CloudFront Monitoring Alarm
 resource "aws_cloudwatch_metric_alarm" "cloudfront_4xx_error_rate" {

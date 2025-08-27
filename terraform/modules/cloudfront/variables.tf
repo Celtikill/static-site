@@ -154,3 +154,15 @@ variable "common_tags" {
     ManagedBy   = "opentofu"
   }
 }
+
+variable "managed_caching_disabled_policy_id" {
+  description = "AWS managed CachingDisabled policy ID"
+  type        = string
+  default     = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+}
+
+variable "managed_cors_s3_origin_policy_id" {
+  description = "AWS managed CORS-S3Origin policy ID"
+  type        = string
+  default     = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
+}
