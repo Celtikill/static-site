@@ -162,7 +162,7 @@ resource "time_sleep" "waf_propagation" {
 
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
-  source = "./modules/cloudfront"
+  source     = "./modules/cloudfront"
   depends_on = [time_sleep.waf_propagation]
 
   distribution_name                  = local.distribution_name
