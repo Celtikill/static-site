@@ -62,6 +62,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # For workflow_run triggers, explicitly check out the branch that triggered the original workflow
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
 
       # Branch detection simplified - workflow runs on the triggering branch by default
       # No need for API calls to detect branch - github.ref_name gives us the correct branch
