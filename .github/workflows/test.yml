@@ -198,10 +198,20 @@ jobs:
         run: |
           echo "## 🏗️ Running Comprehensive Unit Tests" >> $GITHUB_STEP_SUMMARY
 
-          # Make test script executable
+          # Make test scripts executable
+          chmod +x test/unit/test-static-analysis.sh
           chmod +x test/unit/run-tests.sh
 
-          # Run the comprehensive test suite
+          # Run static analysis tests (no AWS dependencies)
+          if bash test/unit/test-static-analysis.sh; then
+            echo "✅ Static analysis tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Static analysis tests failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Run remaining unit tests (skip authentication tests)
+          export SKIP_AUTH_TESTS=true
           if bash test/unit/run-tests.sh; then
             echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
 

@@ -19,6 +19,33 @@
 - [ ] Add cost estimation guidelines for each environment
 - [ ] Create developer onboarding guide with setup checklist
 
+### Testing Strategy Implementation (Long-term)
+- [ ] **Step 3: Separate Integration Tests** - Create dedicated integration test suite for AWS authentication and real deployment testing
+  - Move AWS role assumption tests to `test/integration/test-aws-authentication.sh`
+  - Create full deployment flow tests in `test/integration/test-deployment-flow.sh`
+  - Add cross-environment testing in `test/integration/test-cross-environment.sh`
+  - Configure integration tests to run only when AWS credentials are available
+  - Add integration test workflow that runs on-demand or on releases
+
+- [ ] **Step 4: Security Policy Validation** - Implement OPA (Open Policy Agent) security compliance testing
+  - Create OPA policies for infrastructure security validation
+  - Add policy validation tests using `opa eval` with mock Terraform plans
+  - Implement security compliance checking for OWASP Top 10, CIS benchmarks
+  - Add automated security policy testing in TEST workflow
+  - Create security policy documentation and violation reporting
+
+### Testing Architecture Completed
+- [x] **Step 1: Static Analysis** - Implemented configuration validation without AWS dependencies
+  - Created `test-static-analysis.sh` with ARN format validation, role naming, region validation
+  - Added environment variable structure testing and GitHub Actions detection
+  - Implemented branch pattern detection and configuration consistency checks
+
+- [x] **Step 2: Terraform Plan Validation** - Added infrastructure testing without authentication
+  - Created `test-terraform-plan.sh` with plan generation testing for all environments
+  - Added resource validation, module dependency checking, and variable definition testing
+  - Implemented environment-specific configuration validation
+  - Added contract testing with `test-contract.sh` for script interface validation
+
 ---
 
 ## UX Implementation (Ready for Development)

@@ -215,9 +215,20 @@ get_test_files() {
     esac
     
     # Validate that test files actually exist and filter out missing ones
+    # Also skip authentication tests if SKIP_AUTH_TESTS is set
     local existing_files=()
     for file in "${test_files[@]}"; do
         if [[ -f "$file" ]]; then
+            # Skip authentication tests if environment variable is set
+            if [[ -n "${SKIP_AUTH_TESTS:-}" ]] && [[ "$(basename "$file")" == *"authentication"* ]]; then
+                log_info "Skipping authentication tests: $(basename "$file")"
+                continue
+            fi
+            # Skip environment config tests that have auth dependencies
+            if [[ -n "${SKIP_AUTH_TESTS:-}" ]] && [[ "$(basename "$file")" == *"environment-config"* ]]; then
+                log_info "Skipping environment config tests with auth dependencies: $(basename "$file")"
+                continue
+            fi
             existing_files+=("$file")
         else
             log_warn "Test file not found: $file"
