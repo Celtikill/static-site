@@ -25,7 +25,8 @@
         "s3:RestoreObject",
         "s3:GetAccelerateConfiguration",
         "s3:GetLifecycleConfiguration",
-        "s3:GetReplicationConfiguration"
+        "s3:GetReplicationConfiguration",
+        "s3:GetEncryptionConfiguration"
       ],
       "Resource": [
         "arn:aws:s3:::static-site-dev-*",
