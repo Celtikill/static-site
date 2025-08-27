@@ -1,10 +1,11 @@
 name: TEST - Quality Gates and Validation
 
 on:
-  workflow_run:
-    workflows: ["BUILD - Code Validation and Artifact Creation"]
-    types: [completed]
-    branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
+  # DISABLED DURING MULTI-ACCOUNT MIGRATION
+  # workflow_run:
+  #   workflows: ["BUILD - Code Validation and Artifact Creation"]
+  #   types: [completed]
+  #   branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
   workflow_dispatch:
     inputs:
       build_id:

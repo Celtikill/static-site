@@ -1,12 +1,13 @@
 name: RELEASE - Version Management and Deployment
 
 on:
-  # Trigger on version tags - maintains existing strategy
-  push:
-    tags:
-      - 'v*.*.*'           # Production releases (v1.0.0) → prod
-      - 'v*.*.*-rc*'       # Release candidates (v1.0.0-rc1) → staging  
-      - 'v*.*.*-hotfix.*'  # Hotfixes (v1.0.1-hotfix.1) → staging
+  # DISABLED DURING MULTI-ACCOUNT MIGRATION
+  # # Trigger on version tags - maintains existing strategy
+  # push:
+  #   tags:
+  #     - 'v*.*.*'           # Production releases (v1.0.0) → prod
+  #     - 'v*.*.*-rc*'       # Release candidates (v1.0.0-rc1) → staging  
+  #     - 'v*.*.*-hotfix.*'  # Hotfixes (v1.0.1-hotfix.1) → staging
   
   # Manual release creation
   workflow_dispatch:

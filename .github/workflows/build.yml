@@ -14,10 +14,11 @@ on:
         required: false
         type: boolean
         default: false
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
+  # DISABLED DURING MULTI-ACCOUNT MIGRATION
+  # pull_request:
+  #   branches: [main]
+  # push:
+  #   branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
 
 permissions:
   id-token: write

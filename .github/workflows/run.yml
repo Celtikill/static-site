@@ -1,10 +1,11 @@
 name: RUN - Deployment Operations
 
 on:
-  workflow_run:
-    workflows: ["TEST - Quality Gates and Validation"]
-    types: [completed]  # Triggers on all completions; success filtering happens in job conditions
-    branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
+  # DISABLED DURING MULTI-ACCOUNT MIGRATION
+  # workflow_run:
+  #   workflows: ["TEST - Quality Gates and Validation"]
+  #   types: [completed]  # Triggers on all completions; success filtering happens in job conditions
+  #   branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
   workflow_dispatch:
     inputs:
       test_id:
