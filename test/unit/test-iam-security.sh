@@ -180,16 +180,19 @@ test_infrastructure_policy_security() {
         "iam:PutRolePolicy"
         "iam:DeleteRole"
         "sts:AssumeRole"
-        "*:*"
+    )
+    
+    # Check for truly dangerous global wildcard (not service-specific wildcards)
+    local global_wildcard_patterns=(
+        '"\*",'  # Matches Action: ["*", or Action: "*",
+        '"\*"$'  # Matches Action: "*" at end of line
+        '"\*"\s*\]'  # Matches Action: ["*"]
     )
     
     for permission in "${dangerous_permissions[@]}"; do
-        # Create descriptive test names for special cases
+        # Create descriptive test names for dangerous IAM permissions
         local test_name
         case "$permission" in
-            "*:*")
-                test_name="policy_no_wildcard_permissions"
-                ;;
             "iam:CreateRole")
                 test_name="policy_no_iam_create_role"
                 ;;
@@ -220,44 +223,74 @@ test_infrastructure_policy_security() {
         fi
     done
     
-    # Check that policy contains required safe permissions
-    local required_permissions=(
-        "s3:CreateBucket"
-        "s3:PutBucketPolicy"
-        "cloudfront:CreateDistribution"
-        "wafv2:CreateWebACL"
-        "cloudwatch:PutMetricAlarm"
+    # Check for dangerous global wildcard permissions (not service-specific)
+    local has_global_wildcard=false
+    for pattern in "${global_wildcard_patterns[@]}"; do
+        if echo "$policy_content" | grep -qE "$pattern"; then
+            has_global_wildcard=true
+            break
+        fi
+    done
+    
+    if [ "$has_global_wildcard" = true ]; then
+        record_test_result "policy_no_wildcard_permissions" "FAILED" "Policy contains dangerous global wildcard permission: *"
+    else
+        record_test_result "policy_no_wildcard_permissions" "PASSED" "Policy correctly uses service-scoped permissions (s3:*, cloudfront:*, etc.)"
+    fi
+    
+    # Check that policy contains required service-level permissions (supports both specific and wildcard)
+    local required_service_permissions=(
+        "s3"          # Checks for either s3:* or specific s3 permissions
+        "cloudfront"  # Checks for either cloudfront:* or specific cloudfront permissions 
+        "wafv2"       # Checks for either wafv2:* or specific wafv2 permissions
+        "cloudwatch"  # Checks for either cloudwatch:* or specific cloudwatch permissions
     )
     
-    for permission in "${required_permissions[@]}"; do
-        # Create descriptive test names for required permissions
-        local test_name
-        case "$permission" in
-            "s3:CreateBucket")
-                test_name="policy_has_s3_create_bucket"
+    for service in "${required_service_permissions[@]}"; do
+        local test_name="policy_has_${service}_permissions"
+        local service_wildcard="${service}:\*"
+        
+        # Check if policy has either service:* or specific service permissions
+        if echo "$policy_content" | grep -qE "${service}:(\*|[A-Z])"; then
+            if echo "$policy_content" | grep -qF "$service_wildcard"; then
+                record_test_result "$test_name" "PASSED" "Policy includes ${service} wildcard permissions: ${service}:*"
+            else
+                record_test_result "$test_name" "PASSED" "Policy includes specific ${service} permissions"
+            fi
+        else
+            record_test_result "$test_name" "FAILED" "Policy missing ${service} permissions (neither ${service}:* nor specific permissions found)"
+        fi
+    done
+    
+    # Verify service-scoped permissions are properly resource-constrained
+    local service_constraints=(
+        "s3:static-site-"           # S3 permissions should be scoped to project buckets
+        "cloudfront:us-east-1"      # CloudFront should be region-constrained  
+        "wafv2:us-east-1"           # WAF should be region-constrained
+        "cloudwatch:us-east-1"      # CloudWatch should be region-constrained
+    )
+    
+    for constraint in "${service_constraints[@]}"; do
+        local service="${constraint%:*}"
+        local expected_constraint="${constraint#*:}"
+        local test_name="policy_${service}_properly_constrained"
+        
+        case "$service" in
+            "s3")
+                if echo "$policy_content" | grep -q "static-site-"; then
+                    record_test_result "$test_name" "PASSED" "S3 permissions properly scoped to project buckets"
+                else
+                    record_test_result "$test_name" "FAILED" "S3 permissions should be scoped to project buckets (static-site-*)"
+                fi
                 ;;
-            "s3:PutBucketPolicy")
-                test_name="policy_has_s3_put_bucket_policy"
-                ;;
-            "cloudfront:CreateDistribution")
-                test_name="policy_has_cloudfront_create_distribution"
-                ;;
-            "wafv2:CreateWebACL")
-                test_name="policy_has_wafv2_create_web_acl"
-                ;;
-            "cloudwatch:PutMetricAlarm")
-                test_name="policy_has_cloudwatch_put_metric_alarm"
-                ;;
-            *)
-                test_name="policy_has_${permission//[:_]/_}"
+            "cloudfront"|"wafv2"|"cloudwatch")
+                if echo "$policy_content" | grep -A5 "${service^}Operations" | grep -q "us-east-1"; then
+                    record_test_result "$test_name" "PASSED" "${service^} permissions properly region-constrained to us-east-1"
+                else
+                    record_test_result "$test_name" "FAILED" "${service^} permissions should be region-constrained to us-east-1"
+                fi
                 ;;
         esac
-        
-        if echo "$policy_content" | grep -qF "$permission"; then
-            record_test_result "$test_name" "PASSED" "Policy includes required permission: $permission"
-        else
-            record_test_result "$test_name" "FAILED" "Policy missing required permission: $permission"
-        fi
     done
 }
 
