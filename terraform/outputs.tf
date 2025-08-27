@@ -51,17 +51,17 @@ output "cloudfront_status" {
 # WAF Outputs
 output "waf_web_acl_id" {
   description = "ID of the WAF Web ACL"
-  value       = module.waf.web_acl_id
+  value       = var.enable_waf ? module.waf[0].web_acl_id : null
 }
 
 output "waf_web_acl_arn" {
   description = "ARN of the WAF Web ACL"
-  value       = module.waf.web_acl_arn
+  value       = var.enable_waf ? module.waf[0].web_acl_arn : null
 }
 
 output "waf_web_acl_name" {
   description = "Name of the WAF Web ACL"
-  value       = module.waf.web_acl_name
+  value       = var.enable_waf ? module.waf[0].web_acl_name : null
 }
 
 # CloudFront/WAF Alerts SNS Topic
@@ -83,6 +83,11 @@ output "github_actions_role_name" {
 
 output "github_oidc_provider_arn" {
   description = "ARN of the GitHub OIDC identity provider"
+  value       = data.aws_iam_openid_connect_provider.github.arn
+}
+
+output "oidc_provider_arn" {
+  description = "ARN of the GitHub OIDC identity provider (alias for compatibility)"
   value       = data.aws_iam_openid_connect_provider.github.arn
 }
 

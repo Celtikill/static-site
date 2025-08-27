@@ -3,9 +3,9 @@
 
 # Core S3 Backend Configuration
 # Following 12-factor app principles with environment variable support
-bucket                     = "static-site-terraform-state-us-east-2"
+bucket                     = "static-site-terraform-state-us-east-1"
 key                        = "environments/prod/terraform.tfstate"
-region                     = "us-east-2"
+region                     = "us-east-1"
 encrypt                    = true
 # Use default AWS managed key instead of non-existent alias
 
@@ -21,7 +21,7 @@ skip_metadata_api_check   = false
 
 # Enhanced Performance and Reliability
 max_retries               = 5
-force_path_style          = false
+use_path_style            = false
 
 # Production Environment Security
 # - Maximum validation and security

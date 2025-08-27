@@ -498,7 +498,7 @@ generate_overall_report() {
     
     # Convert failed suite details array to JSON format
     local failed_suites_json="[]"
-    if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]]; then
+    if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]] 2>/dev/null; then
         # Create temporary JSON array from failed suite details
         failed_suites_json=$(printf '%s\n' "${FAILED_SUITE_DETAILS[@]}" | jq -R . | jq -s .)
     fi
@@ -549,7 +549,7 @@ generate_overall_report() {
         log_error "❌ Tests failed!"
         
         # Display detailed failure information for debugging
-        if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]]; then
+        if [[ ${#FAILED_SUITE_DETAILS[@]} -gt 0 ]] 2>/dev/null; then
             echo ""
             echo "Failed Test Suites:"
             for detail in "${FAILED_SUITE_DETAILS[@]}"; do

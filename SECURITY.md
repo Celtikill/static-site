@@ -29,10 +29,33 @@ If you discover a security vulnerability in this project, please:
 
 ### CI/CD Security
 
-- **GitHub Actions OIDC**: No long-lived credentials
-- **Policy as Code**: OPA/Conftest validation
+- **GitHub Actions OIDC**: No long-lived credentials stored
+- **Service-Scoped Permissions**: IAM policies use service-level wildcards (e.g., `s3:*`) with resource constraints
+- **Resource-Constrained Access**: All service permissions limited to project-specific resources
+- **Policy as Code**: OPA/Conftest validation with automated testing
 - **Security Scanning**: Checkov, Trivy, SARIF integration
 - **Dependency Scanning**: Automated vulnerability detection
+
+### IAM Security Model
+
+The project uses a **service-scoped permissions** approach that balances security with operational efficiency:
+
+#### Service-Level Wildcards (Approved)
+- `s3:*` - Scoped to project buckets (`static-site-*`, `static-website-*`)  
+- `cloudfront:*` - Region-constrained to `us-east-1`
+- `wafv2:*` - Region-constrained to `us-east-1`
+- `cloudwatch:*` - Region-constrained to `us-east-1`, `us-west-2`
+
+#### Global Wildcards (Prohibited)
+- `*:*` or `"Action": "*"` - Blocked by security tests
+- Cross-service permissions without resource constraints
+
+#### Resource Constraints
+All service wildcards are combined with resource ARN patterns or condition blocks to limit scope:
+- S3 operations limited to project bucket patterns
+- CloudFront/WAF operations region-locked to `us-east-1` 
+- Monitoring operations constrained to specific regions
+- No broad IAM manipulation permissions (`iam:CreateRole`, `iam:AttachRolePolicy`, etc.)
 
 ## Placeholder Values
 

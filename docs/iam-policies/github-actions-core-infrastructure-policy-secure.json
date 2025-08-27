@@ -1,6 +1,4 @@
 {
-  "_comment": "GitHub Actions Core Infrastructure Policy - Service-Scoped Permissions Model",
-  "_security_note": "This policy uses service-level wildcards (s3:*, cloudfront:*) with resource constraints for operational efficiency while maintaining security. Global wildcards (*:*) are prohibited.",
   "Version": "2012-10-17",
   "Statement": [
     {

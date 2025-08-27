@@ -43,7 +43,7 @@ variable "github_repository" {
 variable "aws_region" {
   description = "AWS region for primary resources"
   type        = string
-  default     = "us-east-2"
+  default     = "us-east-1"
 }
 
 variable "replica_region" {
@@ -162,6 +162,12 @@ variable "cors_origins" {
 }
 
 # WAF Configuration
+variable "enable_waf" {
+  description = "Enable WAF Web ACL for CloudFront distribution"
+  type        = bool
+  default     = true
+}
+
 variable "waf_rate_limit" {
   description = "WAF rate limit per 5-minute period from single IP"
   type        = number
@@ -384,4 +390,17 @@ variable "enable_cost_optimization" {
   description = "Enable cost optimization features"
   type        = bool
   default     = true
+}
+
+# AWS Managed Policy IDs (12-factor app configuration)
+variable "managed_caching_disabled_policy_id" {
+  description = "AWS managed CachingDisabled policy ID"
+  type        = string
+  default     = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+}
+
+variable "managed_cors_s3_origin_policy_id" {
+  description = "AWS managed CORS-S3Origin policy ID"
+  type        = string
+  default     = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
 }

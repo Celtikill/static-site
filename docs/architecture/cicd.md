@@ -551,6 +551,17 @@ graph LR
     class NO_APPROVAL,MANUAL_APPROVAL,EMERGENCY_APPROVAL approvalBox
 ```
 
+## Pipeline Test Workflow
+
+### Pipeline Health Validation
+
+The `pipeline-test.yml` workflow provides rapid validation of workflow configurations and Git operations:
+
+- **Git Reference Testing**: Validates branch fetching and change detection
+- **YAML Syntax Validation**: Checks all workflow files for syntax errors
+- **Test Scenarios**: Full pipeline, build-only, or deploy-only testing
+- **Execution Time**: ~2-3 minutes for full validation
+
 ## EMERGENCY Workflow Architecture
 
 ### Emergency Response System
@@ -781,10 +792,20 @@ graph LR
 
 | Phase | Target Duration | Parallel Jobs | Optimization Strategy |
 |-------|----------------|---------------|----------------------|
-| **BUILD** | < 10 minutes | 6 jobs | Parallel security scanning, cached dependencies |
-| **TEST** | < 15 minutes | 3 jobs | Focused validation, efficient policy checks |
+| **BUILD** | < 10 minutes | 7 jobs | Parallel security scanning, cached dependencies |
+| **TEST** | < 15 minutes | 6 jobs | Focused validation, efficient policy checks |
 | **RUN** | < 25 minutes | 8 jobs | Parallel deployment, optimized Terraform |
 | **Overall** | < 50 minutes | N/A | End-to-end pipeline optimization |
+
+### Artifact Retention Policies
+
+| Artifact Type | Retention Period | Purpose |
+|--------------|------------------|---------|
+| Build artifacts | 7 days | Short-term validation and deployment |
+| Security scan results | 7 days | Compliance and audit trail |
+| Unit test results | 7 days | Debugging and analysis |
+| Pre-deployment test results | 7 days | Environment validation |
+| Post-deployment test results | 14 days | Production verification |
 
 ### Resource Optimization
 

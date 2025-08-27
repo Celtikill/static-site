@@ -7,6 +7,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.4"
+    }
   }
 }
 
@@ -21,7 +25,7 @@ resource "aws_cloudfront_origin_access_control" "website" {
 
 # CloudFront Function for Security Headers
 resource "aws_cloudfront_function" "security_headers" {
-  name    = length("${var.distribution_name}-security-headers") > 64 ? "${substr(var.distribution_name, 0, 47)}-${substr(var.distribution_name, -8, -1)}-headers" : "${var.distribution_name}-security-headers"
+  name    = length("${var.distribution_name}-sec-fn-${random_id.policy_suffix.hex}") > 64 ? "${substr(var.distribution_name, 0, 47)}-fn-${random_id.policy_suffix.hex}" : "${var.distribution_name}-sec-fn-${random_id.policy_suffix.hex}"
   runtime = "cloudfront-js-1.0"
   comment = "Add security headers to all responses"
   publish = true
@@ -62,7 +66,7 @@ resource "aws_cloudfront_distribution" "website" {
     viewer_protocol_policy = "redirect-to-https"
 
     cache_policy_id            = aws_cloudfront_cache_policy.website.id
-    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.cors_s3_origin.id
+    origin_request_policy_id   = var.managed_cors_s3_origin_policy_id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
 
     function_association {
@@ -80,8 +84,8 @@ resource "aws_cloudfront_distribution" "website" {
     compress               = true
     viewer_protocol_policy = "redirect-to-https"
 
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.cors_s3_origin.id
+    cache_policy_id          = var.managed_caching_disabled_policy_id
+    origin_request_policy_id = var.managed_cors_s3_origin_policy_id
   }
 
   # Geographic Restrictions
@@ -130,9 +134,14 @@ resource "aws_cloudfront_distribution" "website" {
   })
 }
 
+# Generate random suffix for unique policy names
+resource "random_id" "policy_suffix" {
+  byte_length = 4
+}
+
 # Custom Cache Policy
 resource "aws_cloudfront_cache_policy" "website" {
-  name        = "${var.distribution_name}-cache-policy"
+  name        = "${var.distribution_name}-cache-${random_id.policy_suffix.hex}"
   comment     = "Cache policy for ${var.distribution_name}"
   default_ttl = 86400    # 1 day
   max_ttl     = 31536000 # 1 year
@@ -167,7 +176,7 @@ resource "aws_cloudfront_cache_policy" "website" {
 
 # Response Headers Policy for Security
 resource "aws_cloudfront_response_headers_policy" "security_headers" {
-  name    = "${var.distribution_name}-security-headers"
+  name    = "${var.distribution_name}-sec-headers-${random_id.policy_suffix.hex}"
   comment = "Security headers policy for ${var.distribution_name}"
 
   security_headers_config {
@@ -221,14 +230,6 @@ resource "aws_cloudfront_response_headers_policy" "security_headers" {
   }
 }
 
-# Data sources for AWS managed policies
-data "aws_cloudfront_cache_policy" "caching_disabled" {
-  name = "Managed-CachingDisabled"
-}
-
-data "aws_cloudfront_origin_request_policy" "cors_s3_origin" {
-  name = "Managed-CORS-S3Origin"
-}
 
 # CloudFront Monitoring Alarm
 resource "aws_cloudwatch_metric_alarm" "cloudfront_4xx_error_rate" {

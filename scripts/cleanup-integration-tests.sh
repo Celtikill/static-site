@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 PATTERN="${1:-integration-test}"
-REGIONS=("us-east-1" "us-east-2")
+REGIONS=("us-east-1" "us-west-2" "us-east-2")
 DRY_RUN="${DRY_RUN:-false}"
 
 echo -e "${GREEN}Integration Test Resource Cleanup${NC}"

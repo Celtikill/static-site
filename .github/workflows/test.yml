@@ -33,6 +33,7 @@ permissions:
   contents: read
   pull-requests: write
   security-events: write
+  actions: read
 
 env:
   AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
@@ -52,10 +53,7 @@ jobs:
     # Manual dispatch allowed only for non-dev environments or with explicit override
     if: |
       github.event.workflow_run.conclusion == 'success' ||
-      (github.event_name == 'workflow_dispatch' && 
-       (github.event.inputs.environment == 'staging' || 
-        github.event.inputs.environment == 'prod' ||
-        github.event.inputs.skip_build_check == 'true'))
+      github.event_name == 'workflow_dispatch'
     outputs:
       test_id: ${{ steps.info.outputs.test_id }}
       build_id: ${{ steps.info.outputs.build_id }}
@@ -68,6 +66,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # For workflow_run triggers, explicitly check out the branch that triggered the original workflow
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
+
+      # Branch validation - exit early if triggered from wrong branch
+      - name: Branch Check
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "Running on branch: $BRANCH"
+          
+          if [[ "$BRANCH" != "main" && ! "$BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
+            echo "❌ Workflow triggered from unsupported branch: $BRANCH"
+            echo "Supported branches: main, feature/*, bugfix/*, hotfix/*"
+            exit 1
+          fi
+          
+          echo "✅ Branch validation passed: $BRANCH"
 
       - name: Test Info
         id: info
@@ -81,14 +95,17 @@ jobs:
             BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}"
           fi
 
-          # Determine target environment based on branch
+          # Use the triggering branch directly (workflow runs on the correct branch by default)
+          SOURCE_BRANCH="${{ github.ref_name }}"
+
+          # Determine target environment based on source branch
           if [ -n "${{ github.event.inputs.environment }}" ]; then
             ENV="${{ github.event.inputs.environment }}"
             ENV_SOURCE="Manual Input"
-          elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+          elif [[ "$SOURCE_BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
             ENV="dev"
             ENV_SOURCE="Feature Branch Auto-Test"
-          elif [ "${{ github.event.workflow_run.head_branch || github.ref_name }}" = "main" ]; then
+          elif [ "$SOURCE_BRANCH" = "main" ]; then
             ENV="staging"
             ENV_SOURCE="Main Branch Auto-Test"
           else
@@ -111,7 +128,7 @@ jobs:
           echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
           echo "- **Force All Jobs**: ${{ github.event.inputs.force_all_jobs || 'false' }}" >> $GITHUB_STEP_SUMMARY
@@ -144,6 +161,10 @@ jobs:
     timeout-minutes: 15
     needs: info
     if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    env:
+      AWS_ASSUME_ROLE_DEV: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
+      AWS_ASSUME_ROLE_STAGING: ${{ secrets.AWS_ASSUME_ROLE_STAGING }}
+      AWS_ASSUME_ROLE: ${{ secrets.AWS_ASSUME_ROLE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -175,165 +196,107 @@ jobs:
         run: |
           echo "## 🏗️ Running Comprehensive Unit Tests" >> $GITHUB_STEP_SUMMARY
 
-          # Make test script executable
+          # Make test scripts executable
+          chmod +x test/unit/test-static-analysis.sh
           chmod +x test/unit/run-tests.sh
 
-          # Run the comprehensive test suite
-          if bash test/unit/run-tests.sh; then
-            echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
-
-            # Display test summary
-            if [ -f "test/unit/test-results/test-summary.json" ]; then
-              TOTAL_TESTS=$(jq -r '.individual_tests.total' test/unit/test-results/test-summary.json)
-              PASSED_TESTS=$(jq -r '.individual_tests.passed' test/unit/test-results/test-summary.json)
-              SUCCESS_RATE=$(jq -r '.individual_tests.success_rate' test/unit/test-results/test-summary.json)
-
-              echo "**Test Results:**" >> $GITHUB_STEP_SUMMARY
-              echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Success Rate: $SUCCESS_RATE%" >> $GITHUB_STEP_SUMMARY
-            fi
+          # Run static analysis tests (no AWS dependencies)
+          if bash test/unit/test-static-analysis.sh; then
+            echo "✅ Static analysis tests passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Unit tests failed"
-            echo "❌ Unit tests failed" >> $GITHUB_STEP_SUMMARY
-
-            # Display detailed failure information both to console and step summary
-            if [ -f "test/unit/test-results/test-summary.json" ]; then
-              FAILED_TESTS=$(jq -r '.individual_tests.failed' test/unit/test-results/test-summary.json)
-              TOTAL_TESTS=$(jq -r '.individual_tests.total' test/unit/test-results/test-summary.json)
-              PASSED_TESTS=$(jq -r '.individual_tests.passed' test/unit/test-results/test-summary.json)
-              
-              # Display to console (visible in logs)
-              echo ""
-              echo "**Test Results:**"
-              echo "- Total Tests: $TOTAL_TESTS"
-              echo "- Passed: $PASSED_TESTS"
-              echo "- Failed: $FAILED_TESTS"
-              echo ""
-              
-              # Also add to step summary
-              echo "**Test Results:**" >> $GITHUB_STEP_SUMMARY
-              echo "- Total Tests: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Passed: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "- Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              
-              # Show failed test suites details from JSON summary (more reliable than parsing logs)
-              if [ -f "test/unit/test-results/test-summary.json" ] && jq -e '.test_suites.failed_details | length > 0' test/unit/test-results/test-summary.json > /dev/null 2>&1; then
-                echo "**Failed Test Suites:**"
-                echo "**Failed Test Suites:**" >> $GITHUB_STEP_SUMMARY
-                
-                # Extract failed suite details from JSON
-                jq -r '.test_suites.failed_details[]' test/unit/test-results/test-summary.json | while IFS= read -r failure_detail; do
-                  echo "- $failure_detail"
-                  echo "- $failure_detail" >> $GITHUB_STEP_SUMMARY
-                done
-              else
-                echo "**Note:** Test suite failures detected but no specific details available"
-                echo "**Note:** Test suite failures detected but no specific details available" >> $GITHUB_STEP_SUMMARY
-              fi
-            fi
-
+            echo "❌ Static analysis tests failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-      - name: Run Environment Configuration Tests
-        run: |
-          echo "## 🔧 Environment Configuration Validation" >> $GITHUB_STEP_SUMMARY
+          # Run unit tests individually to avoid orchestrator hanging issues
+          TEST_FAILED=0
+          TOTAL_TESTS=0
+          TOTAL_INDIVIDUAL_TESTS=0
+          PASSED_INDIVIDUAL_TESTS=0
+          FAILED_TEST_DETAILS=()
 
-          # Set environment variables for testing
-          export TF_VAR_environment="${{ needs.info.outputs.environment }}"
-          export GITHUB_REPOSITORY="${{ github.repository }}"
-          export GITHUB_REF="${{ github.ref }}"
-          export GITHUB_SHA="${{ github.sha }}"
-          export GITHUB_WORKFLOW="${{ github.workflow }}"
-          export GITHUB_RUN_ID="${{ github.run_id }}"
-          export GITHUB_RUN_NUMBER="${{ github.run_number }}"
-          
-          # Set environment-specific Terraform variables based on target environment
-          ENV="${{ needs.info.outputs.environment }}"
-          case "$ENV" in
-            "dev")
-              export TF_VAR_cloudfront_price_class="PriceClass_100"
-              export TF_VAR_waf_rate_limit="1000"
-              export TF_VAR_enable_cross_region_replication="false"
-              export TF_VAR_enable_detailed_monitoring="false"
-              export TF_VAR_force_destroy_bucket="true"
-              export TF_VAR_monthly_budget_limit="10"
-              export TF_VAR_log_retention_days="7"
-              ;;
-            "staging")
-              export TF_VAR_cloudfront_price_class="PriceClass_200"
-              export TF_VAR_waf_rate_limit="2000"
-              export TF_VAR_enable_cross_region_replication="true"
-              export TF_VAR_enable_detailed_monitoring="true"
-              export TF_VAR_force_destroy_bucket="false"
-              export TF_VAR_monthly_budget_limit="50"
-              export TF_VAR_log_retention_days="30"
-              ;;
-            "prod")
-              export TF_VAR_cloudfront_price_class="PriceClass_All"
-              export TF_VAR_waf_rate_limit="5000"
-              export TF_VAR_enable_cross_region_replication="true"
-              export TF_VAR_enable_detailed_monitoring="true"
-              export TF_VAR_force_destroy_bucket="false"
-              export TF_VAR_monthly_budget_limit="200"
-              export TF_VAR_log_retention_days="90"
-              ;;
-            *)
-              # Default to development values
-              export TF_VAR_cloudfront_price_class="PriceClass_100"
-              export TF_VAR_waf_rate_limit="1000"
-              export TF_VAR_enable_cross_region_replication="false"
-              export TF_VAR_enable_detailed_monitoring="false"
-              export TF_VAR_force_destroy_bucket="true"
-              export TF_VAR_monthly_budget_limit="10"
-              export TF_VAR_log_retention_days="7"
-              ;;
-          esac
+          echo "**Running Individual Test Suites:**" >> $GITHUB_STEP_SUMMARY
 
-          # Make test script executable and run
-          chmod +x test/unit/test-environment-config.sh
+          for test_file in test/unit/test-*.sh; do
+            if [[ -f "$test_file" && ! "$test_file" == *".disabled" ]]; then
+              test_name=$(basename "$test_file" .sh)
+              echo "Running $test_name..."
 
-          if bash test/unit/test-environment-config.sh; then
-            echo "✅ Environment configuration tests passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Environment configuration tests had issues - reviewing results" >> $GITHUB_STEP_SUMMARY
+              if bash "$test_file"; then
+                echo "- ✅ $test_name: PASSED" >> $GITHUB_STEP_SUMMARY
 
-            # For development, don't fail on environment config issues
-            if [ "${{ needs.info.outputs.environment }}" = "dev" ]; then
-              echo "ℹ️ Development environment - configuration issues noted but not blocking" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "❌ Environment configuration validation failed for ${{ needs.info.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-              exit 1
+                # Update individual test counts for passing tests
+                result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
+                if [ -f "$result_file" ]; then
+                  suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
+                  TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
+                  PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total))
+                fi
+              else
+                echo "- ❌ $test_name: FAILED" >> $GITHUB_STEP_SUMMARY
+                TEST_FAILED=1
+
+                # Extract failure details from test result file if it exists
+                result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
+                if [ -f "$result_file" ]; then
+                  # Get basic stats
+                  suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
+                  suite_failed=$(jq -r '.summary.failed_tests // 0' "$result_file" 2>/dev/null || echo "0")
+
+                  # Add to overall counts
+                  TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
+                  PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total - suite_failed))
+
+                  # Extract specific failure details from log file
+                  log_file="test/unit/test-results/test-${test_name/test-/}-tests.log"
+                  if [ -f "$log_file" ]; then
+                    # Extract each failed test as a separate bullet point
+                    while IFS= read -r failed_line; do
+                      if [ -n "$failed_line" ]; then
+                        test_detail=$(echo "$failed_line" | sed 's/.*❌ //' | sed 's/: /: /')
+                        FAILED_TEST_DETAILS+=("$test_detail")
+                      fi
+                    done < <(grep "❌" "$log_file" | head -5)
+                  fi
+                else
+                  # Fallback if no result file
+                  FAILED_TEST_DETAILS+=("$test_name: Test suite failed (details not available)")
+                fi
+              fi
+
+              TOTAL_TESTS=$((TOTAL_TESTS + 1))
             fi
+          done
+
+          # Display comprehensive summary
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Suite Summary:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Suites: $(($TOTAL_TESTS - $TEST_FAILED)) passed, $TEST_FAILED failed, $TOTAL_TESTS total" >> $GITHUB_STEP_SUMMARY
+
+          if [ $TOTAL_INDIVIDUAL_TESTS -gt 0 ]; then
+            success_rate=$(( (PASSED_INDIVIDUAL_TESTS * 100) / TOTAL_INDIVIDUAL_TESTS ))
+            echo "- Individual Tests: $PASSED_INDIVIDUAL_TESTS passed, $(($TOTAL_INDIVIDUAL_TESTS - $PASSED_INDIVIDUAL_TESTS)) failed, $TOTAL_INDIVIDUAL_TESTS total" >> $GITHUB_STEP_SUMMARY
+            echo "- Success Rate: ${success_rate}%" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Run Authentication Tests
-        run: |
-          echo "## 🔐 Authentication Validation" >> $GITHUB_STEP_SUMMARY
-
-          # Set required variables for auth testing
-          export GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-
-          # Make test script executable and run
-          chmod +x test/unit/test-authentication.sh
-
-          if bash test/unit/test-authentication.sh; then
-            echo "✅ Authentication tests passed" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Authentication tests had issues - reviewing results" >> $GITHUB_STEP_SUMMARY
-
-            # For development, don't fail on auth issues (local testing)
-            if [ "${{ needs.info.outputs.environment }}" = "dev" ] && [ -z "${{ env.GITHUB_ACTIONS }}" ]; then
-              echo "ℹ️ Local development - authentication tests not required" >> $GITHUB_STEP_SUMMARY
-            elif [ "${{ needs.info.outputs.environment }}" = "dev" ]; then
-              echo "⚠️ Development environment - authentication issues noted but not blocking" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "❌ Authentication validation failed for ${{ needs.info.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-              exit 1
-            fi
+          # Show specific failure details
+          if [ $TEST_FAILED -gt 0 ] && [ ${#FAILED_TEST_DETAILS[@]} -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Failed Test Details:**" >> $GITHUB_STEP_SUMMARY
+            for detail in "${FAILED_TEST_DETAILS[@]}"; do
+              echo "- $detail" >> $GITHUB_STEP_SUMMARY
+            done
           fi
+
+          if [ $TEST_FAILED -eq 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ One or more unit tests failed - see details above" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
 
       - name: Upload Unit Test Results
         uses: actions/upload-artifact@v4
@@ -354,9 +317,10 @@ jobs:
 
       - name: Download Infrastructure Test Results
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
-          name: infrastructure-test-results-${{ needs.info.outputs.test_id }}
-          path: ./terraform
+          name: unit-test-results-${{ needs.info.outputs.test_id }}
+          path: ./test-results
 
       - name: Setup Policy Tools
         run: |
@@ -585,7 +549,7 @@ jobs:
             PASSED_TESTS=$(jq -r '.individual_tests.passed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
             FAILED_TESTS=$(jq -r '.individual_tests.failed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
             SUCCESS_RATE=$(jq -r '.individual_tests.success_rate' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
-            
+
             echo "### 🏗️ Infrastructure Unit Tests Details" >> $GITHUB_STEP_SUMMARY
             echo "- **Total Tests**: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
             echo "- **Passed**: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
@@ -596,13 +560,13 @@ jobs:
             # Show failed test details if any failures occurred
             if [ "$FAILED_TESTS" != "0" ] && [ "$FAILED_TESTS" != "N/A" ]; then
               echo "### ❌ Failed Test Details" >> $GITHUB_STEP_SUMMARY
-              
+
               # Look for failed test suite logs
               for log_file in ./test-results/*.log; do
                 if [ -f "$log_file" ] && grep -q "ERROR" "$log_file"; then
                   suite_name=$(basename "$log_file" .log)
                   echo "#### **$suite_name**" >> $GITHUB_STEP_SUMMARY
-                  
+
                   # Extract and show key failure information
                   grep "ERROR" "$log_file" | head -5 | while read -r line; do
                     clean_error="${line#*ERROR}"

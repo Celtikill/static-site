@@ -70,11 +70,19 @@ This project implements a simplified 3-phase deployment strategy with comprehens
 
 ### 🔀 Deployment Flow
 
-1. **BUILD Phase**: Code validation, security scanning (Checkov/Trivy), artifact creation
-2. **TEST Phase**: Quality gates, policy validation (OPA/Rego), compliance checks
-3. **RUN Phase**: Environment-specific deployment operations (unified workflow)
+1. **BUILD Phase** (~5-8 min): Code validation, security scanning (Checkov/Trivy), artifact creation
+2. **TEST Phase** (~8-15 min): Quality gates, policy validation (OPA/Rego), compliance checks
+3. **RUN Phase** (~10-15 min): Environment-specific deployment operations (unified workflow)
 
 ### 🎯 Environment Routing & Workflow Interaction
+
+#### Branch-to-Environment Mapping
+| Branch Pattern | Environment | Deployment Type | Approval Required |
+|---------------|-------------|-----------------|-------------------|
+| `feature/*`, `bugfix/*` | Development | Automatic | No |
+| `main` (via PR) | Staging | Manual trigger | No |
+| `main` (via Release) | Production | Tag-based | Code owners only |
+| `hotfix/*` | Staging → Production | Emergency path | Code owners only |
 
 #### Automatic Deployment Patterns
 1. **Feature Development**: `feature/*` → BUILD → TEST → RUN (development)
@@ -136,6 +144,10 @@ The project uses a simplified status monitoring approach:
 - **Pipeline Status**: Native GitHub Actions workflow badges for build/test/release
 - **Quality Metrics**: Static badges for security, policy, cost, and uptime monitoring
 - **Deployment Tracking**: GitHub Deployments API provides detailed deployment history
+- **Performance Baselines**: 
+  - Initial deployment: ~30-45 minutes (including CloudFront propagation)
+  - Subsequent deployments: ~15-20 minutes
+  - Hotfix deployments: ~10-15 minutes
 
 ## 🚀 Quick Start
 

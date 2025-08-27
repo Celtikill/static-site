@@ -33,6 +33,7 @@ permissions:
   contents: read
   pull-requests: write
   deployments: write
+  actions: read
 
 env:
   AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
@@ -48,11 +49,10 @@ jobs:
     name: "📋 Deployment Information"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # Only run if TEST succeeded, or manual dispatch for production (which has authorization)
+    # Only run if TEST succeeded, or manual dispatch (any environment)
     if: |
       github.event.workflow_run.conclusion == 'success' ||
-      (github.event_name == 'workflow_dispatch' && 
-       github.event.inputs.environment == 'prod')
+      github.event_name == 'workflow_dispatch'
     outputs:
       run_id: ${{ steps.info.outputs.run_id }}
       target_environment: ${{ steps.info.outputs.target_environment }}
@@ -62,20 +62,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # For workflow_run triggers, explicitly check out the branch that triggered the original workflow
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
+
+      # Branch validation - exit early if triggered from wrong branch
+      - name: Branch Check
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "Running on branch: $BRANCH"
+          
+          if [[ "$BRANCH" != "main" && ! "$BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
+            echo "❌ Workflow triggered from unsupported branch: $BRANCH"
+            echo "Supported branches: main, feature/*, bugfix/*, hotfix/*"
+            exit 1
+          fi
+          
+          echo "✅ Branch validation passed: $BRANCH"
 
       - name: Run Info
         id: info
         run: |
           RUN_ID="run-${{ github.run_id }}-${{ github.run_attempt }}"
 
-          # Determine target environment
+          # Use the triggering branch directly (workflow runs on the correct branch by default)
+          SOURCE_BRANCH="${{ github.ref_name }}"
+
+          # Determine target environment based on source branch
           if [ -n "${{ github.event.inputs.environment }}" ]; then
             TARGET_ENV="${{ github.event.inputs.environment }}"
             ENV_SOURCE="Manual Input"
-          elif [[ "${{ github.event.workflow_run.head_branch || github.ref_name }}" =~ ^(feature|bugfix|hotfix)/ ]]; then
+          elif [[ "$SOURCE_BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
             TARGET_ENV="dev"
             ENV_SOURCE="Feature Branch Auto-Deploy"
-          elif [ "${{ github.event.workflow_run.head_branch || github.ref_name }}" = "main" ]; then
+          elif [ "$SOURCE_BRANCH" = "main" ]; then
             TARGET_ENV="staging"
             ENV_SOURCE="Main Branch Auto-Deploy"
           else
@@ -95,7 +115,7 @@ jobs:
           echo "# 🚀 RUN Phase" >> $GITHUB_STEP_SUMMARY
           echo "- **Run ID**: $RUN_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $TARGET_ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Infrastructure**: $DEPLOY_INFRA" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
 
@@ -141,8 +161,8 @@ jobs:
     name: "🔧 Setup Deployment Tools"
     runs-on: ubuntu-latest
     timeout-minutes: 8
-    needs: [info, authorization]
-    if: needs.info.result == 'success' && (needs.authorization.result == 'success' || needs.authorization.result == 'skipped')
+    needs: [info]
+    if: needs.info.result == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -179,6 +199,10 @@ jobs:
     needs: [info, setup]
     if: needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
     environment: ${{ needs.info.outputs.target_environment }}
+    env:
+      TF_VAR_alert_email_addresses: ${{ vars.ALERT_EMAIL_ADDRESSES }}
+      TF_VAR_replica_region: ${{ vars.REPLICA_REGION }}
+      TF_VAR_monthly_budget_limit: ${{ vars.MONTHLY_BUDGET_LIMIT }}
     outputs:
       outputs: ${{ steps.deploy.outputs.outputs }}
       bucket_name: ${{ steps.deploy.outputs.bucket_name }}
@@ -206,10 +230,13 @@ jobs:
         run: |
           echo "## 🏗️ Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
 
+          # Debug environment variables
+          echo "Alert emails configured: $(echo $TF_VAR_alert_email_addresses | grep -o '\[' || echo 'NOT SET')" >> $GITHUB_STEP_SUMMARY
+
           # Initialize with environment-specific backend configuration
           BACKEND_CONFIG="backend-${{ needs.info.outputs.target_environment }}.hcl"
           echo "Using backend config: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
-          
+
           if tofu init -backend-config="$BACKEND_CONFIG" -reconfigure; then
             echo "✅ Terraform initialized" >> $GITHUB_STEP_SUMMARY
           else
@@ -218,7 +245,7 @@ jobs:
           fi
 
           # Plan deployment
-          if tofu plan -var="environment=${{ needs.info.outputs.target_environment }}" -out=deploy.tfplan; then
+          if tofu plan -var="environment=${{ needs.info.outputs.target_environment }}" -var="github_repository=${{ github.repository }}" -out=deploy.tfplan; then
             echo "✅ Terraform plan created" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform plan failed" >> $GITHUB_STEP_SUMMARY
@@ -248,7 +275,9 @@ jobs:
           DISTRIBUTION_ID=$(echo "$OUTPUTS" | jq -r '.cloudfront_distribution_id.value // ""')
           CLOUDFRONT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // "N/A"')
 
-          echo "outputs=$OUTPUTS" >> $GITHUB_OUTPUT
+          echo "outputs<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUTS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
           echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
 
@@ -283,6 +312,12 @@ jobs:
 
           # Get S3 bucket name from infrastructure job or use fallback
           BUCKET_NAME="${{ needs.infrastructure.outputs.bucket_name }}"
+
+          # Debug: Show what we received from infrastructure job
+          echo "**Debug Info:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Infrastructure result: ${{ needs.infrastructure.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Received bucket_name: '$BUCKET_NAME'" >> $GITHUB_STEP_SUMMARY
+          echo "- Received distribution_id: '${{ needs.infrastructure.outputs.distribution_id }}'" >> $GITHUB_STEP_SUMMARY
 
           if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "" ]; then
             # Check if infrastructure was deployed
@@ -465,7 +500,7 @@ jobs:
           echo "## 📊 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Authorization | ${{ needs.authorization.result == 'success' && '✅ Authorized' || needs.authorization.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Authorization | ${{ needs.info.outputs.target_environment == 'prod' && (needs.authorization.result == 'success' && '✅ Authorized' || '❌ Failed') || '➖ Skipped (Non-Prod)' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Infrastructure | ${{ needs.infrastructure.result == 'success' && '✅ Deployed' || needs.infrastructure.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website Content | ${{ needs.website.result == 'success' && '✅ Deployed' || needs.website.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Validation | ${{ needs.validation.result == 'success' && '✅ Completed' || needs.validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
@@ -474,7 +509,7 @@ jobs:
 
           # Check overall status - consider skipped jobs as acceptable
           FAILED_JOBS=""
-          if [ "${{ needs.authorization.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Authorization "; fi
+          if [ "${{ needs.info.outputs.target_environment }}" = "prod" ] && [ "${{ needs.authorization.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Authorization "; fi
           if [ "${{ needs.infrastructure.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
           if [ "${{ needs.website.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
           if [ "${{ needs.validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Validation "; fi

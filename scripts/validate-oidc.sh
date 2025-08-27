@@ -110,7 +110,7 @@ check_oidc_provider() {
 }
 
 check_iam_role() {
-    local role_name="${1:-github-actions-static-site}"
+    local role_name="${1:-static-site-github-actions}"
     log_info "Checking IAM role: $role_name"
     
     if aws iam get-role --role-name "$role_name" &> /dev/null; then
@@ -265,7 +265,7 @@ EOF
 
 print_setup_commands() {
     local repository="$1"
-    local role_name="${2:-github-actions-static-site}"
+    local role_name="${2:-static-site-github-actions}"
     local account_id=$(aws sts get-caller-identity --query Account --output text)
     
     log_info "Setup commands for repository: $repository"
@@ -308,7 +308,7 @@ main() {
     
     # Parse arguments
     local repository=""
-    local role_name="github-actions-static-site"
+    local role_name="static-site-github-actions"
     local show_setup=false
     
     while [[ $# -gt 0 ]]; do
@@ -329,7 +329,7 @@ main() {
                 echo "Usage: $0 [OPTIONS]"
                 echo "Options:"
                 echo "  -r, --repository REPO    GitHub repository (owner/name)"
-                echo "  --role-name NAME         IAM role name (default: github-actions-static-site)"
+                echo "  --role-name NAME         IAM role name (default: static-site-github-actions)"
                 echo "  --setup                  Show setup commands"
                 echo "  -h, --help              Show this help"
                 exit 0

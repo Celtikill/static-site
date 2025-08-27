@@ -3,9 +3,9 @@
 
 # Core S3 Backend Configuration
 # Following 12-factor app principles with environment variable support
-bucket                     = "static-site-terraform-state-us-east-2"
+bucket                     = "static-site-terraform-state-us-east-1"
 key                        = "environments/dev/terraform.tfstate"
-region                     = "us-east-2"
+region                     = "us-east-1"
 encrypt                    = true
 # Use default AWS managed key instead of non-existent alias
 
@@ -20,7 +20,7 @@ skip_s3_checksum          = false
 
 # Performance and Reliability
 max_retries               = 3
-force_path_style          = false
+use_path_style            = false
 
 # Development Environment Optimizations
 # - Faster iteration cycles
