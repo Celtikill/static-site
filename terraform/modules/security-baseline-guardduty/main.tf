@@ -55,23 +55,9 @@ resource "aws_guardduty_organization_configuration" "main" {
   auto_enable = var.auto_enable_for_new_accounts
   detector_id = aws_guardduty_detector.main.id
   
-  datasources {
-    s3_logs {
-      enable = var.auto_enable_s3_protection
-    }
-    kubernetes {
-      audit_logs {
-        enable = var.auto_enable_kubernetes_protection
-      }
-    }
-    malware_protection {
-      scan_ec2_instance_with_findings {
-        ebs_volumes {
-          enable = var.auto_enable_malware_protection
-        }
-      }
-    }
-  }
+  auto_enable_s3_logs                 = var.auto_enable_s3_protection
+  auto_enable_kubernetes              = var.auto_enable_kubernetes_protection  
+  auto_enable_malware_protection      = var.auto_enable_malware_protection
   
   depends_on = [aws_guardduty_organization_admin_account.security_admin]
 }
