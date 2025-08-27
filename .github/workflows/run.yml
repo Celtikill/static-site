@@ -301,6 +301,12 @@ jobs:
 
           # Get S3 bucket name from infrastructure job or use fallback
           BUCKET_NAME="${{ needs.infrastructure.outputs.bucket_name }}"
+          
+          # Debug: Show what we received from infrastructure job
+          echo "**Debug Info:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Infrastructure result: ${{ needs.infrastructure.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Received bucket_name: '$BUCKET_NAME'" >> $GITHUB_STEP_SUMMARY
+          echo "- Received distribution_id: '${{ needs.infrastructure.outputs.distribution_id }}'" >> $GITHUB_STEP_SUMMARY
 
           if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" = "" ]; then
             # Check if infrastructure was deployed
