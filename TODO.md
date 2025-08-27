@@ -5,6 +5,20 @@
 **Phase 3: Version Management** - HIGH Priority ⚡
 **Phase 5: Documentation** - HIGH Priority ⚡
 
+### Documentation Tasks (Recently Completed)
+- [x] Update CLAUDE.md with accurate job counts and remove archived workflow references
+- [x] Create TROUBLESHOOTING.md with common CI/CD issues and solutions
+- [x] Enhance README.md with performance baselines and clearer environment routing
+- [x] Update docs/architecture/cicd.md with missing workflow details
+- [x] Create docs/workflows/secrets-and-variables.md for secrets documentation
+
+### Documentation Tasks (Next Sprint)
+- [ ] Add workflow execution time benchmarks to all workflow documentation
+- [ ] Create visual workflow decision tree diagram
+- [ ] Document rollback procedures in detail
+- [ ] Add cost estimation guidelines for each environment
+- [ ] Create developer onboarding guide with setup checklist
+
 ---
 
 ## UX Implementation (Ready for Development)
