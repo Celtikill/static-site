@@ -86,6 +86,11 @@ output "github_oidc_provider_arn" {
   value       = data.aws_iam_openid_connect_provider.github.arn
 }
 
+output "oidc_provider_arn" {
+  description = "ARN of the GitHub OIDC identity provider (alias for compatibility)"
+  value       = data.aws_iam_openid_connect_provider.github.arn
+}
+
 # Monitoring Outputs
 output "sns_topic_arn" {
   description = "ARN of the SNS topic for alerts"
