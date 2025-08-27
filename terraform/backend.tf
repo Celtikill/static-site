@@ -20,7 +20,6 @@ terraform {
     skip_region_validation      = false
     skip_credentials_validation = false
     skip_metadata_api_check     = false
-    force_path_style            = false
 
     # Workspace configuration for multi-environment support
     workspace_key_prefix = "env"
