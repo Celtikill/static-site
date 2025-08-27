@@ -28,7 +28,7 @@ skip_metadata_api_check   = false
 
 # Performance Settings
 max_retries               = 5
-force_path_style          = false
+use_path_style            = false
 
 # Required Replacements:
 # {ACCOUNT-ID}    - Your AWS Account ID
