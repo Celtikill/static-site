@@ -113,7 +113,7 @@ echo -n "Attaching monitoring policy... "
 aws iam put-role-policy \
     --role-name static-site-github-actions \
     --policy-name static-site-monitoring-policy \
-    --policy-document file://docs/iam-policies/github-actions-monitoring-policy-secure.json
+    --policy-document file://docs/iam-policies/github-actions-monitoring-policy.json
 echo -e "${GREEN}✓${NC}"
 
 # Step 5: Create S3 Replication Role (if needed)
