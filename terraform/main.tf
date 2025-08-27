@@ -163,14 +163,14 @@ resource "time_sleep" "waf_propagation" {
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
   source = "./modules/cloudfront"
-  # depends_on = [time_sleep.waf_propagation]  # Temporarily disabled for testing
+  depends_on = [time_sleep.waf_propagation]
 
   distribution_name                  = local.distribution_name
   distribution_comment               = "Static website CDN for ${local.project_name}"
   s3_bucket_id                       = module.s3.bucket_id
   s3_bucket_domain_name              = module.s3.bucket_regional_domain_name
   web_acl_id                         = module.waf.web_acl_id
-  waf_web_acl_dependency             = null  # Temporarily disabled for testing
+  waf_web_acl_dependency             = module.waf.web_acl_arn
   price_class                        = var.cloudfront_price_class
   acm_certificate_arn                = var.acm_certificate_arn
   domain_aliases                     = var.domain_aliases
