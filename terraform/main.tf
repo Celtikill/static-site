@@ -132,6 +132,7 @@ module "s3" {
 
 # WAF Module - Web Application Firewall for security (must be in us-east-1 for CloudFront)
 module "waf" {
+  count  = var.enable_waf ? 1 : 0
   source = "./modules/waf"
 
   providers = {
@@ -154,23 +155,25 @@ module "waf" {
 }
 
 # Wait for WAF Web ACL to be fully propagated
+# AWS WAF resources can take 5-10 minutes to propagate globally for CloudFront
 resource "time_sleep" "waf_propagation" {
+  count      = var.enable_waf ? 1 : 0
   depends_on = [module.waf]
 
-  create_duration = "2m"
+  create_duration = "5m"
 }
 
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
   source     = "./modules/cloudfront"
-  depends_on = [time_sleep.waf_propagation]
+  depends_on = var.enable_waf ? [time_sleep.waf_propagation[0]] : []
 
   distribution_name                  = local.distribution_name
   distribution_comment               = "Static website CDN for ${local.project_name}"
   s3_bucket_id                       = module.s3.bucket_id
   s3_bucket_domain_name              = module.s3.bucket_regional_domain_name
-  web_acl_id                         = module.waf.web_acl_id
-  waf_web_acl_dependency             = module.waf.web_acl_arn
+  web_acl_id                         = var.enable_waf ? module.waf[0].web_acl_id : null
+  waf_web_acl_dependency             = var.enable_waf ? module.waf[0].web_acl_arn : null
   price_class                        = var.cloudfront_price_class
   acm_certificate_arn                = var.acm_certificate_arn
   domain_aliases                     = var.domain_aliases
@@ -206,7 +209,7 @@ module "monitoring" {
   project_name                    = local.project_name
   cloudfront_distribution_id      = module.cloudfront.distribution_id
   s3_bucket_name                  = module.s3.bucket_id
-  waf_web_acl_name                = module.waf.web_acl_name
+  waf_web_acl_name                = var.enable_waf ? module.waf[0].web_acl_name : ""
   aws_region                      = data.aws_region.current.name
   alert_email_addresses           = var.alert_email_addresses
   kms_key_arn                     = var.kms_key_arn

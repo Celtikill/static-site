@@ -162,6 +162,12 @@ variable "cors_origins" {
 }
 
 # WAF Configuration
+variable "enable_waf" {
+  description = "Enable WAF Web ACL for CloudFront distribution"
+  type        = bool
+  default     = true
+}
+
 variable "waf_rate_limit" {
   description = "WAF rate limit per 5-minute period from single IP"
   type        = number
