@@ -169,7 +169,7 @@ module "cloudfront" {
   distribution_comment               = "Static website CDN for ${local.project_name}"
   s3_bucket_id                       = module.s3.bucket_id
   s3_bucket_domain_name              = module.s3.bucket_regional_domain_name
-  web_acl_id                         = null  # Temporarily disabled for testing
+  web_acl_id                         = module.waf.web_acl_id
   waf_web_acl_dependency             = null  # Temporarily disabled for testing
   price_class                        = var.cloudfront_price_class
   acm_certificate_arn                = var.acm_certificate_arn
