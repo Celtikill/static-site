@@ -102,7 +102,8 @@ jobs:
           echo "# 🚀 RUN Phase" >> $GITHUB_STEP_SUMMARY
           echo "- **Run ID**: $RUN_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $TARGET_ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: $SOURCE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deploying Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Note**: This workflow runs on main branch but deploys code from the above branch" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Infrastructure**: $DEPLOY_INFRA" >> $GITHUB_STEP_SUMMARY
           echo "- **Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
 
