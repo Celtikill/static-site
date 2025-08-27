@@ -260,9 +260,10 @@ jobs:
 
       - name: Download Infrastructure Test Results
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
-          name: infrastructure-test-results-${{ needs.info.outputs.test_id }}
-          path: ./terraform
+          name: unit-test-results-${{ needs.info.outputs.test_id }}
+          path: ./test-results
 
       - name: Setup Policy Tools
         run: |
