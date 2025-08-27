@@ -205,6 +205,10 @@ jobs:
     needs: [info, setup]
     if: needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
     environment: ${{ needs.info.outputs.target_environment }}
+    env:
+      TF_VAR_alert_email_addresses: ${{ vars.ALERT_EMAIL_ADDRESSES }}
+      TF_VAR_replica_region: ${{ vars.REPLICA_REGION }}
+      TF_VAR_monthly_budget_limit: ${{ vars.MONTHLY_BUDGET_LIMIT }}
     outputs:
       outputs: ${{ steps.deploy.outputs.outputs }}
       bucket_name: ${{ steps.deploy.outputs.bucket_name }}
@@ -232,6 +236,9 @@ jobs:
         run: |
           echo "## 🏗️ Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
 
+          # Debug environment variables
+          echo "Alert emails configured: $(echo $TF_VAR_alert_email_addresses | grep -o '\[' || echo 'NOT SET')" >> $GITHUB_STEP_SUMMARY
+          
           # Initialize with environment-specific backend configuration
           BACKEND_CONFIG="backend-${{ needs.info.outputs.target_environment }}.hcl"
           echo "Using backend config: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY

@@ -153,9 +153,17 @@ module "waf" {
   common_tags                = local.common_tags
 }
 
+# Wait for WAF Web ACL to be fully propagated
+resource "time_sleep" "waf_propagation" {
+  depends_on = [module.waf]
+  
+  create_duration = "30s"
+}
+
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
   source = "./modules/cloudfront"
+  depends_on = [time_sleep.waf_propagation]
 
   distribution_name         = local.distribution_name
   distribution_comment      = "Static website CDN for ${local.project_name}"
