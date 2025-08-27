@@ -157,7 +157,7 @@ module "waf" {
 resource "time_sleep" "waf_propagation" {
   depends_on = [module.waf]
 
-  create_duration = "30s"
+  create_duration = "90s"
 }
 
 # CloudFront Module - Global content delivery network
