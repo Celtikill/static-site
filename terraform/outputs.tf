@@ -51,17 +51,17 @@ output "cloudfront_status" {
 # WAF Outputs
 output "waf_web_acl_id" {
   description = "ID of the WAF Web ACL"
-  value       = module.waf.web_acl_id
+  value       = var.enable_waf ? module.waf[0].web_acl_id : null
 }
 
 output "waf_web_acl_arn" {
   description = "ARN of the WAF Web ACL"
-  value       = module.waf.web_acl_arn
+  value       = var.enable_waf ? module.waf[0].web_acl_arn : null
 }
 
 output "waf_web_acl_name" {
   description = "Name of the WAF Web ACL"
-  value       = module.waf.web_acl_name
+  value       = var.enable_waf ? module.waf[0].web_acl_name : null
 }
 
 # CloudFront/WAF Alerts SNS Topic
