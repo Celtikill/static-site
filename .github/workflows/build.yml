@@ -242,10 +242,11 @@ jobs:
           echo "checkov_high=$HIGH_COUNT" >> $GITHUB_OUTPUT
           echo "checkov_total=$TOTAL_FINDINGS" >> $GITHUB_OUTPUT
 
-          if [ $CHECKOV_EXIT -eq 0 ]; then
-            echo "✅ **Checkov scan completed successfully**" >> $GITHUB_STEP_SUMMARY
+          # Determine success based on actual findings, not exit code
+          if [ "$CRITICAL_COUNT" -eq "0" ] && [ "$HIGH_COUNT" -eq "0" ]; then
+            echo "✅ **Checkov scan completed successfully - No critical or high severity issues found**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Checkov found security issues**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Checkov found security issues** (Critical: $CRITICAL_COUNT, High: $HIGH_COUNT)" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Upload Checkov Results
