@@ -20,6 +20,10 @@ resource "aws_sns_topic" "alerts" {
     Name   = "${var.project_name}-alerts"
     Module = "monitoring"
   })
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
 }
 
 # SNS Topic Policy

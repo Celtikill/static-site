@@ -142,7 +142,10 @@ resource "aws_s3_bucket_replication_configuration" "website" {
   count      = var.enable_replication ? 1 : 0
   role       = var.replication_role_arn != "" ? var.replication_role_arn : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/static-site-s3-replication"
   bucket     = aws_s3_bucket.website.id
-  depends_on = [aws_s3_bucket_versioning.website]
+  depends_on = [
+    aws_s3_bucket_versioning.website,
+    aws_s3_bucket_versioning.replica
+  ]
 
   rule {
     id     = "ReplicateAll"
