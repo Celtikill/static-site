@@ -167,8 +167,8 @@ jobs:
     name: "🔧 Setup Deployment Tools"
     runs-on: ubuntu-latest
     timeout-minutes: 8
-    needs: [info, authorization]
-    if: needs.info.result == 'success' && (needs.authorization.result == 'success' || needs.authorization.result == 'skipped')
+    needs: [info]
+    if: needs.info.result == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -491,7 +491,7 @@ jobs:
           echo "## 📊 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Authorization | ${{ needs.authorization.result == 'success' && '✅ Authorized' || needs.authorization.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Authorization | ${{ needs.info.outputs.target_environment == 'prod' && (needs.authorization.result == 'success' && '✅ Authorized' || '❌ Failed') || '➖ Skipped (Non-Prod)' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Infrastructure | ${{ needs.infrastructure.result == 'success' && '✅ Deployed' || needs.infrastructure.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website Content | ${{ needs.website.result == 'success' && '✅ Deployed' || needs.website.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Validation | ${{ needs.validation.result == 'success' && '✅ Completed' || needs.validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
@@ -500,7 +500,7 @@ jobs:
 
           # Check overall status - consider skipped jobs as acceptable
           FAILED_JOBS=""
-          if [ "${{ needs.authorization.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Authorization "; fi
+          if [ "${{ needs.info.outputs.target_environment }}" = "prod" ] && [ "${{ needs.authorization.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Authorization "; fi
           if [ "${{ needs.infrastructure.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
           if [ "${{ needs.website.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
           if [ "${{ needs.validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Validation "; fi
