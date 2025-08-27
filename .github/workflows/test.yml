@@ -250,7 +250,7 @@ jobs:
                   PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total - suite_failed))
                   
                   # Extract specific failure details from log file
-                  log_file="test/unit/test-results/test-${test_name/test-/}.log"
+                  log_file="test/unit/test-results/test-${test_name/test-/}-tests.log"
                   if [ -f "$log_file" ]; then
                     failed_details=$(grep "❌" "$log_file" | head -3 | sed 's/.*❌ //' | sed 's/: /: /' || true)
                     if [ -n "$failed_details" ]; then
