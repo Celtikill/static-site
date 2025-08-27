@@ -213,7 +213,7 @@ test_infrastructure_policy_security() {
                 ;;
         esac
         
-        if echo "$policy_content" | grep -q "$permission"; then
+        if echo "$policy_content" | grep -qF "$permission"; then
             record_test_result "$test_name" "FAILED" "Policy contains dangerous permission: $permission"
         else
             record_test_result "$test_name" "PASSED" "Policy correctly excludes: $permission"
@@ -253,7 +253,7 @@ test_infrastructure_policy_security() {
                 ;;
         esac
         
-        if echo "$policy_content" | grep -q "$permission"; then
+        if echo "$policy_content" | grep -qF "$permission"; then
             record_test_result "$test_name" "PASSED" "Policy includes required permission: $permission"
         else
             record_test_result "$test_name" "FAILED" "Policy missing required permission: $permission"
