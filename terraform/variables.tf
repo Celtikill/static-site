@@ -404,3 +404,15 @@ variable "managed_cors_s3_origin_policy_id" {
   type        = string
   default     = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
 }
+
+# Cost Projection and Budget Variables
+variable "monthly_budget_limit" {
+  description = "Monthly budget limit in USD (0 to disable budget tracking)"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.monthly_budget_limit >= 0
+    error_message = "Monthly budget limit must be a positive number or zero to disable."
+  }
+}
