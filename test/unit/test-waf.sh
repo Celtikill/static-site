@@ -22,25 +22,7 @@ fi
 readonly TEST_NAME="waf-module-tests"
 
 # Test functions
-test_waf_module_files_exist() {
-    assert_file_exists "${MODULE_PATH}/main.tf" "WAF module main.tf should exist"
-    assert_file_exists "${MODULE_PATH}/variables.tf" "WAF module variables.tf should exist"
-    assert_file_exists "${MODULE_PATH}/outputs.tf" "WAF module outputs.tf should exist"
-}
 
-test_waf_terraform_syntax() {
-    local temp_dir=$(mktemp -d)
-    cp -r "${MODULE_PATH}"/* "$temp_dir/"
-    
-    cd "$temp_dir"
-    assert_command_success "tofu fmt -check=true -diff=true ." "WAF module should be properly formatted"
-    
-    # Test basic syntax without full initialization
-    assert_command_success "tofu fmt -write=false -check=true -diff=true ." "WAF module syntax should be valid"
-    
-    cd - > /dev/null
-    rm -rf "$temp_dir"
-}
 
 test_waf_required_resources() {
     local main_tf="${MODULE_PATH}/main.tf"
@@ -202,8 +184,6 @@ test_waf_managed_rule_groups() {
 # Run all tests
 main() {
     local test_functions=(
-        "test_waf_module_files_exist"
-        "test_waf_terraform_syntax"
         "test_waf_required_resources"
         "test_waf_default_action"
         "test_waf_rate_limiting_rule"

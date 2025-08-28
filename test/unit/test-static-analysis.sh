@@ -149,6 +149,58 @@ test_github_actions_environment() {
     fi
 }
 
+# Test terraform syntax and formatting across all modules
+test_terraform_syntax_validation() {
+    log_message "🧪 Testing Terraform Syntax Validation"
+    
+    # Define module directories to test
+    local modules=(
+        "terraform/modules/s3"
+        "terraform/modules/cloudfront" 
+        "terraform/modules/waf"
+        "terraform/modules/monitoring"
+        "terraform/modules/cost-projection"
+        "terraform"  # Main terraform directory
+    )
+    
+    local total_modules=0
+    local passed_modules=0
+    
+    for module_dir in "${modules[@]}"; do
+        if [[ -d "$module_dir" ]]; then
+            total_modules=$((total_modules + 1))
+            
+            # Create temporary directory to avoid modifying source files
+            local temp_dir=$(mktemp -d)
+            cp -r "$module_dir"/* "$temp_dir/" 2>/dev/null || continue
+            
+            cd "$temp_dir"
+            
+            # Test formatting compliance
+            if tofu fmt -check=true -diff=true . >/dev/null 2>&1; then
+                # Test basic syntax validation
+                if tofu fmt -write=false -check=true -diff=true . >/dev/null 2>&1; then
+                    passed_modules=$((passed_modules + 1))
+                    record_test_result "terraform_syntax_$(basename "$module_dir")" "PASSED" "$(basename "$module_dir") module has valid Terraform syntax"
+                else
+                    record_test_result "terraform_syntax_$(basename "$module_dir")" "FAILED" "$(basename "$module_dir") module has syntax errors"
+                fi
+            else
+                record_test_result "terraform_formatting_$(basename "$module_dir")" "FAILED" "$(basename "$module_dir") module formatting issues"
+            fi
+            
+            cd - >/dev/null
+            rm -rf "$temp_dir"
+        fi
+    done
+    
+    if [[ $passed_modules -eq $total_modules ]] && [[ $total_modules -gt 0 ]]; then
+        record_test_result "terraform_syntax_overall" "PASSED" "All $total_modules modules have valid Terraform syntax"
+    else
+        record_test_result "terraform_syntax_overall" "FAILED" "Terraform syntax validation failed ($passed_modules/$total_modules modules passed)"
+    fi
+}
+
 # Test branch pattern detection
 test_branch_pattern_detection() {
     log_message "🧪 Testing Branch Pattern Detection"
@@ -219,6 +271,7 @@ main() {
     test_aws_region_format
     test_environment_variable_structure
     test_github_actions_environment
+    test_terraform_syntax_validation
     test_branch_pattern_detection
     test_configuration_consistency
     

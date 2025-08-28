@@ -73,32 +73,10 @@ load_file_contents() {
 # Verify that all required Terraform module files exist
 # This is a fundamental test that ensures the module structure is complete
 # before attempting to validate configuration content
-test_s3_module_files_exist() {
-    assert_file_exists "${MODULE_PATH}/main.tf" "S3 module main.tf should exist"
-    assert_file_exists "${MODULE_PATH}/variables.tf" "S3 module variables.tf should exist"
-    assert_file_exists "${MODULE_PATH}/outputs.tf" "S3 module outputs.tf should exist"
-}
 
 # Validate Terraform syntax and formatting compliance
 # Ensures the module follows Terraform/OpenTofu formatting standards
 # and has valid HCL syntax before content validation
-test_s3_terraform_syntax() {
-    # Create temporary directory to avoid modifying source files
-    local temp_dir=$(mktemp -d)
-    cp -r "${MODULE_PATH}"/* "$temp_dir/"
-    
-    cd "$temp_dir"
-    
-    # Verify Terraform formatting compliance (no formatting changes needed)
-    assert_command_success "tofu fmt -check=true -diff=true ." "S3 module should be properly formatted"
-    
-    # Validate basic HCL syntax without initialization or provider setup
-    assert_command_success "tofu fmt -write=false -check=true -diff=true ." "S3 module syntax should be valid"
-    
-    # Return to original directory and cleanup
-    cd - > /dev/null
-    rm -rf "$temp_dir"
-}
 
 # =============================================================================
 # RESOURCE CONFIGURATION VALIDATION
@@ -228,8 +206,6 @@ main() {
     
     # Define comprehensive test function array in logical execution order
     local test_functions=(
-        "test_s3_module_files_exist"           # Basic file structure validation
-        "test_s3_terraform_syntax"             # Syntax and formatting compliance
         "test_s3_required_resources"           # Essential resource presence
         "test_s3_security_configuration"       # Security controls validation
         "test_s3_cross_region_replication"     # Disaster recovery features

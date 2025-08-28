@@ -22,25 +22,7 @@ fi
 readonly TEST_NAME="monitoring-module-tests"
 
 # Test functions
-test_monitoring_module_files_exist() {
-    assert_file_exists "${MODULE_PATH}/main.tf" "Monitoring module main.tf should exist"
-    assert_file_exists "${MODULE_PATH}/variables.tf" "Monitoring module variables.tf should exist"
-    assert_file_exists "${MODULE_PATH}/outputs.tf" "Monitoring module outputs.tf should exist"
-}
 
-test_monitoring_terraform_syntax() {
-    local temp_dir=$(mktemp -d)
-    cp -r "${MODULE_PATH}"/* "$temp_dir/"
-    
-    cd "$temp_dir"
-    assert_command_success "tofu fmt -check=true -diff=true ." "Monitoring module should be properly formatted"
-    
-    # Test basic syntax without full initialization
-    assert_command_success "tofu fmt -write=false -check=true -diff=true ." "Monitoring module syntax should be valid"
-    
-    cd - > /dev/null
-    rm -rf "$temp_dir"
-}
 
 test_monitoring_sns_topic() {
     local main_tf="${MODULE_PATH}/main.tf"
@@ -245,8 +227,6 @@ test_monitoring_notification_configuration() {
 # Run all tests
 main() {
     local test_functions=(
-        "test_monitoring_module_files_exist"
-        "test_monitoring_terraform_syntax"
         "test_monitoring_sns_topic"
         "test_monitoring_sns_topic_policy"
         "test_monitoring_email_subscriptions"

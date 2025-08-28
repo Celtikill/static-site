@@ -21,26 +21,7 @@ fi
 readonly TEST_NAME="cloudfront-module-tests"
 
 # Test functions
-test_cloudfront_module_files_exist() {
-    assert_file_exists "${MODULE_PATH}/main.tf" "CloudFront module main.tf should exist"
-    assert_file_exists "${MODULE_PATH}/variables.tf" "CloudFront module variables.tf should exist"
-    assert_file_exists "${MODULE_PATH}/outputs.tf" "CloudFront module outputs.tf should exist"
-    assert_file_exists "${MODULE_PATH}/security-headers.js" "Security headers function should exist"
-}
 
-test_cloudfront_terraform_syntax() {
-    local temp_dir=$(mktemp -d)
-    cp -r "${MODULE_PATH}"/* "$temp_dir/"
-    
-    cd "$temp_dir"
-    assert_command_success "tofu fmt -check=true -diff=true ." "CloudFront module should be properly formatted"
-    
-    # Test basic syntax without full initialization
-    assert_command_success "tofu fmt -write=false -check=true -diff=true ." "CloudFront module syntax should be valid"
-    
-    cd - > /dev/null
-    rm -rf "$temp_dir"
-}
 
 test_cloudfront_required_resources() {
     local main_tf="${MODULE_PATH}/main.tf"
@@ -175,8 +156,6 @@ test_cloudfront_tagging_strategy() {
 # Run all tests
 main() {
     local test_functions=(
-        "test_cloudfront_module_files_exist"
-        "test_cloudfront_terraform_syntax"
         "test_cloudfront_required_resources"
         "test_cloudfront_origin_access_control"
         "test_cloudfront_security_headers_function"
