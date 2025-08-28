@@ -363,15 +363,23 @@ For detailed gap analysis against enterprise standards, see comparison report wi
 
 **Immediate Actions for New Month:**
 1. **Resume Phase 3 Deployment**: Execute organization management infrastructure deployment
-2. **Validate Multi-Account Structure**: Confirm OUs and SCPs are properly configured
-3. **Create Account Factory**: Deploy account creation automation for workload accounts
-4. **Update CI/CD Pipeline**: Implement multi-account workflow routing
+2. **Enhance OPA Policies**: Add multi-account validation rules (organization, cross-account IAM, KMS)
+3. **Consider MVP Simplification**: Evaluate temporary CloudFront removal for faster MVP deployment
+4. **Validate Multi-Account Structure**: Confirm OUs and SCPs are properly configured
+5. **Create Account Factory**: Deploy account creation automation for workload accounts
+6. **Update CI/CD Pipeline**: Implement multi-account workflow routing
 
 **Architecture Readiness**: 
 - ✅ Organization management infrastructure code complete and security-validated
 - ✅ Composable module architecture implemented  
 - ✅ Workflow branch reference issues resolved
 - ⏸️ Deployment blocked only by GitHub Actions billing limits
+
+**MVP Optimization Option**: 
+- 💡 **CloudFront Removal Plan**: Created comprehensive plan to temporarily remove CloudFront/WAF for MVP
+- 🎯 **Benefits**: 90% cost reduction (~$27→$3/month), 75% faster deployment (20→5 min), much simpler architecture
+- ⚠️ **Trade-offs**: No global CDN, no WAF protection, HTTP-only, higher latency, basic security
+- 🔄 **Re-enablement Strategy**: Feature toggle approach for progressive enhancement post-MVP
 
 ---
 

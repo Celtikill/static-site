@@ -8,32 +8,66 @@ This project implements **Policy-as-Code** using [Open Policy Agent (OPA)](https
 
 1. **Automated Integration**: Policy validation runs automatically in the TEST workflow
 2. **Terraform Plan Analysis**: Policies analyze the JSON output of `terraform plan`
-3. **Two-Tier Validation**: 
+3. **Multi-Account Context**: Policies adapt based on target account type and environment
+4. **Two-Tier Validation**: 
    - **Security policies** (DENY) - Block deployment on violations
    - **Compliance policies** (WARN) - Alert on best practice deviations
-4. **Continuous Validation**: Every pull request and deployment is validated
+5. **Account-Specific Enforcement**: Different validation rules for management vs. workload accounts
+6. **Continuous Validation**: Every pull request and deployment is validated
+
+## Multi-Account Architecture Context
+
+### Account Types & Policy Enforcement
+
+| Account Type | Account ID | Enforcement Level | Policy Focus |
+|--------------|------------|-------------------|--------------|
+| **Management** | 223938610551 | **STRICT** | Organization controls, cross-account security |
+| **Workload (dev)** | TBD | **INFO** | Basic security, development flexibility |
+| **Workload (staging)** | TBD | **WARNING** | Security + compliance warnings |
+| **Workload (prod)** | TBD | **STRICT** | Full security + compliance enforcement |
+
+### Architecture-Specific Validation
+
+The policy framework validates different infrastructure patterns based on deployment location:
+
+- **`terraform/foundations/org-management/`**: Organization, OUs, SCPs, cross-account roles
+- **`terraform/workloads/static-site/`**: Application resources with account-specific configurations  
+- **`terraform/modules/`**: Reusable components with composable security policies
 
 ## Policy Types
 
 ### Security Policies (`deny` rules)
 These policies **block deployment** if violated and must be fixed before proceeding.
 
+#### Current Policies ✅
 | Policy | Description | Impact |
 |--------|-------------|--------|
 | S3 Encryption | All S3 buckets must have server-side encryption | 🚫 Deployment blocked |
-| S3 Public Access | S3 buckets must block public access | 🚫 Deployment blocked |
 | CloudFront HTTPS | CloudFront must redirect HTTP to HTTPS | 🚫 Deployment blocked |
-| WAF Protection | CloudFront distributions must have WAF enabled | 🚫 Deployment blocked |
+
+#### Multi-Account Policies (Next Month) 🔄
+| Policy | Description | Impact |
+|--------|-------------|--------|
+| Organization CloudTrail | CloudTrail must be organization-wide | 🚫 Deployment blocked |
+| KMS Customer Keys | S3/CloudTrail must use customer-managed KMS keys | 🚫 Deployment blocked |
+| Cross-Account IAM | OIDC roles must restrict to specific repositories | 🚫 Deployment blocked |
+| Service Control Policies | Workload OUs must have SCPs attached | 🚫 Deployment blocked |
 
 ### Compliance Policies (`warn` rules)
 These policies **generate warnings** but allow deployment to continue.
 
+#### Current Policies ✅
 | Policy | Description | Impact |
 |--------|-------------|--------|
-| Resource Tags | Resources must have required tags | ⚠️ Warning only |
-| S3 Naming | S3 buckets must follow DNS naming convention | ⚠️ Warning only |
-| Security Headers | CloudFront functions should include security headers | ⚠️ Warning only |
-| IAM Least Privilege | IAM roles should avoid overly broad permissions | ⚠️ Warning only |
+| *(None implemented yet)* | - | - |
+
+#### Planned Compliance Policies 🔄
+| Policy | Description | Impact |
+|--------|-------------|--------|
+| Resource Tags | Resources must have required tags (Project, Environment, ManagedBy) | ⚠️ Warning only |
+| S3 Naming | S3 buckets must follow pattern: project-component-env-suffix | ⚠️ Warning only |
+| Account Boundaries | Cross-account access must be explicitly justified | ⚠️ Warning only |
+| Cost Allocation | Resources must have cost allocation tags | ⚠️ Warning only |
 
 ## Understanding Policy Validation Results
 
