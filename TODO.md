@@ -3,13 +3,14 @@
 ## 🎯 Priority Focus: Minimum Viable Infrastructure (MVP)
 
 **MVP Goal**: Deploy secure, operational static website with enterprise-grade foundation
-**Target Timeline**: 4-6 weeks from Phase 3 deployment
+**Target Timeline**: 3 weeks from Phase 3 deployment  
 **Success Criteria**: 
-- ✅ Multi-account architecture operational
-- ✅ Core security services enabled (GuardDuty, Security Hub, Config, CloudTrail)
+- ✅ Multi-account architecture operational (Management + Workload accounts)
 - ✅ Website deployed with CloudFront/WAF protection
-- ✅ Basic backup and monitoring in place
-- ✅ CI/CD pipeline fully migrated
+- ✅ Basic backup and monitoring in place 
+- ✅ CI/CD pipeline fully migrated to multi-account structure
+
+**Security Services Separation**: Core security services (GuardDuty, Security Hub, Config, CloudTrail) will be deployed via separate security-focused codebase. This repository focuses on static website infrastructure only.
 
 **Post-MVP Enhancements**: Advanced enterprise features marked throughout as "Post-MVP"
 
@@ -63,35 +64,18 @@ Organization (o-0hh51yjgxw)
 - [x] Create deployment documentation and validation guides
 - [x] **READY FOR DEPLOYMENT**: Configuration validated, awaiting `tofu apply`
 
-### Phase 4: Security OU Account Deployment (Next)
-- [ ] **Prerequisites**: Complete Phase 3 deployment to create Security OU accounts
-- [ ] Create account-specific Terraform configurations for Security Tooling and Log Archive accounts
-- [ ] Deploy security baselines to Security Tooling Account:
-  - [ ] GuardDuty (organization-wide threat detection) - **MVP Required**
-  - [ ] Security Hub (centralized findings aggregation) - **MVP Required**
-    - [ ] Enable AWS Foundational Security Best Practices standard
-    - [ ] Enable CIS AWS Foundations Benchmark v1.4.0
-    - [ ] Configure finding aggregation from all accounts
-  - [ ] Config (compliance monitoring) - **MVP Required**
-    - [ ] Deploy essential Config Rules for security baseline
-    - [ ] Enable configuration recorder in all regions
-    - [ ] Set up configuration aggregator in Security Tooling account
-  - [ ] CloudTrail (organization trail) - **MVP Required**
-  - [ ] Macie (data classification) - *Post-MVP for sensitive data discovery*
-- [ ] Configure Log Archive Account for centralized logging:
-  - [ ] S3 bucket with lifecycle policies (90 days hot → 1 year warm → 7 years cold)
-  - [ ] Enable S3 Object Lock for immutable audit trails
-  - [ ] Configure cross-account log delivery permissions
-  - [ ] Set up log retention policies per compliance requirements
-- [ ] Establish cross-account log delivery and aggregation
-- [ ] Validate security service integration and monitoring
-- [ ] **Quick Win**: Enable Config and Security Hub immediately after account creation
+### Phase 4: Security OU Account Deployment (Managed by Separate Security Codebase)
+- [ ] **Prerequisites**: Complete Phase 3 deployment to create empty Security OU accounts
+- [ ] **Note**: Security services deployment handled by separate security-focused repository
+- [ ] **This Repository Scope**: Create empty Security Tooling and Log Archive accounts only
+- [ ] **Security Codebase Scope**: Deploy GuardDuty, Security Hub, Config, CloudTrail, and compliance monitoring
+- [ ] **Interface**: Security accounts ready for security codebase deployment
 
-### Phase 5: Workload OU Account Deployment
+### Phase 5: Workload OU Account Deployment (Static Website Focus)
 - [ ] Create Development, Staging, Production accounts
-- [ ] Deploy security baselines to each workload account
-- [ ] Configure account-specific IAM and OIDC roles
-- [ ] Set up cross-account access patterns
+- [ ] Configure account-specific IAM and OIDC roles for static website deployment
+- [ ] Set up cross-account access patterns for CI/CD pipeline
+- [ ] **Note**: Security baselines deployed by separate security codebase
 
 ### Phase 6: CI/CD Pipeline Migration
 - [ ] **Workflow Updates Required:**
@@ -122,21 +106,8 @@ Organization (o-0hh51yjgxw)
 **Timeline: Implement immediately after Phase 3 deployment**
 **Cost Impact: +$500-800/month**
 
-### Enable Core Security Services
-- [ ] **Enable AWS Config** (All Accounts) - **MVP Required**
-  ```bash
-  # Run in each account after creation
-  aws configservice put-configuration-recorder --configuration-recorder name=default,roleArn=${CONFIG_ROLE_ARN}
-  aws configservice put-delivery-channel --delivery-channel name=default,s3BucketName=${CONFIG_BUCKET}
-  aws configservice start-configuration-recorder --configuration-recorder-name default
-  ```
-
-- [ ] **Enable Security Hub** (Security Tooling Account) - **MVP Required**
-  ```bash
-  aws securityhub enable-security-hub --enable-default-standards
-  aws securityhub batch-enable-standards --standards-subscription-requests \
-    StandardsArn=arn:aws:securityhub:${REGION}::standards/cis-aws-foundations-benchmark/v/1.4.0
-  ```
+### Enable Core Services (Static Website MVP)
+- [ ] **Note**: Security services (Config, Security Hub, GuardDuty, CloudTrail) managed by separate security codebase
 
 - [ ] **Implement Basic Backup Strategy** - **MVP Required**
   - [ ] Create backup module in `terraform/modules/backup/`
@@ -228,10 +199,11 @@ Organization (o-0hh51yjgxw)
 | **Disaster Recovery** | 10% None | ✅ 40% Basic Backup | 90% Full DR | **Medium** |
 | **Incident Response** | 0% None | ✅ 30% Runbooks | 90% Automated/SOC | **Low** (scale dependent) |
 
-### Monthly Cost Evolution
+### Monthly Cost Evolution (Static Website Infrastructure Only)
 - **Current**: ~$30 (single account, basic services)
-- **MVP Target**: ~$130 (+$100 for security services)
-- **6-Month Target**: ~$500 (+$370 for enhanced monitoring)
+- **MVP Target**: ~$30-50 (multi-account structure, no security services)
+- **Security Services**: Managed separately via security codebase (~$100-150/month)
+- **6-Month Target**: ~$500 (+$450 for enhanced monitoring and scaling)
 - **Enterprise Target**: ~$1,500-3,000 (includes managed services)
 
 ### ROI Justification
