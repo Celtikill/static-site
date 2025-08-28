@@ -96,35 +96,42 @@ test_module_structure() {
     fi
 }
 
-# Test 2: Cost Calculation Logic Validation
+# Test 2: Static Cost Calculation Validation
 test_cost_calculations() {
-    log_message "Testing cost calculation logic..."
+    log_message "Testing static cost calculation logic..."
     
-    # Test basic S3 cost calculation
-    # Standard storage: $0.023/GB, assume 10GB for dev
-    local expected_s3_dev=$(echo "10 * 0.023" | bc -l)
-    local expected_s3_dev_rounded=$(printf "%.2f" "$expected_s3_dev")
+    # Test S3 cost calculation with new multipliers: dev=0.1, staging=0.3, prod=1.0
+    # Base: 5GB * $0.023/GB
+    local s3_base=$(echo "5 * 0.023" | bc -l)
+    local s3_dev=$(echo "$s3_base * 0.1" | bc -l)
+    local s3_staging=$(echo "$s3_base * 0.3" | bc -l) 
+    local s3_prod=$(echo "$s3_base * 1.0" | bc -l)
     
-    if [ "$expected_s3_dev_rounded" = "0.23" ]; then
-        record_test_result "S3 Cost Calculation" "PASSED" "Dev environment S3 cost calculated correctly: \$${expected_s3_dev_rounded}"
+    local s3_dev_rounded=$(printf "%.3f" "$s3_dev")
+    local s3_staging_rounded=$(printf "%.3f" "$s3_staging")
+    local s3_prod_rounded=$(printf "%.3f" "$s3_prod")
+    
+    if [ "$s3_dev_rounded" = "0.012" ] && [ "$s3_staging_rounded" = "0.035" ] && [ "$s3_prod_rounded" = "0.115" ]; then
+        record_test_result "S3 Cost Calculation" "PASSED" "S3 cost scaling across environments correct"
     else
-        record_test_result "S3 Cost Calculation" "FAILED" "Incorrect S3 cost calculation" "Expected: \$0.23, Got: \$${expected_s3_dev_rounded}"
+        record_test_result "S3 Cost Calculation" "FAILED" "S3 cost scaling incorrect" "Dev: $s3_dev_rounded, Staging: $s3_staging_rounded, Prod: $s3_prod_rounded"
     fi
     
-    # Test CloudFront cost calculation for different environments
-    # Data transfer: $0.085/GB, dev=50GB, staging=200GB, prod=2000GB
-    local cf_dev=$(echo "50 * 0.085" | bc -l)
-    local cf_staging=$(echo "200 * 0.085" | bc -l) 
-    local cf_prod=$(echo "2000 * 0.085" | bc -l)
+    # Test CloudFront cost calculation with environment multipliers
+    # Base: 50GB * $0.085/GB  
+    local cf_base=$(echo "50 * 0.085" | bc -l)
+    local cf_dev=$(echo "$cf_base * 0.1" | bc -l)
+    local cf_staging=$(echo "$cf_base * 0.3" | bc -l)
+    local cf_prod=$(echo "$cf_base * 1.0" | bc -l)
     
     local cf_dev_rounded=$(printf "%.2f" "$cf_dev")
     local cf_staging_rounded=$(printf "%.2f" "$cf_staging")
     local cf_prod_rounded=$(printf "%.2f" "$cf_prod")
     
-    if [ "$cf_dev_rounded" = "4.25" ] && [ "$cf_staging_rounded" = "17.00" ] && [ "$cf_prod_rounded" = "170.00" ]; then
-        record_test_result "CloudFront Cost Scaling" "PASSED" "Cost scaling across environments correct"
+    if [ "$cf_dev_rounded" = "0.43" ] && [ "$cf_staging_rounded" = "1.28" ] && [ "$cf_prod_rounded" = "4.25" ]; then
+        record_test_result "CloudFront Cost Scaling" "PASSED" "CloudFront cost scaling across environments correct"
     else
-        record_test_result "CloudFront Cost Scaling" "FAILED" "Cost scaling incorrect" "Dev: $cf_dev_rounded, Staging: $cf_staging_rounded, Prod: $cf_prod_rounded"
+        record_test_result "CloudFront Cost Scaling" "FAILED" "CloudFront cost scaling incorrect" "Dev: $cf_dev_rounded, Staging: $cf_staging_rounded, Prod: $cf_prod_rounded"
     fi
 }
 

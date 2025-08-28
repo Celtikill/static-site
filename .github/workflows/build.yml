@@ -468,100 +468,96 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
-        with:
-          tofu_version: ${{ env.OPENTOFU_VERSION }}
-
-      - name: Initialize OpenTofu
-        working-directory: terraform
-        run: |
-          echo "## 🔧 OpenTofu Initialization" >> $GITHUB_STEP_SUMMARY
-          tofu init -backend=false
-          echo "✅ OpenTofu initialized for cost projection" >> $GITHUB_STEP_SUMMARY
 
       - name: Calculate Cost Projection
         id: calculate
-        working-directory: terraform
         run: |
           echo "## 📊 Cost Projection Analysis" >> $GITHUB_STEP_SUMMARY
 
-          # Set environment-specific budget limits
+          # Set environment-specific budget limits and usage multipliers
           case "${{ needs.info.outputs.environment }}" in
             "dev")
               BUDGET_LIMIT=50
+              ENV_MULTIPLIER=0.1
               ;;
             "staging")
               BUDGET_LIMIT=75
+              ENV_MULTIPLIER=0.3
               ;;
             "prod")
               BUDGET_LIMIT=200
+              ENV_MULTIPLIER=1.0
               ;;
             *)
               BUDGET_LIMIT=100
+              ENV_MULTIPLIER=0.5
               ;;
           esac
 
-          # Create terraform plan for cost analysis
-          echo "### 🎯 Generating cost plan for ${{ needs.info.outputs.environment }} environment"
+          echo "### 🎯 Static cost calculation for ${{ needs.info.outputs.environment }} environment (${ENV_MULTIPLIER}x usage)"
 
-          # Set budget limit in tfvars
-          echo "monthly_budget_limit = $BUDGET_LIMIT" > cost-projection.auto.tfvars
+          # Static AWS pricing (us-east-1, current as of 2024)
+          # S3 costs
+          S3_STORAGE_GB=$(echo "scale=2; 5 * $ENV_MULTIPLIER" | bc)
+          S3_STORAGE_COST=$(echo "scale=2; $S3_STORAGE_GB * 0.023" | bc)
+          S3_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)
+          S3_REQUESTS_COST=$(echo "scale=3; $S3_REQUESTS * 0.0004 / 1000" | bc)
+          
+          # CloudFront costs
+          CF_DATA_GB=$(echo "scale=2; 50 * $ENV_MULTIPLIER" | bc)
+          CF_DATA_COST=$(echo "scale=2; $CF_DATA_GB * 0.085" | bc)
+          CF_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)  
+          CF_REQUESTS_COST=$(echo "scale=3; $CF_REQUESTS * 0.0075 / 10000" | bc)
+          
+          # WAF costs
+          WAF_REQUESTS=$(echo "scale=0; 1000000 * $ENV_MULTIPLIER" | bc)
+          WAF_COST=$(echo "scale=2; 1.0 + ($WAF_REQUESTS * 0.0000006)" | bc)
+          
+          # Route53 costs
+          ROUTE53_COST=0.50
+          
+          # CloudWatch costs
+          CW_METRICS=$(echo "scale=0; 100 * $ENV_MULTIPLIER" | bc)
+          CW_COST=$(echo "scale=2; $CW_METRICS * 0.30 / 100" | bc)
+          
+          # KMS costs
+          KMS_COST=1.00
+          
+          # Calculate total monthly cost
+          MONTHLY_COST=$(echo "scale=2; $S3_STORAGE_COST + $S3_REQUESTS_COST + $CF_DATA_COST + $CF_REQUESTS_COST + $WAF_COST + $ROUTE53_COST + $CW_COST + $KMS_COST" | bc)
+          ANNUAL_COST=$(echo "scale=2; $MONTHLY_COST * 12" | bc)
+          
+          echo "### 💰 Detailed Cost Breakdown" >> $GITHUB_STEP_SUMMARY
+          echo "- S3 Storage (${S3_STORAGE_GB}GB): \$${S3_STORAGE_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- S3 Requests (${S3_REQUESTS}): \$${S3_REQUESTS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudFront Data (${CF_DATA_GB}GB): \$${CF_DATA_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudFront Requests (${CF_REQUESTS}): \$${CF_REQUESTS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- WAF (${WAF_REQUESTS} requests): \$${WAF_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- Route53: \$${ROUTE53_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudWatch (${CW_METRICS} metrics): \$${CW_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- KMS: \$${KMS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Generate plan with cost projection module
-          if tofu plan -var-file=terraform.tfvars -var-file=cost-projection.auto.tfvars -out=cost-plan.tfplan > plan-output.txt 2>&1; then
-            PLAN_SUCCESS=true
+          BUDGET_UTILIZATION=$(echo "$MONTHLY_COST * 100 / $BUDGET_LIMIT" | bc -l)
+          BUDGET_UTILIZATION_INT=${BUDGET_UTILIZATION%.*}
+
+          # Determine budget status
+          if [ "$BUDGET_UTILIZATION_INT" -ge 100 ]; then
+            BUDGET_STATUS="critical"
+            BUDGET_EMOJI="🔴"
+            BUDGET_MESSAGE="CRITICAL: Cost exceeds budget!"
+          elif [ "$BUDGET_UTILIZATION_INT" -ge 80 ]; then
+            BUDGET_STATUS="warning"
+            BUDGET_EMOJI="🟡"
+            BUDGET_MESSAGE="WARNING: Approaching budget limit"
           else
-            PLAN_SUCCESS=false
-            echo "❌ Plan generation failed" >> $GITHUB_STEP_SUMMARY
-            cat plan-output.txt >> $GITHUB_STEP_SUMMARY
+            BUDGET_STATUS="healthy"
+            BUDGET_EMOJI="🟢"
+            BUDGET_MESSAGE="HEALTHY: Within budget"
           fi
 
-          if [ "$PLAN_SUCCESS" = "true" ]; then
-            # Extract cost information from plan output
-            if tofu show -json cost-plan.tfplan > plan.json 2>/dev/null; then
-
-              # Try to extract cost projection outputs (this will work after apply, for now simulate)
-              # For demo purposes, calculate based on environment
-              case "${{ needs.info.outputs.environment }}" in
-                "dev")
-                  MONTHLY_COST=25.50
-                  ANNUAL_COST=306.00
-                  ;;
-                "staging")
-                  MONTHLY_COST=36.75
-                  ANNUAL_COST=441.00
-                  ;;
-                "prod")
-                  MONTHLY_COST=93.25
-                  ANNUAL_COST=1119.00
-                  ;;
-                *)
-                  MONTHLY_COST=50.00
-                  ANNUAL_COST=600.00
-                  ;;
-              esac
-
-              BUDGET_UTILIZATION=$(echo "$MONTHLY_COST * 100 / $BUDGET_LIMIT" | bc -l)
-              BUDGET_UTILIZATION_INT=${BUDGET_UTILIZATION%.*}
-
-              # Determine budget status
-              if [ "$BUDGET_UTILIZATION_INT" -ge 100 ]; then
-                BUDGET_STATUS="critical"
-                BUDGET_EMOJI="🔴"
-                BUDGET_MESSAGE="CRITICAL: Cost exceeds budget!"
-              elif [ "$BUDGET_UTILIZATION_INT" -ge 80 ]; then
-                BUDGET_STATUS="warning"
-                BUDGET_EMOJI="🟡"
-                BUDGET_MESSAGE="WARNING: Approaching budget limit"
-              else
-                BUDGET_STATUS="healthy"
-                BUDGET_EMOJI="🟢"
-                BUDGET_MESSAGE="HEALTHY: Within budget"
-              fi
-
-              # Create cost report
-              cat > cost-projection-report.md << EOF
+          # Create cost report
+          cat > cost-projection-report.md << EOF
           # 💰 AWS Cost Projection Report
 
           **Environment:** ${{ needs.info.outputs.environment }} | **Region:** ${{ vars.AWS_DEFAULT_REGION }} | **Build ID:** ${{ needs.info.outputs.build_id }}
