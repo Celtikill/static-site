@@ -4,7 +4,7 @@ variable "aws_region" {
   description = "AWS region for management account resources"
   type        = string
   default     = "us-east-1"
-  
+
   validation {
     condition     = can(regex("^[a-z]{2}-[a-z]+-[0-9]{1}$", var.aws_region))
     error_message = "AWS region must be a valid region format (e.g., us-east-1)"
@@ -26,24 +26,24 @@ variable "email_domain" {
 variable "workload_accounts" {
   description = "Map of workload accounts to create"
   type = map(object({
-    name  = string
-    ou    = string
+    name         = string
+    ou           = string
     email_suffix = string
   }))
   default = {
     dev = {
-      name  = "static-site-dev"
-      ou    = "workloads"
+      name         = "static-site-dev"
+      ou           = "workloads"
       email_suffix = "+dev"
     }
     staging = {
-      name  = "static-site-staging"
-      ou    = "workloads"
+      name         = "static-site-staging"
+      ou           = "workloads"
       email_suffix = "+staging"
     }
     prod = {
-      name  = "static-site-prod"
-      ou    = "workloads"
+      name         = "static-site-prod"
+      ou           = "workloads"
       email_suffix = "+prod"
     }
   }
@@ -77,8 +77,8 @@ variable "tags" {
   description = "Common tags for all resources"
   type        = map(string)
   default = {
-    Project     = "static-site"
-    Component   = "organization"
-    ManagedBy   = "terraform"
+    Project   = "static-site"
+    Component = "organization"
+    ManagedBy = "terraform"
   }
 }

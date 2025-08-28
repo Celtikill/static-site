@@ -3,14 +3,14 @@
 
 terraform {
   required_version = ">= 1.6.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
   }
-  
+
   backend "s3" {
     bucket         = "static-site-terraform-state-us-east-1"
     key            = "org-management/terraform.tfstate"
@@ -22,7 +22,7 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
       Project     = "static-site"
@@ -57,23 +57,23 @@ resource "aws_organizations_organizational_unit" "sandbox" {
 # Enable AWS CloudTrail for organization
 resource "aws_cloudtrail" "organization_trail" {
   name                          = "organization-trail"
-  s3_bucket_name               = aws_s3_bucket.cloudtrail_logs.id
-  is_organization_trail        = true
-  is_multi_region_trail        = true
-  enable_logging               = true
+  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
+  is_organization_trail         = true
+  is_multi_region_trail         = true
+  enable_logging                = true
   include_global_service_events = true
-  enable_log_file_validation   = true
-  
+  enable_log_file_validation    = true
+
   event_selector {
     read_write_type           = "All"
     include_management_events = true
-    
+
     data_resource {
       type   = "AWS::S3::Object"
       values = ["arn:aws:s3:::*/*"]
     }
   }
-  
+
   depends_on = [aws_s3_bucket_policy.cloudtrail_logs]
 }
 
@@ -84,7 +84,7 @@ resource "aws_s3_bucket" "cloudtrail_logs" {
 
 resource "aws_s3_bucket_versioning" "cloudtrail_logs" {
   bucket = aws_s3_bucket.cloudtrail_logs.id
-  
+
   versioning_configuration {
     status = "Enabled"
   }
@@ -92,7 +92,7 @@ resource "aws_s3_bucket_versioning" "cloudtrail_logs" {
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_logs" {
   bucket = aws_s3_bucket.cloudtrail_logs.id
-  
+
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
@@ -102,7 +102,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_logs" 
 
 resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {
   bucket = aws_s3_bucket.cloudtrail_logs.id
-  
+
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -111,7 +111,7 @@ resource "aws_s3_bucket_public_access_block" "cloudtrail_logs" {
 
 resource "aws_s3_bucket_policy" "cloudtrail_logs" {
   bucket = aws_s3_bucket.cloudtrail_logs.id
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -145,11 +145,11 @@ resource "aws_s3_bucket_policy" "cloudtrail_logs" {
 # Create IAM role for GitHub Actions OIDC in management account
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
-  
+
   client_id_list = [
     "sts.amazonaws.com",
   ]
-  
+
   thumbprint_list = [
     "6938fd4d98bab03faadb97b34396831e3780aea1",
     "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
@@ -158,7 +158,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 resource "aws_iam_role" "github_actions_management" {
   name = "github-actions-management"
-  
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -185,7 +185,7 @@ resource "aws_iam_role" "github_actions_management" {
 resource "aws_iam_policy" "github_actions_org_management" {
   name        = "github-actions-org-management"
   description = "Policy for GitHub Actions to manage AWS Organizations"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -274,14 +274,14 @@ resource "aws_organizations_policy" "workload_guardrails" {
   name        = "WorkloadGuardrails"
   description = "Security guardrails for workload accounts"
   type        = "SERVICE_CONTROL_POLICY"
-  
+
   content = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DenyRootAccount"
-        Effect = "Deny"
-        Action = "*"
+        Sid      = "DenyRootAccount"
+        Effect   = "Deny"
+        Action   = "*"
         Resource = "*"
         Condition = {
           StringLike = {
@@ -290,9 +290,9 @@ resource "aws_organizations_policy" "workload_guardrails" {
         }
       },
       {
-        Sid    = "RequireIMDSv2"
-        Effect = "Deny"
-        Action = "ec2:RunInstances"
+        Sid      = "RequireIMDSv2"
+        Effect   = "Deny"
+        Action   = "ec2:RunInstances"
         Resource = "arn:aws:ec2:*:*:instance/*"
         Condition = {
           StringNotEquals = {
