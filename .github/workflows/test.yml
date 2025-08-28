@@ -82,8 +82,8 @@ jobs:
             BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}"
           fi
 
-          # Use the triggering branch directly (workflow runs on the correct branch by default)
-          SOURCE_BRANCH="${{ github.ref_name }}"
+          # Use the triggering branch from workflow_run or current branch for manual dispatch
+          SOURCE_BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
 
           # Determine target environment based on source branch
           if [ -n "${{ github.event.inputs.environment }}" ]; then
