@@ -139,14 +139,14 @@ test_cost_calculations() {
 test_environment_multipliers() {
     log_message "Testing environment multiplier logic..."
     
-    # Test environment multipliers: dev=0.7, staging=0.8, prod=1.0
+    # Test updated environment multipliers: dev=0.1, staging=0.3, prod=1.0
     local base_cost=100
-    local dev_cost=$(echo "$base_cost * 0.7" | bc -l)
-    local staging_cost=$(echo "$base_cost * 0.8" | bc -l)
+    local dev_cost=$(echo "$base_cost * 0.1" | bc -l)
+    local staging_cost=$(echo "$base_cost * 0.3" | bc -l)
     local prod_cost=$(echo "$base_cost * 1.0" | bc -l)
     
-    if [ "$(echo "$dev_cost == 70" | bc -l)" -eq 1 ] && 
-       [ "$(echo "$staging_cost == 80" | bc -l)" -eq 1 ] && 
+    if [ "$(echo "$dev_cost == 10" | bc -l)" -eq 1 ] && 
+       [ "$(echo "$staging_cost == 30" | bc -l)" -eq 1 ] && 
        [ "$(echo "$prod_cost == 100" | bc -l)" -eq 1 ]; then
         record_test_result "Environment Multipliers" "PASSED" "All environment multipliers correct"
     else
