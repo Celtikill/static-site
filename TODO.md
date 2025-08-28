@@ -1,147 +1,351 @@
 # Implementation Roadmap
 
+## 🎯 Priority Focus: Minimum Viable Infrastructure (MVP)
+
+**MVP Goal**: Deploy secure, operational static website with enterprise-grade foundation
+**Target Timeline**: 3 weeks from Phase 3 deployment  
+**Success Criteria**: 
+- ✅ Multi-account architecture operational (Management + Workload accounts)
+- ✅ Website deployed with CloudFront/WAF protection
+- ✅ Basic backup and monitoring in place 
+- ✅ CI/CD pipeline fully migrated to multi-account structure
+
+**Security Services Separation**: Core security services (GuardDuty, Security Hub, Config, CloudTrail) will be deployed via separate security-focused codebase. This repository focuses on static website infrastructure only.
+
+**Post-MVP Enhancements**: Advanced enterprise features marked throughout as "Post-MVP"
+
+---
+
 ## Active Development (In Progress)
 
-**Phase 3: Version Management** - HIGH Priority ⚡
-**Phase 5: Documentation** - HIGH Priority ⚡
+**Multi-Account Architecture Migration** - CRITICAL Priority ⚡
 
-### Documentation Tasks (Recently Completed)
-- [x] Update CLAUDE.md with accurate job counts and remove archived workflow references
-- [x] Create TROUBLESHOOTING.md with common CI/CD issues and solutions
-- [x] Enhance README.md with performance baselines and clearer environment routing
-- [x] Update docs/architecture/cicd.md with missing workflow details
-- [x] Create docs/workflows/secrets-and-variables.md for secrets documentation
+### Current Status: Ready for Phase 4 Deployment
+**Completed:**
+- ✅ Phase 0: Clean Slate Preparation - All existing resources decommissioned
+- ✅ Phase 1: AWS Organizations Foundation - Organization o-0hh51yjgxw created, Management Account 223938610551
+- ✅ Phase 2: SRA-Aligned Terraform Module Development - All security baseline modules created and validated
+- ✅ Phase 3: Management Account Infrastructure Configuration - **READY FOR DEPLOYMENT**
 
-### Documentation Tasks (Next Sprint)
-- [ ] Add workflow execution time benchmarks to all workflow documentation
-- [ ] Create visual workflow decision tree diagram
-- [ ] Document rollback procedures in detail
-- [ ] Add cost estimation guidelines for each environment
-- [ ] Create developer onboarding guide with setup checklist
-
-### Testing Strategy Implementation (Long-term)
-- [ ] **Step 3: Separate Integration Tests** - Create dedicated integration test suite for AWS authentication and real deployment testing
-  - Move AWS role assumption tests to `test/integration/test-aws-authentication.sh`
-  - Create full deployment flow tests in `test/integration/test-deployment-flow.sh`
-  - Add cross-environment testing in `test/integration/test-cross-environment.sh`
-  - Configure integration tests to run only when AWS credentials are available
-  - Add integration test workflow that runs on-demand or on releases
-
-- [ ] **Step 4: Security Policy Validation** - Implement OPA (Open Policy Agent) security compliance testing
-  - Create OPA policies for infrastructure security validation
-  - Add policy validation tests using `opa eval` with mock Terraform plans
-  - Implement security compliance checking for OWASP Top 10, CIS benchmarks
-  - Add automated security policy testing in TEST workflow
-  - Create security policy documentation and violation reporting
-
-### Testing Architecture Completed
-- [x] **Step 1: Static Analysis** - Implemented configuration validation without AWS dependencies
-  - Created `test-static-analysis.sh` with ARN format validation, role naming, region validation
-  - Added environment variable structure testing and GitHub Actions detection
-  - Implemented branch pattern detection and configuration consistency checks
-
-- [x] **Step 2: Terraform Plan Validation** - Added infrastructure testing without authentication
-  - Created `test-terraform-plan.sh` with plan generation testing for all environments
-  - Added resource validation, module dependency checking, and variable definition testing
-  - Implemented environment-specific configuration validation
-  - Added contract testing with `test-contract.sh` for script interface validation
+**Next Steps:**
+- [ ] **Deploy Phase 3**: Execute `tofu apply` in `terraform/management-account/` to create Security OU accounts
+- [ ] Phase 4: Security OU Account Deployment (deploy security baselines to new accounts)
+- [ ] Phase 5: Workload OU Account Deployment  
+- [ ] Phase 6: CI/CD Pipeline Migration
+- [ ] Phase 7: Website Content Migration
 
 ---
 
-## UX Implementation (Ready for Development)
+## SRA-Aligned Multi-Account Architecture Plan
 
-### Phase 1: Accessibility & Mobile (Weeks 1-4)
-**🤖 Claude Tasks:**
-- [ ] ARIA live regions, skip navigation, keyboard shortcuts
-- [ ] Touch targets 48px, mobile diagram zoom/pan
+### Architecture Overview
+Following AWS Security Reference Architecture (SRA) patterns with complete environment isolation:
 
-**👥 Team Tasks:**
-- [ ] Accessibility review & testing (Senior Frontend, UX)
-- [ ] CI/CD accessibility testing, mobile monitoring (DevOps)
+```
+Organization (o-0hh51yjgxw)
+├── Management Account (223938610551)
+├── Security OU
+│   ├── Security Tooling Account (centralized security services)
+│   └── Log Archive Account (centralized audit logs)
+├── Infrastructure OU (future expansion)
+└── Workloads OU
+    ├── Development Account
+    ├── Staging Account
+    └── Production Account
+```
 
-### Phase 2: Performance & Search (Weeks 5-8)
-**🤖 Claude Tasks:**
-- [ ] WebP/AVIF optimization, service workers, progressive disclosure
-- [ ] Full-text search with highlighting, content categorization
+### Phase 3: Management Account Infrastructure ✅ COMPLETED
+- [x] **CRITICAL**: Disable automatic workflow triggers to prevent deployments to decommissioned infrastructure
+- [x] Create comprehensive Terraform configuration in `terraform/management-account/`
+- [x] Configure AWS Organizations module integration (OU structure, SCPs)
+- [x] Configure Account Factory for Security OU accounts (Security Tooling + Log Archive)
+- [x] Set up cross-account Terraform deployment roles and state buckets
+- [x] Configure centralized state management with S3 backend
+- [x] Create deployment documentation and validation guides
+- [x] **READY FOR DEPLOYMENT**: Configuration validated, awaiting `tofu apply`
 
-**👥 Team Tasks:**
-- [ ] Performance testing, CloudFront optimization (DevOps)
-- [ ] Content categorization system (Technical Writer + UX)
+### Phase 4: Security OU Account Deployment (Managed by Separate Security Codebase)
+- [ ] **Prerequisites**: Complete Phase 3 deployment to create empty Security OU accounts
+- [ ] **Note**: Security services deployment handled by separate security-focused repository
+- [ ] **This Repository Scope**: Create empty Security Tooling and Log Archive accounts only
+- [ ] **Security Codebase Scope**: Deploy GuardDuty, Security Hub, Config, CloudTrail, and compliance monitoring
+- [ ] **Interface**: Security accounts ready for security codebase deployment
 
-### Phase 3: Advanced Features (Weeks 9-12)
-**🤖 Claude Tasks:**
-- [ ] Dark mode, PWA with offline support
-- [ ] Privacy-compliant analytics, accessibility metrics
+### Phase 5: Workload OU Account Deployment (Static Website Focus)
+- [ ] Create Development, Staging, Production accounts
+- [ ] Configure account-specific IAM and OIDC roles for static website deployment
+- [ ] Set up cross-account access patterns for CI/CD pipeline
+- [ ] **Note**: Security baselines deployed by separate security codebase
 
-**👥 Team Tasks:**
-- [ ] Cross-browser testing, security audit (QA + Security)
+### Phase 6: CI/CD Pipeline Migration
+- [ ] **Workflow Updates Required:**
+  - [ ] Update BUILD workflow: Add multi-account AWS provider configuration
+  - [ ] Update TEST workflow: Configure cross-account validation
+  - [ ] Update RUN workflow: Implement account-specific deployment logic
+  - [ ] Update RELEASE workflow: Add multi-account release management
+  - [ ] Re-enable automatic triggers with proper account routing
+- [ ] Configure environment-specific deployment targeting
+- [ ] Implement cross-account OIDC authentication  
+- [ ] Update security scanning for multi-account context
+- [ ] **GitHub Variables Updates:**
+  - [ ] Add account-specific AWS role ARNs
+  - [ ] Configure account ID mappings for each environment
+  - [ ] Update Terraform backend configurations per account
 
-### Phase 4: Innovation (Weeks 13-16)
-**🤖 Claude Tasks:**
-- [ ] Interactive tutorials, i18n framework, faceted search
-
-**👥 Team Tasks:**
-- [ ] Video content, localization strategy (Technical Writer)
-
-**Success Targets:** WCAG 2.1 AA (100%) • Core Web Vitals "Good" • Lighthouse >90 • User satisfaction >4.5/5
+### Phase 7: Website Content Migration
+- [ ] Deploy static website infrastructure to each workload account
+- [ ] Configure CloudFront and WAF per environment
+- [ ] Test full deployment pipeline
+- [ ] Validate monitoring and alerting
+- [ ] **MVP Milestone**: Basic website operational with security baseline
 
 ---
 
-## Infrastructure Enhancements (Deferred)
+## Quick Wins - Immediate Security Enhancements (Post-Phase 3)
 
-| Phase | Priority | Effort | Impact | Target | Key Benefits |
-|-------|----------|--------|--------|--------|--------------|
-| **Configuration** | Medium | High | High | Q2 2025 | Zero secrets in code, auto-rotation, audit trails |
-| **Policy Framework** | Medium | Medium | High | Q2 2025 | 100% coverage, zero violations, automated compliance |
-| **CI/CD Enhancement** | Low | High | Medium | Q3 2025 | Advanced security scanning, deployment protection |
-| **Cost Optimization** | Low | Medium | Medium | Q3 2025 | 30%+ cost reduction, anomaly detection, real-time monitoring |
-| **Multi-Account** | Low | Very High | Very High | Q4 2025 | Complete isolation, 100% cost attribution, enterprise security |
+**Timeline: Implement immediately after Phase 3 deployment**
+**Cost Impact: +$500-800/month**
 
-### Configuration Externalization (Q2 2025)
-- [ ] AWS Secrets Manager migration with auto-rotation
-- [ ] Parameter Store hierarchy (/static-site/{env}/)
-- [ ] Dynamic CI/CD configuration retrieval
+### Enable Core Services (Static Website MVP)
+- [ ] **Note**: Security services (Config, Security Hub, GuardDuty, CloudTrail) managed by separate security codebase
 
-### Policy Framework (Q2 2025)
-- [ ] Hierarchical policy structure (security/, compliance/, data_governance/)
-- [ ] Comprehensive security policies with testing framework
-- [ ] OPA policy unit tests with scenarios
+- [ ] **Implement Basic Backup Strategy** - **MVP Required**
+  - [ ] Create backup module in `terraform/modules/backup/`
+  - [ ] Configure daily S3 backups with 30-day retention
+  - [ ] Add cross-region replication for production
 
-### CI/CD Enhancement (Q3 2025)
-- [ ] Security scanning matrix (Checkov, Trivy, additional tools)
-- [ ] Environment-specific deployment protection and approval workflows
-- [ ] Infrastructure cost estimation with threshold alerts
+- [ ] **Add Compliance Scanning to CI/CD** - **MVP Required**
+  - [ ] Update GitHub workflows with Security Hub findings check
+  - [ ] Block deployments on critical findings
+  - [ ] Add compliance report generation
 
-### Cost Optimization (Q3 2025)
-- [ ] Infrastructure cost baseline documentation
-- [ ] Right-sizing, reserved capacity optimization
-- [ ] Real-time cost dashboard with anomaly detection
-- [ ] **PENDING**: Automated CI/CD cost monitoring and reporting
+---
 
-### Multi-Account Migration (Q4 2025)
-**AWS Organizations Setup:**
-- [ ] Account hierarchy (Dev, Staging, Prod, Security accounts)
-- [ ] OU structure with environment-specific policies
+## Enterprise Security Enhancements (Post-MVP)
 
-**Infrastructure Migration:**
-- [ ] Terraform refactoring for multi-account deployment
-- [ ] Cross-account IAM and OIDC configuration
-- [ ] Account-specific deployment workflows
+**Timeline: Months 2-3 after MVP release**
+**Cost Impact: +$1,500-2,500/month**
 
-**Gradual Migration:**
-- [ ] Development account (lowest risk validation)
-- [ ] Staging account (production-like restrictions)
-- [ ] Production account (zero-downtime, maximum security)
+### Phase 1: Enhanced Security Services (Weeks 1-4 Post-MVP)
+- [ ] **Complete Service Control Policies (SCPs)**
+  - [ ] Deploy deny-root-user SCP
+  - [ ] Implement region restriction policies
+  - [ ] Add data protection guardrails
+  - [ ] Configure MFA enforcement policies
 
-**Benefits:** Hard isolation boundaries, clear cost attribution, simplified IAM, enhanced security posture
+- [ ] **Implement Compliance Framework**
+  - [ ] Enable additional Security Hub standards (PCI-DSS if needed)
+  - [ ] Configure automated compliance reporting
+  - [ ] Set up compliance dashboard in Security Hub
+  - [ ] Create compliance evidence automation
+
+- [ ] **Enhanced Network Security** (If multi-app growth)
+  - [ ] Evaluate need for Transit Gateway
+  - [ ] Consider AWS Network Firewall for inspection
+  - [ ] Implement VPC endpoints for service access
+
+### Phase 2: Advanced Monitoring & Operations (Weeks 5-8 Post-MVP)
+- [ ] **Centralized Logging Architecture**
+  - [ ] Deploy OpenSearch cluster in Log Archive account
+  - [ ] Configure log streaming from all accounts
+  - [ ] Create security analytics dashboards
+  - [ ] Implement anomaly detection
+
+- [ ] **Advanced Threat Detection**
+  - [ ] Enable GuardDuty threat intelligence feeds
+  - [ ] Configure automated response playbooks
+  - [ ] Implement custom threat detection rules
+  - [ ] Consider third-party SIEM integration
+
+- [ ] **Identity Federation** (If team growth requires)
+  - [ ] Implement AWS IAM Identity Center
+  - [ ] Configure SAML/OIDC integration
+  - [ ] Create permission sets and boundaries
+  - [ ] Enable session recording for privileged access
+
+### Phase 3: Disaster Recovery & Advanced Compliance (Months 3-6 Post-MVP)
+- [ ] **Formal Disaster Recovery Plan**
+  - [ ] Define RTO/RPO targets
+  - [ ] Implement automated failover procedures
+  - [ ] Create and test recovery runbooks
+  - [ ] Schedule quarterly DR drills
+
+- [ ] **Data Governance Framework**
+  - [ ] Deploy Amazon Macie for data classification
+  - [ ] Implement data retention automation
+  - [ ] Create data lineage tracking
+  - [ ] Configure privacy compliance controls
+
+- [ ] **Consider Managed Security Operations**
+  - [ ] Evaluate MxDR/SOC services for 24/7 monitoring
+  - [ ] Cost-benefit analysis of managed vs. in-house
+  - [ ] Pilot program with selected vendor
+  - [ ] Full implementation if justified by scale
+
+---
+
+## Enterprise Architecture Maturity Roadmap
+
+### Current State → MVP Target → Enterprise Target
+
+| Capability | Current | MVP Target | Enterprise Target | Priority |
+|---|---|---|---|---|
+| **Multi-Account** | 60% In Progress | ✅ 100% Complete | Enhanced with Landing Zone | **Critical** |
+| **Security Services** | 30% Basic | ✅ 70% Core Services | 100% Full Suite | **Critical** |
+| **Compliance** | 20% Scanning | ✅ 50% Basic Framework | 90% Multi-Framework | **High** |
+| **Monitoring** | 40% CloudWatch | ✅ 60% Enhanced | 100% Centralized SIEM | **Medium** |
+| **Network Security** | 50% CDN/WAF | ✅ 50% Adequate | 90% Zero-Trust | **Low** (for static site) |
+| **Identity Management** | 25% OIDC | ✅ 25% Sufficient | 90% Federated | **Low** (until team grows) |
+| **Disaster Recovery** | 10% None | ✅ 40% Basic Backup | 90% Full DR | **Medium** |
+| **Incident Response** | 0% None | ✅ 30% Runbooks | 90% Automated/SOC | **Low** (scale dependent) |
+
+### Monthly Cost Evolution (Static Website Infrastructure Only)
+- **Current**: ~$30 (single account, basic services)
+- **MVP Target**: ~$30-50 (multi-account structure, no security services)
+- **Security Services**: Managed separately via security codebase (~$100-150/month)
+- **6-Month Target**: ~$500 (+$450 for enhanced monitoring and scaling)
+- **Enterprise Target**: ~$1,500-3,000 (includes managed services)
+
+### ROI Justification
+- **Security Incident Prevention**: 70% risk reduction
+- **Compliance Automation**: 80% reduction in audit prep
+- **Operational Efficiency**: 50% reduction in response time
+- **Break-even**: 2-3 months based on risk mitigation
+
+---
+
+## Workflow Safety Measures Implemented
+
+**✅ CRITICAL SAFETY**: All automatic workflow triggers have been disabled during migration to prevent:
+- Deployments to decommissioned single-account infrastructure
+- Build failures due to missing AWS resources
+- Accidental modification of existing (empty) accounts
+
+**Current Workflow Status:**
+- ✅ BUILD: Manual trigger only (`workflow_dispatch`)
+- ✅ TEST: Manual trigger only (`workflow_dispatch`) 
+- ✅ RUN: Manual trigger only (`workflow_dispatch`)
+- ✅ RELEASE: Manual trigger only (`workflow_dispatch`)
+- ✅ EMERGENCY: Already manual-only (no changes needed)
+
+**Post-Migration Re-enablement**: Automatic triggers will be restored in Phase 6 with proper multi-account routing logic.
+
+---
+
+## Key Benefits of Multi-Account Architecture
+
+**Security Benefits:**
+- Complete environment isolation (blast radius containment)
+- Account-level IAM boundaries
+- Centralized security monitoring and compliance
+- Organization-wide audit trail
+
+**Operational Benefits:**
+- Clear cost attribution per environment
+- Environment-specific access controls
+- Simplified resource management
+- Standardized security baselines
+
+**Compliance Benefits:**
+- SRA-aligned architecture patterns
+- AWS Well-Architected Framework compliance
+- Centralized governance and policy enforcement
+- Comprehensive audit capabilities
+
+---
+
+## Migration Strategy
+
+**Clean Slate Approach:** ✅ Complete
+- All existing resources decommissioned for fresh start
+- Eliminates configuration drift and legacy issues
+- Enables proper SRA implementation from ground up
+
+**Incremental Deployment:**
+- Management Account → Security Accounts → Workload Accounts
+- Validate each phase before proceeding
+- Maintain rollback capability at each step
+
+**Zero-Downtime Migration:**
+- Current website remains operational during migration
+- New architecture deployed in parallel
+- DNS cutover only after full validation
+
+---
+
+## Technical Implementation Notes
+
+### 12-Factor App Integration
+- **Config:** Environment-specific variables externalized to account level
+- **Backing Services:** Security services as attached resources
+- **Build/Release/Run:** Consistent deployment across all accounts
+- **Stateless Processes:** Self-contained modules with minimal dependencies
+
+### SRA Compliance
+- Service Control Policies prevent root user access
+- Mandatory encryption for all storage services
+- Public access prevention across all accounts
+- Centralized security tooling in dedicated account
+
+### AWS Well-Architected Framework
+- **Security:** Multi-layered defense, least privilege access
+- **Reliability:** Cross-AZ deployment, automated recovery
+- **Performance:** CloudFront global distribution
+- **Cost:** Resource optimization, detailed cost attribution
+- **Operational Excellence:** Infrastructure as Code, monitoring
+- **Sustainability:** Right-sizing, efficient resource usage
 
 ---
 
 ## Task Legend
-**🤖 Claude:** Code, content, configuration automation  
-**👥 Engineering:** Review, testing, DevOps, strategy, audits
+**🤖 Claude:** Infrastructure code, security modules, configuration automation  
+**👥 Engineering:** Architecture review, security validation, operational readiness
 
 ---
 
-*Last Updated: 2025-08-26*  
-*Status: UX Ready • Infrastructure Phases 3 & 5 Active • Q2-Q4 Phases Deferred*
+---
+
+## Phase 3 Deployment Instructions
+
+**Location**: `terraform/management-account/`
+
+**Pre-Deployment Checklist:**
+1. ✅ Configuration created and validated
+2. ✅ AWS CLI configured with Management Account credentials
+3. ⚠️  Update `domain_suffix` in `terraform.tfvars` with your actual domain
+4. ⚠️  Review and customize `cost_allocation_tags` if needed
+
+**Deployment Commands:**
+```bash
+cd terraform/management-account
+# Review the plan
+tofu plan -var-file=terraform.tfvars
+# Deploy (when ready)
+tofu apply -var-file=terraform.tfvars
+```
+
+**Expected Results:**
+- Security OU with 2 new accounts created
+- Service Control Policies applied
+- Cross-account deployment roles configured
+- State backend established
+
+---
+
+## Architecture Alignment Notes
+
+This roadmap aligns with AWS Security Reference Architecture (SRA) and incorporates best practices from enterprise gold-standard patterns. The implementation is staged to deliver:
+
+1. **Immediate Value (MVP)**: Secure, operational website within 4-6 weeks
+2. **Progressive Enhancement**: Enterprise features added based on scale and requirements
+3. **Cost Optimization**: Features scaled with actual needs, not theoretical requirements
+4. **Risk-Based Prioritization**: Security controls implemented based on threat model
+
+For detailed gap analysis against enterprise standards, see comparison report with mhanyc/aws-ent-architecture.
+
+---
+
+*Last Updated: 2025-08-28*  
+*Status: Phase 3 READY FOR DEPLOYMENT - Management Account Infrastructure Configuration*
+*Organization: o-0hh51yjgxw | Management Account: 223938610551*
+*Enterprise Alignment: MVP path defined with clear post-MVP enhancement roadmap*

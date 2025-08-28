@@ -230,3 +230,55 @@ output "compliance_info" {
     backup_strategy    = var.enable_cross_region_replication ? "Cross-region replication" : "Single region"
   }
 }
+
+# Cost Projection Outputs
+output "monthly_cost_projection" {
+  description = "Monthly cost projection in USD"
+  value       = module.cost_projection.monthly_cost_total
+}
+
+output "annual_cost_projection" {
+  description = "Annual cost projection in USD"
+  value       = module.cost_projection.annual_cost_total
+}
+
+output "service_cost_breakdown" {
+  description = "Cost breakdown by AWS service"
+  value       = module.cost_projection.service_costs
+}
+
+output "budget_utilization_percent" {
+  description = "Budget utilization as percentage"
+  value       = module.cost_projection.budget_utilization_percent
+}
+
+output "cost_report_json" {
+  description = "Complete cost report in JSON format"
+  value       = module.cost_projection.cost_report_json
+  sensitive   = false
+}
+
+output "cost_report_markdown" {
+  description = "Cost report in Markdown format"
+  value       = module.cost_projection.cost_report_markdown
+  sensitive   = false
+}
+
+output "budget_validation" {
+  description = "Budget validation results for CI/CD"
+  value       = module.cost_projection.budget_validation
+}
+
+output "cost_optimization_summary" {
+  description = "Cost optimization summary for environment"
+  value = {
+    environment  = var.environment
+    monthly_cost = module.cost_projection.monthly_cost_total
+    primary_cost_drivers = [
+      for service, cost in module.cost_projection.service_costs :
+      service if cost > module.cost_projection.monthly_cost_total * 0.2
+    ]
+    optimization_potential    = module.cost_projection.monthly_cost_total > 50 ? "High" : "Medium"
+    recommendations_available = true
+  }
+}

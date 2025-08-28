@@ -404,3 +404,4 @@ variable "managed_cors_s3_origin_policy_id" {
   type        = string
   default     = "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf"
 }
+

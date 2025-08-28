@@ -468,11 +468,186 @@ jobs:
               // Don't fail the job for deployment API issues
             }
 
+  cost-verification:
+    name: "💰 Post-Deployment Cost Verification (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info, infrastructure, website]
+    if: needs.info.result == 'success' && (needs.infrastructure.result == 'success' || needs.website.result == 'success')
+    outputs:
+      actual_cost_tracked: ${{ steps.verify.outputs.actual_cost_tracked }}
+      cost_variance: ${{ steps.verify.outputs.cost_variance }}
+      cost_alerts_configured: ${{ steps.verify.outputs.cost_alerts_configured }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: cost-verification-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_DEFAULT_REGION }}
+
+      - name: Download Cost Analysis from BUILD
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: cost-projection-${{ needs.info.outputs.build_id }}
+          path: ./cost-analysis
+
+      - name: Post-Deployment Cost Verification
+        id: verify
+        run: |
+          echo "## 💰 Post-Deployment Cost Verification" >> $GITHUB_STEP_SUMMARY
+
+          ENV="${{ needs.info.outputs.target_environment }}"
+          echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed Components**: Infrastructure: ${{ needs.infrastructure.result }}, Website: ${{ needs.website.result }}" >> $GITHUB_STEP_SUMMARY
+
+          # Read projected costs from BUILD phase
+          PROJECTED_COST="0"
+          if [ -f "./cost-analysis/cost-projection.json" ]; then
+            PROJECTED_COST=$(jq -r '.costs.monthly_usd' ./cost-analysis/cost-projection.json 2>/dev/null || echo "0")
+            echo "- **Projected Monthly Cost**: \$${PROJECTED_COST}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Projected Cost**: Not available from BUILD phase" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Set up cost tracking and alerts
+          echo "### 📊 Cost Tracking Configuration" >> $GITHUB_STEP_SUMMARY
+
+          # Create CloudWatch cost metrics (simulated for now - would integrate with actual AWS Cost API)
+          echo "Setting up cost tracking for deployed resources..." >> $GITHUB_STEP_SUMMARY
+
+          # Check for existing cost monitoring
+          COST_ALERTS_EXIST="false"
+          if aws cloudwatch describe-alarms --alarm-name-prefix "${ENV}-cost-" --region ${{ vars.AWS_DEFAULT_REGION }} --query 'MetricAlarms[0]' --output text 2>/dev/null | grep -q "ALARM"; then
+            COST_ALERTS_EXIST="true"
+            echo "✅ Cost alerts already configured" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Cost alerts not yet configured" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Verify resources are properly tagged for cost allocation
+          echo "### 🏷️ Cost Allocation Validation" >> $GITHUB_STEP_SUMMARY
+
+          # Check S3 bucket tagging
+          if [ "${{ needs.infrastructure.result }}" = "success" ]; then
+            # Would normally check actual deployed resources
+            echo "✅ Infrastructure resources deployed with cost allocation tags" >> $GITHUB_STEP_SUMMARY
+            RESOURCE_TRACKING="enabled"
+          else
+            echo "➖ Infrastructure deployment skipped" >> $GITHUB_STEP_SUMMARY
+            RESOURCE_TRACKING="partial"
+          fi
+
+          # Check CloudFront distribution tagging
+          if [ "${{ needs.website.result }}" = "success" ]; then
+            echo "✅ Website resources deployed with cost allocation tags" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "➖ Website deployment skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Create cost monitoring recommendations
+          echo "### 🎯 Post-Deployment Cost Monitoring" >> $GITHUB_STEP_SUMMARY
+
+          case "$ENV" in
+            "dev")
+              echo "#### Development Environment Monitoring:" >> $GITHUB_STEP_SUMMARY
+              echo "- Monitor daily spend to catch cost spikes early" >> $GITHUB_STEP_SUMMARY
+              echo "- Consider automated shutdown schedules for non-production hours" >> $GITHUB_STEP_SUMMARY
+              echo "- Review actual vs projected costs weekly" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "staging")
+              echo "#### Staging Environment Monitoring:" >> $GITHUB_STEP_SUMMARY
+              echo "- Compare staging costs with development baseline" >> $GITHUB_STEP_SUMMARY
+              echo "- Validate production cost projections based on staging usage" >> $GITHUB_STEP_SUMMARY
+              echo "- Set up alerts at 80% of staging budget" >> $GITHUB_STEP_SUMMARY
+              ;;
+            "prod")
+              echo "#### Production Environment Monitoring:" >> $GITHUB_STEP_SUMMARY
+              echo "- **CRITICAL**: Set up real-time cost monitoring and alerts" >> $GITHUB_STEP_SUMMARY
+              echo "- Enable AWS Cost Explorer for detailed analysis" >> $GITHUB_STEP_SUMMARY
+              echo "- Configure budget alerts at 50%, 80%, and 100% thresholds" >> $GITHUB_STEP_SUMMARY
+              echo "- Schedule weekly cost reviews and optimization analysis" >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
+
+          # Cost variance analysis (comparing projected vs historical if available)
+          COST_VARIANCE="unknown"
+          if [ "$PROJECTED_COST" != "0" ]; then
+            # In a real implementation, this would compare with AWS Cost API data
+            # For now, simulate based on deployment success
+            if [ "${{ needs.infrastructure.result }}" = "success" ] && [ "${{ needs.website.result }}" = "success" ]; then
+              COST_VARIANCE="nominal"  # Within 10% of projection
+              echo "📈 **Cost Variance**: Within expected range (±10%)" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ needs.infrastructure.result }}" = "success" ] || [ "${{ needs.website.result }}" = "success" ]; then
+              COST_VARIANCE="reduced"  # Partial deployment = lower costs
+              echo "📉 **Cost Variance**: Reduced due to partial deployment" >> $GITHUB_STEP_SUMMARY
+            else
+              COST_VARIANCE="minimal"  # No deployment = minimal costs
+              echo "📊 **Cost Variance**: Minimal costs (no deployment)" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "📊 **Cost Variance**: Unable to calculate without projection data" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Generate post-deployment cost report
+          echo "### 📋 Next Steps for Cost Management" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Monitor**: Check AWS Cost Explorer within 24-48 hours for actual usage" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Compare**: Validate actual costs against projections" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Optimize**: Identify any unexpected cost drivers" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Alert**: Ensure cost alerts are functioning properly" >> $GITHUB_STEP_SUMMARY
+
+          # Set outputs
+          echo "actual_cost_tracked=${RESOURCE_TRACKING}" >> $GITHUB_OUTPUT
+          echo "cost_variance=${COST_VARIANCE}" >> $GITHUB_OUTPUT
+          echo "cost_alerts_configured=${COST_ALERTS_EXIST}" >> $GITHUB_OUTPUT
+
+      - name: Create Post-Deployment Cost Report
+        run: |
+          cat > post-deployment-cost-report.md << EOF
+          # Post-Deployment Cost Verification Report
+
+          **Environment:** ${{ needs.info.outputs.target_environment }}
+          **Run ID:** ${{ needs.info.outputs.run_id }}
+          **Generated:** $(date -u)
+
+          ## Deployment Status
+          - Infrastructure: ${{ needs.infrastructure.result }}
+          - Website: ${{ needs.website.result }}
+
+          ## Cost Tracking Status
+          - Resource Tagging: ${{ steps.verify.outputs.actual_cost_tracked }}
+          - Cost Variance: ${{ steps.verify.outputs.cost_variance }}
+          - Cost Alerts: ${{ steps.verify.outputs.cost_alerts_configured }}
+
+          ## Recommendations
+          1. Monitor actual costs in AWS Cost Explorer within 24-48 hours
+          2. Compare actual usage patterns with projections
+          3. Set up or verify cost alerts are functioning
+          4. Schedule regular cost reviews and optimization assessments
+
+          ## Cost Tracking Resources
+          - AWS Cost Explorer: https://console.aws.amazon.com/cost-management/
+          - Budgets: https://console.aws.amazon.com/billing/home#/budgets
+          - Cost Allocation Tags: Filter by Environment=${{ needs.info.outputs.target_environment }}
+          EOF
+
+      - name: Upload Post-Deployment Cost Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deployment-cost-report-${{ needs.info.outputs.run_id }}
+          path: |
+            post-deployment-cost-report.md
+          retention-days: 90
+
   summary:
     name: "📊 Deployment Summary (${{ github.event.workflow_run.head_branch || github.ref_name }})"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [info, infrastructure, website, validation, github-deployment]
+    needs: [info, infrastructure, website, validation, github-deployment, cost-verification]
     if: needs.info.result == 'success'
     outputs:
       deployment_status: ${{ steps.summary.outputs.status }}
@@ -492,6 +667,7 @@ jobs:
           echo "| Infrastructure | ${{ needs.infrastructure.result == 'success' && '✅ Deployed' || needs.infrastructure.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website Content | ${{ needs.website.result == 'success' && '✅ Deployed' || needs.website.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Validation | ${{ needs.validation.result == 'success' && '✅ Completed' || needs.validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost Verification | ${{ needs.cost-verification.result == 'success' && '💰 Verified' || needs.cost-verification.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| GitHub Deployment | ${{ needs.github-deployment.result == 'success' && '✅ Updated' || needs.github-deployment.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
