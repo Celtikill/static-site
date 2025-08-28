@@ -207,9 +207,12 @@ get_test_files() {
         "monitoring")
             test_files=("${SCRIPT_DIR}/test-monitoring.sh")
             ;;
+        "cost-projection"|"cost")
+            test_files=("${SCRIPT_DIR}/test-cost-projection.sh")
+            ;;
         *)
             log_error "Unknown module: $module"
-            log_info "Available modules: s3, cloudfront, waf, iam, monitoring, all"
+            log_info "Available modules: s3, cloudfront, waf, iam, monitoring, cost-projection, all"
             exit 1
             ;;
     esac
