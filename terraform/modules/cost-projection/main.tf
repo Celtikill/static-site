@@ -104,18 +104,18 @@ locals {
 locals {
   # Base CloudFront usage estimates
   cloudfront_data_transfer_gb = var.environment == "dev" ? 50 : var.environment == "staging" ? 200 : 2000
-  cloudfront_https_requests = local.env_multiplier * (var.environment == "dev" ? 100000 : var.environment == "staging" ? 500000 : 5000000)
+  cloudfront_https_requests   = local.env_multiplier * (var.environment == "dev" ? 100000 : var.environment == "staging" ? 500000 : 5000000)
 }
 
 locals {
   cloudfront_costs = {
     # Data transfer out (estimated GB per month by environment)
-    data_transfer_gb = local.cloudfront_data_transfer_gb
+    data_transfer_gb   = local.cloudfront_data_transfer_gb
     data_transfer_cost = local.cloudfront_data_transfer_gb * local.cloudfront_pricing.data_transfer_out_na_eu
 
     # HTTPS requests (estimated per month)
     https_requests = local.cloudfront_https_requests
-    requests_cost = (local.cloudfront_https_requests / 10000) * local.cloudfront_pricing.https_requests
+    requests_cost  = (local.cloudfront_https_requests / 10000) * local.cloudfront_pricing.https_requests
   }
 
   # Calculate total CloudFront monthly cost
@@ -189,9 +189,9 @@ locals {
 locals {
   # Base CloudWatch usage estimates
   cloudwatch_log_ingestion_gb = local.env_multiplier * (var.environment == "dev" ? 2 : var.environment == "staging" ? 5 : 20)
-  cloudwatch_custom_metrics = 25 # Estimated custom metrics
-  cloudwatch_dashboards = 2 # Estimated dashboards
-  cloudwatch_alarms = 15 # Estimated alarms
+  cloudwatch_custom_metrics   = 25 # Estimated custom metrics
+  cloudwatch_dashboards       = 2  # Estimated dashboards
+  cloudwatch_alarms           = 15 # Estimated alarms
 }
 
 locals {
@@ -223,7 +223,7 @@ locals {
 # SNS cost calculations
 locals {
   # Base SNS usage estimates
-  sns_requests_millions = local.env_multiplier * 0.01 # Very low volume
+  sns_requests_millions   = local.env_multiplier * 0.01                                    # Very low volume
   sns_email_notifications = length(var.alert_email_addresses) * local.env_multiplier * 100 # Estimated notifications per month
 }
 

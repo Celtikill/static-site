@@ -4,7 +4,7 @@
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::223938610551:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRole",
       "Condition": {
@@ -13,11 +13,11 @@
         },
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
-            "repo:OWNER/REPO:ref:refs/heads/main",
-            "repo:OWNER/REPO:ref:refs/heads/feature/*",
-            "repo:OWNER/REPO:ref:refs/heads/bugfix/*", 
-            "repo:OWNER/REPO:ref:refs/heads/hotfix/*",
-            "repo:OWNER/REPO:pull_request"
+            "repo:Celtikill/static-site:ref:refs/heads/main",
+            "repo:Celtikill/static-site:ref:refs/heads/feature/*",
+            "repo:Celtikill/static-site:ref:refs/heads/bugfix/*", 
+            "repo:Celtikill/static-site:ref:refs/heads/hotfix/*",
+            "repo:Celtikill/static-site:pull_request"
           ]
         }
       }

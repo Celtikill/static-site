@@ -124,6 +124,29 @@ resource "aws_s3_bucket_versioning" "terraform_state" {
   }
 }
 
+# KMS keys for Terraform state encryption
+resource "aws_kms_key" "terraform_state" {
+  for_each = var.accounts
+
+  description             = "KMS key for Terraform state encryption - ${each.key} account"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = merge(var.common_tags, {
+    Name    = "${var.project_name}-tf-state-key-${each.key}"
+    Account = each.key
+    Purpose = "terraform-state-encryption"
+  })
+}
+
+# KMS key aliases for Terraform state encryption
+resource "aws_kms_alias" "terraform_state" {
+  for_each = var.accounts
+
+  name          = "alias/${var.project_name}-tf-state-${each.key}"
+  target_key_id = aws_kms_key.terraform_state[each.key].key_id
+}
+
 # Enable server-side encryption on state buckets
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" {
   for_each = var.accounts
@@ -132,7 +155,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" 
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.terraform_state[each.key].arn
+      sse_algorithm     = "aws:kms"
     }
     bucket_key_enabled = true
   }

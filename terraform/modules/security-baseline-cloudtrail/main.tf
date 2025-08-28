@@ -198,7 +198,10 @@ resource "aws_iam_role_policy" "cloudtrail_cloudwatch" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-        Resource = "${aws_cloudwatch_log_group.cloudtrail[0].arn}:*"
+        Resource = [
+          aws_cloudwatch_log_group.cloudtrail[0].arn,
+          "${aws_cloudwatch_log_group.cloudtrail[0].arn}:log-stream:*"
+        ]
       }
     ]
   })
