@@ -73,3 +73,42 @@ variable "account_creation_timeout" {
     error_message = "Account creation timeout must be between 10 and 60 minutes."
   }
 }
+
+# Security Account Configuration
+variable "security_accounts" {
+  description = "Configuration for Security OU accounts"
+  type = object({
+    security_tooling = object({
+      name             = string
+      email            = string
+      environment      = optional(string, "security")
+      account_type     = optional(string, "security")
+      security_profile = optional(string, "enhanced")
+    })
+    log_archive = object({
+      name             = string
+      email            = string
+      environment      = optional(string, "security")
+      account_type     = optional(string, "log-archive")
+      security_profile = optional(string, "strict")
+    })
+  })
+  
+  # Provide sensible defaults following SRA patterns
+  default = {
+    security_tooling = {
+      name             = "Security Tooling"
+      email            = ""  # Must be provided via tfvars
+      environment      = "security"
+      account_type     = "security"
+      security_profile = "enhanced"
+    }
+    log_archive = {
+      name             = "Log Archive"
+      email            = ""  # Must be provided via tfvars
+      environment      = "security"
+      account_type     = "log-archive"
+      security_profile = "strict"
+    }
+  }
+}

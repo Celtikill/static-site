@@ -59,11 +59,11 @@ After initial deployment with `create_state_backend = true`:
 2. Uncomment the S3 backend in `main.tf`:
    ```hcl
    backend "s3" {
-     bucket         = "aws-terraform-state-management-223938610551"
-     key            = "management-account/terraform.tfstate"
-     region         = "us-east-1"
-     encrypt        = true
-     dynamodb_table = "terraform-state-lock"
+     bucket       = "aws-terraform-state-management-223938610551"
+     key          = "management-account/terraform.tfstate"
+     region       = "us-east-1"
+     encrypt      = true
+     use_lockfile = true  # S3 native locking (Terraform 1.9+)
    }
    ```
 
@@ -93,7 +93,7 @@ This configuration will create:
 
 ### State Management
 - S3 bucket for Terraform state backend
-- DynamoDB table for state locking
+- S3 native state locking (no DynamoDB required)
 
 ## Outputs
 

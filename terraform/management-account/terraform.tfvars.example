@@ -1,0 +1,56 @@
+# Example configuration for Management Account Infrastructure
+# Copy to terraform.tfvars and update with your values
+# Following 12-factor app principles - all config externalized
+
+# Basic Configuration
+aws_region   = "us-east-1"
+project_name = "static-site"
+
+# REQUIRED: Your organization's domain for AWS account emails
+domain_suffix = "your-company.com"
+
+# Backend Configuration
+create_state_backend = true  # Set to false after initial creation
+
+# Security Account Configuration
+# Option 1: Use automatic email generation (recommended)
+security_accounts = {
+  security_tooling = {
+    name  = "Security Tooling"
+    email = ""  # Will become: aws-security-tooling@your-company.com
+  }
+  log_archive = {
+    name  = "Log Archive"
+    email = ""  # Will become: aws-log-archive@your-company.com
+  }
+}
+
+# Option 2: Specify custom email addresses
+# security_accounts = {
+#   security_tooling = {
+#     name  = "Security Tooling"
+#     email = "security-tools@your-company.com"
+#   }
+#   log_archive = {
+#     name  = "Log Archive"
+#     email = "log-archive@your-company.com"
+#   }
+# }
+
+# Environment and Monitoring
+environment_tag            = "management"
+enable_enhanced_monitoring = true
+
+# Account Creation Settings
+account_creation_timeout = 30
+
+# Cost Allocation Tags (customize for your organization)
+cost_allocation_tags = {
+  CostCenter  = "platform"
+  Owner       = "cloud-team"
+  Purpose     = "multi-account-foundation"
+  Environment = "management"
+}
+
+# Note: Organization ID and Management Account ID are automatically
+# retrieved using data sources - no hardcoding required!

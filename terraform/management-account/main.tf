@@ -13,11 +13,11 @@ terraform {
 
   # Backend will be configured after initial S3 bucket creation
   # backend "s3" {
-  #   bucket         = "aws-terraform-state-management-223938610551"
-  #   key            = "management-account/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   encrypt        = true
-  #   dynamodb_table = "terraform-state-lock"
+  #   bucket       = "aws-terraform-state-management-223938610551"
+  #   key          = "management-account/terraform.tfstate"
+  #   region       = "us-east-1"
+  #   encrypt      = true
+  #   use_lockfile = true  # S3 native locking (replaces DynamoDB)
   # }
 }
 
@@ -36,13 +36,15 @@ provider "aws" {
   }
 }
 
+# Data sources for dynamic configuration (12-factor compliant)
+data "aws_caller_identity" "current" {}
+data "aws_organizations_organization" "current" {}
+
 # Local values for account configuration following 12-factor config principles
 locals {
-  # Organization ID from our setup
-  organization_id = "o-0hh51yjgxw"
-  
-  # Management account ID
-  management_account_id = "223938610551"
+  # Dynamically retrieved values - no hardcoding
+  organization_id       = data.aws_organizations_organization.current.id
+  management_account_id = data.aws_caller_identity.current.account_id
   
   # Common tags following SRA tagging strategy
   common_tags = merge({
@@ -52,22 +54,14 @@ locals {
     LastUpdated       = timestamp()
   }, var.cost_allocation_tags)
 
-  # Security OU accounts to create (following SRA patterns)
+  # Security OU accounts configuration from variables (externalized config)
   security_accounts = {
-    security-tooling = {
-      name             = "Security Tooling"
-      email            = "aws-security-tooling@${var.domain_suffix}"
-      environment      = "security"
-      account_type     = "security"
-      security_profile = "enhanced"
-    }
-    log-archive = {
-      name             = "Log Archive"
-      email            = "aws-log-archive@${var.domain_suffix}"
-      environment      = "security"
-      account_type     = "log-archive"
-      security_profile = "strict"
-    }
+    security-tooling = merge(var.security_accounts.security_tooling, {
+      email = var.security_accounts.security_tooling.email != "" ? var.security_accounts.security_tooling.email : "aws-security-tooling@${var.domain_suffix}"
+    })
+    log-archive = merge(var.security_accounts.log_archive, {
+      email = var.security_accounts.log_archive.email != "" ? var.security_accounts.log_archive.email : "aws-log-archive@${var.domain_suffix}"
+    })
   }
 }
 
@@ -166,19 +160,6 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
   restrict_public_buckets = true
 }
 
-# DynamoDB table for state locking
-resource "aws_dynamodb_table" "terraform_state_lock" {
-  count          = var.create_state_backend ? 1 : 0
-  name           = "terraform-state-lock"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  tags = merge(local.common_tags, {
-    Purpose = "terraform-state-locking"
-  })
-}
+# DynamoDB table no longer needed - S3 native locking is used instead
+# Terraform 1.9+ supports S3 native state locking with use_lockfile = true
+# This eliminates the need for a separate DynamoDB table
