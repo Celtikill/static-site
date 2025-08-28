@@ -20,13 +20,14 @@
 
 **Multi-Account Architecture Migration** - CRITICAL Priority ⚡
 
-### Current Status: Phase 3 Implementation (Billing Constrained)
+### Current Status: Architecture Evolution (Billing Constrained)
 **Completed:**
 - ✅ Phase 0: Clean Slate Preparation - All existing resources decommissioned
 - ✅ Phase 1: AWS Organizations Foundation - Organization o-0hh51yjgxw created, Management Account 223938610551
 - ✅ Phase 2: SRA-Aligned Terraform Module Development - All security baseline modules created and validated with composable architecture
 - ✅ Phase 2.5: Security Issues Resolution - HIGH severity vulnerabilities fixed with KMS encryption
 - ✅ Phase 2.6: Workflow Branch Fixes - RUN/TEST workflows now correctly deploy from feature branches
+- ✅ Phase 2.7: Architecture Planning - Nested OU team/app architecture designed and validated
 - 🔄 Phase 3: Organization Management Infrastructure - **IN PROGRESS** (GitHub Actions blocked by billing limits)
 
 **Next Steps:**
@@ -363,11 +364,11 @@ For detailed gap analysis against enterprise standards, see comparison report wi
 
 **Immediate Actions for New Month:**
 1. **Resume Phase 3 Deployment**: Execute organization management infrastructure deployment
-2. **Enhance OPA Policies**: Add multi-account validation rules (organization, cross-account IAM, KMS)
-3. **Consider MVP Simplification**: Evaluate temporary CloudFront removal for faster MVP deployment
-4. **Validate Multi-Account Structure**: Confirm OUs and SCPs are properly configured
-5. **Create Account Factory**: Deploy account creation automation for workload accounts
-6. **Update CI/CD Pipeline**: Implement multi-account workflow routing
+2. **Implement Nested OU Architecture**: Migrate to team/app-based nested organizational units
+3. **Enhance OPA Policies**: Add multi-account validation rules (organization, cross-account IAM, KMS)
+4. **Consider MVP Simplification**: Evaluate temporary CloudFront removal for faster MVP deployment
+5. **Create App-Specific Accounts**: Deploy dev/staging/prod accounts for static-site app
+6. **Update CI/CD Pipeline**: Implement account-specific deployment routing
 
 **Architecture Readiness**: 
 - ✅ Organization management infrastructure code complete and security-validated
@@ -380,6 +381,13 @@ For detailed gap analysis against enterprise standards, see comparison report wi
 - 🎯 **Benefits**: 90% cost reduction (~$27→$3/month), 75% faster deployment (20→5 min), much simpler architecture
 - ⚠️ **Trade-offs**: No global CDN, no WAF protection, HTTP-only, higher latency, basic security
 - 🔄 **Re-enablement Strategy**: Feature toggle approach for progressive enhancement post-MVP
+
+**Nested OU Architecture Plan**: 
+- ✅ **AWS Validation**: Confirmed nested OU support (5 levels max, using 4 levels)
+- 🏗️ **Structure**: Root → Teams → Apps → Environment Accounts (dev/staging/prod)
+- 🎯 **Benefits**: Team autonomy, app isolation, clear cost attribution, policy inheritance, infinite scalability
+- 📋 **Migration**: 5-phase implementation (Foundation → Account Factory → Directory → Workflows → Documentation)
+- 🔄 **Impact**: Complete restructure of terraform directories and deployment workflows
 
 ---
 
