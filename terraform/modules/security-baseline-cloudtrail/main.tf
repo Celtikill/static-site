@@ -183,6 +183,7 @@ resource "aws_iam_role" "cloudtrail_cloudwatch" {
 }
 
 # IAM policy for CloudTrail CloudWatch Logs
+# trivy:ignore:AVD-AWS-0057 - CloudTrail log delivery requires wildcards for log streams
 resource "aws_iam_role_policy" "cloudtrail_cloudwatch" {
   count = var.enable_cloudwatch_logs ? 1 : 0
 
