@@ -87,6 +87,12 @@ tofu.rc
 test-results/
 **/test-results/
 *.log
+
+# Security Scan Artifacts (CI/CD temporary files)
+*trivy-results*
+*checkov-results*
+trivy-security-summary.md
+checkov-security-summary.md
 *.out
 coverage.xml
 *.coverage
