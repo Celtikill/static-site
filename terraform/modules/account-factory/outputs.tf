@@ -39,15 +39,15 @@ output "created_accounts_summary" {
   description = "Summary of all created accounts with key details"
   value = {
     for k, v in aws_organizations_account.accounts : k => {
-      account_id    = v.id
-      account_name  = v.name
-      email         = v.email
-      ou_id         = v.parent_id
-      environment   = lookup(var.accounts[k], "environment", "shared")
-      account_type  = lookup(var.accounts[k], "account_type", "workload")
-      security_profile = lookup(var.accounts[k], "security_profile", "baseline")
+      account_id         = v.id
+      account_name       = v.name
+      email              = v.email
+      ou_id              = v.parent_id
+      environment        = lookup(var.accounts[k], "environment", "shared")
+      account_type       = lookup(var.accounts[k], "account_type", "workload")
+      security_profile   = lookup(var.accounts[k], "security_profile", "baseline")
       terraform_role_arn = aws_iam_role.terraform_deployment[k].arn
-      state_bucket      = aws_s3_bucket.terraform_state[k].id
+      state_bucket       = aws_s3_bucket.terraform_state[k].id
     }
   }
 }

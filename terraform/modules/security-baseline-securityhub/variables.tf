@@ -145,9 +145,9 @@ variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default = {
-    ManagedBy       = "terraform"
-    Module          = "security-baseline-securityhub"
-    SecurityTool    = "Security Hub"
-    Architecture    = "sra-aligned"
+    ManagedBy    = "terraform"
+    Module       = "security-baseline-securityhub"
+    SecurityTool = "Security Hub"
+    Architecture = "sra-aligned"
   }
 }

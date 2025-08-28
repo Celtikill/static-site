@@ -27,7 +27,7 @@ output "config_bucket_arn" {
 
 output "configuration_aggregator_name" {
   description = "Name of the Config aggregator (Security Tooling Account only)"
-  value       = var.is_security_tooling_account ? (
+  value = var.is_security_tooling_account ? (
     length(aws_config_configuration_aggregator.organization) > 0 ?
     aws_config_configuration_aggregator.organization[0].name : null
   ) : null
@@ -35,7 +35,7 @@ output "configuration_aggregator_name" {
 
 output "configuration_aggregator_arn" {
   description = "ARN of the Config aggregator (Security Tooling Account only)"
-  value       = var.is_security_tooling_account ? (
+  value = var.is_security_tooling_account ? (
     length(aws_config_configuration_aggregator.organization) > 0 ?
     aws_config_configuration_aggregator.organization[0].arn : null
   ) : null
@@ -43,7 +43,7 @@ output "configuration_aggregator_arn" {
 
 output "aggregator_role_arn" {
   description = "ARN of the Config aggregator role (Security Tooling Account only)"
-  value       = var.is_security_tooling_account ? (
+  value = var.is_security_tooling_account ? (
     length(aws_iam_role.aggregator) > 0 ?
     aws_iam_role.aggregator[0].arn : null
   ) : null
@@ -83,29 +83,29 @@ output "recording_configuration" {
   description = "Summary of Config recording configuration"
   value = {
     account_name             = var.account_name
-    recorder_name           = aws_config_configuration_recorder.main.name
-    delivery_channel_name   = aws_config_delivery_channel.main.name
-    record_all_supported    = var.record_all_supported
+    recorder_name            = aws_config_configuration_recorder.main.name
+    delivery_channel_name    = aws_config_delivery_channel.main.name
+    record_all_supported     = var.record_all_supported
     include_global_resources = var.include_global_resources
     excluded_resource_types  = var.excluded_resource_types
-    delivery_frequency      = var.delivery_frequency
-    
+    delivery_frequency       = var.delivery_frequency
+
     storage = {
-      bucket_name    = var.create_config_bucket ? aws_s3_bucket.config[0].id : var.existing_bucket_name
-      s3_key_prefix  = var.s3_key_prefix
-      kms_encrypted  = var.kms_key_id != null
+      bucket_name   = var.create_config_bucket ? aws_s3_bucket.config[0].id : var.existing_bucket_name
+      s3_key_prefix = var.s3_key_prefix
+      kms_encrypted = var.kms_key_id != null
     }
-    
+
     aggregation = var.is_security_tooling_account ? {
-      enabled              = true
+      enabled               = true
       aggregate_all_regions = var.aggregate_all_regions
       aggregation_regions   = var.aggregate_all_regions ? null : var.aggregation_regions
     } : null
-    
+
     compliance = {
       security_rules_enabled = var.enable_security_rules
       conformance_packs      = length(var.conformance_packs)
-      custom_rules          = length(var.custom_config_rules)
+      custom_rules           = length(var.custom_config_rules)
     }
   }
 }

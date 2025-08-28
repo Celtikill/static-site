@@ -321,27 +321,27 @@ module "cost_projection" {
   source = "./modules/cost-projection"
 
   # Environment configuration
-  environment = var.environment
-  aws_region  = var.aws_region
+  environment  = var.environment
+  aws_region   = var.aws_region
   project_name = var.project_name
 
   # Resource configuration flags (match current deployment)
-  enable_waf                        = var.enable_waf
-  create_route53_zone              = var.create_route53_zone
-  create_kms_key                   = var.create_kms_key
-  enable_cross_region_replication  = var.enable_cross_region_replication
-  enable_access_logging            = var.enable_access_logging
+  enable_waf                      = var.enable_waf
+  create_route53_zone             = var.create_route53_zone
+  create_kms_key                  = var.create_kms_key
+  enable_cross_region_replication = var.enable_cross_region_replication
+  enable_access_logging           = var.enable_access_logging
 
   # Budget and alerting configuration
-  monthly_budget_limit     = var.monthly_budget_limit
-  alert_email_addresses    = var.alert_email_addresses
+  monthly_budget_limit  = var.monthly_budget_limit
+  alert_email_addresses = var.alert_email_addresses
 
   # Additional configuration
-  account_type                    = "workload"
-  generate_detailed_report        = true
-  report_format                   = "all"
+  account_type                      = "workload"
+  generate_detailed_report          = true
+  report_format                     = "all"
   enable_cost_optimization_analysis = true
-  enable_cost_history_tracking    = true
+  enable_cost_history_tracking      = true
 
   # Pass through common tags for cost allocation
   common_tags = local.common_tags

@@ -15,62 +15,62 @@ terraform {
 locals {
   # S3 Storage pricing (USD per GB-month)
   s3_pricing = {
-    standard_storage      = 0.023  # Standard storage
-    ia_storage           = 0.0125 # Infrequent Access
-    glacier_storage      = 0.004  # Glacier
-    requests_get         = 0.0004 # Per 1,000 GET requests
-    requests_put         = 0.005  # Per 1,000 PUT requests
-    data_transfer_out    = 0.09   # Per GB
+    standard_storage  = 0.023  # Standard storage
+    ia_storage        = 0.0125 # Infrequent Access
+    glacier_storage   = 0.004  # Glacier
+    requests_get      = 0.0004 # Per 1,000 GET requests
+    requests_put      = 0.005  # Per 1,000 PUT requests
+    data_transfer_out = 0.09   # Per GB
   }
 
   # CloudFront pricing
   cloudfront_pricing = {
     data_transfer_out_na_eu = 0.085  # North America/Europe per GB
     data_transfer_out_other = 0.140  # Other regions per GB
-    http_requests          = 0.0075 # Per 10,000 requests
-    https_requests         = 0.010  # Per 10,000 requests
+    http_requests           = 0.0075 # Per 10,000 requests
+    https_requests          = 0.010  # Per 10,000 requests
   }
 
   # WAF pricing
   waf_pricing = {
-    web_acl_monthly        = 5.00   # Per Web ACL per month
-    rule_monthly          = 1.00   # Per rule per month
-    requests_processed    = 0.60   # Per million requests
-    rule_evaluations      = 0.06   # Per million evaluations
+    web_acl_monthly    = 5.00 # Per Web ACL per month
+    rule_monthly       = 1.00 # Per rule per month
+    requests_processed = 0.60 # Per million requests
+    rule_evaluations   = 0.06 # Per million evaluations
   }
 
   # Route53 pricing
   route53_pricing = {
-    hosted_zone_monthly   = 0.50   # Per hosted zone per month
-    queries_first_billion = 0.40   # Per million queries (first billion)
+    hosted_zone_monthly   = 0.50 # Per hosted zone per month
+    queries_first_billion = 0.40 # Per million queries (first billion)
   }
 
   # KMS pricing
   kms_pricing = {
-    key_monthly          = 1.00    # Per key per month
-    requests            = 0.03    # Per 10,000 requests
+    key_monthly = 1.00 # Per key per month
+    requests    = 0.03 # Per 10,000 requests
   }
 
   # CloudWatch pricing
   cloudwatch_pricing = {
-    log_ingestion       = 0.50    # Per GB ingested
-    log_storage         = 0.03    # Per GB-month after first 5GB free
-    custom_metrics      = 0.30    # Per metric per month after first 10 free
-    dashboard          = 3.00    # Per dashboard per month after first 3 free
-    alarms             = 0.10    # Per alarm per month after first 10 free
+    log_ingestion  = 0.50 # Per GB ingested
+    log_storage    = 0.03 # Per GB-month after first 5GB free
+    custom_metrics = 0.30 # Per metric per month after first 10 free
+    dashboard      = 3.00 # Per dashboard per month after first 3 free
+    alarms         = 0.10 # Per alarm per month after first 10 free
   }
 
   # SNS pricing
   sns_pricing = {
-    requests_first_million = 0.50  # Per million requests
-    email_notifications    = 2.00  # Per 100,000 notifications
+    requests_first_million = 0.50 # Per million requests
+    email_notifications    = 2.00 # Per 100,000 notifications
   }
 
   # Environment multipliers for usage estimation
   environment_multipliers = {
-    dev     = 0.7  # Lower usage in development
-    staging = 0.8  # Medium usage in staging
-    prod    = 1.0  # Full usage in production
+    dev     = 0.7 # Lower usage in development
+    staging = 0.8 # Medium usage in staging
+    prod    = 1.0 # Full usage in production
   }
 
   # Calculate environment-specific multiplier
@@ -84,13 +84,12 @@ locals {
     storage_cost = (var.environment == "dev" ? 10 : var.environment == "staging" ? 25 : 100) * local.s3_pricing.standard_storage
 
     # Cross-region replication storage (if enabled)
-    replication_cost = var.enable_cross_region_replication ? 
-      (var.environment == "dev" ? 10 : var.environment == "staging" ? 25 : 100) * local.s3_pricing.standard_storage : 0
+    replication_cost = var.enable_cross_region_replication ? (var.environment == "dev" ? 10 : var.environment == "staging" ? 25 : 100) * local.s3_pricing.standard_storage : 0
 
     # Request costs (estimated based on environment)
     requests_cost = local.env_multiplier * (
-      (1000 * local.s3_pricing.requests_get / 1000) +   # GET requests
-      (100 * local.s3_pricing.requests_put / 1000)      # PUT requests
+      (1000 * local.s3_pricing.requests_get / 1000) + # GET requests
+      (100 * local.s3_pricing.requests_put / 1000)    # PUT requests
     )
 
     # Access logging bucket (small usage)
@@ -98,8 +97,7 @@ locals {
   }
 
   # Calculate total S3 monthly cost
-  s3_monthly_cost = local.s3_costs.storage_cost + local.s3_costs.replication_cost + 
-                    local.s3_costs.requests_cost + local.s3_costs.access_logs_cost
+  s3_monthly_cost = local.s3_costs.storage_cost + local.s3_costs.replication_cost + local.s3_costs.requests_cost + local.s3_costs.access_logs_cost
 }
 
 # CloudFront cost calculations
@@ -107,12 +105,12 @@ locals {
   cloudfront_costs = {
     # Data transfer out (estimated GB per month by environment)
     data_transfer_gb = var.environment == "dev" ? 50 : var.environment == "staging" ? 200 : 2000
-    
+
     data_transfer_cost = local.cloudfront_costs.data_transfer_gb * local.cloudfront_pricing.data_transfer_out_na_eu
 
     # HTTPS requests (estimated per month)
     https_requests = local.env_multiplier * (var.environment == "dev" ? 100000 : var.environment == "staging" ? 500000 : 5000000)
-    
+
     requests_cost = (local.cloudfront_costs.https_requests / 10000) * local.cloudfront_pricing.https_requests
   }
 
@@ -131,21 +129,20 @@ locals {
 
     # Request processing (estimated based on CloudFront requests)
     requests_millions = local.cloudfront_costs.https_requests / 1000000
-    requests_cost = local.waf_costs.requests_millions * local.waf_pricing.requests_processed
+    requests_cost     = local.waf_costs.requests_millions * local.waf_pricing.requests_processed
 
     # Rule evaluations (5 rules * requests)
     evaluations_millions = local.waf_costs.requests_millions * 5
-    evaluations_cost = local.waf_costs.evaluations_millions * local.waf_pricing.rule_evaluations
-  } : {
-    web_acl_cost = 0
-    rules_cost = 0  
-    requests_cost = 0
+    evaluations_cost     = local.waf_costs.evaluations_millions * local.waf_pricing.rule_evaluations
+    } : {
+    web_acl_cost     = 0
+    rules_cost       = 0
+    requests_cost    = 0
     evaluations_cost = 0
   }
 
   # Calculate total WAF monthly cost
-  waf_monthly_cost = local.waf_costs.web_acl_cost + local.waf_costs.rules_cost + 
-                     local.waf_costs.requests_cost + local.waf_costs.evaluations_cost
+  waf_monthly_cost = local.waf_costs.web_acl_cost + local.waf_costs.rules_cost + local.waf_costs.requests_cost + local.waf_costs.evaluations_cost
 }
 
 # Route53 cost calculations (if enabled)
@@ -156,10 +153,10 @@ locals {
 
     # DNS queries (estimated based on traffic)
     queries_millions = local.env_multiplier * (var.environment == "dev" ? 0.1 : var.environment == "staging" ? 0.5 : 5.0)
-    queries_cost = local.route53_costs.queries_millions * local.route53_pricing.queries_first_billion
-  } : {
+    queries_cost     = local.route53_costs.queries_millions * local.route53_pricing.queries_first_billion
+    } : {
     hosted_zone_cost = 0
-    queries_cost = 0
+    queries_cost     = 0
   }
 
   # Calculate total Route53 monthly cost
@@ -173,10 +170,10 @@ locals {
     key_cost = local.kms_pricing.key_monthly
 
     # KMS requests (estimated based on S3 operations and CloudWatch)
-    requests_thousands = local.env_multiplier * 10  # Estimated 10k requests per month
-    requests_cost = (local.kms_costs.requests_thousands / 10) * local.kms_pricing.requests
-  } : {
-    key_cost = 0
+    requests_thousands = local.env_multiplier * 10 # Estimated 10k requests per month
+    requests_cost      = (local.kms_costs.requests_thousands / 10) * local.kms_pricing.requests
+    } : {
+    key_cost      = 0
     requests_cost = 0
   }
 
@@ -188,41 +185,39 @@ locals {
 locals {
   cloudwatch_costs = {
     # Log ingestion (estimated GB per month)
-    log_ingestion_gb = local.env_multiplier * (var.environment == "dev" ? 2 : var.environment == "staging" ? 5 : 20)
-    log_ingestion_cost = max(0, local.cloudwatch_costs.log_ingestion_gb - 5) * local.cloudwatch_pricing.log_ingestion  # First 5GB free
+    log_ingestion_gb   = local.env_multiplier * (var.environment == "dev" ? 2 : var.environment == "staging" ? 5 : 20)
+    log_ingestion_cost = max(0, local.cloudwatch_costs.log_ingestion_gb - 5) * local.cloudwatch_pricing.log_ingestion # First 5GB free
 
     # Log storage (after first 5GB free)
     log_storage_cost = max(0, local.cloudwatch_costs.log_ingestion_gb - 5) * local.cloudwatch_pricing.log_storage
 
     # Custom metrics (after first 10 free)
-    custom_metrics = 25  # Estimated custom metrics
+    custom_metrics      = 25 # Estimated custom metrics
     custom_metrics_cost = max(0, local.cloudwatch_costs.custom_metrics - 10) * local.cloudwatch_pricing.custom_metrics
 
     # Dashboards (after first 3 free)
-    dashboards = 2  # Estimated dashboards
+    dashboards     = 2 # Estimated dashboards
     dashboard_cost = max(0, local.cloudwatch_costs.dashboards - 3) * local.cloudwatch_pricing.dashboard
 
     # Alarms (after first 10 free)
-    alarms = 15  # Estimated alarms
+    alarms      = 15 # Estimated alarms
     alarms_cost = max(0, local.cloudwatch_costs.alarms - 10) * local.cloudwatch_pricing.alarms
   }
 
   # Calculate total CloudWatch monthly cost
-  cloudwatch_monthly_cost = local.cloudwatch_costs.log_ingestion_cost + local.cloudwatch_costs.log_storage_cost +
-                           local.cloudwatch_costs.custom_metrics_cost + local.cloudwatch_costs.dashboard_cost +
-                           local.cloudwatch_costs.alarms_cost
+  cloudwatch_monthly_cost = local.cloudwatch_costs.log_ingestion_cost + local.cloudwatch_costs.log_storage_cost + local.cloudwatch_costs.custom_metrics_cost + local.cloudwatch_costs.dashboard_cost + local.cloudwatch_costs.alarms_cost
 }
 
 # SNS cost calculations
 locals {
   sns_costs = {
     # SNS requests (estimated based on alarms and notifications)
-    requests_millions = local.env_multiplier * 0.01  # Very low volume
-    requests_cost = local.sns_costs.requests_millions * local.sns_pricing.requests_first_million
+    requests_millions = local.env_multiplier * 0.01 # Very low volume
+    requests_cost     = local.sns_costs.requests_millions * local.sns_pricing.requests_first_million
 
     # Email notifications
-    email_notifications = length(var.alert_email_addresses) * local.env_multiplier * 100  # Estimated notifications per month
-    email_cost = (local.sns_costs.email_notifications / 100000) * local.sns_pricing.email_notifications
+    email_notifications = length(var.alert_email_addresses) * local.env_multiplier * 100 # Estimated notifications per month
+    email_cost          = (local.sns_costs.email_notifications / 100000) * local.sns_pricing.email_notifications
   }
 
   # Calculate total SNS monthly cost
@@ -253,29 +248,29 @@ locals {
     environment = var.environment
     region      = var.aws_region
     timestamp   = timestamp()
-    
+
     monthly_costs = local.service_costs
     total_monthly = local.total_monthly_cost
     total_annual  = local.total_annual_cost
-    
+
     # Budget utilization
     budget_utilization = var.monthly_budget_limit > 0 ? (local.total_monthly_cost / var.monthly_budget_limit) * 100 : 0
-    
+
     # Cost per service percentage
     service_percentages = {
       for service, cost in local.service_costs :
       service => local.total_monthly_cost > 0 ? (cost / local.total_monthly_cost) * 100 : 0
     }
-    
+
     # Resource details for transparency
     resource_details = {
       s3_storage_gb          = var.environment == "dev" ? 10 : var.environment == "staging" ? 25 : 100
       cloudfront_data_gb     = local.cloudfront_costs.data_transfer_gb
       cloudfront_requests    = local.cloudfront_costs.https_requests
-      waf_enabled           = var.enable_waf
-      route53_enabled       = var.create_route53_zone
-      kms_enabled           = var.create_kms_key
-      cross_region_repl     = var.enable_cross_region_replication
+      waf_enabled            = var.enable_waf
+      route53_enabled        = var.create_route53_zone
+      kms_enabled            = var.create_kms_key
+      cross_region_repl      = var.enable_cross_region_replication
       environment_multiplier = local.env_multiplier
     }
   }

@@ -272,13 +272,13 @@ output "budget_validation" {
 output "cost_optimization_summary" {
   description = "Cost optimization summary for environment"
   value = {
-    environment = var.environment
+    environment  = var.environment
     monthly_cost = module.cost_projection.monthly_cost_total
     primary_cost_drivers = [
       for service, cost in module.cost_projection.service_costs :
       service if cost > module.cost_projection.monthly_cost_total * 0.2
     ]
-    optimization_potential = module.cost_projection.monthly_cost_total > 50 ? "High" : "Medium"
+    optimization_potential    = module.cost_projection.monthly_cost_total > 50 ? "High" : "Medium"
     recommendations_available = true
   }
 }

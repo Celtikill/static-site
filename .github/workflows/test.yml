@@ -526,7 +526,7 @@ jobs:
         id: validate
         run: |
           echo "## 💰 Cost Budget Validation" >> $GITHUB_STEP_SUMMARY
-          
+
           ENV="${{ needs.info.outputs.environment }}"
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
 
@@ -537,7 +537,7 @@ jobs:
               CRITICAL_THRESHOLD=100
               WARNING_THRESHOLD=80
               ;;
-            "staging") 
+            "staging")
               BUDGET_LIMIT=75
               CRITICAL_THRESHOLD=100
               WARNING_THRESHOLD=80
@@ -561,19 +561,19 @@ jobs:
             MONTHLY_COST=$(jq -r '.costs.monthly_usd' ./cost-analysis/cost-projection.json 2>/dev/null || echo "0")
             BUILD_BUDGET_STATUS=$(jq -r '.budget.status' ./cost-analysis/cost-projection.json 2>/dev/null || echo "unknown")
             UTILIZATION=$(jq -r '.budget.utilization_percent' ./cost-analysis/cost-projection.json 2>/dev/null || echo "0")
-            
+
             echo "- **Projected Monthly Cost**: \$${MONTHLY_COST}" >> $GITHUB_STEP_SUMMARY
             echo "- **Budget Utilization**: ${UTILIZATION}%" >> $GITHUB_STEP_SUMMARY
-            
+
             # Validate against thresholds
             if [ "$UTILIZATION" -ge "$CRITICAL_THRESHOLD" ]; then
               VALIDATION_STATUS="critical"
               VALIDATION_EMOJI="🔴"
               VALIDATION_MESSAGE="CRITICAL: Cost projection exceeds budget limit!"
               VALIDATION_RESULT="failure"
-              
+
               echo "- **Status**: $VALIDATION_EMOJI $VALIDATION_MESSAGE" >> $GITHUB_STEP_SUMMARY
-              
+
               # Environment-specific enforcement
               if [ "$ENV" = "prod" ]; then
                 echo "❌ **PRODUCTION DEPLOYMENT BLOCKED**" >> $GITHUB_STEP_SUMMARY
@@ -587,16 +587,16 @@ jobs:
                 echo "⚠️ **DEVELOPMENT WARNING**: Cost exceeds recommended budget" >> $GITHUB_STEP_SUMMARY
                 echo "Consider optimizing development resources" >> $GITHUB_STEP_SUMMARY
               fi
-              
+
             elif [ "$UTILIZATION" -ge "$WARNING_THRESHOLD" ]; then
               VALIDATION_STATUS="warning"
               VALIDATION_EMOJI="🟡"
               VALIDATION_MESSAGE="WARNING: Approaching budget limit at ${UTILIZATION}%"
               VALIDATION_RESULT="success"
-              
+
               echo "- **Status**: $VALIDATION_EMOJI $VALIDATION_MESSAGE" >> $GITHUB_STEP_SUMMARY
               echo "### 🎯 Cost Optimization Recommendations" >> $GITHUB_STEP_SUMMARY
-              
+
               # Environment-specific recommendations
               case "$ENV" in
                 "dev")
@@ -613,13 +613,13 @@ jobs:
                   echo "- Review high-cost services for optimization opportunities" >> $GITHUB_STEP_SUMMARY
                   ;;
               esac
-              
+
             else
               VALIDATION_STATUS="healthy"
               VALIDATION_EMOJI="🟢"
               VALIDATION_MESSAGE="HEALTHY: Within budget limits at ${UTILIZATION}%"
               VALIDATION_RESULT="success"
-              
+
               echo "- **Status**: $VALIDATION_EMOJI $VALIDATION_MESSAGE" >> $GITHUB_STEP_SUMMARY
             fi
 
@@ -643,7 +643,7 @@ jobs:
           else
             echo "⚠️ **No cost projection data available from BUILD phase**" >> $GITHUB_STEP_SUMMARY
             echo "Cost validation skipped - ensure BUILD workflow completed successfully" >> $GITHUB_STEP_SUMMARY
-            
+
             VALIDATION_STATUS="unknown"
             VALIDATION_RESULT="success"  # Don't fail if data unavailable
             MONTHLY_COST="0"
@@ -735,7 +735,7 @@ jobs:
           echo "| Policy Validation | ${{ needs.policy-validation.result == 'success' && '✅ Passed' || needs.policy-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website Content | ${{ needs.website-tests.result == 'success' && '✅ Passed' || needs.website-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Pre-Deployment Usability | ${{ needs.pre-deployment-usability.result == 'success' && '✅ Passed' || needs.pre-deployment-usability.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Cost Validation | ${{ needs.cost-validation.result == 'success' && format('💰 ${0} ({1})', needs.cost-validation.outputs.monthly_cost, needs.cost-validation.outputs.budget_status) || needs.cost-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost Validation | ${{ needs.cost-validation.result == 'success' && '💰 Validated' || needs.cost-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Display detailed unit test results if available

@@ -500,7 +500,7 @@ jobs:
         id: verify
         run: |
           echo "## 💰 Post-Deployment Cost Verification" >> $GITHUB_STEP_SUMMARY
-          
+
           ENV="${{ needs.info.outputs.target_environment }}"
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
           echo "- **Deployed Components**: Infrastructure: ${{ needs.infrastructure.result }}, Website: ${{ needs.website.result }}" >> $GITHUB_STEP_SUMMARY
@@ -531,7 +531,7 @@ jobs:
 
           # Verify resources are properly tagged for cost allocation
           echo "### 🏷️ Cost Allocation Validation" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check S3 bucket tagging
           if [ "${{ needs.infrastructure.result }}" = "success" ]; then
             # Would normally check actual deployed resources
@@ -551,7 +551,7 @@ jobs:
 
           # Create cost monitoring recommendations
           echo "### 🎯 Post-Deployment Cost Monitoring" >> $GITHUB_STEP_SUMMARY
-          
+
           case "$ENV" in
             "dev")
               echo "#### Development Environment Monitoring:" >> $GITHUB_STEP_SUMMARY
@@ -667,7 +667,7 @@ jobs:
           echo "| Infrastructure | ${{ needs.infrastructure.result == 'success' && '✅ Deployed' || needs.infrastructure.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website Content | ${{ needs.website.result == 'success' && '✅ Deployed' || needs.website.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Validation | ${{ needs.validation.result == 'success' && '✅ Completed' || needs.validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Cost Verification | ${{ needs.cost-verification.result == 'success' && format('💰 {0} variance', needs.cost-verification.outputs.cost_variance) || needs.cost-verification.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost Verification | ${{ needs.cost-verification.result == 'success' && '💰 Verified' || needs.cost-verification.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| GitHub Deployment | ${{ needs.github-deployment.result == 'success' && '✅ Updated' || needs.github-deployment.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 

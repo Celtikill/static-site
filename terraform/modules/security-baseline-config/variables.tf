@@ -79,7 +79,7 @@ variable "delivery_frequency" {
   validation {
     condition = contains([
       "One_Hour",
-      "Three_Hours", 
+      "Three_Hours",
       "Six_Hours",
       "Twelve_Hours",
       "TwentyFour_Hours"
@@ -134,9 +134,9 @@ variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default = {
-    ManagedBy       = "terraform"
-    Module          = "security-baseline-config"
-    SecurityTool    = "AWS Config"
-    Architecture    = "sra-aligned"
+    ManagedBy    = "terraform"
+    Module       = "security-baseline-config"
+    SecurityTool = "AWS Config"
+    Architecture = "sra-aligned"
   }
 }

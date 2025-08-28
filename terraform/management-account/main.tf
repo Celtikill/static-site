@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.5"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -24,14 +24,14 @@ terraform {
 # Configure AWS Provider for Management Account
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
-      Environment   = var.environment_tag
-      ManagedBy     = "terraform"
-      Project       = var.project_name
-      Architecture  = "sra-aligned"
-      DeployedFrom  = "management-account"
+      Environment  = var.environment_tag
+      ManagedBy    = "terraform"
+      Project      = var.project_name
+      Architecture = "sra-aligned"
+      DeployedFrom = "management-account"
     }
   }
 }
@@ -45,7 +45,7 @@ locals {
   # Dynamically retrieved values - no hardcoding
   organization_id       = data.aws_organizations_organization.current.id
   management_account_id = data.aws_caller_identity.current.account_id
-  
+
   # Common tags following SRA tagging strategy
   common_tags = merge({
     Organization      = local.organization_id
@@ -68,7 +68,7 @@ locals {
 # Deploy AWS Organizations module
 module "aws_organizations" {
   source = "../modules/aws-organizations"
-  
+
   common_tags = merge(local.common_tags, {
     Module = "aws-organizations"
   })
@@ -77,22 +77,22 @@ module "aws_organizations" {
 # Create Security OU accounts using Account Factory
 module "security_accounts" {
   source = "../modules/account-factory"
-  
+
   # Pass Security OU accounts configuration
   accounts = {
     for k, v in local.security_accounts : k => merge(v, {
       ou_id = module.aws_organizations.security_ou_id
     })
   }
-  
+
   management_account_id = local.management_account_id
-  project_name         = var.project_name
-  
+  project_name          = var.project_name
+
   common_tags = merge(local.common_tags, {
     Module = "account-factory"
     OU     = "Security"
   })
-  
+
   depends_on = [module.aws_organizations]
 }
 
@@ -102,7 +102,7 @@ resource "aws_ssm_parameter" "security_tooling_account_id" {
   description = "Security Tooling Account ID"
   type        = "String"
   value       = module.security_accounts.account_ids["security-tooling"]
-  
+
   tags = merge(local.common_tags, {
     Purpose = "account-reference"
   })
@@ -113,7 +113,7 @@ resource "aws_ssm_parameter" "log_archive_account_id" {
   description = "Log Archive Account ID"
   type        = "String"
   value       = module.security_accounts.account_ids["log-archive"]
-  
+
   tags = merge(local.common_tags, {
     Purpose = "account-reference"
   })
@@ -123,7 +123,7 @@ resource "aws_ssm_parameter" "log_archive_account_id" {
 resource "aws_s3_bucket" "terraform_state" {
   count  = var.create_state_backend ? 1 : 0
   bucket = "aws-terraform-state-management-${local.management_account_id}"
-  
+
   tags = merge(local.common_tags, {
     Purpose = "terraform-state-backend"
   })
@@ -132,7 +132,7 @@ resource "aws_s3_bucket" "terraform_state" {
 resource "aws_s3_bucket_versioning" "terraform_state" {
   count  = var.create_state_backend ? 1 : 0
   bucket = aws_s3_bucket.terraform_state[0].id
-  
+
   versioning_configuration {
     status = "Enabled"
   }

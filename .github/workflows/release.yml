@@ -6,9 +6,9 @@ on:
   # push:
   #   tags:
   #     - 'v*.*.*'           # Production releases (v1.0.0) → prod
-  #     - 'v*.*.*-rc*'       # Release candidates (v1.0.0-rc1) → staging  
+  #     - 'v*.*.*-rc*'       # Release candidates (v1.0.0-rc1) → staging
   #     - 'v*.*.*-hotfix.*'  # Hotfixes (v1.0.1-hotfix.1) → staging
-  
+
   # Manual release creation
   workflow_dispatch:
     inputs:
@@ -41,7 +41,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       environment: ${{ steps.version.outputs.environment }}
       is_prerelease: ${{ steps.version.outputs.is_prerelease }}
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,12 +54,12 @@ jobs:
         run: |
           echo "# 📦 RELEASE Management" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # If triggered by tag push
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
             VERSION="${{ github.ref_name }}"
             echo "📌 Using existing tag: $VERSION" >> $GITHUB_STEP_SUMMARY
-          
+
           # If manual with custom version
           elif [[ -n "${{ github.event.inputs.custom_version }}" ]]; then
             VERSION="${{ github.event.inputs.custom_version }}"
@@ -67,16 +67,16 @@ jobs:
               VERSION="v$VERSION"
             fi
             echo "📝 Using custom version: $VERSION" >> $GITHUB_STEP_SUMMARY
-          
+
           # If manual with version type
           else
             LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
             echo "📊 Latest tag: $LATEST_TAG" >> $GITHUB_STEP_SUMMARY
-            
+
             # Parse version components
             CURRENT_VERSION=${LATEST_TAG#v}
             IFS='.' read -r MAJOR MINOR PATCH <<< "${CURRENT_VERSION%%-*}"
-            
+
             # Calculate new version
             case "${{ github.event.inputs.version_type }}" in
               major)
@@ -99,7 +99,7 @@ jobs:
             esac
             echo "🔢 Calculated version: $VERSION" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Determine target environment based on version pattern
           if [[ "$VERSION" =~ -rc ]]; then
             ENVIRONMENT="staging"
@@ -114,12 +114,12 @@ jobs:
             IS_PRERELEASE="false"
             echo "🎯 Target: production (stable release)" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Set outputs
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
           echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Release Summary:**" >> $GITHUB_STEP_SUMMARY
           echo "- Version: $VERSION" >> $GITHUB_STEP_SUMMARY
@@ -130,26 +130,26 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
+
           # Check if tag already exists
           if git rev-parse "$VERSION" >/dev/null 2>&1; then
             echo "⚠️ Tag $VERSION already exists" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
-          
+
           # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
           # Create annotated tag
           git tag -a "$VERSION" -m "Release $VERSION
 
           Created: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          Workflow: ${{ github.workflow }}  
+          Workflow: ${{ github.workflow }}
           Run: ${{ github.run_id }}
           Triggered by: ${{ github.actor }}
           Target: ${{ steps.version.outputs.environment }}"
-          
+
           # Push tag
           git push origin "$VERSION"
           echo "🏷️ Created and pushed tag: $VERSION" >> $GITHUB_STEP_SUMMARY
@@ -159,22 +159,22 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
+
           echo "## 📝 Generating release notes" >> $GITHUB_STEP_SUMMARY
-          
+
           # Create release notes
           NOTES_FILE="release-notes-$VERSION.md"
-          
+
           cat > "$NOTES_FILE" << EOF
           # Release $VERSION
-          
+
           **Target Environment**: ${{ steps.version.outputs.environment }}
           **Release Type**: ${{ steps.version.outputs.is_prerelease == 'true' && 'Pre-release' || 'Stable Release' }}
           **Created**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          
+
           ## Changes
           EOF
-          
+
           if [ -n "$PREVIOUS_TAG" ]; then
             echo "" >> "$NOTES_FILE"
             echo "### Commits since $PREVIOUS_TAG" >> "$NOTES_FILE"
@@ -182,19 +182,19 @@ jobs:
           else
             echo "- Initial release" >> "$NOTES_FILE"
           fi
-          
+
           cat >> "$NOTES_FILE" << EOF
-          
+
           ## Deployment
           This release will automatically deploy to **${{ steps.version.outputs.environment }}** environment.
-          
+
           ## Build-Test-Run Pipeline
           The deployment follows our build-test-run strategy:
           1. **BUILD**: Code validation and artifact creation
           2. **TEST**: Quality gates and validation
           3. **RUN**: Deployment to ${{ steps.version.outputs.environment }}
           EOF
-          
+
           echo "notes_file=$NOTES_FILE" >> $GITHUB_OUTPUT
           echo "✅ Release notes generated" >> $GITHUB_STEP_SUMMARY
 
@@ -206,10 +206,10 @@ jobs:
             const version = '${{ steps.version.outputs.version }}';
             const isPrerelease = '${{ steps.version.outputs.is_prerelease }}' === 'true';
             const notesFile = '${{ steps.notes.outputs.notes_file }}';
-            
+
             // Read release notes
             const releaseNotes = fs.readFileSync(notesFile, 'utf8');
-            
+
             try {
               const release = await github.rest.repos.createRelease({
                 owner: context.repo.owner,
@@ -220,9 +220,9 @@ jobs:
                 prerelease: isPrerelease,
                 generate_release_notes: false
               });
-              
+
               console.log(`✅ Created GitHub release: ${release.data.html_url}`);
-              
+
               // Add to step summary
               await core.summary
                 .addHeading('🎉 GitHub Release Created')
@@ -242,9 +242,9 @@ jobs:
           script: |
             const version = '${{ steps.version.outputs.version }}';
             const environment = '${{ steps.version.outputs.environment }}';
-            
+
             console.log(`🚀 Triggering deployment pipeline for ${version} to ${environment}`);
-            
+
             try {
               // Trigger BUILD workflow
               await github.rest.actions.createWorkflowDispatch({
@@ -257,9 +257,9 @@ jobs:
                   force_build: 'true'
                 }
               });
-              
+
               console.log('✅ BUILD workflow triggered');
-              
+
               // Add to step summary
               await core.summary
                 .addHeading('🔄 Pipeline Triggered')
@@ -268,7 +268,7 @@ jobs:
                 .addRaw(`**Pipeline**: BUILD → TEST → RUN\n`)
                 .addRaw('\nMonitor progress in the Actions tab.')
                 .write();
-              
+
             } catch (error) {
               console.log('❌ Failed to trigger pipeline:', error.message);
               core.setFailed(`Failed to trigger deployment pipeline: ${error.message}`);
@@ -286,7 +286,7 @@ jobs:
           echo "| GitHub Release | ${{ job.status == 'success' && '✅ Created' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Pipeline Triggered | ${{ job.status == 'success' && '✅ Triggered' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ job.status }}" = "success" ]; then
             echo "🎉 **RELEASE SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
             echo "Monitor the BUILD → TEST → RUN pipeline in the Actions tab." >> $GITHUB_STEP_SUMMARY

@@ -53,8 +53,8 @@ output "management_account_id" {
 output "service_control_policies" {
   description = "Map of created service control policies"
   value = {
-    prevent_root_access    = aws_organizations_policy.prevent_root_access.id
-    enforce_encryption     = aws_organizations_policy.enforce_encryption.id
-    prevent_public_access  = aws_organizations_policy.prevent_public_access.id
+    prevent_root_access   = aws_organizations_policy.prevent_root_access.id
+    enforce_encryption    = aws_organizations_policy.enforce_encryption.id
+    prevent_public_access = aws_organizations_policy.prevent_public_access.id
   }
 }

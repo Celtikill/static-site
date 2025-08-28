@@ -24,8 +24,8 @@ variable "finding_publishing_frequency" {
   default     = "SIX_HOURS"
   validation {
     condition = contains([
-      "FIFTEEN_MINUTES", 
-      "ONE_HOUR", 
+      "FIFTEEN_MINUTES",
+      "ONE_HOUR",
       "SIX_HOURS"
     ], var.finding_publishing_frequency)
     error_message = "Finding publishing frequency must be FIFTEEN_MINUTES, ONE_HOUR, or SIX_HOURS."
@@ -123,9 +123,9 @@ variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
   default = {
-    ManagedBy       = "terraform"
-    Module          = "security-baseline-guardduty"
-    SecurityTool    = "GuardDuty"
-    Architecture    = "sra-aligned"
+    ManagedBy    = "terraform"
+    Module       = "security-baseline-guardduty"
+    SecurityTool = "GuardDuty"
+    Architecture = "sra-aligned"
   }
 }

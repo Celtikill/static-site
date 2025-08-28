@@ -485,13 +485,13 @@ jobs:
         working-directory: terraform
         run: |
           echo "## 📊 Cost Projection Analysis" >> $GITHUB_STEP_SUMMARY
-          
+
           # Set environment-specific budget limits
           case "${{ needs.info.outputs.environment }}" in
             "dev")
               BUDGET_LIMIT=50
               ;;
-            "staging") 
+            "staging")
               BUDGET_LIMIT=75
               ;;
             "prod")
@@ -504,10 +504,10 @@ jobs:
 
           # Create terraform plan for cost analysis
           echo "### 🎯 Generating cost plan for ${{ needs.info.outputs.environment }} environment"
-          
+
           # Set budget limit in tfvars
           echo "monthly_budget_limit = $BUDGET_LIMIT" > cost-projection.auto.tfvars
-          
+
           # Generate plan with cost projection module
           if tofu plan -var-file=terraform.tfvars -var-file=cost-projection.auto.tfvars -out=cost-plan.tfplan > plan-output.txt 2>&1; then
             PLAN_SUCCESS=true
@@ -520,7 +520,7 @@ jobs:
           if [ "$PLAN_SUCCESS" = "true" ]; then
             # Extract cost information from plan output
             if tofu show -json cost-plan.tfplan > plan.json 2>/dev/null; then
-              
+
               # Try to extract cost projection outputs (this will work after apply, for now simulate)
               # For demo purposes, calculate based on environment
               case "${{ needs.info.outputs.environment }}" in
@@ -529,7 +529,7 @@ jobs:
                   ANNUAL_COST=306.00
                   ;;
                 "staging")
-                  MONTHLY_COST=36.75  
+                  MONTHLY_COST=36.75
                   ANNUAL_COST=441.00
                   ;;
                 "prod")
@@ -746,7 +746,7 @@ jobs:
           echo "| Infrastructure | ${{ needs.infrastructure.result == 'success' && '✅ Validated' || needs.infrastructure.result == 'skipped' && '➖ No changes' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Website | ${{ needs.website.result == 'success' && '✅ Validated' || needs.website.result == 'skipped' && '➖ No changes' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Security | ${{ needs.security-analysis.result == 'success' && '🔒 Enhanced Analysis - Passed' || needs.security-analysis.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
-          echo "| Cost Projection | ${{ needs.cost-projection.result == 'success' && format('💰 ${0} (${1})', needs.cost-projection.outputs.monthly_cost, needs.cost-projection.outputs.budget_status) || needs.cost-projection.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost Projection | ${{ needs.cost-projection.result == 'success' && '💰 Projected' || needs.cost-projection.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "| Artifacts | ${{ steps.create.outputs.created == 'true' && '✅ Created' || '➖ None needed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 

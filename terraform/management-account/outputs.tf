@@ -42,13 +42,13 @@ output "workloads_ou_id" {
 output "security_account_ids" {
   description = "Map of Security OU account names to their IDs"
   value       = module.security_accounts.account_ids
-  sensitive   = false  # Account IDs are not sensitive, needed for cross-account access
+  sensitive   = false # Account IDs are not sensitive, needed for cross-account access
 }
 
 output "security_account_details" {
   description = "Detailed information about created Security OU accounts"
   value       = module.security_accounts.created_accounts_summary
-  sensitive   = true   # Contains email addresses and detailed config
+  sensitive   = true # Contains email addresses and detailed config
 }
 
 # Cross-Account Access
@@ -81,7 +81,7 @@ output "parameter_references" {
 output "deployment_summary" {
   description = "Summary of management account infrastructure deployment"
   value = {
-    organization_configured = true
+    organization_configured   = true
     security_accounts_created = length(local.security_accounts)
     organizational_units = {
       security       = module.aws_organizations.security_ou_id
@@ -89,7 +89,7 @@ output "deployment_summary" {
       workloads      = module.aws_organizations.workloads_ou_id
     }
     cross_account_roles_configured = length(module.security_accounts.terraform_deployment_role_arns)
-    deployment_region = var.aws_region
-    timestamp = timestamp()
+    deployment_region              = var.aws_region
+    timestamp                      = timestamp()
   }
 }

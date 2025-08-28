@@ -57,7 +57,7 @@ resource "aws_organizations_policy" "prevent_root_access" {
         Principal = {
           AWS = "*"
         }
-        Action = "*"
+        Action   = "*"
         Resource = "*"
         Condition = {
           StringEquals = {
@@ -130,9 +130,9 @@ resource "aws_organizations_policy" "prevent_public_access" {
         Resource = "*"
         Condition = {
           Bool = {
-            "s3:PublicAccessBlockConfiguration.BlockPublicAcls"      = "false",
-            "s3:PublicAccessBlockConfiguration.BlockPublicPolicy"   = "false",
-            "s3:PublicAccessBlockConfiguration.IgnorePublicAcls"    = "false",
+            "s3:PublicAccessBlockConfiguration.BlockPublicAcls"       = "false",
+            "s3:PublicAccessBlockConfiguration.BlockPublicPolicy"     = "false",
+            "s3:PublicAccessBlockConfiguration.IgnorePublicAcls"      = "false",
             "s3:PublicAccessBlockConfiguration.RestrictPublicBuckets" = "false"
           }
         }
