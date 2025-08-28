@@ -1,7 +1,7 @@
 # Checkov Security Analysis Report
 
-**Build ID**: build-17299757455-1
-**Scan Date**: Thu Aug 28 15:00:11 UTC 2025
+**Build ID**: build-17300174294-1
+**Scan Date**: Thu Aug 28 15:15:39 UTC 2025
 **Status**: FAILED
 
 ## Summary
