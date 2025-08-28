@@ -102,16 +102,20 @@ locals {
 
 # CloudFront cost calculations
 locals {
+  # Base CloudFront usage estimates
+  cloudfront_data_transfer_gb = var.environment == "dev" ? 50 : var.environment == "staging" ? 200 : 2000
+  cloudfront_https_requests = local.env_multiplier * (var.environment == "dev" ? 100000 : var.environment == "staging" ? 500000 : 5000000)
+}
+
+locals {
   cloudfront_costs = {
     # Data transfer out (estimated GB per month by environment)
-    data_transfer_gb = var.environment == "dev" ? 50 : var.environment == "staging" ? 200 : 2000
-
-    data_transfer_cost = local.cloudfront_costs.data_transfer_gb * local.cloudfront_pricing.data_transfer_out_na_eu
+    data_transfer_gb = local.cloudfront_data_transfer_gb
+    data_transfer_cost = local.cloudfront_data_transfer_gb * local.cloudfront_pricing.data_transfer_out_na_eu
 
     # HTTPS requests (estimated per month)
-    https_requests = local.env_multiplier * (var.environment == "dev" ? 100000 : var.environment == "staging" ? 500000 : 5000000)
-
-    requests_cost = (local.cloudfront_costs.https_requests / 10000) * local.cloudfront_pricing.https_requests
+    https_requests = local.cloudfront_https_requests
+    requests_cost = (local.cloudfront_https_requests / 10000) * local.cloudfront_pricing.https_requests
   }
 
   # Calculate total CloudFront monthly cost
@@ -129,11 +133,11 @@ locals {
 
     # Request processing (estimated based on CloudFront requests)
     requests_millions = local.cloudfront_costs.https_requests / 1000000
-    requests_cost     = local.waf_costs.requests_millions * local.waf_pricing.requests_processed
+    requests_cost     = (local.cloudfront_https_requests / 1000000) * local.waf_pricing.requests_processed
 
-    # Rule evaluations (5 rules * requests)
-    evaluations_millions = local.waf_costs.requests_millions * 5
-    evaluations_cost     = local.waf_costs.evaluations_millions * local.waf_pricing.rule_evaluations
+    # Rule evaluations (5 rules * requests) 
+    evaluations_millions = (local.cloudfront_https_requests / 1000000) * 5
+    evaluations_cost     = ((local.cloudfront_https_requests / 1000000) * 5) * local.waf_pricing.rule_evaluations
     } : {
     web_acl_cost     = 0
     rules_cost       = 0
@@ -153,7 +157,7 @@ locals {
 
     # DNS queries (estimated based on traffic)
     queries_millions = local.env_multiplier * (var.environment == "dev" ? 0.1 : var.environment == "staging" ? 0.5 : 5.0)
-    queries_cost     = local.route53_costs.queries_millions * local.route53_pricing.queries_first_billion
+    queries_cost     = (local.env_multiplier * (var.environment == "dev" ? 0.1 : var.environment == "staging" ? 0.5 : 5.0)) * local.route53_pricing.queries_first_billion
     } : {
     hosted_zone_cost = 0
     queries_cost     = 0
@@ -171,7 +175,7 @@ locals {
 
     # KMS requests (estimated based on S3 operations and CloudWatch)
     requests_thousands = local.env_multiplier * 10 # Estimated 10k requests per month
-    requests_cost      = (local.kms_costs.requests_thousands / 10) * local.kms_pricing.requests
+    requests_cost      = ((local.env_multiplier * 10) / 10) * local.kms_pricing.requests
     } : {
     key_cost      = 0
     requests_cost = 0
@@ -183,25 +187,33 @@ locals {
 
 # CloudWatch cost calculations
 locals {
+  # Base CloudWatch usage estimates
+  cloudwatch_log_ingestion_gb = local.env_multiplier * (var.environment == "dev" ? 2 : var.environment == "staging" ? 5 : 20)
+  cloudwatch_custom_metrics = 25 # Estimated custom metrics
+  cloudwatch_dashboards = 2 # Estimated dashboards
+  cloudwatch_alarms = 15 # Estimated alarms
+}
+
+locals {
   cloudwatch_costs = {
     # Log ingestion (estimated GB per month)
-    log_ingestion_gb   = local.env_multiplier * (var.environment == "dev" ? 2 : var.environment == "staging" ? 5 : 20)
-    log_ingestion_cost = max(0, local.cloudwatch_costs.log_ingestion_gb - 5) * local.cloudwatch_pricing.log_ingestion # First 5GB free
+    log_ingestion_gb   = local.cloudwatch_log_ingestion_gb
+    log_ingestion_cost = max(0, local.cloudwatch_log_ingestion_gb - 5) * local.cloudwatch_pricing.log_ingestion # First 5GB free
 
     # Log storage (after first 5GB free)
-    log_storage_cost = max(0, local.cloudwatch_costs.log_ingestion_gb - 5) * local.cloudwatch_pricing.log_storage
+    log_storage_cost = max(0, local.cloudwatch_log_ingestion_gb - 5) * local.cloudwatch_pricing.log_storage
 
     # Custom metrics (after first 10 free)
-    custom_metrics      = 25 # Estimated custom metrics
-    custom_metrics_cost = max(0, local.cloudwatch_costs.custom_metrics - 10) * local.cloudwatch_pricing.custom_metrics
+    custom_metrics      = local.cloudwatch_custom_metrics
+    custom_metrics_cost = max(0, local.cloudwatch_custom_metrics - 10) * local.cloudwatch_pricing.custom_metrics
 
     # Dashboards (after first 3 free)
-    dashboards     = 2 # Estimated dashboards
-    dashboard_cost = max(0, local.cloudwatch_costs.dashboards - 3) * local.cloudwatch_pricing.dashboard
+    dashboards     = local.cloudwatch_dashboards
+    dashboard_cost = max(0, local.cloudwatch_dashboards - 3) * local.cloudwatch_pricing.dashboard
 
     # Alarms (after first 10 free)
-    alarms      = 15 # Estimated alarms
-    alarms_cost = max(0, local.cloudwatch_costs.alarms - 10) * local.cloudwatch_pricing.alarms
+    alarms      = local.cloudwatch_alarms
+    alarms_cost = max(0, local.cloudwatch_alarms - 10) * local.cloudwatch_pricing.alarms
   }
 
   # Calculate total CloudWatch monthly cost
@@ -210,14 +222,20 @@ locals {
 
 # SNS cost calculations
 locals {
+  # Base SNS usage estimates
+  sns_requests_millions = local.env_multiplier * 0.01 # Very low volume
+  sns_email_notifications = length(var.alert_email_addresses) * local.env_multiplier * 100 # Estimated notifications per month
+}
+
+locals {
   sns_costs = {
     # SNS requests (estimated based on alarms and notifications)
-    requests_millions = local.env_multiplier * 0.01 # Very low volume
-    requests_cost     = local.sns_costs.requests_millions * local.sns_pricing.requests_first_million
+    requests_millions = local.sns_requests_millions
+    requests_cost     = local.sns_requests_millions * local.sns_pricing.requests_first_million
 
     # Email notifications
-    email_notifications = length(var.alert_email_addresses) * local.env_multiplier * 100 # Estimated notifications per month
-    email_cost          = (local.sns_costs.email_notifications / 100000) * local.sns_pricing.email_notifications
+    email_notifications = local.sns_email_notifications
+    email_cost          = (local.sns_email_notifications / 100000) * local.sns_pricing.email_notifications
   }
 
   # Calculate total SNS monthly cost
