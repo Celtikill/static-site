@@ -589,45 +589,45 @@ jobs:
 
           EOF
 
-              # Add environment-specific recommendations
-              case "${{ needs.info.outputs.environment }}" in
-                "dev")
-                  echo "- Consider scheduled shutdown during non-business hours for development" >> cost-projection-report.md
-                  echo "- Use smaller CloudFront cache behaviors for testing" >> cost-projection-report.md
-                  ;;
-                "staging")
-                  echo "- Monitor actual usage vs. projections before production deployment" >> cost-projection-report.md
-                  echo "- Consider Reserved Instances if usage patterns are predictable" >> cost-projection-report.md
-                  ;;
-                "prod")
-                  echo "- Enable AWS Cost Explorer for detailed cost analysis" >> cost-projection-report.md
-                  echo "- Consider Reserved Instances for 30-60% cost savings" >> cost-projection-report.md
-                  echo "- Implement cost alerts at 80% and 100% of budget" >> cost-projection-report.md
-                  ;;
-              esac
+          # Add environment-specific recommendations
+          case "${{ needs.info.outputs.environment }}" in
+            "dev")
+              echo "- Consider scheduled shutdown during non-business hours for development" >> cost-projection-report.md
+              echo "- Use smaller CloudFront cache behaviors for testing" >> cost-projection-report.md
+              ;;
+            "staging")
+              echo "- Monitor actual usage vs. projections before production deployment" >> cost-projection-report.md
+              echo "- Consider Reserved Instances if usage patterns are predictable" >> cost-projection-report.md
+              ;;
+            "prod")
+              echo "- Enable AWS Cost Explorer for detailed cost analysis" >> cost-projection-report.md
+              echo "- Consider Reserved Instances for 30-60% cost savings" >> cost-projection-report.md
+              echo "- Implement cost alerts at 80% and 100% of budget" >> cost-projection-report.md
+              ;;
+          esac
 
-              echo "" >> cost-projection-report.md
-              echo "---" >> cost-projection-report.md
-              echo "*Cost projections based on AWS us-east-1 pricing and estimated usage patterns*" >> cost-projection-report.md
+          echo "" >> cost-projection-report.md
+          echo "---" >> cost-projection-report.md
+          echo "*Cost projections based on AWS us-east-1 pricing and estimated usage patterns*" >> cost-projection-report.md
 
-              # Display summary in GitHub Actions
-              echo "### 💰 Cost Projection Summary" >> $GITHUB_STEP_SUMMARY
-              echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-              echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-              echo "| Monthly Cost | \$${MONTHLY_COST} |" >> $GITHUB_STEP_SUMMARY
-              echo "| Annual Cost | \$${ANNUAL_COST} |" >> $GITHUB_STEP_SUMMARY
-              echo "| Budget Limit | \$${BUDGET_LIMIT} |" >> $GITHUB_STEP_SUMMARY
-              echo "| Utilization | ${BUDGET_UTILIZATION_INT}% |" >> $GITHUB_STEP_SUMMARY
-              echo "| Status | ${BUDGET_EMOJI} ${BUDGET_MESSAGE} |" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
+          # Display summary in GitHub Actions
+          echo "### 💰 Cost Projection Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Monthly Cost | \$${MONTHLY_COST} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Annual Cost | \$${ANNUAL_COST} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Budget Limit | \$${BUDGET_LIMIT} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Utilization | ${BUDGET_UTILIZATION_INT}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${BUDGET_EMOJI} ${BUDGET_MESSAGE} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-              # Set outputs
-              echo "monthly_cost=${MONTHLY_COST}" >> $GITHUB_OUTPUT
-              echo "budget_status=${BUDGET_STATUS}" >> $GITHUB_OUTPUT
-              echo "cost_report_available=true" >> $GITHUB_OUTPUT
+          # Set outputs
+          echo "monthly_cost=${MONTHLY_COST}" >> $GITHUB_OUTPUT
+          echo "budget_status=${BUDGET_STATUS}" >> $GITHUB_OUTPUT
+          echo "cost_report_available=true" >> $GITHUB_OUTPUT
 
-              # Create JSON report for programmatic access
-              cat > cost-projection.json << EOF
+          # Create JSON report for programmatic access
+          cat > cost-projection.json << EOF
           {
             "environment": "${{ needs.info.outputs.environment }}",
             "build_id": "${{ needs.info.outputs.build_id }}",
@@ -647,19 +647,6 @@ jobs:
             ]
           }
           EOF
-
-            else
-              echo "❌ Unable to generate cost analysis" >> $GITHUB_STEP_SUMMARY
-              echo "monthly_cost=0" >> $GITHUB_OUTPUT
-              echo "budget_status=unknown" >> $GITHUB_OUTPUT
-              echo "cost_report_available=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "❌ Cost projection failed due to plan errors" >> $GITHUB_STEP_SUMMARY
-            echo "monthly_cost=0" >> $GITHUB_OUTPUT
-            echo "budget_status=unknown" >> $GITHUB_OUTPUT
-            echo "cost_report_available=false" >> $GITHUB_OUTPUT
-          fi
 
       - name: Upload Cost Reports
         if: steps.calculate.outputs.cost_report_available == 'true'
