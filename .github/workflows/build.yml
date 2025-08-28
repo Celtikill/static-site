@@ -494,39 +494,32 @@ jobs:
               ;;
           esac
 
-          echo "### 🎯 Static cost calculation for ${{ needs.info.outputs.environment }} environment (${ENV_MULTIPLIER}x usage)"
+          echo "### 🎯 Static cost calculation for ${{ needs.info.outputs.environment }} environment (${ENV_MULTIPLIER}x usage)" >> $GITHUB_STEP_SUMMARY
 
-          # Static AWS pricing (us-east-1, current as of 2024)
-          # S3 costs
+          # Static AWS pricing calculations
           S3_STORAGE_GB=$(echo "scale=2; 5 * $ENV_MULTIPLIER" | bc)
           S3_STORAGE_COST=$(echo "scale=2; $S3_STORAGE_GB * 0.023" | bc)
           S3_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)
           S3_REQUESTS_COST=$(echo "scale=3; $S3_REQUESTS * 0.0004 / 1000" | bc)
           
-          # CloudFront costs
           CF_DATA_GB=$(echo "scale=2; 50 * $ENV_MULTIPLIER" | bc)
           CF_DATA_COST=$(echo "scale=2; $CF_DATA_GB * 0.085" | bc)
           CF_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)  
           CF_REQUESTS_COST=$(echo "scale=3; $CF_REQUESTS * 0.0075 / 10000" | bc)
           
-          # WAF costs
           WAF_REQUESTS=$(echo "scale=0; 1000000 * $ENV_MULTIPLIER" | bc)
           WAF_COST=$(echo "scale=2; 1.0 + ($WAF_REQUESTS * 0.0000006)" | bc)
           
-          # Route53 costs
           ROUTE53_COST=0.50
-          
-          # CloudWatch costs
           CW_METRICS=$(echo "scale=0; 100 * $ENV_MULTIPLIER" | bc)
           CW_COST=$(echo "scale=2; $CW_METRICS * 0.30 / 100" | bc)
-          
-          # KMS costs
           KMS_COST=1.00
           
           # Calculate total monthly cost
           MONTHLY_COST=$(echo "scale=2; $S3_STORAGE_COST + $S3_REQUESTS_COST + $CF_DATA_COST + $CF_REQUESTS_COST + $WAF_COST + $ROUTE53_COST + $CW_COST + $KMS_COST" | bc)
           ANNUAL_COST=$(echo "scale=2; $MONTHLY_COST * 12" | bc)
           
+          # Display cost breakdown
           echo "### 💰 Detailed Cost Breakdown" >> $GITHUB_STEP_SUMMARY
           echo "- S3 Storage (${S3_STORAGE_GB}GB): \$${S3_STORAGE_COST}" >> $GITHUB_STEP_SUMMARY
           echo "- S3 Requests (${S3_REQUESTS}): \$${S3_REQUESTS_COST}" >> $GITHUB_STEP_SUMMARY
@@ -538,6 +531,7 @@ jobs:
           echo "- KMS: \$${KMS_COST}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Calculate budget utilization
           BUDGET_UTILIZATION=$(echo "$MONTHLY_COST * 100 / $BUDGET_LIMIT" | bc -l)
           BUDGET_UTILIZATION_INT=${BUDGET_UTILIZATION%.*}
 
@@ -556,60 +550,6 @@ jobs:
             BUDGET_MESSAGE="HEALTHY: Within budget"
           fi
 
-          # Create cost report
-          cat > cost-projection-report.md << EOF
-          # 💰 AWS Cost Projection Report
-
-          **Environment:** ${{ needs.info.outputs.environment }} | **Region:** ${{ vars.AWS_DEFAULT_REGION }} | **Build ID:** ${{ needs.info.outputs.build_id }}
-          **Generated:** $(date -u)
-
-          ## 📊 Cost Summary
-
-          | Metric | Amount |
-          |--------|--------|
-          | **Monthly Cost** | \$${MONTHLY_COST} USD |
-          | **Annual Projection** | \$${ANNUAL_COST} USD |
-          | **Budget Limit** | \$${BUDGET_LIMIT} USD |
-          | **Budget Utilization** | ${BUDGET_UTILIZATION_INT}% |
-
-          ## 🚦 Budget Status
-
-          ${BUDGET_EMOJI} **${BUDGET_MESSAGE}**
-
-          ## 🔧 Estimated Service Breakdown
-
-          | Service | Estimated Monthly Cost | Notes |
-          |---------|----------------------|-------|
-          | S3 Storage & Requests | \$$(echo "$MONTHLY_COST * 0.25" | bc -l | cut -d. -f1).$(echo "$MONTHLY_COST * 25" | bc -l | cut -d. -f1 | tail -c 3) | Includes cross-region replication |
-          | CloudFront CDN | \$$(echo "$MONTHLY_COST * 0.45" | bc -l | cut -d. -f1).$(echo "$MONTHLY_COST * 45" | bc -l | cut -d. -f1 | tail -c 3) | Global distribution |
-          | CloudWatch Monitoring | \$$(echo "$MONTHLY_COST * 0.20" | bc -l | cut -d. -f1).$(echo "$MONTHLY_COST * 20" | bc -l | cut -d. -f1 | tail -c 3) | Logs, metrics, dashboards |
-          | Other Services | \$$(echo "$MONTHLY_COST * 0.10" | bc -l | cut -d. -f1).$(echo "$MONTHLY_COST * 10" | bc -l | cut -d. -f1 | tail -c 3) | WAF, SNS, KMS |
-
-          ## 🎯 Cost Optimization Recommendations
-
-          EOF
-
-          # Add environment-specific recommendations
-          case "${{ needs.info.outputs.environment }}" in
-            "dev")
-              echo "- Consider scheduled shutdown during non-business hours for development" >> cost-projection-report.md
-              echo "- Use smaller CloudFront cache behaviors for testing" >> cost-projection-report.md
-              ;;
-            "staging")
-              echo "- Monitor actual usage vs. projections before production deployment" >> cost-projection-report.md
-              echo "- Consider Reserved Instances if usage patterns are predictable" >> cost-projection-report.md
-              ;;
-            "prod")
-              echo "- Enable AWS Cost Explorer for detailed cost analysis" >> cost-projection-report.md
-              echo "- Consider Reserved Instances for 30-60% cost savings" >> cost-projection-report.md
-              echo "- Implement cost alerts at 80% and 100% of budget" >> cost-projection-report.md
-              ;;
-          esac
-
-          echo "" >> cost-projection-report.md
-          echo "---" >> cost-projection-report.md
-          echo "*Cost projections based on AWS us-east-1 pricing and estimated usage patterns*" >> cost-projection-report.md
-
           # Display summary in GitHub Actions
           echo "### 💰 Cost Projection Summary" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
@@ -619,34 +559,49 @@ jobs:
           echo "| Budget Limit | \$${BUDGET_LIMIT} |" >> $GITHUB_STEP_SUMMARY
           echo "| Utilization | ${BUDGET_UTILIZATION_INT}% |" >> $GITHUB_STEP_SUMMARY
           echo "| Status | ${BUDGET_EMOJI} ${BUDGET_MESSAGE} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Create cost report file
+          cat > cost-projection-report.md << 'COST_EOF'
+# 💰 AWS Cost Projection Report
+
+**Environment:** ${{ needs.info.outputs.environment }} | **Build ID:** ${{ needs.info.outputs.build_id }}
+**Generated:** $(date -u)
+
+## 📊 Cost Summary
+| **Monthly Cost** | $${MONTHLY_COST} USD |
+| **Annual Projection** | $${ANNUAL_COST} USD |
+| **Budget Limit** | $${BUDGET_LIMIT} USD |
+| **Budget Utilization** | ${BUDGET_UTILIZATION_INT}% |
+
+## 🚦 Budget Status
+${BUDGET_EMOJI} **${BUDGET_MESSAGE}**
+
+---
+*Cost projections based on AWS us-east-1 pricing and estimated usage patterns*
+COST_EOF
+
+          # Create JSON report
+          cat > cost-projection.json << 'JSON_EOF'
+{
+  "environment": "${{ needs.info.outputs.environment }}",
+  "build_id": "${{ needs.info.outputs.build_id }}",
+  "timestamp": "$(date -u -Iseconds)",
+  "costs": {
+    "monthly_usd": ${MONTHLY_COST},
+    "annual_usd": ${ANNUAL_COST}
+  },
+  "budget": {
+    "limit_usd": ${BUDGET_LIMIT},
+    "utilization_percent": ${BUDGET_UTILIZATION_INT},
+    "status": "${BUDGET_STATUS}"
+  }
+}
+JSON_EOF
 
           # Set outputs
           echo "monthly_cost=${MONTHLY_COST}" >> $GITHUB_OUTPUT
           echo "budget_status=${BUDGET_STATUS}" >> $GITHUB_OUTPUT
           echo "cost_report_available=true" >> $GITHUB_OUTPUT
-
-          # Create JSON report for programmatic access
-          cat > cost-projection.json << EOF
-          {
-            "environment": "${{ needs.info.outputs.environment }}",
-            "build_id": "${{ needs.info.outputs.build_id }}",
-            "timestamp": "$(date -u -Iseconds)",
-            "costs": {
-              "monthly_usd": ${MONTHLY_COST},
-              "annual_usd": ${ANNUAL_COST}
-            },
-            "budget": {
-              "limit_usd": ${BUDGET_LIMIT},
-              "utilization_percent": ${BUDGET_UTILIZATION_INT},
-              "status": "${BUDGET_STATUS}"
-            },
-            "recommendations": [
-              "Monitor actual usage vs projections",
-              "Consider cost optimization measures if approaching limits"
-            ]
-          }
-          EOF
 
       - name: Upload Cost Reports
         if: steps.calculate.outputs.cost_report_available == 'true'
