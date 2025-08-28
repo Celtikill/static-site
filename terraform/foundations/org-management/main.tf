@@ -63,6 +63,7 @@ resource "aws_cloudtrail" "organization_trail" {
   enable_logging                = true
   include_global_service_events = true
   enable_log_file_validation    = true
+  kms_key_id                   = aws_kms_key.cloudtrail_encryption.arn
 
   event_selector {
     read_write_type           = "All"
@@ -74,7 +75,64 @@ resource "aws_cloudtrail" "organization_trail" {
     }
   }
 
-  depends_on = [aws_s3_bucket_policy.cloudtrail_logs]
+  depends_on = [aws_s3_bucket_policy.cloudtrail_logs, aws_kms_key.cloudtrail_encryption]
+}
+
+# KMS key for CloudTrail and S3 encryption
+resource "aws_kms_key" "cloudtrail_encryption" {
+  description             = "KMS key for CloudTrail and audit logs encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow CloudTrail to encrypt logs"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action = [
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+          "kms:Encrypt",
+          "kms:ReEncrypt*",
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow S3 service to use the key"
+        Effect = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:Encrypt",
+          "kms:GenerateDataKey*",
+          "kms:ReEncrypt*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_kms_alias" "cloudtrail_encryption" {
+  name          = "alias/cloudtrail-audit-logs"
+  target_key_id = aws_kms_key.cloudtrail_encryption.key_id
 }
 
 # S3 bucket for CloudTrail logs
@@ -95,7 +153,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_logs" 
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.cloudtrail_encryption.arn
     }
   }
 }
