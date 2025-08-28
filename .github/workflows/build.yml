@@ -500,24 +500,24 @@ jobs:
           S3_STORAGE_COST=$(echo "scale=2; $S3_STORAGE_GB * 0.023" | bc)
           S3_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)
           S3_REQUESTS_COST=$(echo "scale=3; $S3_REQUESTS * 0.0004 / 1000" | bc)
-          
+
           CF_DATA_GB=$(echo "scale=2; 50 * $ENV_MULTIPLIER" | bc)
           CF_DATA_COST=$(echo "scale=2; $CF_DATA_GB * 0.085" | bc)
-          CF_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)  
+          CF_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)
           CF_REQUESTS_COST=$(echo "scale=3; $CF_REQUESTS * 0.0075 / 10000" | bc)
-          
+
           WAF_REQUESTS=$(echo "scale=0; 1000000 * $ENV_MULTIPLIER" | bc)
           WAF_COST=$(echo "scale=2; 1.0 + ($WAF_REQUESTS * 0.0000006)" | bc)
-          
+
           ROUTE53_COST=0.50
           CW_METRICS=$(echo "scale=0; 100 * $ENV_MULTIPLIER" | bc)
           CW_COST=$(echo "scale=2; $CW_METRICS * 0.30 / 100" | bc)
           KMS_COST=1.00
-          
+
           # Calculate total monthly cost
           MONTHLY_COST=$(echo "scale=2; $S3_STORAGE_COST + $S3_REQUESTS_COST + $CF_DATA_COST + $CF_REQUESTS_COST + $WAF_COST + $ROUTE53_COST + $CW_COST + $KMS_COST" | bc)
           ANNUAL_COST=$(echo "scale=2; $MONTHLY_COST * 12" | bc)
-          
+
           # Display cost breakdown
           echo "### 💰 Detailed Cost Breakdown" >> $GITHUB_STEP_SUMMARY
           echo "- S3 Storage (${S3_STORAGE_GB}GB): \$${S3_STORAGE_COST}" >> $GITHUB_STEP_SUMMARY
@@ -563,8 +563,8 @@ jobs:
           cat > cost-projection-report.md << 'COST_EOF'
 # 💰 AWS Cost Projection Report
 
-Environment: ${{ needs.info.outputs.environment }} | Build ID: ${{ needs.info.outputs.build_id }}
-Generated: $(date -u)
+Environment ${{ needs.info.outputs.environment }} - Build ID ${{ needs.info.outputs.build_id }}
+Generated $(date -u)
 
 ## 📊 Cost Summary
 | Monthly Cost | $${MONTHLY_COST} USD |
