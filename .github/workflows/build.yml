@@ -286,15 +286,15 @@ jobs:
           echo "## 🛡️ Trivy Security Analysis" >> $GITHUB_STEP_SUMMARY
           
           # Debug ignore file status
-          if [ -f ".trivyignore" ]; then
-            echo "✅ Found .trivyignore file with $(wc -l < .trivyignore) lines" >> $GITHUB_STEP_SUMMARY
-            echo "📋 Ignored items: $(grep -v '^#' .trivyignore | grep -v '^$' | wc -l) rules" >> $GITHUB_STEP_SUMMARY
+          if [ -f "terraform/.trivyignore" ]; then
+            echo "✅ Found terraform/.trivyignore file with $(wc -l < terraform/.trivyignore) lines" >> $GITHUB_STEP_SUMMARY
+            echo "📋 Ignored items: $(grep -v '^#' terraform/.trivyignore | grep -v '^$' | wc -l) rules" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ No .trivyignore file found" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ No terraform/.trivyignore file found" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Run Trivy with JSON output and explicit ignore file
-          if trivy fs --security-checks vuln,config --format json --ignorefile .trivyignore --output trivy-results.json terraform/; then
+          if trivy fs --security-checks vuln,config --format json --ignorefile terraform/.trivyignore --output trivy-results.json terraform/; then
             TRIVY_EXIT=0
           else
             TRIVY_EXIT=1
