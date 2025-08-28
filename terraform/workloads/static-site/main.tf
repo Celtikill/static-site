@@ -113,7 +113,7 @@ resource "aws_sns_topic_subscription" "cloudfront_alerts_email" {
 
 # S3 Module - Primary storage for static website
 module "s3" {
-  source = "./modules/s3"
+  source = "../../modules/storage/s3-bucket"
 
   bucket_name                 = local.bucket_name
   cloudfront_distribution_arn = module.cloudfront.distribution_arn
@@ -133,7 +133,7 @@ module "s3" {
 # WAF Module - Web Application Firewall for security (must be in us-east-1 for CloudFront)
 module "waf" {
   count  = var.enable_waf ? 1 : 0
-  source = "./modules/waf"
+  source = "../../modules/security/waf"
 
   providers = {
     aws            = aws.cloudfront
@@ -165,7 +165,7 @@ resource "time_sleep" "waf_propagation" {
 
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
-  source = "./modules/cloudfront"
+  source = "../../modules/networking/cloudfront"
 
   distribution_name                  = local.distribution_name
   distribution_comment               = "Static website CDN for ${local.project_name}"
@@ -203,7 +203,7 @@ data "aws_iam_openid_connect_provider" "github" {
 
 # Monitoring Module - Comprehensive observability and alerting
 module "monitoring" {
-  source = "./modules/monitoring"
+  source = "../../modules/observability/monitoring"
 
   project_name                    = local.project_name
   cloudfront_distribution_id      = module.cloudfront.distribution_id
@@ -318,7 +318,7 @@ resource "aws_route53_health_check" "website" {
 
 # Cost Projection Module - Automated cost calculations and budget tracking
 module "cost_projection" {
-  source = "./modules/cost-projection"
+  source = "../../modules/observability/cost-projection"
 
   # Environment configuration
   environment  = var.environment
