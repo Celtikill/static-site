@@ -284,7 +284,6 @@ jobs:
         id: scan
         run: |
           echo "## 🛡️ Trivy Security Analysis" >> $GITHUB_STEP_SUMMARY
-          
           # Debug ignore file status
           if [ -f ".trivyignore" ]; then
             echo "✅ Found .trivyignore file with $(wc -l < .trivyignore) lines" >> $GITHUB_STEP_SUMMARY
@@ -564,20 +563,20 @@ jobs:
           cat > cost-projection-report.md << 'COST_EOF'
 # 💰 AWS Cost Projection Report
 
-**Environment:** ${{ needs.info.outputs.environment }} | **Build ID:** ${{ needs.info.outputs.build_id }}
-**Generated:** $(date -u)
+Environment: ${{ needs.info.outputs.environment }} | Build ID: ${{ needs.info.outputs.build_id }}
+Generated: $(date -u)
 
 ## 📊 Cost Summary
-| **Monthly Cost** | $${MONTHLY_COST} USD |
-| **Annual Projection** | $${ANNUAL_COST} USD |
-| **Budget Limit** | $${BUDGET_LIMIT} USD |
-| **Budget Utilization** | ${BUDGET_UTILIZATION_INT}% |
+| Monthly Cost | $${MONTHLY_COST} USD |
+| Annual Projection | $${ANNUAL_COST} USD |
+| Budget Limit | $${BUDGET_LIMIT} USD |
+| Budget Utilization | ${BUDGET_UTILIZATION_INT}% |
 
 ## 🚦 Budget Status
-${BUDGET_EMOJI} **${BUDGET_MESSAGE}**
+${BUDGET_EMOJI} ${BUDGET_MESSAGE}
 
 ---
-*Cost projections based on AWS us-east-1 pricing and estimated usage patterns*
+Cost projections based on AWS us-east-1 pricing and estimated usage patterns
 COST_EOF
 
           # Create JSON report
