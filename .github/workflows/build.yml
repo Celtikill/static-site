@@ -560,24 +560,22 @@ jobs:
           echo "| Status | ${BUDGET_EMOJI} ${BUDGET_MESSAGE} |" >> $GITHUB_STEP_SUMMARY
 
           # Create cost report file
-          cat > cost-projection-report.md << 'COST_EOF'
-# 💰 AWS Cost Projection Report
-
-Environment ${{ needs.info.outputs.environment }} - Build ID ${{ needs.info.outputs.build_id }}
-Generated $(date -u)
-
-## 📊 Cost Summary
-| Monthly Cost | $${MONTHLY_COST} USD |
-| Annual Projection | $${ANNUAL_COST} USD |
-| Budget Limit | $${BUDGET_LIMIT} USD |
-| Budget Utilization | ${BUDGET_UTILIZATION_INT}% |
-
-## 🚦 Budget Status
-${BUDGET_EMOJI} ${BUDGET_MESSAGE}
-
----
-Cost projections based on AWS us-east-1 pricing and estimated usage patterns
-COST_EOF
+          echo "# 💰 AWS Cost Projection Report" > cost-projection-report.md
+          echo "" >> cost-projection-report.md
+          echo "Environment ${{ needs.info.outputs.environment }} - Build ID ${{ needs.info.outputs.build_id }}" >> cost-projection-report.md
+          echo "Generated \$(date -u)" >> cost-projection-report.md
+          echo "" >> cost-projection-report.md
+          echo "## 📊 Cost Summary" >> cost-projection-report.md
+          echo "| Monthly Cost | \$\${MONTHLY_COST} USD |" >> cost-projection-report.md
+          echo "| Annual Projection | \$\${ANNUAL_COST} USD |" >> cost-projection-report.md
+          echo "| Budget Limit | \$\${BUDGET_LIMIT} USD |" >> cost-projection-report.md
+          echo "| Budget Utilization | \${BUDGET_UTILIZATION_INT}% |" >> cost-projection-report.md
+          echo "" >> cost-projection-report.md
+          echo "## 🚦 Budget Status" >> cost-projection-report.md
+          echo "\${BUDGET_EMOJI} \${BUDGET_MESSAGE}" >> cost-projection-report.md
+          echo "" >> cost-projection-report.md
+          echo "---" >> cost-projection-report.md
+          echo "Cost projections based on AWS us-east-1 pricing and estimated usage patterns" >> cost-projection-report.md
 
           # Create JSON report
           cat > cost-projection.json << 'JSON_EOF'
