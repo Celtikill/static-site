@@ -40,10 +40,13 @@ output "github_actions_configuration" {
 output "cloudtrail_configuration" {
   description = "CloudTrail configuration details"
   value = {
-    trail_name = aws_cloudtrail.organization_trail.name
-    trail_arn  = aws_cloudtrail.organization_trail.arn
-    bucket     = aws_s3_bucket.cloudtrail_logs.id
-    bucket_arn = aws_s3_bucket.cloudtrail_logs.arn
+    trail_name  = aws_cloudtrail.organization_trail.name
+    trail_arn   = aws_cloudtrail.organization_trail.arn
+    bucket      = aws_s3_bucket.cloudtrail_logs.id
+    bucket_arn  = aws_s3_bucket.cloudtrail_logs.arn
+    kms_key_id  = aws_kms_key.cloudtrail_encryption.key_id
+    kms_key_arn = aws_kms_key.cloudtrail_encryption.arn
+    kms_alias   = aws_kms_alias.cloudtrail_encryption.name
   }
 }
 

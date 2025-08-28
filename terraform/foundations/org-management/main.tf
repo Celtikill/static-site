@@ -63,7 +63,7 @@ resource "aws_cloudtrail" "organization_trail" {
   enable_logging                = true
   include_global_service_events = true
   enable_log_file_validation    = true
-  kms_key_id                   = aws_kms_key.cloudtrail_encryption.arn
+  kms_key_id                    = aws_kms_key.cloudtrail_encryption.arn
 
   event_selector {
     read_write_type           = "All"
