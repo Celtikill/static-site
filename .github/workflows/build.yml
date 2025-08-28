@@ -577,8 +577,8 @@ jobs:
           echo "---" >> cost-projection-report.md
           echo "Cost projections based on AWS us-east-1 pricing and estimated usage patterns" >> cost-projection-report.md
 
-          # Create JSON report
-          cat > cost-projection.json << 'JSON_EOF'
+          # Create JSON report  
+          cat > cost-projection.json << 'EOF'
 {
   "environment": "${{ needs.info.outputs.environment }}",
   "build_id": "${{ needs.info.outputs.build_id }}",
@@ -593,7 +593,7 @@ jobs:
     "status": "${BUDGET_STATUS}"
   }
 }
-JSON_EOF
+EOF
 
           # Set outputs
           echo "monthly_cost=${MONTHLY_COST}" >> $GITHUB_OUTPUT
