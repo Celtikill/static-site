@@ -293,8 +293,8 @@ jobs:
             echo "⚠️ No .trivyignore file found" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Run Trivy with JSON output and explicit ignore file
-          if trivy fs --security-checks vuln,config --format json --ignorefile .trivyignore --output trivy-results.json terraform/; then
+          # Run Trivy with JSON output (uses .trivyignore automatically if present)
+          if trivy fs --security-checks vuln,config --format json --output trivy-results.json terraform/; then
             TRIVY_EXIT=0
           else
             TRIVY_EXIT=1
