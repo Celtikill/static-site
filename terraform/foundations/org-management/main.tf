@@ -244,7 +244,7 @@ resource "aws_iam_role" "github_actions_management" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:celtikill/static-site:*"
+            "token.actions.githubusercontent.com:sub" = "repo:Celtikill/static-site:*"
           }
         }
       }
