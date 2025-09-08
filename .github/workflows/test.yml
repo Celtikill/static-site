@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   info:
-    name: "📋 Test Information (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "📋 Test Information"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Always require BUILD success for automatic triggers
@@ -144,7 +144,7 @@ jobs:
           echo "- **Pre-Deployment Usability**: Will run if environment != dev OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
 
   infrastructure-tests:
-    name: "🏗️ Infrastructure Unit Tests (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🏗️ Infrastructure Unit Tests"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: info
@@ -306,7 +306,7 @@ jobs:
           retention-days: 7
 
   policy-validation:
-    name: "📋 Policy Validation (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "📋 Policy Validation"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info, infrastructure-tests]
@@ -407,7 +407,7 @@ jobs:
           fi
 
   website-tests:
-    name: "🌐 Website Content Tests (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🌐 Website Content Tests"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: info
@@ -486,7 +486,7 @@ jobs:
           fi
 
   pre-deployment-usability:
-    name: "🌐 Pre-Deployment Usability Tests (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🌐 Pre-Deployment Usability Tests"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: info
@@ -538,7 +538,7 @@ jobs:
           retention-days: 7
 
   cost-validation:
-    name: "💰 Cost Validation (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "💰 Cost Validation"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info]
@@ -757,7 +757,7 @@ jobs:
           retention-days: 30
 
   summary:
-    name: "📊 Test Summary (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "📊 Test Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure-tests, policy-validation, website-tests, pre-deployment-usability, cost-validation]

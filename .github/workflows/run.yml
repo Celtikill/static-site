@@ -46,7 +46,7 @@ concurrency:
 
 jobs:
   info:
-    name: "📋 Deployment Information (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "📋 Deployment Information"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # Only run if TEST succeeded, or manual dispatch (any environment)
@@ -108,7 +108,7 @@ jobs:
           echo "- **Deploy Website**: $DEPLOY_WEBSITE" >> $GITHUB_STEP_SUMMARY
 
   authorization:
-    name: "🔐 Production Authorization (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🔐 Production Authorization"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: info
@@ -146,7 +146,7 @@ jobs:
           fi
 
   setup:
-    name: "🔧 Setup Deployment Tools (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🔧 Setup Deployment Tools"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info]
@@ -181,7 +181,7 @@ jobs:
           echo "✅ Deployment tools ready" >> $GITHUB_STEP_SUMMARY
 
   infrastructure:
-    name: "🏗️ Infrastructure Deployment (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🏗️ Infrastructure Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [info, setup]
@@ -277,7 +277,7 @@ jobs:
           echo "- CloudFront URL: $CLOUDFRONT_URL" >> $GITHUB_STEP_SUMMARY
 
   website:
-    name: "🌐 Website Deployment (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🌐 Website Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [info, setup, infrastructure]
@@ -361,7 +361,7 @@ jobs:
           echo "**Website URL**: $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
 
   validation:
-    name: "🔍 Post-Deployment Validation (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "🔍 Post-Deployment Validation"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [info, infrastructure, website]
@@ -414,7 +414,7 @@ jobs:
           retention-days: 14
 
   github-deployment:
-    name: "📝 Update GitHub Deployment (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "📝 Update GitHub Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure, website, validation]
@@ -471,7 +471,7 @@ jobs:
             }
 
   cost-verification:
-    name: "💰 Post-Deployment Cost Verification (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "💰 Post-Deployment Cost Verification"
     runs-on: ubuntu-latest
     timeout-minutes: 8
     needs: [info, infrastructure, website]
@@ -646,7 +646,7 @@ jobs:
           retention-days: 90
 
   summary:
-    name: "📊 Deployment Summary (${{ github.event.workflow_run.head_branch || github.ref_name }})"
+    name: "📊 Deployment Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [info, infrastructure, website, validation, github-deployment, cost-verification]
