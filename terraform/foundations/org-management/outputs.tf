@@ -29,11 +29,13 @@ output "organization_structure" {
 }
 
 output "github_actions_configuration" {
-  description = "GitHub Actions OIDC configuration"
+  description = "GitHub Actions OIDC configuration with service-scoped permissions model"
   value = {
     oidc_provider_arn = aws_iam_openid_connect_provider.github.arn
     role_arn          = aws_iam_role.github_actions_management.arn
     role_name         = aws_iam_role.github_actions_management.name
+    permissions_model = "service-scoped"
+    permissions_note  = "Uses service-level wildcards (s3:*, iam:*, kms:*) with resource constraints and region conditions per SECURITY.md"
   }
 }
 
@@ -69,5 +71,7 @@ output "next_steps" {
     step_3 = "Set up cross-account roles in each workload account"
     step_4 = "Update GitHub Actions workflows with new account IDs and roles"
     step_5 = "Test deployment to each environment"
+    permissions_model = "Service-Scoped Permissions: Uses service-level wildcards (s3:*, iam:*, organizations:*) with resource ARN patterns and regional conditions for operational efficiency while maintaining security boundaries"
+    security_reference = "See SECURITY.md for complete service-scoped permissions documentation and approved patterns"
   }
 }

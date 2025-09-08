@@ -253,36 +253,100 @@ resource "aws_iam_role" "github_actions_management" {
 }
 
 # Policy for GitHub Actions to manage organization accounts
+# Follows "middle way" service-scoped permissions model per SECURITY.md
 resource "aws_iam_policy" "github_actions_org_management" {
   name        = "github-actions-org-management"
-  description = "Policy for GitHub Actions to manage AWS Organizations"
+  description = "Policy for GitHub Actions to manage AWS Organizations - Service-Scoped Permissions"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "OrganizationsReadAccess"
+        Sid    = "GeneralPermissions"
         Effect = "Allow"
         Action = [
-          "organizations:Describe*",
-          "organizations:List*"
+          "sts:GetCallerIdentity",
+          "ec2:DescribeRegions"
         ]
         Resource = "*"
       },
       {
-        Sid    = "AccountManagement"
+        Sid    = "OrganizationsFullAccess"
         Effect = "Allow"
         Action = [
-          "organizations:CreateAccount",
-          "organizations:MoveAccount",
-          "organizations:TagResource",
-          "organizations:UntagResource"
+          "organizations:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "IAMOrganizationManagement"
+        Effect = "Allow"
+        Action = [
+          "iam:*"
         ]
         Resource = [
-          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:organization/${aws_organizations_organization.main.id}",
-          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:account/${aws_organizations_organization.main.id}/*",
-          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:ou/${aws_organizations_organization.main.id}/*"
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/github-actions-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/github-actions-*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
         ]
+      },
+      {
+        Sid    = "S3OrganizationOperations" 
+        Effect = "Allow"
+        Action = [
+          "s3:*"
+        ]
+        Resource = [
+          "arn:aws:s3:::static-site-terraform-state-*",
+          "arn:aws:s3:::static-site-terraform-state-*/*",
+          "arn:aws:s3:::cloudtrail-logs-*",
+          "arn:aws:s3:::cloudtrail-logs-*/*"
+        ]
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = ["us-east-1", "us-west-2"]
+          }
+        }
+      },
+      {
+        Sid    = "KMSOrganizationOperations"
+        Effect = "Allow"
+        Action = [
+          "kms:*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = ["us-east-1", "us-west-2"]
+          }
+        }
+      },
+      {
+        Sid    = "CloudTrailOperations"
+        Effect = "Allow"
+        Action = [
+          "cloudtrail:*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = ["us-east-1", "us-west-2"]
+          }
+        }
+      },
+      {
+        Sid    = "CloudWatchOperations"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:*",
+          "logs:*"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestedRegion" = ["us-east-1", "us-west-2"]
+          }
+        }
       },
       {
         Sid    = "AssumeRoleInWorkloadAccounts"
@@ -294,42 +358,6 @@ resource "aws_iam_policy" "github_actions_org_management" {
           "arn:aws:iam::*:role/OrganizationAccountAccessRole",
           "arn:aws:iam::*:role/github-actions-*"
         ]
-      },
-      {
-        Sid    = "IAMManagement"
-        Effect = "Allow"
-        Action = [
-          "iam:CreateRole",
-          "iam:AttachRolePolicy",
-          "iam:PutRolePolicy",
-          "iam:UpdateAssumeRolePolicy",
-          "iam:TagRole"
-        ]
-        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/github-actions-*"
-      },
-      {
-        Sid    = "TerraformStateAccess"
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "arn:aws:s3:::terraform-state-${data.aws_caller_identity.current.account_id}-${var.aws_region}",
-          "arn:aws:s3:::terraform-state-${data.aws_caller_identity.current.account_id}-${var.aws_region}/*"
-        ]
-      },
-      {
-        Sid    = "DynamoDBLockAccess"
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:DeleteItem"
-        ]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.current.account_id}:table/terraform-locks"
       }
     ]
   })
