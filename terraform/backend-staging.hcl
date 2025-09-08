@@ -11,7 +11,6 @@ encrypt                    = true
 
 # S3 State Locking (native S3 object locking)
 # S3 backend automatically handles state locking
-use_lockfile               = true
 
 # Enhanced Security and Validation Settings
 skip_credentials_validation = false
