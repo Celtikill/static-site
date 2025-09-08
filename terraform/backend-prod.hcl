@@ -9,8 +9,9 @@ region                     = "us-east-1"
 encrypt                    = true
 # Use default AWS managed key instead of non-existent alias
 
-# S3 State Locking (native S3 object locking)
-# S3 backend automatically handles state locking
+# S3 Native State Locking (2025 Best Practice)
+# Replaces legacy DynamoDB locking with S3-native locking
+use_lockfile                = true
 
 # Maximum Security and Validation Settings
 skip_credentials_validation = false
