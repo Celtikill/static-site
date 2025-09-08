@@ -79,7 +79,7 @@ jobs:
           if [ -n "${{ github.event.inputs.build_id }}" ]; then
             BUILD_ID="${{ github.event.inputs.build_id }}"
           else
-            BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}"
+            BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}-${{ github.event.workflow_run.run_attempt || github.run_attempt }}"
           fi
 
           # Use the triggering branch from workflow_run or current branch for manual dispatch
