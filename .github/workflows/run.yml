@@ -223,11 +223,10 @@ jobs:
           # Debug environment variables
           echo "Alert emails configured: $(echo $TF_VAR_alert_email_addresses | grep -o '\[' || echo 'NOT SET')" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with environment-specific backend configuration
-          BACKEND_CONFIG="../../backend-${{ needs.info.outputs.target_environment }}.hcl"
-          echo "Using backend config: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
+          # Initialize with embedded backend configuration
+          echo "Using embedded S3 backend configuration" >> $GITHUB_STEP_SUMMARY
 
-          if tofu init -backend-config="$BACKEND_CONFIG" -reconfigure; then
+          if tofu init -reconfigure; then
             echo "✅ Terraform initialized" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform initialization failed" >> $GITHUB_STEP_SUMMARY
