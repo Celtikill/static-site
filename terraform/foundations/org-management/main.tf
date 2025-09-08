@@ -291,7 +291,7 @@ resource "aws_iam_policy" "github_actions_org_management" {
         ]
       },
       {
-        Sid    = "S3OrganizationOperations" 
+        Sid    = "S3OrganizationOperations"
         Effect = "Allow"
         Action = [
           "s3:*"

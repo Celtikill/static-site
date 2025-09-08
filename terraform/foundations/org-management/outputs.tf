@@ -66,12 +66,12 @@ output "service_control_policies" {
 output "next_steps" {
   description = "Next steps for Phase 3 completion"
   value = {
-    step_1 = "Run terraform apply to create organization management infrastructure"
-    step_2 = "Create workload accounts using workload-accounts configuration"
-    step_3 = "Set up cross-account roles in each workload account"
-    step_4 = "Update GitHub Actions workflows with new account IDs and roles"
-    step_5 = "Test deployment to each environment"
-    permissions_model = "Service-Scoped Permissions: Uses service-level wildcards (s3:*, iam:*, organizations:*) with resource ARN patterns and regional conditions for operational efficiency while maintaining security boundaries"
+    step_1             = "Run terraform apply to create organization management infrastructure"
+    step_2             = "Create workload accounts using workload-accounts configuration"
+    step_3             = "Set up cross-account roles in each workload account"
+    step_4             = "Update GitHub Actions workflows with new account IDs and roles"
+    step_5             = "Test deployment to each environment"
+    permissions_model  = "Service-Scoped Permissions: Uses service-level wildcards (s3:*, iam:*, organizations:*) with resource ARN patterns and regional conditions for operational efficiency while maintaining security boundaries"
     security_reference = "See SECURITY.md for complete service-scoped permissions documentation and approved patterns"
   }
 }
