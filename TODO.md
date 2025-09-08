@@ -20,19 +20,22 @@
 
 **Multi-Account Architecture Migration** - CRITICAL Priority ⚡
 
-### Current Status: Ready for Phase 4 Deployment
+### Current Status: Architecture Evolution (Billing Constrained)
 **Completed:**
 - ✅ Phase 0: Clean Slate Preparation - All existing resources decommissioned
 - ✅ Phase 1: AWS Organizations Foundation - Organization o-0hh51yjgxw created, Management Account 223938610551
-- ✅ Phase 2: SRA-Aligned Terraform Module Development - All security baseline modules created and validated
-- ✅ Phase 3: Management Account Infrastructure Configuration - **READY FOR DEPLOYMENT**
+- ✅ Phase 2: SRA-Aligned Terraform Module Development - All security baseline modules created and validated with composable architecture
+- ✅ Phase 2.5: Security Issues Resolution - HIGH severity vulnerabilities fixed with KMS encryption
+- ✅ Phase 2.6: Workflow Branch Fixes - RUN/TEST workflows now correctly deploy from feature branches
+- ✅ Phase 2.7: Architecture Planning - Nested OU team/app architecture designed and validated
+- 🔄 Phase 3: Organization Management Infrastructure - **IN PROGRESS** (GitHub Actions blocked by billing limits)
 
 **Next Steps:**
-- [ ] **Deploy Phase 3**: Execute `tofu apply` in `terraform/management-account/` to create Security OU accounts
-- [ ] Phase 4: Security OU Account Deployment (deploy security baselines to new accounts)
-- [ ] Phase 5: Workload OU Account Deployment  
-- [ ] Phase 6: CI/CD Pipeline Migration
-- [ ] Phase 7: Website Content Migration
+- [⏸️] **Deploy Phase 3**: Execute `tofu apply` in `terraform/foundations/org-management/` to create Organization management infrastructure *(PAUSED: GitHub Actions billing limits until new month)*
+- [ ] Phase 4: Create Security OU accounts via Account Factory  
+- [ ] Phase 5: Create Workload OU accounts (dev/staging/prod)
+- [ ] Phase 6: CI/CD Pipeline Multi-Account Migration
+- [ ] Phase 7: Website Content Multi-Account Migration
 
 ---
 
@@ -307,22 +310,30 @@ Organization (o-0hh51yjgxw)
 
 ## Phase 3 Deployment Instructions
 
-**Location**: `terraform/management-account/`
+**Location**: `terraform/foundations/org-management/`
+**Status**: ⏸️ **PAUSED** - GitHub Actions billing limits reached (resume next month)
+
+**Alternative Deployment Options:**
+1. **GitHub Actions** (preferred, currently blocked):
+   ```bash
+   gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
+   ```
+
+2. **Local Deployment** (emergency fallback):
+   ```bash
+   cd terraform/foundations/org-management
+   # Review the plan  
+   tofu plan
+   # Deploy (when ready)
+   tofu apply
+   ```
 
 **Pre-Deployment Checklist:**
 1. ✅ Configuration created and validated
-2. ✅ AWS CLI configured with Management Account credentials
-3. ⚠️  Update `domain_suffix` in `terraform.tfvars` with your actual domain
-4. ⚠️  Review and customize `cost_allocation_tags` if needed
-
-**Deployment Commands:**
-```bash
-cd terraform/management-account
-# Review the plan
-tofu plan -var-file=terraform.tfvars
-# Deploy (when ready)
-tofu apply -var-file=terraform.tfvars
-```
+2. ✅ AWS CLI configured with Management Account credentials  
+3. ✅ KMS encryption configured for security compliance
+4. ✅ Workflow branch references fixed for proper deployment
+5. ⚠️  GitHub Actions billing limits - wait for new billing cycle
 
 **Expected Results:**
 - Security OU with 2 new accounts created
@@ -345,7 +356,43 @@ For detailed gap analysis against enterprise standards, see comparison report wi
 
 ---
 
+---
+
+## 🚨 Current Constraints & Next Steps
+
+**BILLING CONSTRAINT**: GitHub Actions monthly limits reached - deployment operations paused until next billing cycle.
+
+**Immediate Actions for New Month:**
+1. **Resume Phase 3 Deployment**: Execute organization management infrastructure deployment
+2. **Implement Nested OU Architecture**: Migrate to team/app-based nested organizational units
+3. **Enhance OPA Policies**: Add multi-account validation rules (organization, cross-account IAM, KMS)
+4. **Consider MVP Simplification**: Evaluate temporary CloudFront removal for faster MVP deployment
+5. **Create App-Specific Accounts**: Deploy dev/staging/prod accounts for static-site app
+6. **Update CI/CD Pipeline**: Implement account-specific deployment routing
+
+**Architecture Readiness**: 
+- ✅ Organization management infrastructure code complete and security-validated
+- ✅ Composable module architecture implemented  
+- ✅ Workflow branch reference issues resolved
+- ⏸️ Deployment blocked only by GitHub Actions billing limits
+
+**MVP Optimization Option**: 
+- 💡 **CloudFront Removal Plan**: Created comprehensive plan to temporarily remove CloudFront/WAF for MVP
+- 🎯 **Benefits**: 90% cost reduction (~$27→$3/month), 75% faster deployment (20→5 min), much simpler architecture
+- ⚠️ **Trade-offs**: No global CDN, no WAF protection, HTTP-only, higher latency, basic security
+- 🔄 **Re-enablement Strategy**: Feature toggle approach for progressive enhancement post-MVP
+
+**Nested OU Architecture Plan**: 
+- ✅ **AWS Validation**: Confirmed nested OU support (5 levels max, using 4 levels)
+- 🏗️ **Structure**: Root → Teams → Apps → Environment Accounts (dev/staging/prod)
+- 🎯 **Benefits**: Team autonomy, app isolation, clear cost attribution, policy inheritance, infinite scalability
+- 📋 **Migration**: 5-phase implementation (Foundation → Account Factory → Directory → Workflows → Documentation)
+- 🔄 **Impact**: Complete restructure of terraform directories and deployment workflows
+
+---
+
 *Last Updated: 2025-08-28*  
-*Status: Phase 3 READY FOR DEPLOYMENT - Management Account Infrastructure Configuration*
+*Status: Phase 3 IN PROGRESS - Billing Constrained*
 *Organization: o-0hh51yjgxw | Management Account: 223938610551*
+*Location: terraform/foundations/org-management/*
 *Enterprise Alignment: MVP path defined with clear post-MVP enhancement roadmap*

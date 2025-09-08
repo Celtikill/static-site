@@ -12,11 +12,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "static-site-terraform-state-us-east-1"
-    key            = "org-management/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-state-lock"
-    encrypt        = true
+    bucket       = "static-site-terraform-state-us-east-1"
+    key          = "org-management/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 

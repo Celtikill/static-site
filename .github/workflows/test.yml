@@ -160,11 +160,23 @@ jobs:
           fetch-depth: 0
 
       - name: Download Build Artifacts
+        id: download-artifacts
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: build-artifacts-${{ needs.info.outputs.build_id }}
           path: ./artifacts
+
+      - name: Check Artifact Availability
+        id: check-artifacts
+        run: |
+          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts)" ]; then
+            echo "✅ Build artifacts downloaded successfully" >> $GITHUB_STEP_SUMMARY
+            echo "artifacts_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Build artifacts not available - some tests may be skipped" >> $GITHUB_STEP_SUMMARY
+            echo "artifacts_available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Infrastructure Tools
         run: |
@@ -304,11 +316,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Infrastructure Test Results
+        id: download-test-results
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: unit-test-results-${{ needs.info.outputs.test_id }}
           path: ./test-results
+
+      - name: Check Test Results Availability
+        id: check-test-results
+        run: |
+          if [ -d "./test-results" ] && [ "$(ls -A ./test-results)" ]; then
+            echo "✅ Test results downloaded successfully" >> $GITHUB_STEP_SUMMARY
+            echo "test_results_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Test results not available - skipping related validations" >> $GITHUB_STEP_SUMMARY
+            echo "test_results_available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Policy Tools
         run: |
@@ -393,11 +417,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Build Artifacts
+        id: download-website-artifacts
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: build-artifacts-${{ needs.info.outputs.build_id }}
           path: ./artifacts
+
+      - name: Check Website Artifacts
+        id: check-website-artifacts
+        run: |
+          if [ -d "./artifacts" ] && ls ./artifacts/website-*.tar.gz >/dev/null 2>&1; then
+            echo "✅ Website artifacts available for testing" >> $GITHUB_STEP_SUMMARY
+            echo "website_artifacts_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Website artifacts not available - using source files for testing" >> $GITHUB_STEP_SUMMARY
+            echo "website_artifacts_available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Website Tests
         run: |
@@ -516,11 +552,23 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Cost Projection from BUILD
+        id: download-cost-projection
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: cost-projection-${{ needs.info.outputs.build_id }}
           path: ./cost-analysis
+
+      - name: Check Cost Projection Availability
+        id: check-cost-projection
+        run: |
+          if [ -d "./cost-analysis" ] && [ "$(ls -A ./cost-analysis)" ]; then
+            echo "✅ Cost projection data available" >> $GITHUB_STEP_SUMMARY
+            echo "cost_projection_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Cost projection not available - using default validation" >> $GITHUB_STEP_SUMMARY
+            echo "cost_projection_available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Cost Budget Validation
         id: validate
@@ -718,11 +766,23 @@ jobs:
       tests_passed: ${{ steps.summary.outputs.tests_passed }}
     steps:
       - name: Download Unit Test Results
+        id: download-summary-results
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           name: unit-test-results-${{ needs.info.outputs.test_id }}
           path: ./test-results
+
+      - name: Check Results Availability
+        id: check-summary-results
+        run: |
+          if [ -d "./test-results" ] && [ "$(ls -A ./test-results)" ]; then
+            echo "✅ Test results available for summary" >> $GITHUB_STEP_SUMMARY
+            echo "results_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Test results not available for detailed summary" >> $GITHUB_STEP_SUMMARY
+            echo "results_available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Test Summary
         id: summary

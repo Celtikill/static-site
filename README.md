@@ -10,6 +10,11 @@
 ### Quality & Security
 [![Security Scan](https://img.shields.io/badge/security%20scan-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Policy Check](https://img.shields.io/badge/policy%20check-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
 
+### 🚨 Current Status
+[![Status](https://img.shields.io/badge/multi--account_migration-in_progress-yellow)](https://github.com/celtikill/static-site/blob/main/TODO.md) [![Deployment](https://img.shields.io/badge/deployment-billing_constrained-orange)](https://github.com/celtikill/static-site/blob/main/TODO.md#current-constraints--next-steps)
+
+**Multi-Account Architecture Migration**: Currently implementing organization management infrastructure. GitHub Actions deployment paused due to monthly billing limits - will resume next month.
+
 ---
 
 Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu (Terraform-compatible).
