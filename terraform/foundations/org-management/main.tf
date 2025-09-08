@@ -35,22 +35,35 @@ provider "aws" {
 
 # Data source for current AWS account
 data "aws_caller_identity" "current" {}
-data "aws_organizations_organization" "current" {}
+
+# Create AWS Organization (if it doesn't exist)
+resource "aws_organizations_organization" "main" {
+  aws_service_access_principals = [
+    "cloudtrail.amazonaws.com",
+    "config.amazonaws.com"
+  ]
+  
+  feature_set = "ALL"
+  
+  enabled_policy_types = [
+    "SERVICE_CONTROL_POLICY"
+  ]
+}
 
 # Create Organizational Units
 resource "aws_organizations_organizational_unit" "security" {
   name      = "Security"
-  parent_id = data.aws_organizations_organization.current.roots[0].id
+  parent_id = aws_organizations_organization.main.roots[0].id
 }
 
 resource "aws_organizations_organizational_unit" "workloads" {
   name      = "Workloads"
-  parent_id = data.aws_organizations_organization.current.roots[0].id
+  parent_id = aws_organizations_organization.main.roots[0].id
 }
 
 resource "aws_organizations_organizational_unit" "sandbox" {
   name      = "Sandbox"
-  parent_id = data.aws_organizations_organization.current.roots[0].id
+  parent_id = aws_organizations_organization.main.roots[0].id
 }
 
 # Enable AWS CloudTrail for organization
@@ -266,9 +279,9 @@ resource "aws_iam_policy" "github_actions_org_management" {
           "organizations:UntagResource"
         ]
         Resource = [
-          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:organization/${data.aws_organizations_organization.current.id}",
-          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:account/${data.aws_organizations_organization.current.id}/*",
-          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:ou/${data.aws_organizations_organization.current.id}/*"
+          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:organization/${aws_organizations_organization.main.id}",
+          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:account/${aws_organizations_organization.main.id}/*",
+          "arn:aws:organizations::${data.aws_caller_identity.current.account_id}:ou/${aws_organizations_organization.main.id}/*"
         ]
       },
       {
@@ -378,7 +391,7 @@ resource "aws_organizations_policy" "workload_guardrails" {
 
 # Outputs
 output "organization_id" {
-  value       = data.aws_organizations_organization.current.id
+  value       = aws_organizations_organization.main.id
   description = "AWS Organization ID"
 }
 

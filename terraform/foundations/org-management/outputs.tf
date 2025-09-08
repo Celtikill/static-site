@@ -3,10 +3,10 @@
 output "organization_structure" {
   description = "Organization structure with OUs"
   value = {
-    organization_id = data.aws_organizations_organization.current.id
+    organization_id = aws_organizations_organization.main.id
     master_account = {
-      id    = data.aws_organizations_organization.current.master_account_id
-      email = data.aws_organizations_organization.current.master_account_email
+      id    = aws_organizations_organization.main.master_account_id
+      email = aws_organizations_organization.main.master_account_email
     }
     organizational_units = {
       security = {
