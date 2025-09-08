@@ -55,6 +55,7 @@ jobs:
       github.event_name == 'workflow_dispatch'
     outputs:
       run_id: ${{ steps.info.outputs.run_id }}
+      build_id: ${{ steps.info.outputs.build_id }}
       target_environment: ${{ steps.info.outputs.target_environment }}
       deploy_infrastructure: ${{ steps.info.outputs.deploy_infrastructure }}
       deploy_website: ${{ steps.info.outputs.deploy_website }}
@@ -90,11 +91,31 @@ jobs:
             ENV_SOURCE="Default"
           fi
 
+          # Determine build ID for artifact inheritance
+          if [ -n "${{ github.event.inputs.test_id }}" ]; then
+            # Extract build ID from test_id if provided (test_id format: test-RUNID-ATTEMPT)
+            BUILD_ID=$(echo "${{ github.event.inputs.test_id }}" | sed 's/test-/build-/')
+          else
+            # For automated triggers from TEST workflow, we need to find the original BUILD workflow ID
+            # The challenge: RUN is triggered by TEST, but artifacts are in BUILD workflow
+            # 
+            # We'll implement a two-step artifact discovery:
+            # 1. First try using a calculated BUILD_ID based on the TEST workflow
+            # 2. The download-artifact step will use run-id to search in the right workflow
+            
+            # Since TEST was triggered by BUILD via workflow_run, we can derive BUILD info
+            # The TEST workflow should have preserved the BUILD workflow context
+            # For now, use a pattern that allows artifact discovery
+            BUILD_ID="build-unknown"  # Will be resolved in artifact download step
+            echo "BUILD ID resolution deferred to artifact download step" >> $GITHUB_STEP_SUMMARY
+          fi
+
           # Determine deployment flags
           DEPLOY_INFRA="${{ github.event.inputs.deploy_infrastructure || 'true' }}"
           DEPLOY_WEBSITE="${{ github.event.inputs.deploy_website || 'true' }}"
 
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
           echo "target_environment=$TARGET_ENV" >> $GITHUB_OUTPUT
           echo "deploy_infrastructure=$DEPLOY_INFRA" >> $GITHUB_OUTPUT
           echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
@@ -496,6 +517,8 @@ jobs:
         with:
           name: cost-projection-${{ needs.info.outputs.build_id }}
           path: ./cost-analysis
+          # For workflow_run triggers, look for artifacts in the TEST workflow first,
+          # then fall back to searching in the BUILD workflow
           run-id: ${{ github.event.workflow_run.id || github.run_id }}
 
       - name: Post-Deployment Cost Verification

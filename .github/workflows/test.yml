@@ -75,11 +75,15 @@ jobs:
         run: |
           TEST_ID="test-${{ github.run_id }}-${{ github.run_attempt }}"
 
-          # Determine build ID
+          # Determine build ID - use the triggering BUILD workflow's ID for artifact naming
           if [ -n "${{ github.event.inputs.build_id }}" ]; then
             BUILD_ID="${{ github.event.inputs.build_id }}"
+          elif [ -n "${{ github.event.workflow_run.id }}" ]; then
+            # For workflow_run triggers, use the triggering workflow's ID (BUILD workflow)
+            BUILD_ID="build-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}"
           else
-            BUILD_ID="build-${{ github.event.workflow_run.id || github.run_id }}-${{ github.event.workflow_run.run_attempt || github.run_attempt }}"
+            # For manual dispatch, use current workflow's ID
+            BUILD_ID="build-${{ github.run_id }}-${{ github.run_attempt }}"
           fi
 
           # Use the triggering branch from workflow_run or current branch for manual dispatch
