@@ -195,15 +195,15 @@ jobs:
             if [ -n "${{ github.event.inputs.build_id }}" ]; then
               # Extract BUILD workflow run ID from build_id format: build-17558293968-1
               BUILD_RUN_ID=$(echo "${{ github.event.inputs.build_id }}" | sed 's/build-\([0-9]*\)-.*/\1/')
-              
+
               if [ -n "$BUILD_RUN_ID" ] && [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
                 echo "Downloading artifacts from BUILD workflow run: $BUILD_RUN_ID"
                 mkdir -p ./artifacts
-                
+
                 # List available artifacts for debugging
                 echo "Available artifacts in BUILD workflow $BUILD_RUN_ID:"
                 gh run view $BUILD_RUN_ID --json artifacts --jq '.artifacts[] | {name: .name, id: .id}' || echo "Failed to list artifacts"
-                
+
                 # Download the specific artifact
                 gh run download $BUILD_RUN_ID \
                   --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
@@ -680,6 +680,22 @@ jobs:
                   --pattern "cost-projection-*" \
                   --dir ./cost-analysis || echo "No cost projection found"
               }
+          else
+            # Manual trigger - extract BUILD run ID from build_id input
+            if [ -n "${{ github.event.inputs.build_id }}" ]; then
+              BUILD_RUN_ID=$(echo "${{ github.event.inputs.build_id }}" | sed 's/build-\([0-9]*\)-.*/\1/')
+              if [ -n "$BUILD_RUN_ID" ] && [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
+                echo "Manual trigger: downloading cost projection from BUILD run $BUILD_RUN_ID"
+                mkdir -p ./cost-analysis
+                gh run download $BUILD_RUN_ID \
+                  --name "cost-projection-${{ needs.info.outputs.build_id }}" \
+                  --dir ./cost-analysis || {
+                    gh run download $BUILD_RUN_ID \
+                      --pattern "cost-projection-*" \
+                      --dir ./cost-analysis || echo "No cost projection found"
+                  }
+              fi
+            fi
           fi
 
           # Check if cost projection was downloaded
