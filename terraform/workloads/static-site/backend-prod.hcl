@@ -7,20 +7,8 @@ key                        = "workloads/static-site/prod/terraform.tfstate"
 region                     = "us-east-1"
 encrypt                    = true
 
-# S3 Native State Locking (2025 Best Practice)
-# Replaces legacy DynamoDB locking with S3-native locking
-use_lockfile                = true
-
-# Maximum Security and Validation Settings
-skip_credentials_validation = false
-skip_region_validation     = false
-skip_requesting_account_id = false
-skip_s3_checksum          = false
-skip_metadata_api_check   = false
-
-# Enhanced Performance and Reliability
-max_retries               = 5
-use_path_style            = false
+# Note: S3 backend uses DynamoDB for state locking
+# DynamoDB table will be automatically created if it doesn't exist
 
 # Production Environment Security
 # - Maximum validation and security
