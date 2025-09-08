@@ -9,12 +9,12 @@ source "$(dirname "$0")/../functions/test-functions.sh"
 
 # Test configuration
 # Test configuration - determine path based on current directory
-if [ -d "terraform/modules/monitoring" ]; then
+if [ -d "terraform/modules/observability/monitoring" ]; then
     # Running from repository root (GitHub Actions)
-    readonly MODULE_PATH="terraform/modules/monitoring"
-elif [ -d "../../terraform/modules/monitoring" ]; then
+    readonly MODULE_PATH="terraform/modules/observability/monitoring"
+elif [ -d "../../terraform/modules/observability/monitoring" ]; then
     # Running from test/unit directory (local testing)
-    readonly MODULE_PATH="../../terraform/modules/monitoring"
+    readonly MODULE_PATH="../../terraform/modules/observability/monitoring"
 else
     echo "ERROR: Cannot find module directory"
     exit 1

@@ -58,7 +58,7 @@ record_test_result() {
 test_iam_data_sources_configuration() {
     log_message "🧪 Testing IAM Data Sources Configuration"
     
-    local main_tf="${TERRAFORM_PATH}/main.tf"
+    local main_tf="${TERRAFORM_PATH}/workloads/static-site/main.tf"
     
     if [[ ! -f "$main_tf" ]]; then
         record_test_result "main_tf_exists" "FAILED" "Main Terraform configuration not found"
@@ -307,7 +307,7 @@ test_infrastructure_policy_security() {
 test_terraform_iam_outputs() {
     log_message "🧪 Testing Terraform IAM Outputs"
     
-    local outputs_tf="${TERRAFORM_PATH}/outputs.tf"
+    local outputs_tf="${TERRAFORM_PATH}/workloads/static-site/outputs.tf"
     
     if [[ ! -f "$outputs_tf" ]]; then
         record_test_result "outputs_tf_exists" "FAILED" "Terraform outputs file not found"
@@ -369,7 +369,7 @@ test_iam_setup_documentation() {
 test_s3_module_iam_integration() {
     log_message "🧪 Testing S3 Module IAM Integration"
     
-    local s3_main="${TERRAFORM_PATH}/modules/s3/main.tf"
+    local s3_main="${TERRAFORM_PATH}/modules/storage/s3-bucket/main.tf"
     
     if [[ ! -f "$s3_main" ]]; then
         record_test_result "s3_module_exists" "FAILED" "S3 module not found"

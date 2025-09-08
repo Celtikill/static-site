@@ -23,7 +23,7 @@ TEST_RESULTS=()
 # Project root and terraform directory
 PROJECT_ROOT="${SCRIPT_DIR}/../.."
 TERRAFORM_DIR="${PROJECT_ROOT}/terraform"
-COST_MODULE_DIR="${TERRAFORM_DIR}/modules/cost-projection"
+COST_MODULE_DIR="${TERRAFORM_DIR}/modules/observability/cost-projection"
 
 # Logging function
 log_message() {

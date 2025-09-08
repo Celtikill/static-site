@@ -28,12 +28,12 @@ source "$(dirname "$0")/../functions/test-functions.sh"
 
 # Path to S3 module Terraform files (relative to test file location)
 # Test configuration - determine path based on current directory
-if [ -d "terraform/modules/s3" ]; then
+if [ -d "terraform/modules/storage/s3-bucket" ]; then
     # Running from repository root (GitHub Actions)
-    readonly MODULE_PATH="terraform/modules/s3"
-elif [ -d "../../terraform/modules/s3" ]; then
+    readonly MODULE_PATH="terraform/modules/storage/s3-bucket"
+elif [ -d "../../terraform/modules/storage/s3-bucket" ]; then
     # Running from test/unit directory (local testing)
-    readonly MODULE_PATH="../../terraform/modules/s3"
+    readonly MODULE_PATH="../../terraform/modules/storage/s3-bucket"
 else
     echo "ERROR: Cannot find S3 module directory"
     exit 1

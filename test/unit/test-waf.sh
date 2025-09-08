@@ -9,12 +9,12 @@ source "$(dirname "$0")/../functions/test-functions.sh"
 
 # Test configuration
 # Test configuration - determine path based on current directory
-if [ -d "terraform/modules/waf" ]; then
+if [ -d "terraform/modules/security/waf" ]; then
     # Running from repository root (GitHub Actions)
-    readonly MODULE_PATH="terraform/modules/waf"
-elif [ -d "../../terraform/modules/waf" ]; then
+    readonly MODULE_PATH="terraform/modules/security/waf"
+elif [ -d "../../terraform/modules/security/waf" ]; then
     # Running from test/unit directory (local testing)
-    readonly MODULE_PATH="../../terraform/modules/waf"
+    readonly MODULE_PATH="../../terraform/modules/security/waf"
 else
     echo "ERROR: Cannot find module directory"
     exit 1

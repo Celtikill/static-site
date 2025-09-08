@@ -8,12 +8,12 @@ set -euo pipefail
 source "$(dirname "$0")/../functions/test-functions.sh"
 
 # Test configuration - determine path based on current directory
-if [ -d "terraform/modules/cloudfront" ]; then
+if [ -d "terraform/modules/networking/cloudfront" ]; then
     # Running from repository root (GitHub Actions)
-    readonly MODULE_PATH="terraform/modules/cloudfront"
-elif [ -d "../../terraform/modules/cloudfront" ]; then
+    readonly MODULE_PATH="terraform/modules/networking/cloudfront"
+elif [ -d "../../terraform/modules/networking/cloudfront" ]; then
     # Running from test/unit directory (local testing)
-    readonly MODULE_PATH="../../terraform/modules/cloudfront"
+    readonly MODULE_PATH="../../terraform/modules/networking/cloudfront"
 else
     echo "ERROR: Cannot find CloudFront module directory"
     exit 1
