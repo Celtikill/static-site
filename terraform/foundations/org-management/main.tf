@@ -12,10 +12,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket       = "static-site-terraform-state-us-east-1"
-    key          = "org-management/terraform.tfstate"
-    region       = "us-east-1"
-    encrypt      = true
+    bucket  = "static-site-terraform-state-us-east-1"
+    key     = "org-management/terraform.tfstate"
+    region  = "us-east-1"
+    encrypt = true
   }
 }
 
