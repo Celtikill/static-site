@@ -190,9 +190,38 @@ jobs:
                   --dir ./artifacts || echo "No artifacts found"
               }
           else
-            echo "Manual trigger - using actions/download-artifact"
-            # Fallback to standard artifact download for manual triggers
-            echo "artifact-available=false" >> $GITHUB_OUTPUT
+            echo "Manual trigger detected"
+            # For manual triggers, check if build_id was provided to download from specific BUILD run
+            if [ -n "${{ github.event.inputs.build_id }}" ]; then
+              # Extract BUILD workflow run ID from build_id format: build-17558293968-1
+              BUILD_RUN_ID=$(echo "${{ github.event.inputs.build_id }}" | sed 's/build-\([0-9]*\)-.*/\1/')
+              
+              if [ -n "$BUILD_RUN_ID" ] && [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
+                echo "Downloading artifacts from BUILD workflow run: $BUILD_RUN_ID"
+                mkdir -p ./artifacts
+                
+                # List available artifacts for debugging
+                echo "Available artifacts in BUILD workflow $BUILD_RUN_ID:"
+                gh run view $BUILD_RUN_ID --json artifacts --jq '.artifacts[] | {name: .name, id: .id}' || echo "Failed to list artifacts"
+                
+                # Download the specific artifact
+                gh run download $BUILD_RUN_ID \
+                  --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+                  --dir ./artifacts || {
+                    echo "Failed to download specific artifact, trying pattern match"
+                    gh run download $BUILD_RUN_ID \
+                      --pattern "build-artifacts-*" \
+                      --dir ./artifacts || echo "No artifacts found in BUILD run $BUILD_RUN_ID"
+                  }
+              else
+                echo "Invalid build_id format: ${{ github.event.inputs.build_id }}"
+                echo "Expected format: build-<run_id>-<attempt>"
+                echo "artifact-available=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "No build_id provided for manual trigger"
+              echo "artifact-available=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
           # Check if artifacts were downloaded
@@ -478,6 +507,22 @@ jobs:
                   --pattern "build-artifacts-*" \
                   --dir ./artifacts || echo "No artifacts found"
               }
+          else
+            # Manual trigger - extract BUILD run ID from build_id input
+            if [ -n "${{ github.event.inputs.build_id }}" ]; then
+              BUILD_RUN_ID=$(echo "${{ github.event.inputs.build_id }}" | sed 's/build-\([0-9]*\)-.*/\1/')
+              if [ -n "$BUILD_RUN_ID" ] && [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
+                echo "Manual trigger: downloading from BUILD run $BUILD_RUN_ID"
+                mkdir -p ./artifacts
+                gh run download $BUILD_RUN_ID \
+                  --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+                  --dir ./artifacts || {
+                    gh run download $BUILD_RUN_ID \
+                      --pattern "build-artifacts-*" \
+                      --dir ./artifacts || echo "No artifacts found"
+                  }
+              fi
+            fi
           fi
 
           # Check if artifacts were downloaded
