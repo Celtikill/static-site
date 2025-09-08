@@ -154,6 +154,7 @@ jobs:
     needs: info
     if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
     env:
+      GH_TOKEN: ${{ github.token }}
       AWS_ASSUME_ROLE_DEV: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
       AWS_ASSUME_ROLE_STAGING: ${{ secrets.AWS_ASSUME_ROLE_STAGING }}
       AWS_ASSUME_ROLE: ${{ secrets.AWS_ASSUME_ROLE }}
@@ -485,6 +486,8 @@ jobs:
     timeout-minutes: 8
     needs: info
     if: needs.info.outputs.has_website_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -654,6 +657,8 @@ jobs:
     timeout-minutes: 8
     needs: [info]
     if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
     outputs:
       budget_status: ${{ steps.validate.outputs.budget_status }}
       cost_validation_result: ${{ steps.validate.outputs.cost_validation_result }}
