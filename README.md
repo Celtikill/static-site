@@ -190,8 +190,8 @@ The project uses a simplified status monitoring approach:
 
 2. **Set up backend storage**
    ```bash
-   cd terraform
-   cp backend.hcl.example backend-dev.hcl
+   cd terraform/workloads/static-site
+   cp backend-dev.hcl.example backend-dev.hcl  # If starting fresh
    # Edit backend-dev.hcl with your S3 bucket details
    ```
 
@@ -208,7 +208,13 @@ The project uses a simplified status monitoring approach:
 - **.github/workflows/** - CI/CD pipelines (BUILD → TEST → RUN)
 - **docs/** - Comprehensive documentation
 - **src/** - Static website content  
-- **terraform/** - Infrastructure as Code with 4 modules (S3, CloudFront, WAF, Monitoring)
+- **terraform/** - Infrastructure as Code organized by purpose:
+  - **workloads/static-site/** - Main deployment configuration
+  - **modules/storage/** - S3 bucket module
+  - **modules/networking/** - CloudFront CDN module
+  - **modules/security/** - WAF protection module
+  - **modules/observability/** - Monitoring and cost projection modules
+  - **foundations/org-management/** - Organization management (multi-account architecture)
 - **test/** - Unit tests and usability validation
 
 ## ⚙️ Configuration & Security
