@@ -14,6 +14,13 @@ terraform {
       version = "~> 3.4"
     }
   }
+
+  # S3 backend configuration - uses environment-specific state files
+  backend "s3" {
+    # Backend configuration will be loaded from backend-{env}.hcl files
+    # This allows the same terraform to be used across dev/staging/prod environments
+    # with different state files and proper isolation
+  }
 }
 
 # Provider configuration for replica region (used by S3 module)

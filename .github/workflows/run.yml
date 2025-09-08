@@ -237,18 +237,21 @@ jobs:
 
       - name: Deploy Infrastructure
         id: deploy
-        working-directory: terraform/foundations/org-management
+        working-directory: ${{ vars.TERRAFORM_WORKING_DIR || 'terraform/workloads/static-site' }}
         run: |
           echo "## 🏗️ Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
 
           # Debug environment variables
           echo "Alert emails configured: $(echo $TF_VAR_alert_email_addresses | grep -o '\[' || echo 'NOT SET')" >> $GITHUB_STEP_SUMMARY
+          echo "Working directory: $(pwd)" >> $GITHUB_STEP_SUMMARY
+          echo "Target environment: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with embedded backend configuration
-          echo "Using embedded S3 backend configuration" >> $GITHUB_STEP_SUMMARY
+          # Initialize with environment-specific backend configuration
+          BACKEND_CONFIG="backend-${{ needs.info.outputs.target_environment }}.hcl"
+          echo "Using backend configuration: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
 
-          if tofu init -reconfigure; then
-            echo "✅ Terraform initialized" >> $GITHUB_STEP_SUMMARY
+          if tofu init -reconfigure -backend-config="$BACKEND_CONFIG"; then
+            echo "✅ Terraform initialized with $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform initialization failed" >> $GITHUB_STEP_SUMMARY
             exit 1
@@ -281,7 +284,7 @@ jobs:
 
           # Output important values
           OUTPUTS=$(tofu output -json 2>/dev/null || echo '{}')
-          BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.s3_bucket_name.value // ""')
+          BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.s3_bucket_id.value // ""')
           DISTRIBUTION_ID=$(echo "$OUTPUTS" | jq -r '.cloudfront_distribution_id.value // ""')
           CLOUDFRONT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // "N/A"')
 
@@ -343,7 +346,10 @@ jobs:
           fi
 
           # Sync website content to S3
-          if aws s3 sync src/ s3://$BUCKET_NAME/ --delete --quiet; then
+          WEBSITE_SOURCE_DIR="${{ vars.WEBSITE_SOURCE_DIR || 'src' }}"
+          echo "- **Source directory**: $WEBSITE_SOURCE_DIR/" >> $GITHUB_STEP_SUMMARY
+          
+          if aws s3 sync "$WEBSITE_SOURCE_DIR/" s3://$BUCKET_NAME/ --delete --quiet; then
             echo "✅ Website content uploaded to S3" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Website upload failed" >> $GITHUB_STEP_SUMMARY
