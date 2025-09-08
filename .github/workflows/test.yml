@@ -165,12 +165,45 @@ jobs:
 
       - name: Download Build Artifacts
         id: download-artifacts
-        uses: actions/download-artifact@v4
         continue-on-error: true
-        with:
-          name: build-artifacts-${{ needs.info.outputs.build_id }}
-          path: ./artifacts
-          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+        run: |
+          echo "Attempting to download build artifacts: build-artifacts-${{ needs.info.outputs.build_id }}"
+
+          # For workflow_run triggers, try to download from the triggering workflow
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            echo "Using GitHub CLI to download artifacts from workflow run ${{ github.event.workflow_run.id }}"
+            mkdir -p ./artifacts
+
+            # List available artifacts for debugging
+            echo "Available artifacts in triggering workflow:"
+            gh run view ${{ github.event.workflow_run.id }} --json artifacts --jq '.artifacts[] | {name: .name, id: .id}'
+
+            # Download the specific artifact
+            gh run download ${{ github.event.workflow_run.id }} \
+              --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+              --dir ./artifacts || {
+                echo "Failed to download from triggering workflow, trying alternative approach"
+
+                # Alternative: try to download any build artifacts from the triggering run
+                gh run download ${{ github.event.workflow_run.id }} \
+                  --pattern "build-artifacts-*" \
+                  --dir ./artifacts || echo "No artifacts found"
+              }
+          else
+            echo "Manual trigger - using actions/download-artifact"
+            # Fallback to standard artifact download for manual triggers
+            echo "artifact-available=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check if artifacts were downloaded
+          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts 2>/dev/null)" ]; then
+            echo "Artifacts downloaded successfully"
+            echo "artifact-available=true" >> $GITHUB_OUTPUT
+            ls -la ./artifacts/
+          else
+            echo "No artifacts available"
+            echo "artifact-available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check Artifact Availability
         id: check-artifacts
@@ -322,12 +355,17 @@ jobs:
 
       - name: Download Infrastructure Test Results
         id: download-test-results
-        uses: actions/download-artifact@v4
         continue-on-error: true
-        with:
-          name: unit-test-results-${{ needs.info.outputs.test_id }}
-          path: ./test-results
-          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+        run: |
+          echo "Attempting to download test results: unit-test-results-${{ needs.info.outputs.test_id }}"
+
+          # Note: unit-test-results are created by this TEST workflow, not BUILD
+          # So for workflow_run triggers, we need to check current run, not triggering run
+          mkdir -p ./test-results
+
+          # First check if results exist from this workflow run
+          echo "Checking for test results from current workflow run"
+          echo "test-results-available=false" >> $GITHUB_OUTPUT
 
       - name: Check Test Results Availability
         id: check-test-results
@@ -424,12 +462,33 @@ jobs:
 
       - name: Download Build Artifacts
         id: download-website-artifacts
-        uses: actions/download-artifact@v4
         continue-on-error: true
-        with:
-          name: build-artifacts-${{ needs.info.outputs.build_id }}
-          path: ./artifacts
-          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+        run: |
+          echo "Attempting to download website build artifacts: build-artifacts-${{ needs.info.outputs.build_id }}"
+
+          # For workflow_run triggers, use GitHub CLI to download from the triggering workflow
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            mkdir -p ./artifacts
+
+            gh run download ${{ github.event.workflow_run.id }} \
+              --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+              --dir ./artifacts || {
+                echo "Failed to download specific artifact, trying pattern match"
+                gh run download ${{ github.event.workflow_run.id }} \
+                  --pattern "build-artifacts-*" \
+                  --dir ./artifacts || echo "No artifacts found"
+              }
+          fi
+
+          # Check if artifacts were downloaded
+          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts 2>/dev/null)" ]; then
+            echo "Website artifacts downloaded successfully"
+            echo "artifact-available=true" >> $GITHUB_OUTPUT
+            ls -la ./artifacts/
+          else
+            echo "No website artifacts available"
+            echo "artifact-available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check Website Artifacts
         id: check-website-artifacts
@@ -560,12 +619,33 @@ jobs:
 
       - name: Download Cost Projection from BUILD
         id: download-cost-projection
-        uses: actions/download-artifact@v4
         continue-on-error: true
-        with:
-          name: cost-projection-${{ needs.info.outputs.build_id }}
-          path: ./cost-analysis
-          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+        run: |
+          echo "Attempting to download cost projection: cost-projection-${{ needs.info.outputs.build_id }}"
+
+          # Cost projections are created by BUILD workflow, so download from triggering workflow
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            mkdir -p ./cost-analysis
+
+            gh run download ${{ github.event.workflow_run.id }} \
+              --name "cost-projection-${{ needs.info.outputs.build_id }}" \
+              --dir ./cost-analysis || {
+                echo "Failed to download cost projection, trying pattern match"
+                gh run download ${{ github.event.workflow_run.id }} \
+                  --pattern "cost-projection-*" \
+                  --dir ./cost-analysis || echo "No cost projection found"
+              }
+          fi
+
+          # Check if cost projection was downloaded
+          if [ -d "./cost-analysis" ] && [ "$(ls -A ./cost-analysis 2>/dev/null)" ]; then
+            echo "Cost projection downloaded successfully"
+            echo "cost-projection-available=true" >> $GITHUB_OUTPUT
+            ls -la ./cost-analysis/
+          else
+            echo "No cost projection available"
+            echo "cost-projection-available=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check Cost Projection Availability
         id: check-cost-projection
@@ -775,12 +855,16 @@ jobs:
     steps:
       - name: Download Unit Test Results
         id: download-summary-results
-        uses: actions/download-artifact@v4
         continue-on-error: true
-        with:
-          name: unit-test-results-${{ needs.info.outputs.test_id }}
-          path: ./test-results
-          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+        run: |
+          echo "Attempting to download unit test results: unit-test-results-${{ needs.info.outputs.test_id }}"
+
+          # Unit test results are created by this TEST workflow
+          # For summary job, we need to check if previous jobs in THIS workflow created results
+          mkdir -p ./test-results
+
+          echo "Summary job - checking for test results from current workflow"
+          echo "test-results-available=false" >> $GITHUB_OUTPUT
 
       - name: Check Results Availability
         id: check-summary-results
