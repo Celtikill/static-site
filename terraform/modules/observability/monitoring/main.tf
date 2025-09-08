@@ -282,7 +282,7 @@ resource "aws_budgets_budget" "monthly_cost" {
   limit_unit        = "USD"
   time_unit         = "MONTHLY"
   time_period_start = "2024-01-01_00:00"
-  
+
   lifecycle {
     create_before_destroy = true
   }
