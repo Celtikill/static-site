@@ -166,6 +166,7 @@ jobs:
         with:
           name: build-artifacts-${{ needs.info.outputs.build_id }}
           path: ./artifacts
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
 
       - name: Check Artifact Availability
         id: check-artifacts
@@ -322,6 +323,7 @@ jobs:
         with:
           name: unit-test-results-${{ needs.info.outputs.test_id }}
           path: ./test-results
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
 
       - name: Check Test Results Availability
         id: check-test-results
@@ -423,6 +425,7 @@ jobs:
         with:
           name: build-artifacts-${{ needs.info.outputs.build_id }}
           path: ./artifacts
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
 
       - name: Check Website Artifacts
         id: check-website-artifacts
@@ -558,6 +561,7 @@ jobs:
         with:
           name: cost-projection-${{ needs.info.outputs.build_id }}
           path: ./cost-analysis
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
 
       - name: Check Cost Projection Availability
         id: check-cost-projection
@@ -772,6 +776,7 @@ jobs:
         with:
           name: unit-test-results-${{ needs.info.outputs.test_id }}
           path: ./test-results
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
 
       - name: Check Results Availability
         id: check-summary-results

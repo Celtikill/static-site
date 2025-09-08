@@ -496,6 +496,7 @@ jobs:
         with:
           name: cost-projection-${{ needs.info.outputs.build_id }}
           path: ./cost-analysis
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
 
       - name: Post-Deployment Cost Verification
         id: verify
