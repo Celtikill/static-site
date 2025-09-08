@@ -235,7 +235,7 @@ jobs:
           fi
 
           # Plan deployment
-          if tofu plan -var="environment=${{ needs.info.outputs.target_environment }}" -var="github_repository=${{ github.repository }}" -out=deploy.tfplan; then
+          if tofu plan -var="github_repo=${{ github.repository }}" -out=deploy.tfplan; then
             echo "✅ Terraform plan created" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform plan failed" >> $GITHUB_STEP_SUMMARY
