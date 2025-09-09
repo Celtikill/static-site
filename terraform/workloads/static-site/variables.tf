@@ -78,6 +78,16 @@ variable "enable_access_logging" {
 }
 
 # CloudFront Configuration
+# Feature Flag: CloudFront CDN Distribution
+# When disabled: S3-only static website hosting with public bucket policy
+# When enabled: Global CDN with Origin Access Control and security headers
+# Cost Impact: ~$15-25/month when enabled vs $1-5/month S3-only
+variable "enable_cloudfront" {
+  description = "Enable CloudFront CDN distribution (feature flag for cost optimization)"
+  type        = bool
+  default     = false
+}
+
 variable "cloudfront_price_class" {
   description = "CloudFront price class (PriceClass_All, PriceClass_200, PriceClass_100)"
   type        = string
@@ -161,11 +171,21 @@ variable "cors_origins" {
   default     = ["*"]
 }
 
-# WAF Configuration
+# WAF Configuration  
+# Feature Flag: Web Application Firewall Protection
+# When disabled: No WAF protection (relies on S3/CloudFront native security)
+# When enabled: OWASP Top 10 protection, rate limiting, geo-blocking
+# Dependencies: Requires enable_cloudfront = true (AWS architectural constraint)
+# Cost Impact: ~$5-10/month additional when enabled
 variable "enable_waf" {
-  description = "Enable WAF Web ACL for CloudFront distribution"
+  description = "Enable WAF Web ACL for CloudFront distribution (requires enable_cloudfront = true)"
   type        = bool
-  default     = true
+  default     = false
+
+  validation {
+    condition     = var.enable_waf ? var.enable_cloudfront : true
+    error_message = "WAF requires CloudFront to be enabled. Set enable_cloudfront = true when enable_waf = true."
+  }
 }
 
 variable "waf_rate_limit" {

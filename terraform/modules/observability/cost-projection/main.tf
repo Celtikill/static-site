@@ -108,7 +108,7 @@ locals {
 }
 
 locals {
-  cloudfront_costs = {
+  cloudfront_costs = var.enable_cloudfront ? {
     # Data transfer out (estimated GB per month by environment)
     data_transfer_gb   = local.cloudfront_data_transfer_gb
     data_transfer_cost = local.cloudfront_data_transfer_gb * local.cloudfront_pricing.data_transfer_out_na_eu
@@ -116,15 +116,20 @@ locals {
     # HTTPS requests (estimated per month)
     https_requests = local.cloudfront_https_requests
     requests_cost  = (local.cloudfront_https_requests / 10000) * local.cloudfront_pricing.https_requests
+    } : {
+    data_transfer_gb   = 0
+    data_transfer_cost = 0
+    https_requests     = 0
+    requests_cost      = 0
   }
 
   # Calculate total CloudFront monthly cost
-  cloudfront_monthly_cost = local.cloudfront_costs.data_transfer_cost + local.cloudfront_costs.requests_cost
+  cloudfront_monthly_cost = var.enable_cloudfront ? (local.cloudfront_costs.data_transfer_cost + local.cloudfront_costs.requests_cost) : 0
 }
 
 # WAF cost calculations (if enabled)
 locals {
-  waf_costs = var.enable_waf ? {
+  waf_costs = var.enable_cloudfront && var.enable_waf ? {
     # Base Web ACL cost
     web_acl_cost = local.waf_pricing.web_acl_monthly
 

@@ -19,10 +19,16 @@ variable "aws_region" {
 }
 
 # Resource configuration flags
+variable "enable_cloudfront" {
+  description = "Whether CloudFront is enabled for cost calculations"
+  type        = bool
+  default     = false
+}
+
 variable "enable_waf" {
   description = "Whether WAF is enabled for cost calculations"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "create_route53_zone" {

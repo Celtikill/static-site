@@ -103,6 +103,7 @@ locals {
 
 # SNS Topic for CloudFront/WAF alarms (must be in us-east-1)
 resource "aws_sns_topic" "cloudfront_alerts" {
+  count             = var.enable_cloudfront ? 1 : 0
   provider          = aws.cloudfront
   name              = "${local.project_name}-${local.environment}-cloudfront-alerts"
   kms_master_key_id = var.kms_key_arn
@@ -112,8 +113,8 @@ resource "aws_sns_topic" "cloudfront_alerts" {
 
 resource "aws_sns_topic_subscription" "cloudfront_alerts_email" {
   provider  = aws.cloudfront
-  count     = length(var.alert_email_addresses)
-  topic_arn = aws_sns_topic.cloudfront_alerts.arn
+  count     = var.enable_cloudfront ? length(var.alert_email_addresses) : 0
+  topic_arn = aws_sns_topic.cloudfront_alerts[0].arn
   protocol  = "email"
   endpoint  = var.alert_email_addresses[count.index]
 }
@@ -123,7 +124,8 @@ module "s3" {
   source = "../../modules/storage/s3-bucket"
 
   bucket_name                 = local.bucket_name
-  cloudfront_distribution_arn = module.cloudfront.distribution_arn
+  cloudfront_distribution_arn = var.enable_cloudfront ? module.cloudfront[0].distribution_arn : null
+  enable_public_website       = !var.enable_cloudfront
   force_destroy               = var.force_destroy_bucket
   versioning_enabled          = var.enable_versioning
   enable_replication          = var.enable_cross_region_replication
@@ -139,7 +141,7 @@ module "s3" {
 
 # WAF Module - Web Application Firewall for security (must be in us-east-1 for CloudFront)
 module "waf" {
-  count  = var.enable_waf ? 1 : 0
+  count  = var.enable_cloudfront && var.enable_waf ? 1 : 0
   source = "../../modules/security/waf"
 
   providers = {
@@ -157,14 +159,14 @@ module "waf" {
   log_retention_days         = var.log_retention_days
   blocked_requests_threshold = var.waf_blocked_requests_threshold
   kms_key_arn                = var.kms_key_arn
-  alarm_actions              = [aws_sns_topic.cloudfront_alerts.arn]
+  alarm_actions              = [aws_sns_topic.cloudfront_alerts[0].arn]
   common_tags                = local.common_tags
 }
 
 # Wait for WAF Web ACL to be fully propagated
 # AWS WAF resources can take 5-10 minutes to propagate globally for CloudFront
 resource "time_sleep" "waf_propagation" {
-  count      = var.enable_waf ? 1 : 0
+  count      = var.enable_cloudfront && var.enable_waf ? 1 : 0
   depends_on = [module.waf]
 
   create_duration = "5m"
@@ -172,14 +174,15 @@ resource "time_sleep" "waf_propagation" {
 
 # CloudFront Module - Global content delivery network
 module "cloudfront" {
+  count  = var.enable_cloudfront ? 1 : 0
   source = "../../modules/networking/cloudfront"
 
   distribution_name                  = local.distribution_name
   distribution_comment               = "Static website CDN for ${local.project_name}"
   s3_bucket_id                       = module.s3.bucket_id
   s3_bucket_domain_name              = module.s3.bucket_regional_domain_name
-  web_acl_id                         = var.enable_waf ? module.waf[0].web_acl_arn : null
-  waf_web_acl_dependency             = var.enable_waf ? module.waf[0].web_acl_arn : null
+  web_acl_id                         = var.enable_cloudfront && var.enable_waf ? module.waf[0].web_acl_arn : null
+  waf_web_acl_dependency             = var.enable_cloudfront && var.enable_waf ? module.waf[0].web_acl_arn : null
   price_class                        = var.cloudfront_price_class
   acm_certificate_arn                = var.acm_certificate_arn
   domain_aliases                     = var.domain_aliases
@@ -190,7 +193,7 @@ module "cloudfront" {
   logging_prefix                     = "cloudfront-logs/"
   content_security_policy            = var.content_security_policy
   cors_origins                       = var.cors_origins
-  alarm_actions                      = [aws_sns_topic.cloudfront_alerts.arn]
+  alarm_actions                      = [aws_sns_topic.cloudfront_alerts[0].arn]
   managed_caching_disabled_policy_id = var.managed_caching_disabled_policy_id
   managed_cors_s3_origin_policy_id   = var.managed_cors_s3_origin_policy_id
   common_tags                        = local.common_tags
@@ -213,9 +216,9 @@ module "monitoring" {
   source = "../../modules/observability/monitoring"
 
   project_name                    = local.project_name
-  cloudfront_distribution_id      = module.cloudfront.distribution_id
+  cloudfront_distribution_id      = var.enable_cloudfront ? module.cloudfront[0].distribution_id : ""
   s3_bucket_name                  = module.s3.bucket_id
-  waf_web_acl_name                = var.enable_waf ? module.waf[0].web_acl_name : ""
+  waf_web_acl_name                = var.enable_cloudfront && var.enable_waf ? module.waf[0].web_acl_name : ""
   aws_region                      = data.aws_region.current.name
   alert_email_addresses           = var.alert_email_addresses
   kms_key_arn                     = var.kms_key_arn
@@ -299,8 +302,8 @@ resource "aws_route53_record" "website" {
   type    = "A"
 
   alias {
-    name                   = module.cloudfront.distribution_domain_name
-    zone_id                = module.cloudfront.distribution_hosted_zone_id
+    name                   = module.cloudfront[0].distribution_domain_name
+    zone_id                = module.cloudfront[0].distribution_hosted_zone_id
     evaluate_target_health = false
   }
 }
@@ -333,6 +336,7 @@ module "cost_projection" {
   project_name = var.project_name
 
   # Resource configuration flags (match current deployment)
+  enable_cloudfront               = var.enable_cloudfront
   enable_waf                      = var.enable_waf
   create_route53_zone             = var.create_route53_zone
   create_kms_key                  = var.create_kms_key

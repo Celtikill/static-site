@@ -22,30 +22,30 @@ output "s3_replica_bucket_id" {
   value       = module.s3.replica_bucket_id
 }
 
-# CloudFront Outputs
+# CloudFront Outputs (conditional)
 output "cloudfront_distribution_id" {
-  description = "ID of the CloudFront distribution"
-  value       = module.cloudfront.distribution_id
+  description = "ID of the CloudFront distribution (if enabled)"
+  value       = var.enable_cloudfront ? module.cloudfront[0].distribution_id : null
 }
 
 output "cloudfront_distribution_arn" {
-  description = "ARN of the CloudFront distribution"
-  value       = module.cloudfront.distribution_arn
+  description = "ARN of the CloudFront distribution (if enabled)"
+  value       = var.enable_cloudfront ? module.cloudfront[0].distribution_arn : null
 }
 
 output "cloudfront_domain_name" {
-  description = "Domain name of the CloudFront distribution"
-  value       = module.cloudfront.distribution_domain_name
+  description = "Domain name of the CloudFront distribution (if enabled)"
+  value       = var.enable_cloudfront ? module.cloudfront[0].distribution_domain_name : null
 }
 
 output "cloudfront_hosted_zone_id" {
-  description = "CloudFront hosted zone ID for Route 53 alias records"
-  value       = module.cloudfront.distribution_hosted_zone_id
+  description = "CloudFront hosted zone ID for Route 53 alias records (if enabled)"
+  value       = var.enable_cloudfront ? module.cloudfront[0].distribution_hosted_zone_id : null
 }
 
 output "cloudfront_status" {
-  description = "Current status of the CloudFront distribution"
-  value       = module.cloudfront.distribution_status
+  description = "Current status of the CloudFront distribution (if enabled)"
+  value       = var.enable_cloudfront ? module.cloudfront[0].distribution_status : null
 }
 
 # WAF Outputs
@@ -64,10 +64,10 @@ output "waf_web_acl_name" {
   value       = var.enable_waf ? module.waf[0].web_acl_name : null
 }
 
-# CloudFront/WAF Alerts SNS Topic
+# CloudFront/WAF Alerts SNS Topic (conditional)
 output "cloudfront_alerts_topic_arn" {
-  description = "ARN of the CloudFront/WAF alerts SNS topic (us-east-1)"
-  value       = aws_sns_topic.cloudfront_alerts.arn
+  description = "ARN of the CloudFront/WAF alerts SNS topic (us-east-1, if enabled)"
+  value       = var.enable_cloudfront ? aws_sns_topic.cloudfront_alerts[0].arn : null
 }
 
 # IAM Outputs - References to manually managed resources
@@ -154,12 +154,12 @@ output "website_url" {
   description = "Primary website URL"
   value = length(var.domain_aliases) > 0 ? (
     var.acm_certificate_arn != null ? "https://${var.domain_aliases[0]}" : "http://${var.domain_aliases[0]}"
-  ) : "https://${module.cloudfront.distribution_domain_name}"
+  ) : var.enable_cloudfront ? "https://${module.cloudfront[0].distribution_domain_name}" : module.s3.website_endpoint
 }
 
 output "cloudfront_url" {
-  description = "CloudFront distribution URL"
-  value       = "https://${module.cloudfront.distribution_domain_name}"
+  description = "CloudFront distribution URL (if enabled)"
+  value       = var.enable_cloudfront ? "https://${module.cloudfront[0].distribution_domain_name}" : null
 }
 
 # Deployment Information
@@ -167,7 +167,7 @@ output "deployment_info" {
   description = "Information for deployment configuration"
   value = {
     s3_bucket       = module.s3.bucket_id
-    cloudfront_id   = module.cloudfront.distribution_id
+    cloudfront_id   = var.enable_cloudfront ? module.cloudfront[0].distribution_id : null
     github_role_arn = data.aws_iam_role.github_actions.arn
     aws_region      = data.aws_region.current.name
     project_name    = local.project_name

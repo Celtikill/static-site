@@ -21,6 +21,7 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 
 ## 🚀 Features
 
+- **🚩 Feature Flags**: Cost-optimized deployment with configurable CloudFront/WAF (~$1-5/month S3-only vs ~$20-35/month full stack)
 - **🔒 Security First**: OWASP Top 10 protection, WAF, encryption at rest/transit
 - **🌍 Global CDN**: CloudFront distribution with edge locations worldwide
 - **📊 Monitoring**: Comprehensive CloudWatch dashboards and alerts
@@ -251,6 +252,7 @@ Estimated monthly costs (USD):
 ## 📚 Documentation
 
 🚀 **[Quick Start](docs/quickstart.md)** - Deploy in under 10 minutes  
+🚩 **[Feature Flags](docs/feature-flags.md)** - Cost optimization with CloudFront/WAF toggles  
 📖 **[Reference Guide](docs/reference.md)** - All commands, costs, and technical specs  
 🔧 **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions  
 📂 **[Complete Guides](docs/)** - Architecture, deployment, and security guides
