@@ -8,6 +8,24 @@ The infrastructure uses AWS IAM for access control with two primary authenticati
 - **GitHub Actions**: OIDC-based authentication for CI/CD pipelines
 - **Local Development**: AWS CLI profiles with temporary credentials
 
+### Security Approach: "Middle Way"
+
+This project implements a **service-scoped permissions** model that balances security with operational efficiency:
+- ✅ Service-level wildcards (e.g., `s3:*`, `cloudfront:*`) with resource constraints
+- ✅ Resource patterns limited to project-specific resources (`static-website-*`)
+- ❌ No global wildcards (`*:*`) - blocked by security policies
+
+### Quick Setup
+
+For automated IAM setup, use the provided scripts:
+```bash
+# Update IAM permissions (if role already exists)
+./scripts/update-iam-policy.sh
+
+# Validate IAM configuration
+./scripts/validate-iam-permissions.sh
+```
+
 ## Prerequisites
 
 - AWS Account with administrative access
@@ -220,14 +238,14 @@ EOF
 
 # Create the policy
 aws iam create-policy \
-  --policy-name github-actions-static-site-policy \
+  --policy-name github-actions-static-site-deployment \
   --policy-document file://github-permissions-policy.json \
-  --description "Permissions for GitHub Actions to manage static website infrastructure"
+  --description "Permissions for GitHub Actions to deploy static website infrastructure"
 
 # Attach the policy to the role
 aws iam attach-role-policy \
-  --role-name github-actions-static-site \
-  --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/github-actions-static-site-policy
+  --role-name github-actions-management \
+  --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/github-actions-static-site-deployment
 ```
 
 ### 4. Configure GitHub Repository
@@ -236,7 +254,7 @@ Add the role ARN to your GitHub repository secrets:
 
 ```bash
 # Get the role ARN
-ROLE_ARN=$(aws iam get-role --role-name github-actions-static-site --query 'Role.Arn' --output text)
+ROLE_ARN=$(aws iam get-role --role-name github-actions-management --query 'Role.Arn' --output text)
 echo "Add this to GitHub Secrets as AWS_ROLE_ARN: $ROLE_ARN"
 
 # Also add AWS_REGION (e.g., us-east-1)
