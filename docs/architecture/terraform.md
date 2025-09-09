@@ -2,52 +2,29 @@
 
 ## Overview
 
-Comprehensive Infrastructure as Code (IaC) architecture using OpenTofu (Terraform-compatible) with modular design, multi-account support, and enterprise-grade security patterns.
+Infrastructure as Code using OpenTofu with modular design, multi-account support, and security-first patterns.
 
 ## Architecture Principles
 
-### 1. Modular Design
-- **Composable Modules**: Reusable components for different environments
-- **Single Responsibility**: Each module handles one logical service/function
-- **Clear Interfaces**: Well-defined inputs and outputs
-- **Version Management**: Semantic versioning for module releases
+**Modular Design**: Composable, single-responsibility modules with clear interfaces and semantic versioning
 
-### 2. Multi-Account Architecture
-- **Account Isolation**: Complete separation between environments
-- **Centralized Management**: Organization-level governance and policies
-- **Cross-Account Access**: Secure role-based access patterns
-- **Shared Services**: Common resources deployed once, used by many
+**Multi-Account**: Account isolation, centralized governance, secure cross-account access, shared services
 
-### 3. Security-First Design
-- **Least Privilege**: Minimal required permissions
-- **Defense in Depth**: Multiple security layers
-- **Encryption Everywhere**: Data at rest and in transit
-- **Audit Trail**: Complete change tracking and compliance
+**Security-First**: Least privilege, defense in depth, encryption everywhere, complete audit trails
 
 ## Directory Structure
 
 ```
 terraform/
-├── backend.tf                    # Remote state configuration
-├── backend-*.hcl                 # Environment-specific backend configs
-│
-├── foundations/                  # Multi-account foundation
-│   ├── org-management/           # AWS Organizations management
-│   │   ├── main.tf              # Organization, OUs, SCPs
-│   │   ├── variables.tf         # Input parameters
-│   │   ├── outputs.tf           # Organization outputs
-│   │   └── backend-*.hcl        # State backend configs
-│   └── account-factory/          # Account creation automation
-│       ├── main.tf              # Account provisioning logic
-│       └── variables.tf         # Account parameters
-│
-├── platforms/                    # Shared platform services
-│   └── security-services/        # Cross-account security
-│       ├── main.tf              # Centralized security tools
-│       └── variables.tf         # Security configurations
-│
-├── workloads/                    # Application-specific deployments
-│   └── static-site/              # Static website workload
+├── foundations/          # AWS Organizations, Account Factory
+├── platforms/            # Shared platform services
+├── workloads/static-site/ # Main application deployment
+└── modules/              # Reusable components
+    ├── storage/s3-bucket/
+    ├── networking/cloudfront/
+    ├── security/waf/
+    └── observability/monitoring/
+```
 │       ├── main.tf              # Main deployment configuration
 │       ├── variables.tf         # Environment parameters
 │       ├── outputs.tf           # Deployment outputs
@@ -74,94 +51,11 @@ terraform/
 
 ## Module Architecture
 
-### Core Module Structure
+**Standard Structure**: README.md, main.tf, variables.tf, outputs.tf, versions.tf, examples/
 
-Each module follows a standardized structure:
+**Variable Design**: Required (no default) with validation, optional (sensible defaults), complex objects with proper typing
 
-```
-module-name/
-├── README.md                    # Comprehensive documentation
-├── main.tf                      # Primary resource definitions
-├── variables.tf                 # Input variable definitions
-├── outputs.tf                   # Output value definitions
-├── versions.tf                  # Provider version constraints
-├── locals.tf                    # Local value computations (if needed)
-└── examples/                    # Usage examples
-    ├── basic/                   # Basic usage example
-    ├── advanced/                # Advanced configuration
-    └── multi-env/               # Multi-environment setup
-```
-
-### Module Interface Design
-
-#### Input Variables Pattern
-```hcl
-# Required variables (no default)
-variable "required_param" {
-  description = "Clear description of purpose and usage"
-  type        = string
-  
-  validation {
-    condition     = length(var.required_param) > 0
-    error_message = "Parameter cannot be empty."
-  }
-}
-
-# Optional variables (with sensible defaults)
-variable "optional_param" {
-  description = "Optional parameter with default value"
-  type        = string
-  default     = "sensible-default"
-  
-  validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.optional_param))
-    error_message = "Must contain only lowercase letters, numbers, and hyphens."
-  }
-}
-
-# Complex type variables
-variable "complex_config" {
-  description = "Complex configuration object"
-  type = object({
-    enabled     = bool
-    threshold   = number
-    tags        = map(string)
-  })
-  default = {
-    enabled   = true
-    threshold = 100
-    tags      = {}
-  }
-}
-```
-
-#### Output Values Pattern
-```hcl
-# Resource identifiers
-output "resource_id" {
-  description = "ID of the created resource"
-  value       = aws_resource.main.id
-}
-
-# Resource ARNs
-output "resource_arn" {
-  description = "ARN of the created resource"
-  value       = aws_resource.main.arn
-}
-
-# Computed values
-output "computed_value" {
-  description = "Computed value from resource creation"
-  value       = aws_resource.main.computed_attribute
-}
-
-# Sensitive outputs
-output "sensitive_value" {
-  description = "Sensitive information (marked as sensitive)"
-  value       = aws_resource.main.secret_value
-  sensitive   = true
-}
-```
+**Output Patterns**: Resource IDs/ARNs, computed values, sensitive data (properly marked)
 
 ## State Management
 
