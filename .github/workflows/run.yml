@@ -257,8 +257,17 @@ jobs:
             exit 1
           fi
 
-          # Plan deployment
-          if tofu plan -var="github_repository=${{ github.repository }}" -out=deploy.tfplan; then
+          # Plan deployment with environment-specific variables
+          TFVARS_FILE="environments/${{ needs.info.outputs.target_environment }}.tfvars"
+          if [ -f "$TFVARS_FILE" ]; then
+            echo "Using environment variables: $TFVARS_FILE" >> $GITHUB_STEP_SUMMARY
+            PLAN_CMD="tofu plan -var-file=\"$TFVARS_FILE\" -var=\"github_repository=${{ github.repository }}\" -out=deploy.tfplan"
+          else
+            echo "⚠️ Environment file $TFVARS_FILE not found, using defaults" >> $GITHUB_STEP_SUMMARY
+            PLAN_CMD="tofu plan -var=\"environment=${{ needs.info.outputs.target_environment }}\" -var=\"github_repository=${{ github.repository }}\" -out=deploy.tfplan"
+          fi
+
+          if eval $PLAN_CMD; then
             echo "✅ Terraform plan created" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Terraform plan failed" >> $GITHUB_STEP_SUMMARY
