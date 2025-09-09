@@ -473,61 +473,107 @@ jobs:
         run: |
           echo "## 📊 Cost Projection Analysis" >> $GITHUB_STEP_SUMMARY
 
-          # Set environment-specific budget limits and usage multipliers
+          # Set environment-specific budget limits and usage multipliers (matching Terraform defaults)
           case "${{ needs.info.outputs.environment }}" in
             "dev")
               BUDGET_LIMIT=50
-              ENV_MULTIPLIER=0.1
+              ENV_MULTIPLIER=0.7
+              S3_STORAGE_GB=10
+              CF_DATA_GB=50
+              CF_REQUESTS=100000
               ;;
             "staging")
               BUDGET_LIMIT=75
-              ENV_MULTIPLIER=0.3
+              ENV_MULTIPLIER=0.8
+              S3_STORAGE_GB=25
+              CF_DATA_GB=200
+              CF_REQUESTS=500000
               ;;
             "prod")
               BUDGET_LIMIT=200
               ENV_MULTIPLIER=1.0
+              S3_STORAGE_GB=100
+              CF_DATA_GB=2000
+              CF_REQUESTS=5000000
               ;;
             *)
               BUDGET_LIMIT=100
               ENV_MULTIPLIER=0.5
+              S3_STORAGE_GB=50
+              CF_DATA_GB=500
+              CF_REQUESTS=1000000
               ;;
           esac
 
-          echo "### 🎯 Static cost calculation for ${{ needs.info.outputs.environment }} environment (${ENV_MULTIPLIER}x usage)" >> $GITHUB_STEP_SUMMARY
+          echo "### 🎯 Infrastructure-aware cost calculation for ${{ needs.info.outputs.environment }} environment" >> $GITHUB_STEP_SUMMARY
 
-          # Static AWS pricing calculations
-          S3_STORAGE_GB=$(echo "scale=2; 5 * $ENV_MULTIPLIER" | bc)
+          # S3 Storage costs (matching Terraform cost projection module)
           S3_STORAGE_COST=$(echo "scale=2; $S3_STORAGE_GB * 0.023" | bc)
-          S3_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)
-          S3_REQUESTS_COST=$(echo "scale=3; $S3_REQUESTS * 0.0004 / 1000" | bc)
+          S3_REPLICATION_COST=$(echo "scale=2; $S3_STORAGE_GB * 0.023" | bc)  # Cross-region replication enabled by default
+          S3_ACCESS_LOGS_COST=$(echo "scale=2; 1 * 0.023" | bc)  # Access logging enabled by default
+          S3_REQUESTS_COST=$(echo "scale=3; ($ENV_MULTIPLIER * 1000 * 0.0004 / 1000) + ($ENV_MULTIPLIER * 100 * 0.005 / 1000)" | bc)
 
-          CF_DATA_GB=$(echo "scale=2; 50 * $ENV_MULTIPLIER" | bc)
+          # CloudFront costs
           CF_DATA_COST=$(echo "scale=2; $CF_DATA_GB * 0.085" | bc)
-          CF_REQUESTS=$(echo "scale=0; 100000 * $ENV_MULTIPLIER" | bc)
-          CF_REQUESTS_COST=$(echo "scale=3; $CF_REQUESTS * 0.0075 / 10000" | bc)
+          CF_REQUESTS_COST=$(echo "scale=3; $CF_REQUESTS * 0.010 / 10000" | bc)  # HTTPS requests
 
-          WAF_REQUESTS=$(echo "scale=0; 1000000 * $ENV_MULTIPLIER" | bc)
-          WAF_COST=$(echo "scale=2; 1.0 + ($WAF_REQUESTS * 0.0000006)" | bc)
+          # WAF costs (matching Terraform: WebACL + 5 rules + processing)
+          WAF_WEB_ACL_COST=5.00
+          WAF_RULES_COST=$(echo "scale=2; 5 * 1.00" | bc)  # 5 rules at $1 each
+          WAF_REQUESTS_PROCESSED=$(echo "scale=2; ($CF_REQUESTS / 1000000) * 0.60" | bc)
+          WAF_RULE_EVALUATIONS=$(echo "scale=2; ($CF_REQUESTS / 1000000) * 5 * 0.06" | bc)
+          WAF_COST=$(echo "scale=2; $WAF_WEB_ACL_COST + $WAF_RULES_COST + $WAF_REQUESTS_PROCESSED + $WAF_RULE_EVALUATIONS" | bc)
 
-          ROUTE53_COST=0.50
-          CW_METRICS=$(echo "scale=0; 100 * $ENV_MULTIPLIER" | bc)
-          CW_COST=$(echo "scale=2; $CW_METRICS * 0.30 / 100" | bc)
-          KMS_COST=1.00
+          # Route53 costs (conditional - default disabled)
+          ROUTE53_HOSTED_ZONE_COST=0.50
+          ROUTE53_QUERIES_MILLIONS=$(echo "scale=2; $ENV_MULTIPLIER * 0.5" | bc)  # Realistic query estimate
+          ROUTE53_QUERIES_COST=$(echo "scale=2; $ROUTE53_QUERIES_MILLIONS * 0.40" | bc)
+          ROUTE53_COST=0.00  # Disabled by default in Terraform
+
+          # KMS costs (enabled by default)
+          KMS_KEY_COST=1.00
+          KMS_REQUESTS_COST=$(echo "scale=2; ($ENV_MULTIPLIER * 10 / 10) * 0.03" | bc)  # 10k requests per month estimated
+          KMS_COST=$(echo "scale=2; $KMS_KEY_COST + $KMS_REQUESTS_COST" | bc)
+
+          # CloudWatch costs (with free tiers)
+          CW_LOG_INGESTION_GB=$(echo "scale=2; $ENV_MULTIPLIER * 10" | bc)  # More realistic log volume
+          CW_LOG_INGESTION_COST=$(echo "scale=2; if ($CW_LOG_INGESTION_GB > 5) ($CW_LOG_INGESTION_GB - 5) * 0.50 else 0" | bc -l)
+          CW_LOG_STORAGE_COST=$(echo "scale=2; if ($CW_LOG_INGESTION_GB > 5) ($CW_LOG_INGESTION_GB - 5) * 0.03 else 0" | bc -l)
+          CW_CUSTOM_METRICS=25
+          CW_CUSTOM_METRICS_COST=$(echo "scale=2; if ($CW_CUSTOM_METRICS > 10) ($CW_CUSTOM_METRICS - 10) * 0.30 else 0" | bc -l)
+          CW_DASHBOARDS=2
+          CW_DASHBOARD_COST=$(echo "scale=2; if ($CW_DASHBOARDS > 3) ($CW_DASHBOARDS - 3) * 3.00 else 0" | bc -l)
+          CW_ALARMS=15
+          CW_ALARMS_COST=$(echo "scale=2; if ($CW_ALARMS > 10) ($CW_ALARMS - 10) * 0.10 else 0" | bc -l)
+          CW_COST=$(echo "scale=2; $CW_LOG_INGESTION_COST + $CW_LOG_STORAGE_COST + $CW_CUSTOM_METRICS_COST + $CW_DASHBOARD_COST + $CW_ALARMS_COST" | bc)
+
+          # SNS costs (very minimal)
+          SNS_REQUESTS_COST=$(echo "scale=3; $ENV_MULTIPLIER * 0.01 * 0.50" | bc)  # Minimal request volume
+          SNS_EMAIL_COST=0.02  # Estimated email notifications cost
+          SNS_COST=$(echo "scale=2; $SNS_REQUESTS_COST + $SNS_EMAIL_COST" | bc)
 
           # Calculate total monthly cost
-          MONTHLY_COST=$(echo "scale=2; $S3_STORAGE_COST + $S3_REQUESTS_COST + $CF_DATA_COST + $CF_REQUESTS_COST + $WAF_COST + $ROUTE53_COST + $CW_COST + $KMS_COST" | bc)
+          MONTHLY_COST=$(echo "scale=2; $S3_STORAGE_COST + $S3_REPLICATION_COST + $S3_ACCESS_LOGS_COST + $S3_REQUESTS_COST + $CF_DATA_COST + $CF_REQUESTS_COST + $WAF_COST + $ROUTE53_COST + $KMS_COST + $CW_COST + $SNS_COST" | bc)
           ANNUAL_COST=$(echo "scale=2; $MONTHLY_COST * 12" | bc)
 
           # Display cost breakdown
           echo "### 💰 Detailed Cost Breakdown" >> $GITHUB_STEP_SUMMARY
-          echo "- S3 Storage (${S3_STORAGE_GB}GB): \$${S3_STORAGE_COST}" >> $GITHUB_STEP_SUMMARY
-          echo "- S3 Requests (${S3_REQUESTS}): \$${S3_REQUESTS_COST}" >> $GITHUB_STEP_SUMMARY
-          echo "- CloudFront Data (${CF_DATA_GB}GB): \$${CF_DATA_COST}" >> $GITHUB_STEP_SUMMARY
-          echo "- CloudFront Requests (${CF_REQUESTS}): \$${CF_REQUESTS_COST}" >> $GITHUB_STEP_SUMMARY
-          echo "- WAF (${WAF_REQUESTS} requests): \$${WAF_COST}" >> $GITHUB_STEP_SUMMARY
-          echo "- Route53: \$${ROUTE53_COST}" >> $GITHUB_STEP_SUMMARY
-          echo "- CloudWatch (${CW_METRICS} metrics): \$${CW_COST}" >> $GITHUB_STEP_SUMMARY
-          echo "- KMS: \$${KMS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "**S3 Storage Services:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Primary Storage (${S3_STORAGE_GB}GB): \$${S3_STORAGE_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cross-Region Replication: \$${S3_REPLICATION_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- Access Logging: \$${S3_ACCESS_LOGS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- Request Costs: \$${S3_REQUESTS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**CloudFront CDN:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Data Transfer (${CF_DATA_GB}GB): \$${CF_DATA_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- HTTPS Requests (${CF_REQUESTS}): \$${CF_REQUESTS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Security & Monitoring:**" >> $GITHUB_STEP_SUMMARY
+          echo "- WAF (Web ACL + Rules + Processing): \$${WAF_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- KMS Encryption: \$${KMS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudWatch (incl. free tiers): \$${CW_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- SNS Notifications: \$${SNS_COST}" >> $GITHUB_STEP_SUMMARY
+          echo "- Route53 DNS: \$${ROUTE53_COST} (disabled)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Calculate budget utilization
