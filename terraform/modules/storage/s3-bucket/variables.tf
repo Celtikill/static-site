@@ -36,6 +36,13 @@ variable "kms_key_id" {
 variable "cloudfront_distribution_arn" {
   description = "ARN of the CloudFront distribution for OAC policy"
   type        = string
+  default     = null
+}
+
+variable "enable_public_website" {
+  description = "Enable public website access (used when CloudFront is disabled)"
+  type        = bool
+  default     = false
 }
 
 variable "enable_replication" {

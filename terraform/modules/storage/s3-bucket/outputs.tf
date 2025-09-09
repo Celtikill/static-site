@@ -49,3 +49,13 @@ output "access_logs_bucket_domain_name" {
   description = "Domain name of the access logs S3 bucket (if enabled)"
   value       = var.enable_access_logging && var.access_logging_bucket == "" ? aws_s3_bucket.access_logs[0].bucket_domain_name : null
 }
+
+output "website_endpoint" {
+  description = "S3 website endpoint (if public website is enabled)"
+  value       = var.enable_public_website ? aws_s3_bucket_website_configuration.website[0].website_endpoint : null
+}
+
+output "website_domain" {
+  description = "S3 website domain (if public website is enabled)"
+  value       = var.enable_public_website ? aws_s3_bucket_website_configuration.website[0].website_domain : null
+}

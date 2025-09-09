@@ -47,14 +47,29 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "website" {
   }
 }
 
-# Block all public access (security best practice)
+# S3 bucket website configuration (only when public access is enabled)
+resource "aws_s3_bucket_website_configuration" "website" {
+  count  = var.enable_public_website ? 1 : 0
+  bucket = aws_s3_bucket.website.id
+
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "404.html"
+  }
+}
+
+# Block public access (conditional based on website mode)
 resource "aws_s3_bucket_public_access_block" "website" {
   bucket = aws_s3_bucket.website.id
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  # Allow public access when public website is enabled, otherwise block all
+  block_public_acls       = !var.enable_public_website
+  block_public_policy     = !var.enable_public_website
+  ignore_public_acls      = !var.enable_public_website
+  restrict_public_buckets = !var.enable_public_website
 }
 
 # S3 bucket policy for CloudFront OAC access only
@@ -66,22 +81,43 @@ resource "aws_s3_bucket_policy" "website" {
 }
 
 data "aws_iam_policy_document" "s3_policy" {
-  statement {
-    sid    = "AllowCloudFrontServicePrincipal"
-    effect = "Allow"
+  # CloudFront access statement (when CloudFront is enabled)
+  dynamic "statement" {
+    for_each = var.cloudfront_distribution_arn != null ? [1] : []
+    content {
+      sid    = "AllowCloudFrontServicePrincipal"
+      effect = "Allow"
 
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
+      principals {
+        type        = "Service"
+        identifiers = ["cloudfront.amazonaws.com"]
+      }
+
+      actions   = ["s3:GetObject"]
+      resources = ["${aws_s3_bucket.website.arn}/*"]
+
+      condition {
+        test     = "StringEquals"
+        variable = "AWS:SourceArn"
+        values   = [var.cloudfront_distribution_arn]
+      }
     }
+  }
 
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.website.arn}/*"]
+  # Public website access statement (when public website is enabled)
+  dynamic "statement" {
+    for_each = var.enable_public_website ? [1] : []
+    content {
+      sid    = "AllowPublicWebsiteAccess"
+      effect = "Allow"
 
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [var.cloudfront_distribution_arn]
+      principals {
+        type        = "*"
+        identifiers = ["*"]
+      }
+
+      actions   = ["s3:GetObject"]
+      resources = ["${aws_s3_bucket.website.arn}/*"]
     }
   }
 }
