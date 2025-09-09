@@ -116,8 +116,8 @@ gh workflow run run.yml --field environment=staging --field deploy_infrastructur
 gh workflow run build.yml --field force_build=true
 gh workflow run test.yml --field force_all_jobs=true
 
-# Test pipeline health
-gh workflow run pipeline-test.yml --field test_scenario=full-pipeline
+# Test full pipeline execution
+gh workflow run build.yml --field force_build=true --field environment=dev
 ```
 
 ### 🛡️ Quality Gates
@@ -191,13 +191,13 @@ The project uses a simplified status monitoring approach:
 2. **Set up backend storage**
    ```bash
    cd terraform/workloads/static-site
-   cp backend-dev.hcl.example backend-dev.hcl  # If starting fresh
-   # Edit backend-dev.hcl with your S3 bucket details
+   cp terraform/backend.hcl.example terraform/backend.hcl  # If starting fresh
+   # Edit terraform/backend.hcl with your S3 bucket details
    ```
 
 3. **Initialize and deploy**
    ```bash
-   tofu init -backend-config=backend-dev.hcl
+   tofu init -backend-config=terraform/backend.hcl
    cp terraform.tfvars.example terraform.tfvars
    # Edit terraform.tfvars with your values
    tofu plan && tofu apply

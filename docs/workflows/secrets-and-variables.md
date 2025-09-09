@@ -200,7 +200,7 @@ Since we use OIDC, there are no credentials to rotate. To update permissions:
 2. **Test new permissions**:
    ```bash
    # Trigger test workflow
-   gh workflow run pipeline-test.yml
+   gh workflow run build.yml --field force_build=true --field environment=dev
    ```
 
 ## Security Best Practices

@@ -29,9 +29,7 @@ terraform/
 │       ├── variables.tf         # Environment parameters
 │       ├── outputs.tf           # Deployment outputs
 │       ├── terraform.tfvars     # Default variable values
-│       ├── backend-dev.hcl      # Development backend
-│       ├── backend-staging.hcl  # Staging backend
-│       ├── backend-prod.hcl     # Production backend
+│       ├── backend.hcl          # Backend configuration (example provided)
 │       └── environments/        # Environment-specific configs
 │           ├── dev.tfvars       # Development overrides
 │           ├── staging.tfvars   # Staging overrides
@@ -67,7 +65,7 @@ terraform/
 terraform {
   backend "s3" {
     # Configuration provided via backend config files
-    # terraform init -backend-config=backend-dev.hcl
+    # terraform init -backend-config=backend.hcl
     
     # Required settings (in backend-*.hcl files):
     # bucket         = "terraform-state-bucket-name"
@@ -86,7 +84,7 @@ terraform {
 
 #### Environment-Specific Backend Files
 
-**backend-dev.hcl:**
+**backend.hcl:**
 ```hcl
 bucket     = "static-site-terraform-state-us-east-1"
 key        = "workloads/static-site/dev/terraform.tfstate"

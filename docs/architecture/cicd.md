@@ -551,16 +551,38 @@ graph LR
     class NO_APPROVAL,MANUAL_APPROVAL,EMERGENCY_APPROVAL approvalBox
 ```
 
+## Cost Management Features
+
+### Cost Projection (BUILD Workflow)
+
+The BUILD workflow includes automated cost projection analysis:
+
+- **📊 Cost Projection Job**: Calculates estimated monthly/annual AWS costs
+- **Budget Analysis**: Compares projections against budget limits
+- **Cost Artifacts**: Generates `cost-projection.json` and `cost-projection-report.md`
+- **Budget Status**: Provides visual indicators (🟢 Under Budget, 🟡 Warning, 🔴 Over Budget)
+- **Artifact Sharing**: Cost data passed to TEST and RUN workflows
+
+### Cost Verification (RUN Workflow)
+
+The RUN workflow performs post-deployment cost verification:
+
+- **💰 Cost Verification Job**: Validates actual costs against projections
+- **Variance Analysis**: Calculates cost variance percentage
+- **AWS Cost Explorer**: Retrieves actual deployment costs
+- **Monitoring Setup**: Establishes cost tracking for ongoing monitoring
+- **Environment-Specific**: Different validation thresholds per environment
+
 ## Pipeline Test Workflow
 
 ### Pipeline Health Validation
 
-The `pipeline-test.yml` workflow provides rapid validation of workflow configurations and Git operations:
+The BUILD workflow with `force_build=true` provides comprehensive validation of the entire pipeline:
 
-- **Git Reference Testing**: Validates branch fetching and change detection
-- **YAML Syntax Validation**: Checks all workflow files for syntax errors
-- **Test Scenarios**: Full pipeline, build-only, or deploy-only testing
-- **Execution Time**: ~2-3 minutes for full validation
+- **Security Scanning**: Validates with Checkov and Trivy security tools
+- **Infrastructure Validation**: Checks all Terraform/OpenTofu configurations
+- **Artifact Creation**: Ensures build artifacts are properly generated
+- **Execution Time**: ~5-8 minutes for full validation
 
 ## EMERGENCY Workflow Architecture
 

@@ -10,11 +10,11 @@ The project uses a simplified **BUILD → TEST → RUN** pipeline strategy with 
 
 ### Core Workflows
 
-| Workflow | Purpose | Duration | Triggers |
-|----------|---------|----------|----------|
-| **BUILD** | Infrastructure validation, security scanning, artifact creation | ~5-10 min | Push, PRs, Manual |
-| **TEST** | Policy validation, unit testing, environment health checks | ~10-15 min | BUILD success |
-| **RUN** | Infrastructure and website deployment to environments | ~15-25 min | TEST success, Manual |
+| Workflow | Purpose | Key Features | Duration | Triggers |
+|----------|---------|--------------|----------|----------|
+| **BUILD** | Infrastructure validation, security scanning, artifact creation | 📊 Cost projection, 🔒 Security scanning (Checkov/Trivy), 7 parallel jobs | ~5-10 min | Push, PRs, Manual |
+| **TEST** | Policy validation, unit testing, environment health checks | 🛡️ OPA policy validation, Cost analysis integration, 6 jobs | ~10-15 min | BUILD success |
+| **RUN** | Infrastructure and website deployment to environments | 💰 Cost verification, Multi-environment support, 8 jobs | ~15-25 min | TEST success, Manual |
 
 ### Specialized Workflows
 
@@ -101,8 +101,8 @@ gh run list --limit=5
 # View specific workflow logs
 gh run view --log
 
-# Test pipeline health
-gh workflow run pipeline-test.yml
+# Test full pipeline execution
+gh workflow run build.yml --field force_build=true --field environment=dev
 ```
 
 ## Development Workflow

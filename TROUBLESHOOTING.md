@@ -31,7 +31,7 @@ aws sts get-caller-identity
 
 # Manually initialize with specific backend
 cd terraform
-tofu init -backend-config=backend-dev.hcl -reconfigure
+tofu init -backend-config=terraform/backend.hcl -reconfigure
 
 # Force reconfigure if backend changed
 tofu init -migrate-state
