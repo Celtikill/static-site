@@ -505,12 +505,73 @@ jobs:
               // Don't fail the job for deployment API issues
             }
 
+  update_readme:
+    name: "📝 Update README URLs"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, infrastructure]
+    if: needs.info.result == 'success' && needs.infrastructure.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Update README with Deployment URLs
+        run: |
+          echo "## 📝 README URL Update" >> $GITHUB_STEP_SUMMARY
+          
+          # Get CloudFront URL from infrastructure deployment
+          # Extract from terraform outputs JSON
+          TERRAFORM_OUTPUTS='${{ needs.infrastructure.outputs.outputs }}'
+          CLOUDFRONT_URL=$(echo "$TERRAFORM_OUTPUTS" | jq -r '.cloudfront_domain_name.value // ""' 2>/dev/null || echo "")
+          
+          if [ -z "$CLOUDFRONT_URL" ] || [ "$CLOUDFRONT_URL" = "" ] || [ "$CLOUDFRONT_URL" = "null" ]; then
+            echo "⚠️ Unable to extract CloudFront URL from terraform outputs" >> $GITHUB_STEP_SUMMARY
+            echo "Terraform outputs: $TERRAFORM_OUTPUTS" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          
+          # Ensure CloudFront URL doesn't include https://
+          CLOUDFRONT_URL=$(echo "$CLOUDFRONT_URL" | sed 's|https://||g')
+          
+          # Update README with deployment info
+          ./.github/scripts/update-readme-urls.sh "${{ needs.info.outputs.target_environment }}" "$CLOUDFRONT_URL" "success"
+          
+          echo "✅ README updated with environment URL" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- CloudFront URL: https://$CLOUDFRONT_URL" >> $GITHUB_STEP_SUMMARY
+
+      - name: Commit README Updates
+        run: |
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Check for changes
+          if ! git diff --quiet README.md .github/deployment-state.json; then
+            git add README.md .github/deployment-state.json
+            git commit -m "Update README with ${{ needs.info.outputs.target_environment }} deployment URL
+
+            Environment: ${{ needs.info.outputs.target_environment }}
+            CloudFront URL: https://$CLOUDFRONT_URL
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            
+            git push
+            echo "✅ README changes committed and pushed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes to commit" >> $GITHUB_STEP_SUMMARY
+          fi
 
   summary:
     name: "📊 Deployment Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [info, infrastructure, website, validation, github-deployment]
+    needs: [info, infrastructure, website, validation, github-deployment, update_readme]
     if: needs.info.result == 'success'
     outputs:
       deployment_status: ${{ steps.summary.outputs.status }}
