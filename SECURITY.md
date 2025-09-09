@@ -125,6 +125,32 @@ This infrastructure is designed to meet:
 - Trivy: Vulnerability scanning
 - OPA/Conftest: Policy validation
 
+## Recent Security Updates
+
+### 2025-09-09: IAM Policy Update for GitHub Actions
+
+**Issue**: RUN workflow failing due to missing IAM permissions for `github-actions-management` role.
+
+**Resolution**: 
+1. **Updated Terraform**: Changed IAM role reference from `static-site-github-actions` to `github-actions-management` in `terraform/workloads/static-site/main.tf:203`
+2. **Policy Update Required**: Need to add IAM read permissions to `github-actions-org-management` policy
+
+**Required Policy Update**:
+```bash
+# Apply the updated policy v3 with IAM read permissions
+aws iam create-policy-version \
+  --policy-arn "arn:aws:iam::223938610551:policy/github-actions-org-management" \
+  --policy-document file://docs/iam/github-actions-org-management-policy-v3.json \
+  --set-as-default
+```
+
+**Added Permissions**:
+- `iam:GetRole` - Required for Terraform to read IAM role data
+- `iam:ListOpenIDConnectProviders` - Required for Terraform to find OIDC provider
+- `iam:GetOpenIDConnectProvider` - Required for Terraform OIDC provider data
+
+**Policy Location**: `docs/iam/github-actions-org-management-policy-v3.json`
+
 ## Additional Resources
 
 - [AWS Security Best Practices](https://aws.amazon.com/architecture/security-identity-compliance/)
