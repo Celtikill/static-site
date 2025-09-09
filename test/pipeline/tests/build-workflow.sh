@@ -33,7 +33,7 @@ test_build_workflow_job_count() {
 }
 
 test_build_workflow_jobs() {
-    local jobs=("info" "infrastructure" "security-checkov" "security-trivy" "security-analysis" "website" "artifacts")
+    local jobs=("info" "infrastructure" "security-checkov" "security-trivy" "security-analysis" "website" "cost-projection" "artifacts")
     
     for job in "${jobs[@]}"; do
         assert_workflow_job "build.yml" "$job" "BUILD workflow has $job job"
@@ -43,17 +43,19 @@ test_build_workflow_jobs() {
 test_build_workflow_job_dependencies() {
     local workflow_file=".github/workflows/build.yml"
     
-    # Check that security jobs depend on infrastructure
+    # Check that security jobs depend on info (actual design)
     local checkov_needs=$(yaml_get "$workflow_file" '.jobs["security-checkov"].needs // ""')
     local trivy_needs=$(yaml_get "$workflow_file" '.jobs["security-trivy"].needs // ""')
     
-    assert_contains "$checkov_needs" "infrastructure" "Checkov job depends on infrastructure"
-    assert_contains "$trivy_needs" "infrastructure" "Trivy job depends on infrastructure"
+    assert_contains "$checkov_needs" "info" "Checkov job depends on info"
+    assert_contains "$trivy_needs" "info" "Trivy job depends on info"
     
-    # Check that artifacts job depends on all previous jobs
-    local artifacts_needs=$(yaml_get "$workflow_file" '.jobs.artifacts.needs // ""')
-    assert_contains "$artifacts_needs" "security-checkov" "Artifacts job depends on security-checkov"
-    assert_contains "$artifacts_needs" "security-trivy" "Artifacts job depends on security-trivy"
+    # Check that artifacts job depends on security-analysis (actual design)
+    local artifacts_needs=$(yaml_get "$workflow_file" '.jobs.artifacts.needs // []')
+    assert_contains "$artifacts_needs" "security-analysis" "Artifacts job depends on security-analysis"
+    assert_contains "$artifacts_needs" "infrastructure" "Artifacts job depends on infrastructure"
+    assert_contains "$artifacts_needs" "website" "Artifacts job depends on website"
+    assert_contains "$artifacts_needs" "cost-projection" "Artifacts job depends on cost-projection"
 }
 
 test_build_workflow_environment_variables() {

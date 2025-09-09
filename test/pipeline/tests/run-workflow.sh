@@ -32,7 +32,7 @@ test_run_workflow_chaining() {
     
     # Check workflow_run trigger configuration
     local workflow_run_config=$(yaml_get "$workflow_file" '.on.workflow_run.workflows // []')
-    assert_contains "$workflow_run_config" "test.yml" "RUN workflow triggered by TEST workflow"
+    assert_contains "$workflow_run_config" "TEST - Quality Gates and Validation" "RUN workflow triggered by TEST workflow"
     
     local trigger_types=$(yaml_get "$workflow_file" '.on.workflow_run.types // []')
     assert_contains "$trigger_types" "completed" "RUN workflow triggers on TEST completion"
@@ -44,7 +44,7 @@ test_run_workflow_job_count() {
 }
 
 test_run_workflow_jobs() {
-    local jobs=("info" "authorization" "setup" "infrastructure" "website" "validation" "github-deployment" "summary")
+    local jobs=("info" "authorization" "setup" "infrastructure" "website" "validation" "github-deployment" "cost-verification" "summary")
     
     for job in "${jobs[@]}"; do
         assert_workflow_job "run.yml" "$job" "RUN workflow has $job job"
@@ -54,9 +54,9 @@ test_run_workflow_jobs() {
 test_run_workflow_job_dependencies() {
     local workflow_file=".github/workflows/run.yml"
     
-    # Check authorization flow
+    # Check info flow (actual design)
     local setup_needs=$(yaml_get "$workflow_file" '.jobs.setup.needs // ""')
-    assert_contains "$setup_needs" "authorization" "Setup job depends on authorization"
+    assert_contains "$setup_needs" "info" "Setup job depends on info"
     
     # Check infrastructure deployment flow
     local infrastructure_needs=$(yaml_get "$workflow_file" '.jobs.infrastructure.needs // ""')

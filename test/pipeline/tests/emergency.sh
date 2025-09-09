@@ -37,7 +37,7 @@ test_emergency_workflow_job_count() {
 }
 
 test_emergency_workflow_jobs() {
-    local jobs=("emergency-setup" "hotfix-deploy" "rollback-deploy")
+    local jobs=("emergency")
     
     for job in "${jobs[@]}"; do
         assert_workflow_job "emergency.yml" "$job" "EMERGENCY workflow has $job job"

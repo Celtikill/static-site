@@ -18,10 +18,10 @@ set_test_module "integration"
 test_workflow_chain_integration() {
     # Verify BUILD → TEST → RUN trigger chain
     local test_triggers=$(yaml_get ".github/workflows/test.yml" '.on.workflow_run.workflows // []')
-    assert_contains "$test_triggers" "BUILD" "TEST workflow triggered by BUILD"
+    assert_contains "$test_triggers" "BUILD - Code Validation and Artifact Creation" "TEST workflow triggered by BUILD"
     
     local run_triggers=$(yaml_get ".github/workflows/run.yml" '.on.workflow_run.workflows // []')
-    assert_contains "$run_triggers" "TEST" "RUN workflow triggered by TEST"
+    assert_contains "$run_triggers" "TEST - Quality Gates and Validation" "RUN workflow triggered by TEST"
 }
 
 test_artifact_flow_consistency() {
