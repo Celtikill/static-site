@@ -312,7 +312,7 @@ test_output_formats() {
 test_terraform_integration() {
     log_message "Testing integration with main terraform configuration..."
     
-    local main_tf="${TERRAFORM_DIR}/main.tf"
+    local main_tf="${TERRAFORM_DIR}/workloads/static-site/main.tf"
     
     if [[ -f "$main_tf" ]]; then
         # Check that cost projection module is called
@@ -320,7 +320,7 @@ test_terraform_integration() {
             record_test_result "Module Integration" "PASSED" "Cost projection module integrated in main.tf"
             
             # Check that module source is correct
-            if grep -A 1 'module "cost_projection"' "$main_tf" | grep -q 'source = "./modules/cost-projection"'; then
+            if grep -A 1 'module "cost_projection"' "$main_tf" | grep -q 'source = "../../modules/observability/cost-projection"'; then
                 record_test_result "Module Source Path" "PASSED" "Module source path is correct"
             else
                 record_test_result "Module Source Path" "FAILED" "Module source path incorrect or missing"
