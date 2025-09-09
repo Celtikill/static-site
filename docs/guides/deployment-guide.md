@@ -70,23 +70,25 @@ graph LR
 
 ### Creating Releases
 
-#### Method 1: Using Helper Script (Recommended)
+#### Method 1: Using GitHub Actions Dispatch (Recommended)
+
+Use the GitHub CLI to trigger releases:
 
 ```bash
 # Create a minor release (v1.1.0)
-./scripts/create-release.sh minor
+gh workflow run release.yml --field version_type=minor
 
 # Create a release candidate (v1.2.0-rc1)
-./scripts/create-release.sh rc
+gh workflow run release.yml --field version_type=rc
 
 # Create a patch release (v1.1.1)
-./scripts/create-release.sh patch
+gh workflow run release.yml --field version_type=patch
 
 # Create a hotfix (v1.1.2-hotfix.1)
-./scripts/create-release.sh hotfix
+gh workflow run release.yml --field version_type=hotfix
 
 # Use custom version
-./scripts/create-release.sh custom v2.0.0
+gh workflow run release.yml --field custom_version=v2.0.0
 ```
 
 #### Method 2: Manual GitHub Actions Trigger
@@ -141,7 +143,7 @@ git push origin v1.2.0
 
 1. **Create Release Candidate**:
    ```bash
-   ./scripts/create-release.sh rc
+   gh workflow run release.yml --field version_type=rc
    ```
 
 2. **Automatic Staging Deployment**:
@@ -160,7 +162,7 @@ git push origin v1.2.0
 1. **Create Stable Release**:
    ```bash
    # After staging validation
-   ./scripts/create-release.sh minor  # or major/patch
+   gh workflow run release.yml --field version_type=minor  # or major/patch
    ```
 
 2. **Production Approval**:
@@ -187,7 +189,7 @@ git push origin v1.2.0
 
 2. **Create Hotfix Release**:
    ```bash
-   ./scripts/create-release.sh hotfix
+   gh workflow run release.yml --field version_type=hotfix
    ```
 
 3. **Expedited Approval**:
@@ -198,7 +200,7 @@ git push origin v1.2.0
 4. **Production Hotfix**:
    ```bash
    # After staging validation
-   ./scripts/create-release.sh patch
+   gh workflow run release.yml --field version_type=patch
    ```
 
 ---

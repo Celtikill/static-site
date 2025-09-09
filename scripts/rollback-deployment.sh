@@ -1,15 +1,22 @@
 #!/bin/bash
-# rollback-deployment.sh - Emergency rollback script for deployments
+# Emergency rollback script for deployments
 # Usage: ./scripts/rollback-deployment.sh <environment> [version]
 
-set -e
+set -euo pipefail
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# Script directory for relative path resolution
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Terminal-aware color definitions
+if [[ -t 1 ]]; then
+    readonly RED='\033[0;31m'
+    readonly GREEN='\033[0;32m'
+    readonly YELLOW='\033[1;33m'
+    readonly BLUE='\033[0;34m'
+    readonly NC='\033[0m'
+else
+    readonly RED='' GREEN='' YELLOW='' BLUE='' NC=''
+fi
 
 # Check arguments
 if [[ $# -lt 1 ]]; then
