@@ -74,5 +74,43 @@ AVD-AWS-0089
 AVD-AWS-0010
 
 # ========================================================================
+# S3 Public Website Hosting Feature Flag Exceptions
+# ========================================================================
+# 
+# AVD-AWS-0086: S3 block public ACL (block_public_acls)
+# AVD-AWS-0087: S3 block public policy (block_public_policy) 
+# AVD-AWS-0091: S3 ignore public ACLs (ignore_public_acls)
+# AVD-AWS-0093: S3 restrict public buckets (restrict_public_buckets)
+# 
+# EXCEPTION RATIONALE:
+# - Feature flag implementation enables S3-only static website hosting
+# - When enable_cloudfront = false, S3 requires public access for direct hosting
+# - Public access is intentionally enabled for cost optimization scenarios
+# - Risk is mitigated by:
+#   * Public access only enabled when CloudFront is disabled (feature flag)
+#   * Bucket policy restricts access to GetObject on website content only
+#   * No administrative or PUT operations allowed via public access
+#   * Website content is static and non-sensitive by design
+# 
+# BUSINESS JUSTIFICATION:
+# - Cost optimization: S3-only hosting costs $1-5/month vs $20-35/month with CloudFront
+# - Development environments benefit from simplified, cost-effective hosting
+# - Production deployments can enable CloudFront for security and performance
+# 
+# ALTERNATIVE CONTROLS:
+# - CloudTrail monitors all S3 API operations
+# - Bucket policy enforces read-only access to specific paths
+# - Feature flags allow security upgrade when needed
+# - AWS Config monitors bucket configuration changes
+# 
+# Files affected:
+# - modules/storage/s3-bucket/main.tf (conditional public access block)
+# 
+AVD-AWS-0086
+AVD-AWS-0087  
+AVD-AWS-0091
+AVD-AWS-0093
+
+# ========================================================================
 # End of documented exceptions
 # ========================================================================
