@@ -116,7 +116,7 @@ locals {
     # HTTPS requests (estimated per month)
     https_requests = local.cloudfront_https_requests
     requests_cost  = (local.cloudfront_https_requests / 10000) * local.cloudfront_pricing.https_requests
-  } : {
+    } : {
     data_transfer_gb   = 0
     data_transfer_cost = 0
     https_requests     = 0
