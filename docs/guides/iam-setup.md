@@ -63,9 +63,9 @@ sed -i "s/YOUR_GITHUB_ORG\/YOUR_REPO/${GITHUB_REPOSITORY}/g" github-trust-policy
 
 # Create the role
 aws iam create-role \
-  --role-name github-actions-static-site \
+  --role-name github-actions-management \
   --assume-role-policy-document file://github-trust-policy.json \
-  --description "Role for GitHub Actions to deploy static website"
+  --description "Role for GitHub Actions to deploy static website infrastructure"
 ```
 
 ### 3. Attach Permissions Policy
