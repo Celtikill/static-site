@@ -432,12 +432,12 @@ jobs:
           ENV="${{ needs.info.outputs.environment }}"
           echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
 
-          # Create basic security policies
+          # Create feature-flag-aware security policies
           mkdir -p policies
           cat > policies/security.rego << 'EOF'
           package terraform.security
 
-          # Ensure S3 buckets have encryption
+          # Ensure S3 buckets have encryption (always required)
           deny[msg] {
             resource := input.planned_values.root_module.resources[_]
             resource.type == "aws_s3_bucket"
@@ -445,22 +445,66 @@ jobs:
             msg := sprintf("S3 bucket '%s' must have encryption enabled", [resource.name])
           }
 
-          # Ensure CloudFront distributions use HTTPS
+          # Ensure CloudFront distributions use HTTPS (only when CloudFront is enabled)
           deny[msg] {
             resource := input.planned_values.root_module.resources[_]
             resource.type == "aws_cloudfront_distribution"
             resource.values.viewer_protocol_policy != "redirect-to-https"
             msg := sprintf("CloudFront distribution '%s' must redirect HTTP to HTTPS", [resource.name])
           }
+
+          # When CloudFront is disabled, ensure S3 bucket website configuration is secure
+          deny[msg] {
+            # Check if any S3 bucket has website configuration (indicates S3-only hosting)
+            s3_website := input.planned_values.root_module.resources[_]
+            s3_website.type == "aws_s3_bucket_website_configuration"
+            
+            # But no CloudFront distributions exist (feature flag disabled)
+            count([r | r := input.planned_values.root_module.resources[_]; r.type == "aws_cloudfront_distribution"]) == 0
+            
+            # Ensure public access block is appropriately configured for website hosting
+            bucket_pab := input.planned_values.root_module.resources[_]
+            bucket_pab.type == "aws_s3_bucket_public_access_block"
+            
+            # All public access blocks should allow website hosting when CloudFront disabled
+            bucket_pab.values.block_public_acls == true
+            bucket_pab.values.block_public_policy == true
+            
+            msg := "S3-only website hosting detected but public access is blocked - this will prevent website functionality"
+          }
+
+          # Validate feature flag consistency
+          warn[msg] {
+            # Count CloudFront distributions
+            cf_count := count([r | r := input.planned_values.root_module.resources[_]; r.type == "aws_cloudfront_distribution"])
+            
+            # Count WAF web ACLs
+            waf_count := count([r | r := input.planned_values.root_module.resources[_]; r.type == "aws_wafv2_web_acl"])
+            
+            # WAF should only exist when CloudFront exists
+            waf_count > 0
+            cf_count == 0
+            
+            msg := "WAF resources detected without CloudFront - WAF requires CloudFront to function"
+          }
           EOF
 
           # Run policy validation
           if [ -f "terraform/test.tfplan" ]; then
             tofu -chdir=terraform show -json test.tfplan > plan.json
+            
+            # Check for policy violations (blocking)
             POLICY_VIOLATIONS=$(opa eval -d policies/ -i plan.json "data.terraform.security.deny[x]" --format pretty | grep -c "true" || echo "0")
+            
+            # Check for policy warnings (non-blocking)
+            POLICY_WARNINGS=$(opa eval -d policies/ -i plan.json "data.terraform.security.warn[x]" --format pretty | grep -c "true" || echo "0")
 
+            # Report violations (blocking)
             if [ "$POLICY_VIOLATIONS" -gt 0 ]; then
               echo "⚠️ **$POLICY_VIOLATIONS policy violation(s) found**" >> $GITHUB_STEP_SUMMARY
+              
+              # Show detailed violation messages
+              opa eval -d policies/ -i plan.json "data.terraform.security.deny[x]" --format pretty | grep -v "^$" >> $GITHUB_STEP_SUMMARY
 
               # Environment-specific enforcement
               if [ "$ENV" = "prod" ]; then
@@ -473,8 +517,23 @@ jobs:
               else
                 echo "ℹ️ Policy violations noted for development environment" >> $GITHUB_STEP_SUMMARY
               fi
-            else
-              echo "✅ Policy validation passed - no violations found" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            # Report warnings (non-blocking)
+            if [ "$POLICY_WARNINGS" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **$POLICY_WARNINGS policy warning(s) found**" >> $GITHUB_STEP_SUMMARY
+              
+              # Show detailed warning messages
+              opa eval -d policies/ -i plan.json "data.terraform.security.warn[x]" --format pretty | grep -v "^$" >> $GITHUB_STEP_SUMMARY
+              echo "These warnings do not block deployment but should be reviewed" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            # Final status message
+            if [ "$POLICY_VIOLATIONS" -eq 0 ] && [ "$POLICY_WARNINGS" -eq 0 ]; then
+              echo "✅ Policy validation passed - no violations or warnings found" >> $GITHUB_STEP_SUMMARY
+            elif [ "$POLICY_VIOLATIONS" -eq 0 ]; then
+              echo "✅ Policy validation passed - no blocking violations found" >> $GITHUB_STEP_SUMMARY
             fi
           else
             echo "➖ No terraform plan found, skipping policy validation" >> $GITHUB_STEP_SUMMARY
