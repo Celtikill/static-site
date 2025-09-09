@@ -250,9 +250,10 @@ Estimated monthly costs (USD):
 
 ## 📚 Documentation
 
-📖 **[Complete Documentation](docs/README.md)** - Role-based guides, architecture, security, and troubleshooting  
-🔄 **[Workflow Guide](docs/workflows.md)** - Comprehensive CI/CD pipeline documentation  
-🚀 **[Deployment Guide](docs/guides/deployment-guide.md)** - Release management and deployment strategies
+🚀 **[Quick Start](docs/quickstart.md)** - Deploy in under 10 minutes  
+📖 **[Reference Guide](docs/reference.md)** - All commands, costs, and technical specs  
+🔧 **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions  
+📂 **[Complete Guides](docs/)** - Architecture, deployment, and security guides
 
 ## ⚠️ Important Notes
 
