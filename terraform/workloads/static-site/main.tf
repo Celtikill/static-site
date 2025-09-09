@@ -201,7 +201,7 @@ module "cloudfront" {
 # using the policy files in /docs directory
 
 data "aws_iam_role" "github_actions" {
-  name = "static-site-github-actions"
+  name = "github-actions-management"
 }
 
 data "aws_iam_openid_connect_provider" "github" {
