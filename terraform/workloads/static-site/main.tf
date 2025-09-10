@@ -127,7 +127,7 @@ module "s3" {
   source = "../../modules/storage/s3-bucket"
 
   bucket_name                 = local.bucket_name
-  cloudfront_distribution_arn = var.enable_cloudfront ? module.cloudfront[0].distribution_arn : null
+  cloudfront_distribution_arn = var.enable_cloudfront ? module.cloudfront[0].distribution_arn : ""
   enable_public_website       = !var.enable_cloudfront
   force_destroy               = var.force_destroy_bucket
   versioning_enabled          = var.enable_versioning

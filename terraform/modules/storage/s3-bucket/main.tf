@@ -83,7 +83,7 @@ resource "aws_s3_bucket_policy" "website" {
 data "aws_iam_policy_document" "s3_policy" {
   # CloudFront access statement (when CloudFront is enabled)
   dynamic "statement" {
-    for_each = var.cloudfront_distribution_arn != null ? [1] : []
+    for_each = var.cloudfront_distribution_arn != null && var.cloudfront_distribution_arn != "" ? [1] : []
     content {
       sid    = "AllowCloudFrontServicePrincipal"
       effect = "Allow"

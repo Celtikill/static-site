@@ -167,12 +167,12 @@ output "cloudfront_url" {
 output "deployment_info" {
   description = "Information for deployment configuration"
   value = {
-    s3_bucket       = module.s3.bucket_id
-    cloudfront_id   = var.enable_cloudfront ? module.cloudfront[0].distribution_id : null
+    s3_bucket     = module.s3.bucket_id
+    cloudfront_id = var.enable_cloudfront ? module.cloudfront[0].distribution_id : null
     # github_role_arn = data.aws_iam_role.github_actions.arn  # Commented out - requires IAM permissions
-    aws_region      = data.aws_region.current.name
-    project_name    = local.project_name
-    environment     = local.environment
+    aws_region   = data.aws_region.current.name
+    project_name = local.project_name
+    environment  = local.environment
   }
 }
 
