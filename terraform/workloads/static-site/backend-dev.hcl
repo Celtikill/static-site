@@ -2,7 +2,7 @@
 # S3 Backend for static website workload - Development
 
 # Core S3 Backend Configuration
-bucket                     = "terraform-state-dev-822529998967"
+bucket                     = "static-site-terraform-state-us-east-1"
 key                        = "workloads/static-site/dev/terraform.tfstate"
 region                     = "us-east-1"
 encrypt                    = true
