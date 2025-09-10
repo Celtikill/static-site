@@ -66,74 +66,77 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.project_name}-dashboard"
 
   dashboard_body = jsonencode({
-    widgets = concat([
-      {
-        type   = "metric"
-        x      = 0
-        y      = 0
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["AWS/CloudFront", "Requests", "DistributionId", var.cloudfront_distribution_id],
-            [".", "BytesDownloaded", ".", "."],
-            [".", "BytesUploaded", ".", "."]
-          ]
-          view    = "timeSeries"
-          stacked = false
-          region  = "us-east-1"
-          title   = "CloudFront Traffic"
-          period  = 300
-        }
-      },
-      {
-        type   = "metric"
-        x      = 12
-        y      = 0
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["AWS/CloudFront", "4xxErrorRate", "DistributionId", var.cloudfront_distribution_id],
-            [".", "5xxErrorRate", ".", "."]
-          ]
-          view    = "timeSeries"
-          stacked = false
-          region  = "us-east-1"
-          title   = "CloudFront Error Rates"
-          period  = 300
-          yAxis = {
-            left = {
-              min = 0
-              max = 100
+    widgets = concat(
+      var.cloudfront_distribution_id != "" ? [
+        {
+          type   = "metric"
+          x      = 0
+          y      = 0
+          width  = 12
+          height = 6
+          properties = {
+            metrics = [
+              ["AWS/CloudFront", "Requests", "DistributionId", var.cloudfront_distribution_id],
+              [".", "BytesDownloaded", ".", "."],
+              [".", "BytesUploaded", ".", "."]
+            ]
+            view    = "timeSeries"
+            stacked = false
+            region  = "us-east-1"
+            title   = "CloudFront Traffic"
+            period  = 300
+          }
+        },
+        {
+          type   = "metric"
+          x      = 12
+          y      = 0
+          width  = 12
+          height = 6
+          properties = {
+            metrics = [
+              ["AWS/CloudFront", "4xxErrorRate", "DistributionId", var.cloudfront_distribution_id],
+              [".", "5xxErrorRate", ".", "."]
+            ]
+            view    = "timeSeries"
+            stacked = false
+            region  = "us-east-1"
+            title   = "CloudFront Error Rates"
+            period  = 300
+            yAxis = {
+              left = {
+                min = 0
+                max = 100
+              }
             }
           }
         }
-      },
-      {
-        type   = "metric"
-        x      = 0
-        y      = 6
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["AWS/S3", "BucketSizeBytes", "BucketName", var.s3_bucket_name, "StorageType", "StandardStorage"],
-            [".", "NumberOfObjects", ".", ".", ".", "AllStorageTypes"]
-          ]
-          view    = "timeSeries"
-          stacked = false
-          region  = var.aws_region
-          title   = "S3 Storage Metrics"
-          period  = 86400
+      ] : [],
+      [
+        {
+          type   = "metric"
+          x      = 0
+          y      = var.cloudfront_distribution_id != "" ? 6 : 0
+          width  = 12
+          height = 6
+          properties = {
+            metrics = [
+              ["AWS/S3", "BucketSizeBytes", "BucketName", var.s3_bucket_name, "StorageType", "StandardStorage"],
+              [".", "NumberOfObjects", ".", ".", ".", "AllStorageTypes"]
+            ]
+            view    = "timeSeries"
+            stacked = false
+            region  = var.aws_region
+            title   = "S3 Storage Metrics"
+            period  = 86400
+          }
         }
-      }
       ],
       var.waf_web_acl_name != "" ? [
         {
           type   = "metric"
           x      = 12
-          y      = 6
+          y      = var.cloudfront_distribution_id != "" ? 6 : 0
           width  = 12
           height = 6
           properties = {
@@ -158,15 +161,21 @@ resource "aws_cloudwatch_composite_alarm" "website_health" {
   alarm_name        = "${var.project_name}-website-health"
   alarm_description = "Composite alarm for overall website health"
 
-  alarm_rule = var.waf_web_acl_name != "" ? format(
+  alarm_rule = var.cloudfront_distribution_id != "" && var.waf_web_acl_name != "" ? format(
     "ALARM(%s) OR ALARM(%s) OR ALARM(%s)",
-    aws_cloudwatch_metric_alarm.cloudfront_high_error_rate.alarm_name,
-    aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate.alarm_name,
+    aws_cloudwatch_metric_alarm.cloudfront_high_error_rate[0].alarm_name,
+    aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate[0].alarm_name,
+    aws_cloudwatch_metric_alarm.waf_high_blocked_requests[0].alarm_name
+    ) : var.cloudfront_distribution_id != "" ? format(
+    "ALARM(%s) OR ALARM(%s)",
+    aws_cloudwatch_metric_alarm.cloudfront_high_error_rate[0].alarm_name,
+    aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate[0].alarm_name
+    ) : var.waf_web_acl_name != "" ? format(
+    "ALARM(%s)",
     aws_cloudwatch_metric_alarm.waf_high_blocked_requests[0].alarm_name
     ) : format(
-    "ALARM(%s) OR ALARM(%s)",
-    aws_cloudwatch_metric_alarm.cloudfront_high_error_rate.alarm_name,
-    aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate.alarm_name
+    "ALARM(%s)",
+    aws_cloudwatch_metric_alarm.s3_high_billing.alarm_name
   )
 
   actions_enabled = true
@@ -178,6 +187,7 @@ resource "aws_cloudwatch_composite_alarm" "website_health" {
 
 # CloudFront High Error Rate Alarm
 resource "aws_cloudwatch_metric_alarm" "cloudfront_high_error_rate" {
+  count               = var.cloudfront_distribution_id != "" ? 1 : 0
   alarm_name          = "${var.project_name}-cloudfront-high-error-rate"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
@@ -200,6 +210,7 @@ resource "aws_cloudwatch_metric_alarm" "cloudfront_high_error_rate" {
 
 # CloudFront Low Cache Hit Rate Alarm
 resource "aws_cloudwatch_metric_alarm" "cloudfront_low_cache_hit_rate" {
+  count               = var.cloudfront_distribution_id != "" ? 1 : 0
   alarm_name          = "${var.project_name}-cloudfront-low-cache-hit-rate"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = "3"
@@ -263,6 +274,7 @@ resource "aws_cloudwatch_metric_alarm" "s3_billing" {
 
 # CloudFront Billing Alarm
 resource "aws_cloudwatch_metric_alarm" "cloudfront_billing" {
+  count               = var.cloudfront_distribution_id != "" ? 1 : 0
   alarm_name          = "${var.project_name}-cloudfront-billing"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "1"

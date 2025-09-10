@@ -32,12 +32,12 @@ output "composite_alarm_name" {
 
 output "cloudfront_error_alarm_arn" {
   description = "ARN of the CloudFront error rate alarm"
-  value       = aws_cloudwatch_metric_alarm.cloudfront_high_error_rate.arn
+  value       = var.cloudfront_distribution_id != "" ? aws_cloudwatch_metric_alarm.cloudfront_high_error_rate[0].arn : ""
 }
 
 output "cache_hit_rate_alarm_arn" {
   description = "ARN of the cache hit rate alarm"
-  value       = aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate.arn
+  value       = var.cloudfront_distribution_id != "" ? aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate[0].arn : ""
 }
 
 output "waf_blocked_requests_alarm_arn" {
@@ -52,7 +52,7 @@ output "s3_billing_alarm_arn" {
 
 output "cloudfront_billing_alarm_arn" {
   description = "ARN of the CloudFront billing alarm"
-  value       = aws_cloudwatch_metric_alarm.cloudfront_billing.arn
+  value       = var.cloudfront_distribution_id != "" ? aws_cloudwatch_metric_alarm.cloudfront_billing[0].arn : ""
 }
 
 output "budget_name" {
