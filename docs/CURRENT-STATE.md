@@ -147,7 +147,6 @@ gh workflow run run.yml \
 2. ⏸️ WAF rules (disabled in dev)
 3. ⏸️ Custom domain via Route53
 4. ⏸️ Multi-account separation
-5. ⏸️ DynamoDB state locking
 
 ## Cost Analysis
 
@@ -178,8 +177,6 @@ gh workflow run run.yml \
 
 ## Next Steps
 
-1. **Immediate**: Document any custom configurations in CLAUDE.md
-2. **Short-term**: Enable CloudFront for CDN capabilities
 3. **Medium-term**: Deploy staging environment
 4. **Long-term**: Implement multi-account architecture
 
