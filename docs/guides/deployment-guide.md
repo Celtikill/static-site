@@ -7,18 +7,18 @@ Complete procedures for deploying and managing AWS static website infrastructure
 
 ## 🎯 Deployment Options
 
-### Option 1: Release Workflow (Recommended)
-**Primary deployment method** using semantic versioning and automated environment promotion.
+### Option 1: GitHub Actions (Recommended)
+**Primary deployment method** using automated workflows for immediate execution.
 
-### Option 2: Direct GitHub Actions
-Individual workflow execution for specific environments or testing.
+### Option 2: Release Workflow
+Semantic versioning and automated environment promotion for formal releases.
 
 ### Option 3: Manual Deployment  
 Local deployment for development and testing.
 
 ---
 
-## 🚀 Release Workflow Deployment (Recommended)
+## 🚀 GitHub Actions Deployment (Recommended)
 
 ### Overview
 

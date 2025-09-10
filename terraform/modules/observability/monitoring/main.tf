@@ -66,7 +66,7 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.project_name}-dashboard"
 
   dashboard_body = jsonencode({
-    widgets = [
+    widgets = concat([
       {
         type   = "metric"
         x      = 0
@@ -127,26 +127,29 @@ resource "aws_cloudwatch_dashboard" "main" {
           title   = "S3 Storage Metrics"
           period  = 86400
         }
-      },
-      {
-        type   = "metric"
-        x      = 12
-        y      = 6
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["AWS/WAFV2", "AllowedRequests", "WebACL", var.waf_web_acl_name, "Rule", "ALL"],
-            [".", "BlockedRequests", ".", ".", ".", "."]
-          ]
-          view    = "timeSeries"
-          stacked = false
-          region  = "us-east-1"
-          title   = "WAF Request Metrics"
-          period  = 300
-        }
       }
-    ]
+      ],
+      var.waf_web_acl_name != "" ? [
+        {
+          type   = "metric"
+          x      = 12
+          y      = 6
+          width  = 12
+          height = 6
+          properties = {
+            metrics = [
+              ["AWS/WAFV2", "AllowedRequests", "WebACL", var.waf_web_acl_name, "Rule", "ALL"],
+              [".", "BlockedRequests", ".", ".", ".", "."]
+            ]
+            view    = "timeSeries"
+            stacked = false
+            region  = "us-east-1"
+            title   = "WAF Request Metrics"
+            period  = 300
+          }
+        }
+      ] : []
+    )
   })
 }
 
@@ -155,11 +158,15 @@ resource "aws_cloudwatch_composite_alarm" "website_health" {
   alarm_name        = "${var.project_name}-website-health"
   alarm_description = "Composite alarm for overall website health"
 
-  alarm_rule = format(
+  alarm_rule = var.waf_web_acl_name != "" ? format(
     "ALARM(%s) OR ALARM(%s) OR ALARM(%s)",
     aws_cloudwatch_metric_alarm.cloudfront_high_error_rate.alarm_name,
     aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate.alarm_name,
-    aws_cloudwatch_metric_alarm.waf_high_blocked_requests.alarm_name
+    aws_cloudwatch_metric_alarm.waf_high_blocked_requests[0].alarm_name
+    ) : format(
+    "ALARM(%s) OR ALARM(%s)",
+    aws_cloudwatch_metric_alarm.cloudfront_high_error_rate.alarm_name,
+    aws_cloudwatch_metric_alarm.cloudfront_low_cache_hit_rate.alarm_name
   )
 
   actions_enabled = true
@@ -211,8 +218,9 @@ resource "aws_cloudwatch_metric_alarm" "cloudfront_low_cache_hit_rate" {
   tags = var.common_tags
 }
 
-# WAF High Blocked Requests Alarm
+# WAF High Blocked Requests Alarm (only when WAF is enabled)
 resource "aws_cloudwatch_metric_alarm" "waf_high_blocked_requests" {
+  count               = var.waf_web_acl_name != "" ? 1 : 0
   alarm_name          = "${var.project_name}-waf-high-blocked-requests"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = "2"
