@@ -61,98 +61,113 @@ resource "aws_sns_topic_subscription" "email_alerts" {
   endpoint_auto_confirms          = false
 }
 
+# Local values for dynamic dashboard widget configuration
+locals {
+  # CloudFront widgets (when CloudFront is configured)
+  cloudfront_widgets = var.cloudfront_distribution_id != "" ? [
+    {
+      type   = "metric"
+      x      = 0
+      y      = 0
+      width  = 12
+      height = 6
+      properties = {
+        metrics = [
+          ["AWS/CloudFront", "Requests", "DistributionId", var.cloudfront_distribution_id],
+          [".", "BytesDownloaded", ".", "."],
+          [".", "BytesUploaded", ".", "."]
+        ]
+        view    = "timeSeries"
+        stacked = false
+        region  = "us-east-1"
+        title   = "CloudFront Traffic"
+        period  = 300
+      }
+    },
+    {
+      type   = "metric"
+      x      = 12
+      y      = 0
+      width  = 12
+      height = 6
+      properties = {
+        metrics = [
+          ["AWS/CloudFront", "4xxErrorRate", "DistributionId", var.cloudfront_distribution_id],
+          [".", "5xxErrorRate", ".", "."]
+        ]
+        view    = "timeSeries"
+        stacked = false
+        region  = "us-east-1"
+        title   = "CloudFront Error Rates"
+        period  = 300
+        yAxis = {
+          left = {
+            min = 0
+            max = 100
+          }
+        }
+      }
+    }
+  ] : []
+
+  # S3 widget (always present)
+  s3_widgets = [
+    {
+      type   = "metric"
+      x      = 0
+      y      = var.cloudfront_distribution_id != "" ? 6 : 0
+      width  = 12
+      height = 6
+      properties = {
+        metrics = [
+          ["AWS/S3", "BucketSizeBytes", "BucketName", var.s3_bucket_name, "StorageType", "StandardStorage"],
+          [".", "NumberOfObjects", ".", ".", ".", "AllStorageTypes"]
+        ]
+        view    = "timeSeries"
+        stacked = false
+        region  = var.aws_region
+        title   = "S3 Storage Metrics"
+        period  = 86400
+      }
+    }
+  ]
+
+  # WAF widget (when WAF is configured)
+  waf_widgets = var.waf_web_acl_name != "" ? [
+    {
+      type   = "metric"
+      x      = 12
+      y      = var.cloudfront_distribution_id != "" ? 6 : 0
+      width  = 12
+      height = 6
+      properties = {
+        metrics = [
+          ["AWS/WAFV2", "AllowedRequests", "WebACL", var.waf_web_acl_name, "Rule", "ALL"],
+          [".", "BlockedRequests", ".", ".", ".", "."]
+        ]
+        view    = "timeSeries"
+        stacked = false
+        region  = "us-east-1"
+        title   = "WAF Request Metrics"
+        period  = 300
+      }
+    }
+  ] : []
+
+  # Combined widget list
+  dashboard_widgets = concat(
+    local.cloudfront_widgets,
+    local.s3_widgets,
+    local.waf_widgets
+  )
+}
+
 # CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "${var.project_name}-dashboard"
 
   dashboard_body = jsonencode({
-    widgets = concat(
-      var.cloudfront_distribution_id != "" ? [
-        {
-          type   = "metric"
-          x      = 0
-          y      = 0
-          width  = 12
-          height = 6
-          properties = {
-            metrics = [
-              ["AWS/CloudFront", "Requests", "DistributionId", var.cloudfront_distribution_id],
-              [".", "BytesDownloaded", ".", "."],
-              [".", "BytesUploaded", ".", "."]
-            ]
-            view    = "timeSeries"
-            stacked = false
-            region  = "us-east-1"
-            title   = "CloudFront Traffic"
-            period  = 300
-          }
-        },
-        {
-          type   = "metric"
-          x      = 12
-          y      = 0
-          width  = 12
-          height = 6
-          properties = {
-            metrics = [
-              ["AWS/CloudFront", "4xxErrorRate", "DistributionId", var.cloudfront_distribution_id],
-              [".", "5xxErrorRate", ".", "."]
-            ]
-            view    = "timeSeries"
-            stacked = false
-            region  = "us-east-1"
-            title   = "CloudFront Error Rates"
-            period  = 300
-            yAxis = {
-              left = {
-                min = 0
-                max = 100
-              }
-            }
-          }
-        }
-      ] : [],
-      [
-        {
-          type   = "metric"
-          x      = 0
-          y      = var.cloudfront_distribution_id != "" ? 6 : 0
-          width  = 12
-          height = 6
-          properties = {
-            metrics = [
-              ["AWS/S3", "BucketSizeBytes", "BucketName", var.s3_bucket_name, "StorageType", "StandardStorage"],
-              [".", "NumberOfObjects", ".", ".", ".", "AllStorageTypes"]
-            ]
-            view    = "timeSeries"
-            stacked = false
-            region  = var.aws_region
-            title   = "S3 Storage Metrics"
-            period  = 86400
-          }
-        }
-      ],
-      var.waf_web_acl_name != "" ? [
-        {
-          type   = "metric"
-          x      = 12
-          y      = var.cloudfront_distribution_id != "" ? 6 : 0
-          width  = 12
-          height = 6
-          properties = {
-            metrics = [
-              ["AWS/WAFV2", "AllowedRequests", "WebACL", var.waf_web_acl_name, "Rule", "ALL"],
-              [".", "BlockedRequests", ".", ".", ".", "."]
-            ]
-            view    = "timeSeries"
-            stacked = false
-            region  = "us-east-1"
-            title   = "WAF Request Metrics"
-            period  = 300
-          }
-        }
-      ] : []
-    )
+    widgets = local.dashboard_widgets
   })
 }
 
@@ -175,7 +190,7 @@ resource "aws_cloudwatch_composite_alarm" "website_health" {
     aws_cloudwatch_metric_alarm.waf_high_blocked_requests[0].alarm_name
     ) : format(
     "ALARM(%s)",
-    aws_cloudwatch_metric_alarm.s3_high_billing.alarm_name
+    aws_cloudwatch_metric_alarm.s3_billing.alarm_name
   )
 
   actions_enabled = true
