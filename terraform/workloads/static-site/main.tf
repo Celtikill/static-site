@@ -221,6 +221,7 @@ module "monitoring" {
   source = "../../modules/observability/monitoring"
 
   project_name                    = local.project_name
+  environment                     = var.environment
   cloudfront_distribution_id      = var.enable_cloudfront ? module.cloudfront[0].distribution_id : ""
   s3_bucket_name                  = module.s3.bucket_id
   waf_web_acl_name                = var.enable_cloudfront && var.enable_waf ? module.waf[0].web_acl_name : ""

@@ -5,6 +5,11 @@ variable "project_name" {
   type        = string
 }
 
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+}
+
 variable "cloudfront_distribution_id" {
   description = "CloudFront distribution ID to monitor"
   type        = string
