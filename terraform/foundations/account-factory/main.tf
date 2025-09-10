@@ -67,7 +67,7 @@ locals {
 
 # Deploy AWS Organizations module
 module "aws_organizations" {
-  source = "../modules/aws-organizations"
+  source = "../../modules/aws-organizations"
 
   common_tags = merge(local.common_tags, {
     Module = "aws-organizations"
@@ -76,7 +76,7 @@ module "aws_organizations" {
 
 # Create Security OU accounts using Account Factory
 module "security_accounts" {
-  source = "../modules/account-factory"
+  source = "../../modules/account-factory"
 
   # Pass Security OU accounts configuration
   accounts = {

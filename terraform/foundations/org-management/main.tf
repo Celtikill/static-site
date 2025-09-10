@@ -83,7 +83,7 @@ resource "aws_cloudtrail" "organization_trail" {
 
     data_resource {
       type   = "AWS::S3::Object"
-      values = ["arn:aws:s3:::*/*"]
+      values = ["arn:aws:s3"]
     }
   }
 
