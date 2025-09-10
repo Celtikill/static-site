@@ -1,467 +1,481 @@
-# Implementation Roadmap & Current Status
+# Multi-Account Architecture Migration - MVP Deployment with Security & Logging
 
-## 🎯 Current Priority: AWS Resource Cleanup & Documentation (UPDATED 2025-09-09)
+## 🎯 **IMMEDIATE PRIORITY: Multi-Account MVP with SRA Security Foundation**
 
-**Latest Status**: Major CI/CD improvements completed, README URL automation implemented
-**Recent Activity**: Fixed environment variable loading, created automatic README URL updates
-**Current Status**: Pausing README URL testing to focus on resource cleanup
-**Next Priority**: Create comprehensive AWS resource destruction script and update documentation
+**Status**: ✅ **READY FOR EXECUTION** - GitHub Actions Available
+**Timeline**: 7-10 days for complete MVP implementation
+**Risk Level**: Low (gradual migration with rollback capability)
 
-### ✅ Recently Completed (September 2025)
-
-#### Major CI/CD & Operational Improvements (September 9, 2025)
-- **✅ Fixed Critical Environment Variable Bug**: RUN workflow now correctly loads environment-specific tfvars files (dev.tfvars, staging.tfvars, prod.tfvars)
-- **✅ Confirmed Multi-Environment Isolation**: Verified dev/staging/prod deployments use proper environment tagging and resource naming
-- **✅ Implemented README URL Automation**: Created automatic live URL updates with deployment state tracking
-  - Built `.github/scripts/update-readme-urls.sh` with intelligent URL replacement
-  - Added `.github/deployment-state.json` for environment state tracking
-  - Enhanced RUN workflow with README update job and auto-commit functionality
-- **✅ Built Comprehensive AWS Cleanup Script**: Created `.github/scripts/destroy-all-resources.sh`
-  - Multi-environment support (dev/staging/prod) with backend switching
-  - AWS CLI verification of resource destruction (S3, CloudFront, WAF, KMS, etc.)
-  - Manual cleanup for orphaned resources outside Terraform state
-  - Dry-run capability and cost impact reporting
-- **✅ Verified Resource Destruction**: Successfully eliminated **$20.89/month** in dev environment costs
-  - Destroyed 34 Terraform-managed resources via `tofu destroy`
-  - Manually cleaned up 50+ CloudFront access log files
-  - Confirmed deletion of cost-incurring resources: KMS keys, SNS topics, CloudWatch alarms, S3 buckets
-
-### 🔄 Current Phase: Resource Management & Testing
-
-#### 🟡 High Priority Tasks (Current Session) - MAJOR PROGRESS COMPLETED
-- **✅ Create AWS Resource Cleanup Script**:
-  - [x] Build comprehensive destroy-all-resources.sh script
-  - [x] Support multi-environment cleanup (dev/staging/prod)
-  - [x] Handle Terraform state file management across environments
-  - [x] Include AWS CLI verification of resource destruction
-  - [x] Add cost-incurring resource detection (S3, CloudFront, WAF, etc.)
-- **🟡 Complete README URL Testing**:
-  - [ ] Verify README URL automation works end-to-end (PAUSED - Infrastructure working)
-  - [ ] Test environment-specific URL replacement
-  - [ ] Validate badge status updates
-- **🟡 Documentation Updates**:
-  - [x] Document CI/CD improvements and environment variable fixes
-  - [x] Update TODO.md with completed work
-  - [ ] Add emergency procedures documentation
-
-#### 🆕 Operational Tools Added (September 9, 2025)
-- **Emergency Resource Cleanup**: `.github/scripts/destroy-all-resources.sh`
-  - Multi-environment support (dev/staging/prod)
-  - Terraform state management and backend switching
-  - AWS CLI verification of resource destruction
-  - Manual cleanup for orphaned resources
-  - Cost impact reporting ($20.89/month eliminated in testing)
-  - Dry-run capability for safe testing
-- **README URL Automation**: `.github/scripts/update-readme-urls.sh`
-  - Environment-aware URL replacement
-  - Badge status management  
-  - Deployment state tracking in JSON format
-  - Automatic git commits with proper attribution
-
-#### 🟢 Phase 3 Documentation Tasks (Next Sprint)
-- **Merge Architecture Documentation**:
-  - [ ] Consolidate 11 architecture files into 3-4 focused documents
-  - [ ] Remove duplicate content across multiple files
-  - [ ] Target: 60% reduction in documentation volume while maintaining completeness
-- **Create Decision Matrices**:
-  - [ ] When to use which workflow (BUILD vs TEST vs RUN)
-  - [ ] Environment selection guide (dev/staging/prod decision tree)
-  - [ ] Clear decision paths for different deployment scenarios
-- **Add Visual Documentation**:
-  - [ ] Workflow flow diagrams showing BUILD→TEST→RUN progression
-  - [ ] Architecture diagrams for infrastructure components
-  - [ ] Cost management flow visualization
-  - [ ] Security scanning phase diagrams
-
-#### Infrastructure Operations (On Hold)
-- **Multi-Account Migration**: Phase 3 organization management (PAUSED: GitHub Actions billing)
+### **MVP Scope**
+- ✅ **Basic Website Deployment**: S3 static hosting with essential infrastructure
+- ✅ **Basic Logging**: CloudTrail, access logs, CloudWatch with cost optimization
+- ✅ **Basic Security Tooling**: Organization-wide security services with feature flags
+- ✅ **SRA Design Patterns**: AWS Security Reference Architecture compliance
 
 ---
 
-## Active Development (In Progress)
+## Architecture Overview
 
-**Multi-Account Architecture Migration** - CRITICAL Priority ⚡
-
-### Current Status: Architecture Evolution (Billing Constrained)
-**Completed:**
-- ✅ Phase 0: Clean Slate Preparation - All existing resources decommissioned
-- ✅ Phase 1: AWS Organizations Foundation - Organization o-0hh51yjgxw created, Management Account 223938610551
-- ✅ Phase 2: SRA-Aligned Terraform Module Development - All security baseline modules created and validated with composable architecture
-- ✅ Phase 2.5: Security Issues Resolution - HIGH severity vulnerabilities fixed with KMS encryption
-- ✅ Phase 2.6: Workflow Branch Fixes - RUN/TEST workflows now correctly deploy from feature branches
-- ✅ Phase 2.7: Architecture Planning - Nested OU team/app architecture designed and validated
-- 🔄 Phase 3: Organization Management Infrastructure - **IN PROGRESS** (GitHub Actions blocked by billing limits)
-
-**Next Steps:**
-- [⏸️] **Deploy Phase 3**: Execute `tofu apply` in `terraform/foundations/org-management/` to create Organization management infrastructure *(PAUSED: GitHub Actions billing limits until new month)*
-- [ ] Phase 4: Create Security OU accounts via Account Factory  
-- [ ] Phase 5: Create Workload OU accounts (dev/staging/prod)
-- [ ] Phase 6: CI/CD Pipeline Multi-Account Migration
-- [ ] Phase 7: Website Content Multi-Account Migration
-
----
-
-## SRA-Aligned Multi-Account Architecture Plan
-
-### Architecture Overview
 Following AWS Security Reference Architecture (SRA) patterns with complete environment isolation:
 
 ```
 Organization (o-0hh51yjgxw)
 ├── Management Account (223938610551)
+│   ├── Organization CloudTrail (MVP: enabled)
+│   ├── OIDC Provider for GitHub Actions
+│   └── Cost & Billing Controls
 ├── Security OU
-│   ├── Security Tooling Account (centralized security services)
-│   └── Log Archive Account (centralized audit logs)
-├── Infrastructure OU (future expansion)
+│   ├── Security Tooling Account (MVP: basic setup)
+│   │   ├── Security Hub (MVP: feature flagged)
+│   │   ├── GuardDuty Delegated Admin (MVP: feature flagged)
+│   │   └── Config Aggregator (MVP: feature flagged)
+│   └── Log Archive Account (MVP: CloudTrail logs)
+│       ├── Centralized Log Storage
+│       └── Long-term Retention Policies
 └── Workloads OU
-    ├── Development Account
-    ├── Staging Account
-    └── Production Account
+    ├── Development Account (MVP: basic website + logging)
+    ├── Staging Account (MVP: basic website + enhanced logging)
+    └── Production Account (MVP: full website + comprehensive logging)
 ```
 
-### Phase 3: Management Account Infrastructure ✅ COMPLETED
-- [x] **CRITICAL**: Disable automatic workflow triggers to prevent deployments to decommissioned infrastructure
-- [x] Create comprehensive Terraform configuration in `terraform/management-account/`
-- [x] Configure AWS Organizations module integration (OU structure, SCPs)
-- [x] Configure Account Factory for Security OU accounts (Security Tooling + Log Archive)
-- [x] Set up cross-account Terraform deployment roles and state buckets
-- [x] Configure centralized state management with S3 backend
-- [x] Create deployment documentation and validation guides
-- [x] **READY FOR DEPLOYMENT**: Configuration validated, awaiting `tofu apply`
+---
 
-### Phase 4: Security OU Account Deployment (Managed by Separate Security Codebase)
-- [ ] **Prerequisites**: Complete Phase 3 deployment to create empty Security OU accounts
-- [ ] **Note**: Security services deployment handled by separate security-focused repository
-- [ ] **This Repository Scope**: Create empty Security Tooling and Log Archive accounts only
-- [ ] **Security Codebase Scope**: Deploy GuardDuty, Security Hub, Config, CloudTrail, and compliance monitoring
-- [ ] **Interface**: Security accounts ready for security codebase deployment
+## Implementation Phases
 
-### 🧹 Cost Optimization Accomplished (September 9, 2025)
-- **✅ Resource Cleanup Capability**: Created comprehensive destroy-all-resources.sh script
-- **✅ Cost Reduction Verified**: Eliminated $20.89/month in dev environment resources
-- **✅ Orphaned Resource Detection**: Identified and cleaned up resources outside Terraform state
-- **✅ Multi-Environment Support**: Tested across dev/staging/prod environments
-- **🟡 Remaining Minor Costs**: 2 empty S3 buckets + 3 CloudFront distributions from previous deployments (minimal cost)
+### **Phase 1: Foundation Infrastructure with MVP Security** ⚡ IMMEDIATE
+*Duration: 6-8 hours | Risk: Low*
 
-### Phase 5: Workload OU Account Deployment (Static Website Focus)
-- [ ] Create Development, Staging, Production accounts
-- [ ] Configure account-specific IAM and OIDC roles for static website deployment
-- [ ] Set up cross-account access patterns for CI/CD pipeline
-- [ ] **Note**: Security baselines deployed by separate security codebase
+#### **Step 1.1: Deploy Organization Management with Security Foundation**
+```bash
+# Update terraform.tfvars with MVP security settings
+# terraform/foundations/org-management/terraform.tfvars
+enable_cloudtrail = true          # MVP: Always enabled
+enable_guardduty = false         # MVP: Feature flagged, default off
+enable_config = false            # MVP: Feature flagged, default off
+enable_security_hub = false      # MVP: Feature flagged, default off
 
-### Phase 6: CI/CD Pipeline Migration
-- [ ] **Workflow Updates Required:**
-  - [ ] Update BUILD workflow: Add multi-account AWS provider configuration
-  - [ ] Update TEST workflow: Configure cross-account validation
-  - [ ] Update RUN workflow: Implement account-specific deployment logic
-  - [ ] Update RELEASE workflow: Add multi-account release management
-  - [ ] Re-enable automatic triggers with proper account routing
-- [ ] Configure environment-specific deployment targeting
-- [ ] Implement cross-account OIDC authentication  
-- [ ] Update security scanning for multi-account context
-- [ ] **GitHub Variables Updates:**
-  - [ ] Add account-specific AWS role ARNs
-  - [ ] Configure account ID mappings for each environment
-  - [ ] Update Terraform backend configurations per account
+# Deploy via GitHub Actions (preferred)
+gh workflow run run.yml \
+  --field environment=management \
+  --field deploy_infrastructure=true \
+  --field terraform_directory=foundations/org-management
+```
 
-### Phase 7: Website Content Migration
-- [ ] Deploy static website infrastructure to each workload account
-- [ ] Configure CloudFront and WAF per environment
-- [ ] Test full deployment pipeline
-- [ ] Validate monitoring and alerting
-- [ ] **MVP Milestone**: Basic website operational with security baseline
+**Expected Outcomes:**
+- AWS Organizations with Security/Workloads/Sandbox OUs
+- Organization-wide CloudTrail (MVP logging requirement)
+- Service Control Policies for security guardrails
+- Management account OIDC provider for GitHub Actions
+- KMS keys for encryption at rest (SRA requirement)
+
+#### **Step 1.2: Deploy Account Factory with Security OU Setup**
+```bash
+# Update domain in terraform.tfvars first, then deploy
+gh workflow run run.yml \
+  --field environment=management \
+  --field deploy_infrastructure=true \
+  --field terraform_directory=foundations/account-factory
+
+# Monitor deployment
+gh run list --limit 3
+```
+
+**Expected Outcomes:**
+- **Security OU**: Security-Tooling Account (basic setup), Log-Archive Account
+- **Workloads OU**: Development Account, Staging Account, Production Account
+- Cross-account roles configured for MVP access patterns
+- SSM parameters with account IDs for reference
+- Basic security tooling preparation (feature flagged)
 
 ---
 
-## Quick Wins - Immediate Security Enhancements (Post-Phase 3)
+### **Phase 2: MVP Security Service Feature Flags** 
+*Duration: 4-6 hours | Risk: Low*
 
-**Timeline: Implement immediately after Phase 3 deployment**
-**Cost Impact: +$500-800/month**
+#### **Step 2.1: Create Security Feature Flag Configuration**
 
-### Enable Core Services (Static Website MVP)
-- [ ] **Note**: Security services (Config, Security Hub, GuardDuty, CloudTrail) managed by separate security codebase
+Create new file `terraform/foundations/security-services/variables.tf`:
 
-- [ ] **Implement Basic Backup Strategy** - **MVP Required**
-  - [ ] Create backup module in `terraform/modules/backup/`
-  - [ ] Configure daily S3 backups with 30-day retention
-  - [ ] Add cross-region replication for production
+```hcl
+# MVP Security Services Feature Flags
+variable "mvp_security_profile" {
+  description = "MVP security profile (minimal|standard|comprehensive)"
+  type        = string
+  default     = "minimal"
+  
+  validation {
+    condition     = contains(["minimal", "standard", "comprehensive"], var.mvp_security_profile)
+    error_message = "MVP security profile must be minimal, standard, or comprehensive."
+  }
+}
 
-- [ ] **Add Compliance Scanning to CI/CD** - **MVP Required**
-  - [ ] Update GitHub workflows with Security Hub findings check
-  - [ ] Block deployments on critical findings
-  - [ ] Add compliance report generation
+# Organization-wide Security Services
+variable "enable_guardduty_organization" {
+  description = "Enable GuardDuty at organization level (MVP: cost-aware)"
+  type        = bool
+  default     = false
+}
 
----
+variable "enable_security_hub_organization" {
+  description = "Enable Security Hub at organization level (MVP: selective)"
+  type        = bool
+  default     = false
+}
 
-## Enterprise Security Enhancements (Post-MVP)
+variable "enable_config_organization" {
+  description = "Enable Config at organization level (MVP: selective)"
+  type        = bool
+  default     = false
+}
 
-**Timeline: Months 2-3 after MVP release**
-**Cost Impact: +$1,500-2,500/month**
+# MVP Logging Controls
+variable "cloudtrail_log_retention_days" {
+  description = "CloudTrail log retention (MVP: cost optimized)"
+  type        = number
+  default     = 90
+}
 
-### Phase 1: Enhanced Security Services (Weeks 1-4 Post-MVP)
-- [ ] **Complete Service Control Policies (SCPs)**
-  - [ ] Deploy deny-root-user SCP
-  - [ ] Implement region restriction policies
-  - [ ] Add data protection guardrails
-  - [ ] Configure MFA enforcement policies
+variable "enable_cloudtrail_insights" {
+  description = "Enable CloudTrail Insights (MVP: feature flagged for cost)"
+  type        = bool
+  default     = false
+}
+```
 
-- [ ] **Implement Compliance Framework**
-  - [ ] Enable additional Security Hub standards (PCI-DSS if needed)
-  - [ ] Configure automated compliance reporting
-  - [ ] Set up compliance dashboard in Security Hub
-  - [ ] Create compliance evidence automation
+#### **Step 2.2: Implement MVP Security Profiles**
 
-- [ ] **Enhanced Network Security** (If multi-app growth)
-  - [ ] Evaluate need for Transit Gateway
-  - [ ] Consider AWS Network Firewall for inspection
-  - [ ] Implement VPC endpoints for service access
+Create new file `terraform/foundations/security-services/locals.tf`:
 
-### Phase 2: Advanced Monitoring & Operations (Weeks 5-8 Post-MVP)
-- [ ] **Centralized Logging Architecture**
-  - [ ] Deploy OpenSearch cluster in Log Archive account
-  - [ ] Configure log streaming from all accounts
-  - [ ] Create security analytics dashboards
-  - [ ] Implement anomaly detection
-
-- [ ] **Advanced Threat Detection**
-  - [ ] Enable GuardDuty threat intelligence feeds
-  - [ ] Configure automated response playbooks
-  - [ ] Implement custom threat detection rules
-  - [ ] Consider third-party SIEM integration
-
-- [ ] **Identity Federation** (If team growth requires)
-  - [ ] Implement AWS IAM Identity Center
-  - [ ] Configure SAML/OIDC integration
-  - [ ] Create permission sets and boundaries
-  - [ ] Enable session recording for privileged access
-
-### Phase 3: Disaster Recovery & Advanced Compliance (Months 3-6 Post-MVP)
-- [ ] **Formal Disaster Recovery Plan**
-  - [ ] Define RTO/RPO targets
-  - [ ] Implement automated failover procedures
-  - [ ] Create and test recovery runbooks
-  - [ ] Schedule quarterly DR drills
-
-- [ ] **Data Governance Framework**
-  - [ ] Deploy Amazon Macie for data classification
-  - [ ] Implement data retention automation
-  - [ ] Create data lineage tracking
-  - [ ] Configure privacy compliance controls
-
-- [ ] **Consider Managed Security Operations**
-  - [ ] Evaluate MxDR/SOC services for 24/7 monitoring
-  - [ ] Cost-benefit analysis of managed vs. in-house
-  - [ ] Pilot program with selected vendor
-  - [ ] Full implementation if justified by scale
-
----
-
-## Enterprise Architecture Maturity Roadmap
-
-### Current State → MVP Target → Enterprise Target
-
-| Capability | Current | MVP Target | Enterprise Target | Priority |
-|---|---|---|---|---|
-| **Multi-Account** | 60% In Progress | ✅ 100% Complete | Enhanced with Landing Zone | **Critical** |
-| **Security Services** | 30% Basic | ✅ 70% Core Services | 100% Full Suite | **Critical** |
-| **Compliance** | 20% Scanning | ✅ 50% Basic Framework | 90% Multi-Framework | **High** |
-| **Monitoring** | 40% CloudWatch | ✅ 60% Enhanced | 100% Centralized SIEM | **Medium** |
-| **Network Security** | 50% CDN/WAF | ✅ 50% Adequate | 90% Zero-Trust | **Low** (for static site) |
-| **Identity Management** | 25% OIDC | ✅ 25% Sufficient | 90% Federated | **Low** (until team grows) |
-| **Disaster Recovery** | 10% None | ✅ 40% Basic Backup | 90% Full DR | **Medium** |
-| **Incident Response** | 0% None | ✅ 30% Runbooks | 90% Automated/SOC | **Low** (scale dependent) |
-
-### Monthly Cost Evolution (Static Website Infrastructure Only)
-- **Current**: ~$30 (single account, basic services)
-- **MVP Target**: ~$30-50 (multi-account structure, no security services)
-- **Security Services**: Managed separately via security codebase (~$100-150/month)
-- **6-Month Target**: ~$500 (+$450 for enhanced monitoring and scaling)
-- **Enterprise Target**: ~$1,500-3,000 (includes managed services)
-
-### ROI Justification
-- **Security Incident Prevention**: 70% risk reduction
-- **Compliance Automation**: 80% reduction in audit prep
-- **Operational Efficiency**: 50% reduction in response time
-- **Break-even**: 2-3 months based on risk mitigation
+```hcl
+# MVP Security Profile Configurations
+locals {
+  mvp_profiles = {
+    minimal = {
+      # Development environment defaults
+      enable_guardduty    = false
+      enable_security_hub = false
+      enable_config       = false
+      cloudtrail_insights = false
+      log_retention       = 30
+      monitoring_level    = "basic"
+    }
+    standard = {
+      # Staging environment defaults  
+      enable_guardduty    = true
+      enable_security_hub = false
+      enable_config       = true
+      cloudtrail_insights = false
+      log_retention       = 90
+      monitoring_level    = "enhanced"
+    }
+    comprehensive = {
+      # Production environment defaults
+      enable_guardduty    = true
+      enable_security_hub = true
+      enable_config       = true
+      cloudtrail_insights = true
+      log_retention       = 365
+      monitoring_level    = "comprehensive"
+    }
+  }
+  
+  # Current profile settings
+  current_profile = local.mvp_profiles[var.mvp_security_profile]
+}
+```
 
 ---
 
-## Workflow Safety Measures Implemented
+### **Phase 3: Cross-Account Role Configuration with Security Context**
+*Duration: 2-3 hours | Risk: Medium*
 
-**✅ CRITICAL SAFETY**: All automatic workflow triggers have been disabled during migration to prevent:
-- Deployments to decommissioned single-account infrastructure
-- Build failures due to missing AWS resources
-- Accidental modification of existing (empty) accounts
+#### **Step 3.1: Create Workload Account Role Configuration with MVP Security**
 
-**Current Workflow Status:**
-- ✅ BUILD: Manual trigger only (`workflow_dispatch`)
-- ✅ TEST: Manual trigger only (`workflow_dispatch`) 
-- ✅ RUN: Manual trigger only (`workflow_dispatch`)
-- ✅ RELEASE: Manual trigger only (`workflow_dispatch`)
-- ✅ EMERGENCY: Already manual-only (no changes needed)
+Create new file `terraform/workloads/account-setup/main.tf`:
 
-**Post-Migration Re-enablement**: Automatic triggers will be restored in Phase 6 with proper multi-account routing logic.
+```hcl
+# MVP-aware workload account setup
+resource "aws_iam_role" "github_actions_workload" {
+  name = "github-actions-workload-deployment"
+  
+  assume_role_policy = jsonencode({
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        AWS = "arn:aws:iam::223938610551:role/github-actions-management"
+      }
+      Action = "sts:AssumeRole"
+      Condition = {
+        StringEquals = {
+          "sts:ExternalId" = var.environment
+        }
+      }
+    }]
+  })
+}
 
----
+# MVP Security-aware permissions
+resource "aws_iam_policy" "workload_mvp_permissions" {
+  name = "github-actions-${var.environment}-mvp-permissions"
+  
+  policy = var.environment == "dev" ? data.aws_iam_policy_document.dev_mvp_permissions.json : 
+           var.environment == "staging" ? data.aws_iam_policy_document.staging_mvp_permissions.json :
+           data.aws_iam_policy_document.prod_mvp_permissions.json
+}
 
-## Key Benefits of Multi-Account Architecture
+# MVP logging permissions
+data "aws_iam_policy_document" "mvp_logging_permissions" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream", 
+      "logs:PutLogEvents",
+      "logs:DescribeLog*",
+    ]
+    resources = ["arn:aws:logs:*:*:log-group:/aws/${var.project_name}/*"]
+  }
+}
+```
 
-**Security Benefits:**
-- Complete environment isolation (blast radius containment)
-- Account-level IAM boundaries
-- Centralized security monitoring and compliance
-- Organization-wide audit trail
-
-**Operational Benefits:**
-- Clear cost attribution per environment
-- Environment-specific access controls
-- Simplified resource management
-- Standardized security baselines
-
-**Compliance Benefits:**
-- SRA-aligned architecture patterns
-- AWS Well-Architected Framework compliance
-- Centralized governance and policy enforcement
-- Comprehensive audit capabilities
-
----
-
-## Migration Strategy
-
-**Clean Slate Approach:** ✅ Complete
-- All existing resources decommissioned for fresh start
-- Eliminates configuration drift and legacy issues
-- Enables proper SRA implementation from ground up
-
-**Incremental Deployment:**
-- Management Account → Security Accounts → Workload Accounts
-- Validate each phase before proceeding
-- Maintain rollback capability at each step
-
-**Zero-Downtime Migration:**
-- Current website remains operational during migration
-- New architecture deployed in parallel
-- DNS cutover only after full validation
-
----
-
-## Technical Implementation Notes
-
-### 12-Factor App Integration
-- **Config:** Environment-specific variables externalized to account level
-- **Backing Services:** Security services as attached resources
-- **Build/Release/Run:** Consistent deployment across all accounts
-- **Stateless Processes:** Self-contained modules with minimal dependencies
-
-### SRA Compliance
-- Service Control Policies prevent root user access
-- Mandatory encryption for all storage services
-- Public access prevention across all accounts
-- Centralized security tooling in dedicated account
-
-### AWS Well-Architected Framework
-- **Security:** Multi-layered defense, least privilege access
-- **Reliability:** Cross-AZ deployment, automated recovery
-- **Performance:** CloudFront global distribution
-- **Cost:** Resource optimization, detailed cost attribution
-- **Operational Excellence:** Infrastructure as Code, monitoring
-- **Sustainability:** Right-sizing, efficient resource usage
+#### **Step 3.2: Deploy MVP Roles to Each Workload Account**
+```bash
+# Deploy to all workload accounts with MVP security context
+gh workflow run run.yml --field environment=dev --field terraform_directory=workloads/account-setup
+gh workflow run run.yml --field environment=staging --field terraform_directory=workloads/account-setup  
+gh workflow run run.yml --field environment=prod --field terraform_directory=workloads/account-setup
+```
 
 ---
 
-## Task Legend
-**🤖 Claude:** Infrastructure code, security modules, configuration automation  
-**👥 Engineering:** Architecture review, security validation, operational readiness
+### **Phase 4: MVP Website Deployment with Integrated Security & Logging**
+*Duration: 4-6 hours | Risk: Medium*
+
+#### **Step 4.1: Update Environment Configurations for MVP**
+
+Update `terraform/workloads/static-site/environments/dev.tfvars`:
+```hcl
+# MVP Development Configuration
+environment = "dev"
+project_name = "static-site"
+
+# MVP Feature Flags (cost-optimized)
+enable_cloudfront = false        # MVP: S3-only for dev
+enable_waf = false              # MVP: No WAF for dev
+enable_security_headers = true   # MVP: Always enabled
+enable_s3_encryption = true     # MVP: Always enabled (SRA requirement)
+
+# MVP Logging Configuration  
+enable_access_logs = true       # MVP: Always enabled
+log_retention_days = 30         # MVP: Cost-optimized retention
+enable_alarms = false          # MVP: No alarms for dev
+enable_detailed_monitoring = false # MVP: Basic monitoring only
+
+# MVP Security Profile
+mvp_security_profile = "minimal"
+monthly_budget_limit = "10"     # MVP: Strict dev budget
+```
+
+Update `terraform/workloads/static-site/environments/staging.tfvars`:
+```hcl
+# MVP Staging Configuration - Enhanced for validation
+enable_cloudfront = false       # MVP: Will enable in Phase 5
+enable_waf = false             # MVP: Will enable in Phase 5  
+mvp_security_profile = "standard"
+enable_alarms = true           # MVP: Staging gets monitoring
+log_retention_days = 90        # MVP: Extended retention for testing
+monthly_budget_limit = "25"    # MVP: Reasonable staging budget
+```
+
+Update `terraform/workloads/static-site/environments/prod.tfvars`:
+```hcl  
+# MVP Production Configuration - Full security when ready
+mvp_security_profile = "comprehensive"
+enable_alarms = true           # MVP: Full monitoring
+log_retention_days = 365       # MVP: Compliance retention
+monthly_budget_limit = "50"    # MVP: Production budget
+```
+
+#### **Step 4.2: Test MVP Multi-Account Pipeline**
+```bash
+# Test development environment first (MVP baseline)
+gh workflow run run.yml \
+  --field environment=dev \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+
+# Validate MVP logging and security
+gh run view [RUN_ID]
+```
 
 ---
 
----
+### **Phase 5: Progressive MVP Environment Migration**
+*Duration: 6-8 hours | Risk: Medium*
 
-## Phase 3 Deployment Instructions
+#### **Step 5.1: Development Environment MVP Deployment (Day 1-2)**
+```bash
+# Deploy MVP to development account
+gh workflow run run.yml \
+  --field environment=dev \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
 
-**Location**: `terraform/foundations/org-management/`
-**Status**: ⏸️ **PAUSED** - GitHub Actions billing limits reached (resume next month)
+# Validate MVP components
+gh run view [RUN_ID]
 
-**Alternative Deployment Options:**
-1. **GitHub Actions** (preferred, currently blocked):
-   ```bash
-   gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
-   ```
+# Test MVP logging functionality
+aws logs describe-log-groups --log-group-name-prefix "/aws/static-site"
+```
 
-2. **Local Deployment** (emergency fallback):
-   ```bash
-   cd terraform/foundations/org-management
-   # Review the plan  
-   tofu plan
-   # Deploy (when ready)
-   tofu apply
-   ```
+#### **Step 5.2: Staging Environment MVP Deployment (Day 2-3)**
+```bash
+# Deploy enhanced MVP to staging account
+gh workflow run run.yml \
+  --field environment=staging \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
 
-**Pre-Deployment Checklist:**
-1. ✅ Configuration created and validated
-2. ✅ AWS CLI configured with Management Account credentials  
-3. ✅ KMS encryption configured for security compliance
-4. ✅ Workflow branch references fixed for proper deployment
-5. ⚠️  GitHub Actions billing limits - wait for new billing cycle
+# Run comprehensive MVP testing
+gh workflow run test.yml --field environment=staging
 
-**Expected Results:**
-- Security OU with 2 new accounts created
-- Service Control Policies applied
-- Cross-account deployment roles configured
-- State backend established
+# Validate security logging integration
+aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=S3:GetObject
+```
 
----
+#### **Step 5.3: Production Environment MVP Deployment (Day 3-4)**
+```bash
+# Deploy comprehensive MVP to production account (requires code owner approval)
+gh workflow run run.yml \
+  --field environment=prod \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
 
-## Architecture Alignment Notes
+# Validate production MVP deployment
+gh workflow run test.yml --field environment=prod
 
-This roadmap aligns with AWS Security Reference Architecture (SRA) and incorporates best practices from enterprise gold-standard patterns. The implementation is staged to deliver:
-
-1. **Immediate Value (MVP)**: Secure, operational website within 4-6 weeks
-2. **Progressive Enhancement**: Enterprise features added based on scale and requirements
-3. **Cost Optimization**: Features scaled with actual needs, not theoretical requirements
-4. **Risk-Based Prioritization**: Security controls implemented based on threat model
-
-For detailed gap analysis against enterprise standards, see comparison report with mhanyc/aws-ent-architecture.
-
----
+# Comprehensive security validation
+aws security-hub get-findings --filters ProductArn="arn:aws:securityhub:*:*:product/aws/aws-config"
+```
 
 ---
 
-## 🚨 Current Constraints & Next Steps
+### **Phase 6: MVP Validation and Enhancement Planning**
+*Duration: 2-3 hours | Risk: Low*
 
-**BILLING CONSTRAINT**: GitHub Actions monthly limits reached - deployment operations paused until next billing cycle.
+#### **Step 6.1: MVP Multi-Account Validation**
+```bash
+# Validate MVP account isolation
+gh workflow run test.yml --field test_type=multi_account_validation
 
-**Immediate Actions for New Month:**
-1. **Resume Phase 3 Deployment**: Execute organization management infrastructure deployment
-2. **Implement Nested OU Architecture**: Migrate to team/app-based nested organizational units
-3. **Enhance OPA Policies**: Add multi-account validation rules (organization, cross-account IAM, KMS)
-4. **Consider MVP Simplification**: Evaluate temporary CloudFront removal for faster MVP deployment
-5. **Create App-Specific Accounts**: Deploy dev/staging/prod accounts for static-site app
-6. **Update CI/CD Pipeline**: Implement account-specific deployment routing
+# Test all MVP environments independently
+gh workflow run run.yml --field environment=dev
+gh workflow run run.yml --field environment=staging  
+gh workflow run run.yml --field environment=prod
 
-**Architecture Readiness**: 
-- ✅ Organization management infrastructure code complete and security-validated
-- ✅ Composable module architecture implemented  
-- ✅ Workflow branch reference issues resolved
-- ⏸️ Deployment blocked only by GitHub Actions billing limits
+# Validate MVP security logging across accounts
+aws organizations list-accounts | jq '.Accounts[] | {Name: .Name, Id: .Id}'
+```
 
-**MVP Optimization Option**: 
-- 💡 **CloudFront Removal Plan**: Created comprehensive plan to temporarily remove CloudFront/WAF for MVP
-- 🎯 **Benefits**: 90% cost reduction (~$27→$3/month), 75% faster deployment (20→5 min), much simpler architecture
-- ⚠️ **Trade-offs**: No global CDN, no WAF protection, HTTP-only, higher latency, basic security
-- 🔄 **Re-enablement Strategy**: Feature toggle approach for progressive enhancement post-MVP
-
-**Nested OU Architecture Plan**: 
-- ✅ **AWS Validation**: Confirmed nested OU support (5 levels max, using 4 levels)
-- 🏗️ **Structure**: Root → Teams → Apps → Environment Accounts (dev/staging/prod)
-- 🎯 **Benefits**: Team autonomy, app isolation, clear cost attribution, policy inheritance, infinite scalability
-- 📋 **Migration**: 5-phase implementation (Foundation → Account Factory → Directory → Workflows → Documentation)
-- 🔄 **Impact**: Complete restructure of terraform directories and deployment workflows
+#### **Step 6.2: MVP Enhancement Roadmap Documentation**
+- [ ] Document MVP security baseline achieved
+- [ ] Plan CloudFront/WAF enablement (Phase 7)
+- [ ] Plan enhanced security services activation (Phase 8)
+- [ ] Create cost optimization recommendations
+- [ ] Document compliance posture achieved
 
 ---
 
-*Last Updated: 2025-08-28*  
-*Status: Phase 3 IN PROGRESS - Billing Constrained*
-*Organization: o-0hh51yjgxw | Management Account: 223938610551*
-*Location: terraform/foundations/org-management/*
-*Enterprise Alignment: MVP path defined with clear post-MVP enhancement roadmap*
+## MVP Anti-Fragility Benefits
+
+### **1. SRA-Compliant Environment Isolation**
+- Development failures cannot affect production (account boundaries)
+- Account-level billing separation enables cost allocation
+- Independent resource limits prevent resource exhaustion
+
+### **2. Progressive Security Implementation**
+- MVP security baseline with feature flag expansion capability
+- Environment-specific security profiles (minimal → comprehensive)
+- Cost-aware security service activation
+
+### **3. Logging & Audit Foundation**
+- Organization-wide CloudTrail for compliance (SRA requirement)
+- Environment-specific log retention policies
+- Centralized log archive for long-term storage
+
+---
+
+## MVP Immediate Action Plan (Next 48 Hours)
+
+### **Hour 1-4: Foundation with Security**
+```bash
+# Deploy organization management with MVP security
+gh workflow run run.yml \
+  --field environment=management \
+  --field terraform_directory=foundations/org-management
+```
+
+### **Hour 5-10: Account Factory with Security OU**
+```bash
+# Deploy account factory with security tooling preparation
+gh workflow run run.yml \
+  --field environment=management \
+  --field terraform_directory=foundations/account-factory
+```
+
+### **Hour 11-16: MVP Security Feature Flags**
+```bash
+# Deploy security services configuration
+gh workflow run run.yml \
+  --field environment=management \
+  --field terraform_directory=foundations/security-services
+```
+
+### **Hour 17-24: MVP Workload Account Setup**
+```bash
+# Deploy MVP-aware workload account roles
+gh workflow run run.yml --field environment=dev --field terraform_directory=workloads/account-setup
+gh workflow run run.yml --field environment=staging --field terraform_directory=workloads/account-setup
+gh workflow run run.yml --field environment=prod --field terraform_directory=workloads/account-setup
+```
+
+### **Hour 25-48: MVP Pipeline Testing**
+```bash
+# Update GitHub secrets for multi-account
+gh workflow run update-secrets.yml --field update_secrets=true
+
+# Test MVP deployment to development
+gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true --field deploy_website=true
+
+# Validate MVP logging and security
+aws sts get-caller-identity
+aws logs describe-log-groups
+aws cloudtrail describe-trails
+```
+
+---
+
+## MVP Success Metrics
+
+### **Core MVP Requirements**
+- [ ] **Basic Website Deployment**: S3 static hosting operational in all environments
+- [ ] **Basic Logging**: CloudTrail + CloudWatch logs functional across accounts  
+- [ ] **Basic Security Tooling**: SRA-compliant foundation with feature flag expansion
+- [ ] **Multi-Account Isolation**: Zero cross-environment access capability
+
+### **SRA Compliance Validation**
+- [ ] **Account Structure**: Management + Security OU + Workloads OU operational
+- [ ] **Audit Logging**: Organization-wide CloudTrail capturing all API calls
+- [ ] **Encryption**: KMS encryption at rest for all data stores
+- [ ] **Access Control**: Cross-account roles with least privilege principles
+- [ ] **Cost Control**: Budget alerts and environment-specific limits active
+
+### **Progressive Enhancement Ready**
+- [ ] **Feature Flags**: Security services ready for selective activation
+- [ ] **Monitoring**: CloudWatch dashboards deployable per environment
+- [ ] **CDN/WAF**: CloudFront and WAF ready for Phase 7 activation
+- [ ] **Compliance**: Enhanced security services ready for Phase 8 activation
+
+---
+
+**🎯 START NOW: Execute Phase 1 Step 1.1 to begin MVP multi-account deployment with integrated security and logging foundation**
