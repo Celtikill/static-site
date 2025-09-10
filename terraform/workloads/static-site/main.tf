@@ -87,6 +87,9 @@ locals {
   bucket_name       = "${local.project_name}-${local.environment}-${random_id.suffix.hex}"
   distribution_name = "${local.project_name}-${local.environment}"
 
+  # Validate feature flag dependencies
+  validate_waf_dependency = var.enable_waf && !var.enable_cloudfront ? tobool("WAF requires CloudFront to be enabled. Set enable_cloudfront = true when enable_waf = true.") : true
+
   # Common tags applied to all resources
   common_tags = merge(var.common_tags, {
     Project     = local.project_name
