@@ -284,6 +284,10 @@ resource "aws_kms_alias" "main" {
 
   name          = "alias/${local.project_name}-${local.environment}"
   target_key_id = aws_kms_key.main[0].key_id
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # Route 53 Configuration (optional)

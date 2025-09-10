@@ -236,8 +236,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "website" {
 
 # Dedicated logging bucket (optional)
 resource "aws_s3_bucket" "access_logs" {
-  count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
-  bucket = length("${var.bucket_name}-access-logs") > 63 ? "${substr(var.bucket_name, 0, 51)}-${substr(md5(var.bucket_name), 0, 11)}" : "${var.bucket_name}-access-logs"
+  count         = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
+  bucket        = length("${var.bucket_name}-access-logs") > 63 ? "${substr(var.bucket_name, 0, 51)}-${substr(md5(var.bucket_name), 0, 11)}" : "${var.bucket_name}-access-logs"
+  force_destroy = var.force_destroy
 
   tags = merge(var.common_tags, {
     Name    = "${var.bucket_name}-access-logs"

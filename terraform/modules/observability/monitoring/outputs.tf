@@ -42,7 +42,7 @@ output "cache_hit_rate_alarm_arn" {
 
 output "waf_blocked_requests_alarm_arn" {
   description = "ARN of the WAF blocked requests alarm"
-  value       = aws_cloudwatch_metric_alarm.waf_high_blocked_requests.arn
+  value       = var.waf_web_acl_name != "" ? aws_cloudwatch_metric_alarm.waf_high_blocked_requests[0].arn : ""
 }
 
 output "s3_billing_alarm_arn" {
