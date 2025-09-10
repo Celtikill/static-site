@@ -2,7 +2,7 @@
 # S3 Backend for static website workload - Staging
 
 # Core S3 Backend Configuration
-bucket                     = "terraform-state-staging-927588814642"
+bucket                     = "static-site-terraform-state-us-east-1"
 key                        = "workloads/static-site/staging/terraform.tfstate"
 region                     = "us-east-1"
 encrypt                    = true
