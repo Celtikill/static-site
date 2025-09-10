@@ -71,25 +71,26 @@ output "cloudfront_alerts_topic_arn" {
 }
 
 # IAM Outputs - References to manually managed resources
-output "github_actions_role_arn" {
-  description = "ARN of the GitHub Actions IAM role (manually managed)"
-  value       = data.aws_iam_role.github_actions.arn
-}
+# Commented out as these require IAM read permissions which PowerUserAccess doesn't provide
+# output "github_actions_role_arn" {
+#   description = "ARN of the GitHub Actions IAM role (manually managed)"
+#   value       = data.aws_iam_role.github_actions.arn
+# }
 
-output "github_actions_role_name" {
-  description = "Name of the GitHub Actions IAM role (manually managed)"
-  value       = data.aws_iam_role.github_actions.name
-}
+# output "github_actions_role_name" {
+#   description = "Name of the GitHub Actions IAM role (manually managed)"
+#   value       = data.aws_iam_role.github_actions.name
+# }
 
-output "github_oidc_provider_arn" {
-  description = "ARN of the GitHub OIDC identity provider"
-  value       = data.aws_iam_openid_connect_provider.github.arn
-}
+# output "github_oidc_provider_arn" {
+#   description = "ARN of the GitHub OIDC identity provider"
+#   value       = data.aws_iam_openid_connect_provider.github.arn
+# }
 
-output "oidc_provider_arn" {
-  description = "ARN of the GitHub OIDC identity provider (alias for compatibility)"
-  value       = data.aws_iam_openid_connect_provider.github.arn
-}
+# output "oidc_provider_arn" {
+#   description = "ARN of the GitHub OIDC identity provider (alias for compatibility)"
+#   value       = data.aws_iam_openid_connect_provider.github.arn
+# }
 
 # Monitoring Outputs
 output "sns_topic_arn" {
@@ -168,7 +169,7 @@ output "deployment_info" {
   value = {
     s3_bucket       = module.s3.bucket_id
     cloudfront_id   = var.enable_cloudfront ? module.cloudfront[0].distribution_id : null
-    github_role_arn = data.aws_iam_role.github_actions.arn
+    # github_role_arn = data.aws_iam_role.github_actions.arn  # Commented out - requires IAM permissions
     aws_region      = data.aws_region.current.name
     project_name    = local.project_name
     environment     = local.environment

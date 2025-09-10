@@ -206,13 +206,15 @@ module "cloudfront" {
 # Note: These resources are created and managed manually in AWS Console
 # using the policy files in /docs directory
 
-data "aws_iam_role" "github_actions" {
-  name = "github-actions-workload-deployment"
-}
+# Commented out as these require IAM read permissions which PowerUserAccess doesn't provide
+# These are only used for informational outputs and not critical to infrastructure deployment
+# data "aws_iam_role" "github_actions" {
+#   name = "github-actions-workload-deployment"
+# }
 
-data "aws_iam_openid_connect_provider" "github" {
-  url = "https://token.actions.githubusercontent.com"
-}
+# data "aws_iam_openid_connect_provider" "github" {
+#   url = "https://token.actions.githubusercontent.com"
+# }
 
 # Monitoring Module - Comprehensive observability and alerting
 module "monitoring" {
