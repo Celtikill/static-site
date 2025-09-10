@@ -181,11 +181,6 @@ variable "enable_waf" {
   description = "Enable WAF Web ACL for CloudFront distribution (requires enable_cloudfront = true)"
   type        = bool
   default     = false
-
-  validation {
-    condition     = var.enable_waf ? var.enable_cloudfront : true
-    error_message = "WAF requires CloudFront to be enabled. Set enable_cloudfront = true when enable_waf = true."
-  }
 }
 
 variable "waf_rate_limit" {
