@@ -64,51 +64,50 @@ resource "aws_sns_topic_subscription" "email_alerts" {
 # Local values for dynamic dashboard widget configuration
 locals {
   # CloudFront widgets (when CloudFront is configured)
-  cloudfront_widgets = var.cloudfront_distribution_id != "" ? [
-    {
-      type   = "metric"
-      x      = 0
-      y      = 0
-      width  = 12
-      height = 6
-      properties = {
-        metrics = [
-          ["AWS/CloudFront", "Requests", "DistributionId", var.cloudfront_distribution_id],
-          [".", "BytesDownloaded", ".", "."],
-          [".", "BytesUploaded", ".", "."]
-        ]
-        view    = "timeSeries"
-        stacked = false
-        region  = "us-east-1"
-        title   = "CloudFront Traffic"
-        period  = 300
-      }
-    },
-    {
-      type   = "metric"
-      x      = 12
-      y      = 0
-      width  = 12
-      height = 6
-      properties = {
-        metrics = [
-          ["AWS/CloudFront", "4xxErrorRate", "DistributionId", var.cloudfront_distribution_id],
-          [".", "5xxErrorRate", ".", "."]
-        ]
-        view    = "timeSeries"
-        stacked = false
-        region  = "us-east-1"
-        title   = "CloudFront Error Rates"
-        period  = 300
-        yAxis = {
-          left = {
-            min = 0
-            max = 100
-          }
+  cloudfront_traffic_widget = var.cloudfront_distribution_id != "" ? [{
+    type   = "metric"
+    x      = 0
+    y      = 0
+    width  = 12
+    height = 6
+    properties = {
+      metrics = [
+        ["AWS/CloudFront", "Requests", "DistributionId", var.cloudfront_distribution_id],
+        [".", "BytesDownloaded", ".", "."],
+        [".", "BytesUploaded", ".", "."]
+      ]
+      view    = "timeSeries"
+      stacked = false
+      region  = "us-east-1"
+      title   = "CloudFront Traffic"
+      period  = 300
+    }
+  }] : []
+  
+  cloudfront_errors_widget = var.cloudfront_distribution_id != "" ? [{
+    type   = "metric"
+    x      = 12
+    y      = 0
+    width  = 12
+    height = 6
+    properties = {
+      metrics = [
+        ["AWS/CloudFront", "4xxErrorRate", "DistributionId", var.cloudfront_distribution_id],
+        [".", "5xxErrorRate", ".", "."]
+      ]
+      view    = "timeSeries"
+      stacked = false
+      region  = "us-east-1"
+      title   = "CloudFront Error Rates"
+      period  = 300
+      yAxis = {
+        left = {
+          min = 0
+          max = 100
         }
       }
     }
-  ] : []
+  }] : []
 
   # S3 widget (always present)
   s3_widgets = [
@@ -156,7 +155,8 @@ locals {
 
   # Combined widget list
   dashboard_widgets = concat(
-    local.cloudfront_widgets,
+    local.cloudfront_traffic_widget,
+    local.cloudfront_errors_widget,
     local.s3_widgets,
     local.waf_widgets
   )
