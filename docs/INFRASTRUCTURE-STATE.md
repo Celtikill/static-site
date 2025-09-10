@@ -58,12 +58,41 @@ To implement full environment isolation:
 4. Apply restrictive bucket policies
 5. Update IAM role policies to match new bucket names
 
+## GitHub Secrets Configuration
+
+### Required Secrets
+The following secrets must be configured in your GitHub repository for deployments to work:
+
+| Secret Name | Value | Purpose | Last Updated |
+|------------|-------|---------|--------------|
+| `AWS_ASSUME_ROLE` | `arn:aws:iam::223938610551:role/static-site-github-actions` | Production deployments | 2025-09-10 |
+| `AWS_ASSUME_ROLE_DEV` | `arn:aws:iam::223938610551:role/static-site-dev-github-actions` | Development deployments | 2025-09-10 |
+| `AWS_ASSUME_ROLE_STAGING` | `arn:aws:iam::223938610551:role/static-site-staging-github-actions` | Staging deployments | 2025-09-10 |
+
+### Setting Secrets
+```bash
+# Development role
+gh secret set AWS_ASSUME_ROLE_DEV --body "arn:aws:iam::223938610551:role/static-site-dev-github-actions"
+
+# Staging role
+gh secret set AWS_ASSUME_ROLE_STAGING --body "arn:aws:iam::223938610551:role/static-site-staging-github-actions"
+
+# Production role
+gh secret set AWS_ASSUME_ROLE --body "arn:aws:iam::223938610551:role/static-site-github-actions"
+```
+
+### Important Notes
+- These secrets are already configured and should not be modified unless IAM roles are recreated
+- Each role has environment-specific permissions and policies attached
+- Roles use OIDC authentication - no AWS credentials are stored
+
 ## Troubleshooting
 
 ### Common Issues
 1. **403 Access Denied**: Verify the correct role is being assumed for the environment
 2. **State Lock Conflicts**: S3 uses native locking; conflicts indicate concurrent operations
 3. **Backend Initialization**: Always use `-reconfigure` when switching environments
+4. **OIDC Authentication Failures**: Ensure the OIDC provider exists and trusts the repository
 
 ### Validation Commands
 ```bash
@@ -75,4 +104,7 @@ aws s3 ls s3://static-site-terraform-state-us-east-1/workloads/static-site/
 
 # Verify role permissions
 aws iam get-role --role-name static-site-{env}-github-actions
+
+# List GitHub secrets
+gh secret list | grep AWS
 ```
