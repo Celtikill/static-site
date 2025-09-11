@@ -1,287 +1,215 @@
-# Multi-Account Architecture Migration - ACCOUNTS EXIST BUT NOT UTILIZED
+# Multi-Account Architecture Migration - IMPLEMENTATION PLAN
 
-## 🚨 **CRITICAL DISCOVERY: Multi-Account Structure EXISTS but NOT CONFIGURED**
+**Last Updated**: 2025-09-11  
+**Status**: 🎯 EXECUTING - Multi-Account Migration Plan  
+**Decision**: Decommission management account workloads, implement proper multi-account separation
 
-**Last Updated**: 2025-09-10  
-**Status**: ⚠️ Accounts Created but Deploying to Wrong Account  
-**Issue**: All deployments going to management account (223938610551) instead of workload accounts  
-
-### **Current Reality Check** 🔍
-
-#### What EXISTS:
+## Current State
 ```
-AWS Organization (o-0hh51yjgxw) ✅ CREATED
-├── Management Account (223938610551) ✅ EXISTS
-├── Security OU ✅ CREATED
-│   └── (No accounts assigned yet)
-├── Workloads OU ✅ CREATED
-│   ├── Dev Account (822529998967) ✅ EXISTS
-│   ├── Staging Account (927588814642) ✅ EXISTS
-│   └── Prod Account (546274483801) ✅ EXISTS
-└── Sandbox OU ✅ CREATED
+AWS Organization: o-0hh51yjgxw ✅ CREATED
+├── Management Account (223938610551) - Contains all resources (TO BE DECOMMISSIONED)
+├── Dev Account (822529998967) - Has github-actions-workload-deployment role ✅ READY
+├── Staging Account (927588814642) - Has github-actions-workload-deployment role ✅ READY  
+└── Prod Account (546274483801) - Has github-actions-workload-deployment role ✅ READY
 ```
 
-#### What's MISCONFIGURED:
-1. **GitHub Secrets** - ALL point to management account roles:
-   - `AWS_ASSUME_ROLE_DEV`: `arn:aws:iam::223938610551:role/static-site-dev-github-actions` ❌
-   - Should be: `arn:aws:iam::822529998967:role/github-actions-deployment`
-   
-2. **Backend Configurations** - ALL use management account bucket:
-   - All environments: `s3://static-site-terraform-state-us-east-1` ❌
-   - Should be: Separate buckets or cross-account access
+## Implementation Plan
 
-3. **Deployed Resources** - ALL in management account:
-   - `static-website-dev-338427fa` is in 223938610551 ❌
-   - Should be in 822529998967 (dev account)
+### Phase 1: Decommission Management Account Infrastructure & Update Documentation
+**Duration: 2-3 hours | Risk: Medium**
 
-### **Why This Happened**
-The backend configurations reference account IDs in comments but the bucket names don't match:
-- Referenced: `terraform-state-dev-822529998967` (doesn't exist)
-- Actually using: `static-site-terraform-state-us-east-1` (in management account)
+#### 1.1 Graceful Decommission of Management Account Resources
+```bash
+# Navigate to workloads directory
+cd terraform/workloads/static-site
+
+# Destroy dev environment in management account
+tofu init -backend-config="backend-dev.hcl"
+tofu destroy -var-file="environments/dev.tfvars" -auto-approve
+
+# Destroy staging environment in management account  
+tofu init -backend-config="backend-staging.hcl" -reconfigure
+tofu destroy -var-file="environments/staging.tfvars" -auto-approve
+
+# Clean up S3 bucket versions if needed
+aws s3api list-object-versions --bucket static-website-dev-338427fa | jq '.Versions[]'
+aws s3 rm s3://static-website-dev-338427fa --recursive
+aws s3 rb s3://static-website-dev-338427fa --force
+```
+
+#### 1.2 Remove IAM Policies and Roles
+```bash
+# Keep OIDC provider and management roles, remove workload-specific roles
+aws iam delete-role-policy --role-name static-site-dev-github-actions --policy-name github-actions-core-infrastructure-policy
+aws iam delete-role --role-name static-site-dev-github-actions
+
+aws iam delete-role-policy --role-name static-site-staging-github-actions --policy-name github-actions-core-infrastructure-policy  
+aws iam delete-role --role-name static-site-staging-github-actions
+
+aws iam delete-role-policy --role-name static-site-github-actions --policy-name github-actions-core-infrastructure-policy
+aws iam delete-role --role-name static-site-github-actions
+```
+
+#### 1.3 Update Documentation
+- [ ] Update CURRENT-STATE.md to reflect decommissioned state
+- [ ] Document multi-account structure as active architecture
 
 ---
 
-## 🎯 **IMMEDIATE PRIORITY: Configure Cross-Account Deployment**
+### Phase 2: Create Separate State Buckets (Option A)
+**Duration: 1-2 hours | Risk: Low**
 
-### **Phase 0: Current State** ✅ COMPLETED
-- ✅ AWS Organization created
-- ✅ All accounts created
-- ✅ OUs structured
-- ✅ OIDC provider in management account
-- ✅ Development environment working (wrong account)
-- ❌ Cross-account roles not created
-- ❌ GitHub secrets pointing to wrong account
-- ❌ Resources in wrong account
-
----
-
-## Implementation Plan - REVISED
-
-### **Phase 1: Create Cross-Account IAM Roles** 🚨 IMMEDIATE
-*Duration: 2-3 hours | Risk: Low*
-
-#### Step 1.1: Create Deployment Roles in Each Workload Account
-
-For EACH account (Dev: 822529998967, Staging: 927588814642, Prod: 546274483801):
-
+#### 2.1 Create State Buckets in Each Workload Account
 ```bash
-# Template for cross-account trust policy
-cat > trust-policy.json << 'EOF'
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::223938610551:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:Celtikill/static-site:*"
-        }
-      }
-    }
-  ]
-}
-EOF
+# Dev Account (822529998967)
+aws sts assume-role --role-arn "arn:aws:iam::822529998967:role/OrganizationAccountAccessRole" --role-session-name "create-state-bucket"
+# Use returned credentials to create bucket
+aws s3api create-bucket --bucket static-site-terraform-state-dev-822529998967 --region us-east-1
+aws s3api put-bucket-versioning --bucket static-site-terraform-state-dev-822529998967 --versioning-configuration Status=Enabled
+aws s3api put-bucket-encryption --bucket static-site-terraform-state-dev-822529998967 --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 
-# For Dev Account (822529998967)
-aws iam create-role \
-  --role-name github-actions-deployment \
-  --assume-role-policy-document file://trust-policy.json \
-  --description "GitHub Actions deployment role for dev environment"
+# Staging Account (927588814642) 
+aws sts assume-role --role-arn "arn:aws:iam::927588814642:role/OrganizationAccountAccessRole" --role-session-name "create-state-bucket"
+aws s3api create-bucket --bucket static-site-terraform-state-staging-927588814642 --region us-east-1
+aws s3api put-bucket-versioning --bucket static-site-terraform-state-staging-927588814642 --versioning-configuration Status=Enabled
+aws s3api put-bucket-encryption --bucket static-site-terraform-state-staging-927588814642 --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 
-# Attach necessary policies (adapt from existing policies)
+# Prod Account (546274483801)
+aws sts assume-role --role-arn "arn:aws:iam::546274483801:role/OrganizationAccountAccessRole" --role-session-name "create-state-bucket"  
+aws s3api create-bucket --bucket static-site-terraform-state-prod-546274483801 --region us-east-1
+aws s3api put-bucket-versioning --bucket static-site-terraform-state-prod-546274483801 --versioning-configuration Status=Enabled
+aws s3api put-bucket-encryption --bucket static-site-terraform-state-prod-546274483801 --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 ```
 
-#### Step 1.2: Update GitHub Secrets with Correct ARNs
-
+#### 2.2 Update Backend Configurations
 ```bash
-# CORRECT configuration pointing to workload accounts
-gh secret set AWS_ASSUME_ROLE_DEV \
-  --body "arn:aws:iam::822529998967:role/github-actions-deployment"
-
-gh secret set AWS_ASSUME_ROLE_STAGING \
-  --body "arn:aws:iam::927588814642:role/github-actions-deployment"
-
-gh secret set AWS_ASSUME_ROLE \
-  --body "arn:aws:iam::546274483801:role/github-actions-deployment"
-```
-
----
-
-### **Phase 2: Setup State Management for Multi-Account** 
-*Duration: 2-3 hours | Risk: Medium*
-
-#### Option A: Separate State Buckets (Recommended)
-```bash
-# In each account, create state bucket
-aws s3api create-bucket \
-  --bucket static-site-terraform-state-dev-822529998967 \
-  --region us-east-1
-
 # Update backend-dev.hcl
 bucket = "static-site-terraform-state-dev-822529998967"
-```
 
-#### Option B: Cross-Account Access to Central Bucket
-```bash
-# Add bucket policy allowing cross-account access
-# Grant workload account roles access to specific state paths
-```
+# Update backend-staging.hcl  
+bucket = "static-site-terraform-state-staging-927588814642"
 
----
-
-### **Phase 3: Migrate Existing Resources**
-*Duration: 4-6 hours | Risk: High - Requires Downtime*
-
-#### Step 3.1: Backup Current State
-```bash
-# Download all state files
-aws s3 sync s3://static-site-terraform-state-us-east-1/ ./state-backup/
-```
-
-#### Step 3.2: Import Resources to Correct Account
-```bash
-# Option 1: Recreate resources in correct account
-# Option 2: Use AWS Resource Access Manager to share
-# Option 3: Keep dev in management, only move staging/prod
+# Update backend-prod.hcl
+bucket = "static-site-terraform-state-prod-546274483801"
 ```
 
 ---
 
-### **Phase 4: Validate Multi-Account Deployment**
-*Duration: 2-3 hours | Risk: Low*
+### Phase 3: Configure Cross-Account OIDC Authentication
+**Duration: 2-3 hours | Risk: Medium**
+
+#### 3.1 Create OIDC Providers in Each Workload Account
+```bash
+# For each workload account, create OIDC provider
+THUMBPRINT="6938fd4d98bab03faadb97b34396831e3780aea1"
+
+# Dev Account
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list $THUMBPRINT
+
+# Staging Account  
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list $THUMBPRINT
+
+# Prod Account
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list $THUMBPRINT
+```
+
+#### 3.2 Update IAM Role Trust Policies
+```bash
+# Update existing github-actions-workload-deployment roles in each account
+# Modify trust policy to use local OIDC provider instead of management account
+```
+
+#### 3.3 Add Deployment Policies
+```bash
+# Copy working policy from management account to each workload account
+# Scope to account-specific resources
+```
+
+---
+
+### Phase 4: Update GitHub Secrets & Configuration
+**Duration: 30 minutes | Risk: Low**
 
 ```bash
-# Test deployment to dev account
+# Update GitHub repository secrets
+gh secret set AWS_ASSUME_ROLE_DEV \
+  --body "arn:aws:iam::822529998967:role/github-actions-workload-deployment"
+
+gh secret set AWS_ASSUME_ROLE_STAGING \
+  --body "arn:aws:iam::927588814642:role/github-actions-workload-deployment"
+
+gh secret set AWS_ASSUME_ROLE \
+  --body "arn:aws:iam::546274483801:role/github-actions-workload-deployment"
+```
+
+---
+
+### Phase 5: Test Multi-Account Deployment  
+**Duration: 1-2 hours | Risk: High**
+
+#### 5.1 Clean Slate Deployment Testing
+```bash
+# Test dev environment deployment
 gh workflow run run.yml \
   --field environment=dev \
   --field deploy_infrastructure=true
 
-# Verify resources created in 822529998967, not 223938610551
-aws s3 ls --profile dev-account
+# Verify resources created in dev account (822529998967)
+aws sts assume-role --role-arn "arn:aws:iam::822529998967:role/OrganizationAccountAccessRole" --role-session-name "verify-deployment"
+aws s3 ls | grep static-website
+
+# Test staging and prod deployments
+gh workflow run run.yml --field environment=staging --field deploy_infrastructure=true
+gh workflow run run.yml --field environment=prod --field deploy_infrastructure=true
 ```
+
+#### 5.2 Validate Account Isolation
+- [ ] Verify dev resources only in 822529998967
+- [ ] Verify staging resources only in 927588814642  
+- [ ] Verify prod resources only in 546274483801
+- [ ] Confirm state files in separate account buckets
 
 ---
 
-## Decision Points
+### Phase 6: Final Documentation & Validation
+**Duration: 1 hour | Risk: Low**
 
-### Critical Questions to Answer:
-
-1. **Migration Strategy**:
-   - [ ] Recreate all resources in correct accounts? (Clean but requires downtime)
-   - [ ] Keep dev in management, only separate staging/prod? (Faster)
-   - [ ] Gradual migration with parallel resources? (Safe but costly)
-
-2. **State Management**:
-   - [ ] Separate state buckets per account? (Better isolation)
-   - [ ] Central state with cross-account access? (Easier management)
-   - [ ] Terraform Cloud/Enterprise? (Better collaboration)
-
-3. **Existing Resources**:
-   - [ ] What happens to `static-website-dev-338427fa`?
-   - [ ] Migrate data or start fresh?
-   - [ ] Keep as sandbox in management account?
+- [ ] Update CURRENT-STATE.md with true multi-account deployment
+- [ ] Update README.md architecture sections
+- [ ] Mark TODO.md as completed
+- [ ] Validate all documentation reflects new reality
 
 ---
 
-## Simplified Quick Fix Option
+## Rollback Strategy
+- Management account OIDC provider and roles preserved for emergency deployment
+- Original state files backed up in management account bucket
+- Can quickly redeploy to management account if needed
 
-### **Option: Keep Current Setup, Document as "Simplified Architecture"**
-
-If multi-account complexity isn't needed immediately:
-
-1. **Acknowledge Current State**:
-   - Document that all environments use management account
-   - Rely on IAM roles for separation (current state)
-   - Plan migration for when scale demands it
-
-2. **Update Documentation**:
-   - Remove references to multi-account from README
-   - Update architecture diagrams
-   - Set expectation for future migration
-
-3. **Benefits**:
-   - No migration needed
-   - Simpler state management
-   - Lower AWS costs (single account)
-
-4. **Risks**:
-   - No account-level isolation
-   - Shared blast radius
-   - Not following AWS best practices
+## Success Criteria
+- [ ] Dev environment deploys to account 822529998967
+- [ ] Staging environment deploys to account 927588814642
+- [ ] Prod environment deploys to account 546274483801
+- [ ] All environments maintain separate state and resources in account-specific buckets
+- [ ] Documentation reflects actual multi-account configuration
+- [ ] No resources remain in management account workloads
 
 ---
 
-## Cost Impact
+**Key Benefits:**
+- ✅ Complete account isolation and security boundaries
+- ✅ Clean separation with no legacy confusion  
+- ✅ Proper AWS multi-account best practices
+- ✅ No resource migration complexity
+- ✅ Clear validation of account boundaries
 
-### Current (Single Account)
-- ~$6.51/month for dev environment
-- No cross-account data transfer costs
-- Single set of AWS support fees
-
-### True Multi-Account
-- Additional costs per account (~$2-5 base)
-- Cross-account data transfer fees
-- Potential support fee multiplication
-- Estimated: ~$20-30/month minimum
-
----
-
-## Recommendations
-
-### **RECOMMENDED PATH FORWARD**:
-
-1. **Immediate** (Today):
-   - [ ] Decision: Fix multi-account OR document single-account
-   - [ ] If fixing: Create IAM roles in workload accounts
-   - [ ] Update GitHub secrets to correct ARNs
-
-2. **Short-term** (This Week):
-   - [ ] Setup state buckets in workload accounts
-   - [ ] Test deployment to dev account (822529998967)
-   - [ ] Document the chosen architecture
-
-3. **Medium-term** (Next Week):
-   - [ ] Migrate or recreate resources
-   - [ ] Update all documentation
-   - [ ] Train team on new structure
-
----
-
-## Quick Reference - ACTUAL State
-
-### Existing AWS Accounts
-```
-Management: 223938610551 (currently has everything)
-Dev:        822529998967 (empty, should have dev resources)
-Staging:    927588814642 (empty, should have staging)
-Prod:       546274483801 (empty, should have prod)
-```
-
-### Current Misconfiguration
-```
-GitHub Secret → Points to Role → In Wrong Account → Deploys to Wrong Place
-AWS_ASSUME_ROLE_DEV → static-site-dev-github-actions → 223938610551 → Management Account
-```
-
-### What It Should Be
-```
-GitHub Secret → Points to Role → In Correct Account → Deploys to Right Place
-AWS_ASSUME_ROLE_DEV → github-actions-deployment → 822529998967 → Dev Account
-```
-
----
-
-## Contact & Support
-
-**Issue**: Multi-account structure created but not properly configured  
-**Impact**: All resources in management account instead of workload accounts  
-**Decision Needed**: Fix multi-account or officially use single-account  
-
-*Last Updated: 2025-09-10 - Critical configuration issue discovered*
+*Implementation Status: Ready to Execute - All prerequisites validated*
