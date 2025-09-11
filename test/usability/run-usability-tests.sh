@@ -52,22 +52,31 @@ validate_environment() {
 # Construct site URL if not provided
 construct_site_url() {
     if [[ -z "$SITE_URL" ]]; then
+        # Fallback to hardcoded URLs if no URL provided
         case "$ENVIRONMENT" in
             dev)
-                SITE_URL="dev.${GITHUB_REPOSITORY_OWNER:-celtikill}-static-site.example.com"
+                SITE_URL="http://dev.${GITHUB_REPOSITORY_OWNER:-celtikill}-static-site.example.com"
                 ;;
             staging)
-                SITE_URL="staging.${GITHUB_REPOSITORY_OWNER:-celtikill}-static-site.example.com"
+                SITE_URL="http://staging.${GITHUB_REPOSITORY_OWNER:-celtikill}-static-site.example.com"
                 ;;
             prod)
-                SITE_URL="${GITHUB_REPOSITORY_OWNER:-celtikill}-static-site.example.com"
+                SITE_URL="http://${GITHUB_REPOSITORY_OWNER:-celtikill}-static-site.example.com"
                 ;;
         esac
-        echo "🔗 Constructed site URL: https://$SITE_URL"
+        echo "🔗 Constructed fallback site URL: $SITE_URL"
     else
-        # Extract domain from URL if full URL provided
-        SITE_URL=$(echo "$SITE_URL" | sed 's|https\?://||' | sed 's|/.*||')
-        echo "🔗 Using provided site URL: https://$SITE_URL"
+        # Use the provided URL directly (may be HTTP or HTTPS)
+        if [[ "$SITE_URL" =~ ^https?:// ]]; then
+            echo "🔗 Using provided site URL: $SITE_URL"
+        else
+            # Add protocol if missing
+            SITE_URL="http://$SITE_URL"
+            echo "🔗 Using provided site URL (added HTTP): $SITE_URL"
+        fi
+        
+        # Extract just the domain for DNS and SSL tests
+        SITE_DOMAIN=$(echo "$SITE_URL" | sed 's|https\?://||' | sed 's|/.*||')
     fi
 }
 
@@ -91,7 +100,7 @@ main() {
     setup_test_output
     
     echo ""
-    echo "🚀 Starting usability tests for: https://$SITE_URL"
+    echo "🚀 Starting usability tests for: $SITE_URL"
     echo ""
     
     # Export test configuration for sub-processes
@@ -107,7 +116,7 @@ main() {
         
         # Generate GitHub deployment status if in CI
         if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-            echo "::notice title=Usability Tests::All usability tests passed for $ENVIRONMENT environment (https://$SITE_URL)"
+            echo "::notice title=Usability Tests::All usability tests passed for $ENVIRONMENT environment ($SITE_URL)"
         fi
         
         exit 0
@@ -117,7 +126,7 @@ main() {
         
         # Generate GitHub deployment status if in CI
         if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-            echo "::error title=Usability Tests::Usability tests failed for $ENVIRONMENT environment (https://$SITE_URL)"
+            echo "::error title=Usability Tests::Usability tests failed for $ENVIRONMENT environment ($SITE_URL)"
         fi
         
         exit 1
