@@ -354,32 +354,14 @@ jobs:
             fi
           fi
 
-          # Website content deployment - supports both static files and Pelican
+          # Sync website content to S3
           WEBSITE_SOURCE_DIR="${{ vars.WEBSITE_SOURCE_DIR || 'src' }}"
-          BUILD_COMMAND="${{ vars.BUILD_COMMAND || '' }}"
-          
           echo "- **Source directory**: $WEBSITE_SOURCE_DIR/" >> $GITHUB_STEP_SUMMARY
           
-          # Future Pelican support: Build static site if build command provided
-          if [ -n "$BUILD_COMMAND" ]; then
-            echo "🔨 Building static site with: $BUILD_COMMAND" >> $GITHUB_STEP_SUMMARY
-            eval "$BUILD_COMMAND"
-            # After build, update source directory to output directory
-            WEBSITE_SOURCE_DIR="${{ vars.OUTPUT_DIR || 'output' }}"
-            echo "- **Built output directory**: $WEBSITE_SOURCE_DIR/" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "🔄 Uploading website content to S3..." >> $GITHUB_STEP_SUMMARY
-          if aws s3 sync "$WEBSITE_SOURCE_DIR/" s3://$BUCKET_NAME/ --delete; then
+          if aws s3 sync "$WEBSITE_SOURCE_DIR/" s3://$BUCKET_NAME/ --delete --quiet; then
             echo "✅ Website content uploaded to S3" >> $GITHUB_STEP_SUMMARY
-            
-            # List uploaded files for verification
-            echo "📁 **Uploaded files:**" >> $GITHUB_STEP_SUMMARY
-            aws s3 ls s3://$BUCKET_NAME/ --recursive | head -10 >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Website upload failed" >> $GITHUB_STEP_SUMMARY
-            echo "📋 **S3 sync output:**" >> $GITHUB_STEP_SUMMARY
-            aws s3 sync "$WEBSITE_SOURCE_DIR/" s3://$BUCKET_NAME/ --delete --dryrun >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
@@ -402,16 +384,12 @@ jobs:
 
           # Determine deployment URL from infrastructure outputs
           OUTPUTS='${{ needs.infrastructure.outputs.outputs }}'
-          CLOUDFRONT_DOMAIN=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // ""')
+          DEPLOYMENT_URL=$(echo "$OUTPUTS" | jq -r '.cloudfront_domain_name.value // ""')
 
-          if [ -n "$CLOUDFRONT_DOMAIN" ] && [[ "$CLOUDFRONT_DOMAIN" != "null" ]]; then
-            # CloudFront provides HTTPS
-            DEPLOYMENT_URL="https://$CLOUDFRONT_DOMAIN"
-            echo "🌐 Using CloudFront distribution for HTTPS access" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$DEPLOYMENT_URL" ] && [[ "$DEPLOYMENT_URL" != "null" ]]; then
+            DEPLOYMENT_URL="https://$DEPLOYMENT_URL"
           else
-            # S3 website endpoint only supports HTTP
-            DEPLOYMENT_URL="http://$BUCKET_NAME.s3-website-${{ env.AWS_DEFAULT_REGION }}.amazonaws.com"
-            echo "🪣 Using S3 website endpoint (HTTP only - no CloudFront)" >> $GITHUB_STEP_SUMMARY
+            DEPLOYMENT_URL="https://$BUCKET_NAME.s3-website-${{ env.AWS_DEFAULT_REGION }}.amazonaws.com"
           fi
 
           echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
@@ -439,12 +417,8 @@ jobs:
           chmod +x test/usability/run-usability-tests.sh
 
           ENV="${{ needs.info.outputs.target_environment }}"
-          SITE_URL="${{ needs.website.outputs.deployment_url }}"
-          
-          echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
-          echo "- **Testing URL**: $SITE_URL" >> $GITHUB_STEP_SUMMARY
 
-          if bash test/usability/run-usability-tests.sh "$ENV" "$SITE_URL"; then
+          if bash test/usability/run-usability-tests.sh "$ENV"; then
             echo "✅ Post-deployment usability tests passed" >> $GITHUB_STEP_SUMMARY
             echo "- New deployment to $ENV is working correctly" >> $GITHUB_STEP_SUMMARY
             echo "- Website is accessible and performing well" >> $GITHUB_STEP_SUMMARY
