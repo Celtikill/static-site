@@ -1,19 +1,10 @@
 # AWS Static Website Infrastructure
 
-## 🚀 Status Overview
-
-**Environments:** [![Development](https://img.shields.io/badge/development-unknown-lightgrey)](https://dev.yourdomain.com) [![Staging](https://img.shields.io/badge/staging-unknown-lightgrey)](https://staging.yourdomain.com) [![Production](https://img.shields.io/badge/production-unknown-lightgrey)](https://yourdomain.com)
-
 ### Pipeline Status
 [![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml) [![Run](https://github.com/celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/run.yml) [![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/release.yml)
 
 ### Quality & Security
 [![Security Scan](https://img.shields.io/badge/security%20scan-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Policy Check](https://img.shields.io/badge/policy%20check-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
-
-### 🚨 Current Status
-[![Status](https://img.shields.io/badge/multi--account_migration-ready_for_execution-brightgreen)](https://github.com/celtikill/static-site/blob/main/TODO.md) [![Deployment](https://img.shields.io/badge/deployment-github_actions_ready-brightgreen)](https://github.com/celtikill/static-site/blob/main/TODO.md)
-
-**Multi-Account Architecture Migration**: Organization management infrastructure ready for deployment. GitHub Actions workflows available for immediate execution.
 
 ---
 
@@ -22,8 +13,7 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 ## 🚀 Features
 
 - **🚩 Feature Flags**: Cost-optimized deployment with configurable CloudFront/WAF (~$1-5/month S3-only vs ~$20-35/month full stack)
-- **🔒 Security First**: OWASP Top 10 protection, WAF, encryption at rest/transit
-- **🌍 Global CDN**: CloudFront distribution with edge locations worldwide
+- **🔒 Security Enabled**: OWASP Top 10 protection, WAF, encryption at rest/transit
 - **📊 Monitoring**: Comprehensive CloudWatch dashboards and alerts
 - **💰 Cost Optimized**: S3 Intelligent Tiering, budget alerts
 - **🔄 Build-Test-Run Pipeline**: Simplified 3-phase deployment with automated quality gates and workflow orchestration
@@ -39,36 +29,6 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 - GitHub repository (for CI/CD)
 
 ## 🏗️ Architecture
-
-```mermaid
-graph LR
-    %% Accessibility
-    accTitle: AWS Static Website Infrastructure Architecture
-    accDescr: Shows the flow from Route 53 DNS through CloudFront CDN to S3 storage, with WAF providing security protection.
-
-    subgraph "Core Architecture"
-        R53[🌐 Route 53<br/>DNS Management]
-        CF[⚡ CloudFront<br/>Global CDN]
-        S3[📦 S3<br/>Static Storage]
-        WAF[🛡️ WAF<br/>Security Layer]
-    end
-
-    %% Flow
-    R53 --> CF
-    CF --> S3
-    CF --> WAF
-
-    %% Styling
-    classDef dnsBox fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
-    classDef cdnBox fill:#fff3cd,stroke:#856404,stroke-width:3px,color:#212529
-    classDef storageBox fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
-    classDef securityBox fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#b71c1c
-
-    class R53 dnsBox
-    class CF cdnBox
-    class S3 storageBox
-    class WAF securityBox
-```
 
 ## 🔄 Build-Test-Run Pipeline
 
@@ -96,51 +56,11 @@ This project implements a simplified 3-phase deployment strategy with comprehens
 3. **Production Deployment**: RELEASE workflow → BUILD → TEST → RUN (production)
 4. **Emergency Operations**: EMERGENCY workflow → expedited pipeline execution
 
-#### Version-Based Release Management
-1. **Release Candidates** (`v*.*.*-rc*`) → Staging deployment via RELEASE workflow
-2. **Stable Releases** (`v*.*.*`) → Production deployment with approval
-3. **Hotfix Releases** (`v*.*.*-hotfix.*`) → Emergency deployment path
-
-### 🔧 Workflow Commands
-
-```bash
-# Create release candidate (deploys to staging)
-gh workflow run release.yml --field version_type=rc
-
-# Create production release (requires approval)
-gh workflow run release.yml --field version_type=patch
-
-# Deploy to specific environment manually
-gh workflow run run.yml --field environment=staging --field deploy_infrastructure=true
-
-# Force security build and testing
-gh workflow run build.yml --field force_build=true
-gh workflow run test.yml --field force_all_jobs=true
-
-# Test full pipeline execution
-gh workflow run build.yml --field force_build=true --field environment=dev
-```
-
-### 🛡️ Quality Gates
-
 - **Security Scanning**: Checkov and Trivy analysis in BUILD phase (blocks on HIGH/CRITICAL)
 - **Policy Validation**: OPA/Rego policy compliance in TEST phase (environment-aware enforcement)
 - **Usability Testing**: Two-phase HTTP/SSL/performance validation (pre and post-deployment)
 - **Code Owner Approval**: Production deployments restricted to code owners
 - **Environment Health**: Staging validates development, production validates staging
-
-### 🚨 Emergency Procedures
-
-```bash
-# Emergency hotfix deployment
-gh workflow run emergency.yml --field operation=hotfix --field environment=prod --field reason="Critical security fix"
-
-# Emergency rollback
-gh workflow run emergency.yml --field operation=rollback --field environment=prod --field reason="Performance regression" --field rollback_method=last_known_good
-
-# Create hotfix release (alternative emergency path)
-gh workflow run release.yml --field version_type=hotfix --field deploy_after_tag=true
-```
 
 ## 📊 Status Overview
 
