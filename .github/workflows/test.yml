@@ -274,14 +274,27 @@ jobs:
           
           SECURITY_VIOLATIONS=0
           
-          # Run security policies (deny rules) with proper error handling
+          # Run security policies (deny rules) with proper error handling and output validation
           set +e  # Don't exit on conftest failure - we want to capture details
-          conftest verify --policy foundation-security.rego plan.json --output table
+          
+          echo "🔍 Running security policy validation..."
+          SECURITY_OUTPUT=$(conftest verify --policy foundation-security.rego plan.json --output table 2>&1)
           SECURITY_EXIT_CODE=$?
           set -e
           
+          # Critical: Detect silent failures where conftest produces no output
+          if [ -z "$SECURITY_OUTPUT" ] && [ $SECURITY_EXIT_CODE -eq 0 ]; then
+            echo "❌ **CRITICAL ERROR** - Conftest security validation produced no output" >> $GITHUB_STEP_SUMMARY
+            echo "This indicates conftest failed to execute properly or policies were not evaluated." >> $GITHUB_STEP_SUMMARY
+            echo "**Tools status:** conftest binary verified but execution failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "Security validation output: $SECURITY_OUTPUT"
+          
           if [ $SECURITY_EXIT_CODE -eq 0 ]; then
             echo "✅ All security policies passed" >> $GITHUB_STEP_SUMMARY
+            echo "Security policies executed successfully - no violations detected" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Security policy violations found" >> $GITHUB_STEP_SUMMARY
             SECURITY_VIOLATIONS=1
@@ -305,17 +318,29 @@ jobs:
             fi
           fi
           
-          # Run compliance policies (warn rules) 
+          # Run compliance policies (warn rules) with output validation
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 OPA Compliance Policy Validation:**" >> $GITHUB_STEP_SUMMARY
           
-          set +e  
-          conftest verify --policy foundation-compliance.rego plan.json --output table
+          set +e
+          echo "🔍 Running compliance policy validation..."
+          COMPLIANCE_OUTPUT=$(conftest verify --policy foundation-compliance.rego plan.json --output table 2>&1)
           COMPLIANCE_EXIT_CODE=$?
           set -e
           
+          # Critical: Detect silent failures where conftest produces no output
+          if [ -z "$COMPLIANCE_OUTPUT" ] && [ $COMPLIANCE_EXIT_CODE -eq 0 ]; then
+            echo "❌ **CRITICAL ERROR** - Conftest compliance validation produced no output" >> $GITHUB_STEP_SUMMARY
+            echo "This indicates conftest failed to execute properly or policies were not evaluated." >> $GITHUB_STEP_SUMMARY
+            echo "**Tools status:** conftest binary verified but execution failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "Compliance validation output: $COMPLIANCE_OUTPUT"
+          
           if [ $COMPLIANCE_EXIT_CODE -eq 0 ]; then
             echo "✅ All compliance policies passed" >> $GITHUB_STEP_SUMMARY
+            echo "Compliance policies executed successfully - no warnings detected" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ Compliance policy warnings found" >> $GITHUB_STEP_SUMMARY
             
