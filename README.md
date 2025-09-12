@@ -3,9 +3,6 @@
 ### Pipeline Status
 [![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml) [![Run](https://github.com/celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/run.yml) [![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/release.yml)
 
-### Quality & Security
-[![Security Scan](https://img.shields.io/badge/security%20scan-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Policy Check](https://img.shields.io/badge/policy%20check-passing-brightgreen)](https://github.com/celtikill/static-site/actions/workflows/test.yml)
-
 ---
 
 Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu (Terraform-compatible).

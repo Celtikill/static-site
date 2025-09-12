@@ -175,36 +175,72 @@ jobs:
               echo "   (Plan had provider warnings but structure is valid for policy analysis)" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "❌ Plan file not generated - falling back to static analysis" >> $GITHUB_STEP_SUMMARY
-            
-            # Fallback to static configuration analysis
+            echo "❌ **PLAN GENERATION FAILED** - Cannot perform OPA policy validation" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**📄 Static Configuration Analysis:**" >> $GITHUB_STEP_SUMMARY
-            
-            # Basic policy checks without full plan
-            if grep -r "server_side_encryption_configuration" . >/dev/null; then
-              echo "✅ S3 encryption configuration found" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "⚠️ S3 server-side encryption configuration not found" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            if grep -r "aws_organizations_organization" . >/dev/null; then
-              echo "✅ AWS Organizations configuration found" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "ℹ️ No AWS Organizations configuration (expected for workload deployment)" >> $GITHUB_STEP_SUMMARY
-            fi
-            
-            echo "✅ **STATIC ANALYSIS COMPLETE** - Limited validation due to provider constraints" >> $GITHUB_STEP_SUMMARY
-            exit 0
+            echo "### 🔧 For Engineers - How to Fix Plan Generation Issues:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Possible Causes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Terraform configuration syntax errors" >> $GITHUB_STEP_SUMMARY
+            echo "- Missing or invalid variable files" >> $GITHUB_STEP_SUMMARY
+            echo "- Provider configuration issues" >> $GITHUB_STEP_SUMMARY
+            echo "- Module reference problems" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Debugging Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Run \`tofu validate\` locally in \`terraform/workloads/static-site/\`" >> $GITHUB_STEP_SUMMARY
+            echo "2. Check that \`environments/$TARGET_ENV.tfvars\` exists and has valid syntax" >> $GITHUB_STEP_SUMMARY
+            echo "3. Verify all module references are correct" >> $GITHUB_STEP_SUMMARY
+            echo "4. Run \`tofu plan\` locally to reproduce the issue" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Note:** OPA policy validation requires a valid Terraform plan." >> $GITHUB_STEP_SUMMARY
+            echo "Static analysis is insufficient for comprehensive security policy enforcement." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **POLICY VALIDATION FAILED** - Fix plan generation to enable OPA validation" >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
           
           # Convert plan to JSON for OPA
           echo "Converting plan to JSON for policy analysis..." >> $GITHUB_STEP_SUMMARY
-          tofu show -json policy.tfplan > plan.json
+          if ! tofu show -json policy.tfplan > plan.json; then
+            echo "❌ **PLAN JSON CONVERSION FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 For Engineers - Plan JSON Conversion Error:" >> $GITHUB_STEP_SUMMARY
+            echo "- The Terraform plan file exists but cannot be converted to JSON" >> $GITHUB_STEP_SUMMARY
+            echo "- This may indicate a corrupted plan file or OpenTofu version issue" >> $GITHUB_STEP_SUMMARY  
+            echo "- Try running \`tofu show -json plan.tfplan\` locally to debug" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **POLICY VALIDATION FAILED** - Cannot analyze plan for OPA validation" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
           
           # Copy policy files to current directory
-          cp ../../../policies/*.rego .
-          cp ../../../policies/conftest.yaml .
+          if ! cp ../../../policies/*.rego . 2>/dev/null; then
+            echo "❌ **OPA POLICY FILES MISSING**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 For Engineers - Policy Files Not Found:" >> $GITHUB_STEP_SUMMARY
+            echo "- Expected policy files in \`policies/\` directory are missing" >> $GITHUB_STEP_SUMMARY
+            echo "- Required files: \`foundation-security.rego\`, \`foundation-compliance.rego\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Ensure policy files are committed to the repository" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **POLICY VALIDATION FAILED** - Missing policy definitions" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          if ! cp ../../../policies/conftest.yaml . 2>/dev/null; then
+            echo "⚠️ Conftest configuration not found - using default settings" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Verify OPA tools are available
+          if ! command -v conftest >/dev/null 2>&1; then
+            echo "❌ **CONFTEST NOT AVAILABLE**" >> $GITHUB_STEP_SUMMARY  
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 For Engineers - Conftest Installation Error:" >> $GITHUB_STEP_SUMMARY
+            echo "- Conftest policy runner is not installed or not in PATH" >> $GITHUB_STEP_SUMMARY
+            echo "- This indicates a workflow setup issue" >> $GITHUB_STEP_SUMMARY
+            echo "- Check the 'Setup OpenTofu and Policy Tools' step above" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **POLICY VALIDATION FAILED** - Missing policy validation tools" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
           
           # Run OPA policy validation
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -212,44 +248,102 @@ jobs:
           
           SECURITY_VIOLATIONS=0
           
-          # Run security policies (deny rules)
-          if conftest verify --policy foundation-security.rego plan.json --output table; then
+          # Run security policies (deny rules) with proper error handling
+          set +e  # Don't exit on conftest failure - we want to capture details
+          conftest verify --policy foundation-security.rego plan.json --output table
+          SECURITY_EXIT_CODE=$?
+          set -e
+          
+          if [ $SECURITY_EXIT_CODE -eq 0 ]; then
             echo "✅ All security policies passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "❌ Security policy violations found" >> $GITHUB_STEP_SUMMARY
             SECURITY_VIOLATIONS=1
             
-            # Get detailed security violations
+            # Get detailed security violations with error handling
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Security Policy Details:**" >> $GITHUB_STEP_SUMMARY
-            conftest verify --policy foundation-security.rego plan.json --output json | jq -r '.[] | select(.failures) | .failures[] | "❌ " + .msg' >> $GITHUB_STEP_SUMMARY || true
+            
+            set +e
+            SECURITY_DETAILS=$(conftest verify --policy foundation-security.rego plan.json --output json 2>&1)
+            SECURITY_JSON_EXIT=$?
+            set -e
+            
+            if [ $SECURITY_JSON_EXIT -eq 0 ] && [ -n "$SECURITY_DETAILS" ]; then
+              echo "$SECURITY_DETAILS" | jq -r '.[] | select(.failures) | .failures[] | "❌ " + .msg' >> $GITHUB_STEP_SUMMARY 2>/dev/null || {
+                echo "❌ Policy violations detected but details unavailable (JSON parsing error)" >> $GITHUB_STEP_SUMMARY
+                echo "Raw output: $SECURITY_DETAILS" >> $GITHUB_STEP_SUMMARY
+              }
+            else
+              echo "❌ Policy violations detected but details unavailable (conftest error)" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
           # Run compliance policies (warn rules) 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 OPA Compliance Policy Validation:**" >> $GITHUB_STEP_SUMMARY
           
-          if conftest verify --policy foundation-compliance.rego plan.json --output table; then
+          set +e  
+          conftest verify --policy foundation-compliance.rego plan.json --output table
+          COMPLIANCE_EXIT_CODE=$?
+          set -e
+          
+          if [ $COMPLIANCE_EXIT_CODE -eq 0 ]; then
             echo "✅ All compliance policies passed" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ Compliance policy warnings found" >> $GITHUB_STEP_SUMMARY
             
-            # Get detailed compliance warnings
+            # Get detailed compliance warnings with error handling
             echo "" >> $GITHUB_STEP_SUMMARY  
             echo "**Compliance Policy Details:**" >> $GITHUB_STEP_SUMMARY
-            conftest verify --policy foundation-compliance.rego plan.json --output json | jq -r '.[] | select(.warnings) | .warnings[] | "⚠️ " + .msg' >> $GITHUB_STEP_SUMMARY || true
+            
+            set +e
+            COMPLIANCE_DETAILS=$(conftest verify --policy foundation-compliance.rego plan.json --output json 2>&1)
+            COMPLIANCE_JSON_EXIT=$?
+            set -e
+            
+            if [ $COMPLIANCE_JSON_EXIT -eq 0 ] && [ -n "$COMPLIANCE_DETAILS" ]; then
+              echo "$COMPLIANCE_DETAILS" | jq -r '.[] | select(.warnings) | .warnings[] | "⚠️ " + .msg' >> $GITHUB_STEP_SUMMARY 2>/dev/null || {
+                echo "⚠️ Policy warnings detected but details unavailable (JSON parsing error)" >> $GITHUB_STEP_SUMMARY  
+                echo "Raw output: $COMPLIANCE_DETAILS" >> $GITHUB_STEP_SUMMARY
+              }
+            else
+              echo "⚠️ Policy warnings detected but details unavailable (conftest error)" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
           
-          # Environment-specific enforcement
+          # Environment-specific enforcement with actionable guidance
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "$TARGET_ENV" = "prod" ] && [ $SECURITY_VIOLATIONS -gt 0 ]; then
             echo "❌ **POLICY VALIDATION FAILED** - Production deployment blocked due to security violations" >> $GITHUB_STEP_SUMMARY
-            echo "Fix all security policy violations before deploying to production." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 For Engineers - Security Violations Must Be Fixed:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review the security policy details above for specific violations" >> $GITHUB_STEP_SUMMARY
+            echo "2. Fix each violation in your Terraform configuration" >> $GITHUB_STEP_SUMMARY
+            echo "3. Test locally: \`conftest verify --policy policies/foundation-security.rego plan.json\`" >> $GITHUB_STEP_SUMMARY
+            echo "4. Commit fixes and re-run this workflow" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Policy Documentation:** See \`policies/README.md\` for policy details and examples" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Production deployments cannot proceed with security policy violations**" >> $GITHUB_STEP_SUMMARY
             exit 1
           elif [ $SECURITY_VIOLATIONS -gt 0 ]; then
             echo "⚠️ **SECURITY VIOLATIONS FOUND** - Review and fix security issues for $TARGET_ENV environment" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 For Engineers - Security Issues Detected:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Action Required:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Review security policy violations above" >> $GITHUB_STEP_SUMMARY
+            echo "- While $TARGET_ENV deployment is allowed, these should be fixed" >> $GITHUB_STEP_SUMMARY
+            echo "- Use \`conftest verify --policy policies/foundation-security.rego plan.json\` to test fixes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **These violations will block production deployment** - fix before promoting to prod" >> $GITHUB_STEP_SUMMARY
           else
             echo "🎉 **ALL POLICIES COMPLIANT** - Infrastructure meets security and compliance standards" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **OPA Validation Complete:** No security violations or compliance issues found" >> $GITHUB_STEP_SUMMARY
           fi
 
   unit-tests:
