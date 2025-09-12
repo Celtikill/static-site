@@ -73,6 +73,118 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
+# S3 Replication IAM Role for cross-region replication
+resource "aws_iam_role" "s3_replication" {
+  count = var.enable_cross_region_replication ? 1 : 0
+  name  = "static-site-s3-replication"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          StringLike = {
+            "aws:SourceArn" = "arn:aws:s3:::*static-site*"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = local.common_tags
+}
+
+# IAM Policy for S3 Replication Role
+resource "aws_iam_role_policy" "s3_replication_policy" {
+  count = var.enable_cross_region_replication ? 1 : 0
+  name  = "static-site-s3-replication-policy"
+  role  = aws_iam_role.s3_replication[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "SourceBucketPermissions"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObjectVersionForReplication",
+          "s3:GetObjectVersionAcl"
+        ]
+        Resource = [
+          "arn:aws:s3:::static-site-${var.environment}-*/*"
+        ]
+      },
+      {
+        Sid    = "DestinationBucketPermissions"
+        Effect = "Allow"
+        Action = [
+          "s3:ReplicateObject",
+          "s3:ReplicateDelete"
+        ]
+        Resource = [
+          "arn:aws:s3:::static-site-${var.environment}-*/*"
+        ]
+      },
+      {
+        Sid    = "BucketListPermissions"
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::static-site-${var.environment}-*"
+        ]
+      }
+    ]
+  })
+}
+
+# IAM Policy for GitHub Actions to pass the S3 replication role
+resource "aws_iam_role_policy" "github_actions_s3_replication_pass_role" {
+  count = var.enable_cross_region_replication ? 1 : 0
+  name  = "s3-replication-pass-role-policy"
+  role  = "github-actions-workload-deployment"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = [
+          aws_iam_role.s3_replication[0].arn
+        ]
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "s3.amazonaws.com"
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies"
+        ]
+        Resource = [
+          aws_iam_role.s3_replication[0].arn
+        ]
+      }
+    ]
+  })
+}
+
 # Random suffix for global resource names
 resource "random_id" "suffix" {
   byte_length = 4
@@ -134,7 +246,7 @@ module "s3" {
   enable_replication          = var.enable_cross_region_replication
   replica_region              = var.replica_region
   kms_key_id                  = var.kms_key_id
-  replication_role_arn        = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/static-site-s3-replication"
+  replication_role_arn        = var.enable_cross_region_replication ? aws_iam_role.s3_replication[0].arn : ""
   common_tags                 = local.common_tags
 
   providers = {
