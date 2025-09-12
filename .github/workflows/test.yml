@@ -98,13 +98,13 @@ jobs:
           sudo mv /tmp/tofu /usr/local/bin/
           
           # Install OPA (Open Policy Agent)
-          OPA_VERSION=v0.57.0
+          OPA_VERSION=v1.8.0
           curl -L -o /tmp/opa https://openpolicyagent.org/downloads/${OPA_VERSION}/opa_linux_amd64_static
           chmod +x /tmp/opa
           sudo mv /tmp/opa /usr/local/bin/
           
           # Install Conftest
-          CONFTEST_VERSION=0.46.0
+          CONFTEST_VERSION=0.62.0
           curl -L -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz
           cd /tmp && tar xzf conftest.tar.gz
           sudo mv /tmp/conftest /usr/local/bin/
