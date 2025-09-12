@@ -72,9 +72,16 @@ jobs:
             fi
 
             # Environment routing based on branch
+            # Note: main branch no longer auto-deploys to staging
+            # Staging deployments now happen via PR previews only
             BRANCH="${{ github.event.workflow_run.head_branch }}"
             case "$BRANCH" in
-              main) TARGET_ENV="staging" ;;
+              main) 
+                # Skip main branch auto-deploy - staging via PR only
+                echo "⚠️ Main branch auto-deploy to staging disabled"
+                echo "Use PR-based staging deployments instead"
+                exit 0
+                ;;
               *) TARGET_ENV="dev" ;;
             esac
 
