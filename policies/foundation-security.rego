@@ -1,5 +1,7 @@
 package terraform.foundation.security
 
+import rego.v1
+
 # SECURITY POLICIES - These rules DENY deployment if violated
 
 # Rule: S3 backends must have encryption enabled
