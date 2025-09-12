@@ -373,9 +373,5 @@ jobs:
               echo "- Check policy validation errors for security compliance issues" >> $GITHUB_STEP_SUMMARY
               echo "- Review Terraform configuration against security policies" >> $GITHUB_STEP_SUMMARY
             fi
-            if [[ "$FAILED_JOBS" == *"Cost"* ]]; then
-              echo "- Review cost estimation for budget compliance" >> $GITHUB_STEP_SUMMARY
-              echo "- Consider resource optimization if costs exceed limits" >> $GITHUB_STEP_SUMMARY
-            fi
             exit 1
           fi
