@@ -76,7 +76,7 @@ jobs:
             # Staging deployments now happen via PR previews only
             BRANCH="${{ github.event.workflow_run.head_branch }}"
             case "$BRANCH" in
-              main) 
+              main)
                 # Skip main branch auto-deploy - staging via PR only
                 echo "⚠️ Main branch auto-deploy to staging disabled"
                 echo "Use PR-based staging deployments instead"
@@ -118,7 +118,7 @@ jobs:
       - name: Production Authorization
         run: |
           echo "🔐 **Production Deployment Authorization**" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
             echo "❌ Production deployments require manual authorization"
             echo "Use: gh workflow run run-streamlined.yml"
@@ -155,7 +155,7 @@ jobs:
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Environment | ${{ needs.info.outputs.target_environment }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deployment Status | ${{ needs.deploy.outputs.deployment_status || 'Unknown' }} |" >> $GITHUB_STEP_SUMMARY
-          
+
           DEPLOY_URL="${{ needs.deploy.outputs.deployment_url }}"
           if [ -n "$DEPLOY_URL" ]; then
             echo "| Deployment URL | [$DEPLOY_URL]($DEPLOY_URL) |" >> \

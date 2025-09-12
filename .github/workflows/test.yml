@@ -47,7 +47,7 @@ jobs:
         id: info
         run: |
           TEST_ID="test-$(date +%Y%m%d-%H%M%S)-${{ github.run_id }}"
-          
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TARGET_ENV="${{ inputs.environment }}"
             COMMIT_SHA="${{ github.sha }}"
@@ -59,21 +59,21 @@ jobs:
               echo "❌ BUILD workflow failed - aborting tests"
               exit 1
             fi
-            
+
             BRANCH="${{ github.event.workflow_run.head_branch }}"
             case "$BRANCH" in
               main) TARGET_ENV="staging" ;;
               *) TARGET_ENV="dev" ;;
             esac
-            
+
             COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
             TRIGGER_SOURCE="automatic via BUILD workflow"
           fi
-          
+
           echo "target_environment=$TARGET_ENV" >> $GITHUB_OUTPUT
           echo "test_id=$TEST_ID" >> $GITHUB_OUTPUT
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          
+
           echo "# 🧪 TEST Phase - Streamlined" >> $GITHUB_STEP_SUMMARY
           echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $TARGET_ENV ($TRIGGER_SOURCE)" >> $GITHUB_STEP_SUMMARY
@@ -102,15 +102,19 @@ jobs:
           TARGET_ENV: ${{ needs.info.outputs.target_environment }}
         run: |
           echo "## 📋 Policy Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
-          
-          # Initialize terraform for plan generation
-          BACKEND_CONFIG="backend-$TARGET_ENV.hcl"
-          if [ -f "$BACKEND_CONFIG" ]; then
-            tofu init -backend=false
-          else
-            tofu init
-          fi
-          
+
+          # Initialize with local backend for policy validation (no state needed)
+          # Create temporary backend override
+          cat > backend_override.tf <<EOF
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate.policy"
+            }
+          }
+          EOF
+
+          tofu init -reconfigure
+
           # Generate plan for policy evaluation
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
@@ -118,16 +122,16 @@ jobs:
           else
             tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
           fi
-          
+
           # Convert to JSON for policy evaluation
           tofu show -json policy.tfplan > plan.json
-          
+
           # Policy validation results
           POLICY_VIOLATIONS=0
-          
+
           # Check for required security configurations
           echo "**Security Policy Validation:**" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check encryption settings
           if jq -e '.planned_values.root_module.resources[] | select(.type == "aws_s3_bucket" and (.values.server_side_encryption_configuration | length == 0))' plan.json >/dev/null; then
             echo "❌ S3 buckets must have encryption enabled" >> $GITHUB_STEP_SUMMARY
@@ -135,7 +139,7 @@ jobs:
           else
             echo "✅ S3 encryption policy compliant" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Check CloudFront security headers
           if [ "$TARGET_ENV" = "prod" ]; then
             if ! jq -e '.planned_values.root_module.resources[] | select(.type == "aws_cloudfront_distribution")' plan.json >/dev/null; then
@@ -145,7 +149,7 @@ jobs:
               echo "✅ CloudFront distribution policy compliant" >> $GITHUB_STEP_SUMMARY
             fi
           fi
-          
+
           # Environment-specific policy enforcement
           if [ "$TARGET_ENV" = "prod" ] && [ $POLICY_VIOLATIONS -gt 0 ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -170,10 +174,16 @@ jobs:
         with:
           ref: ${{ needs.info.outputs.commit_sha }}
 
+      - name: Setup OpenTofu
+        run: |
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+
       - name: Run Unit Tests
         run: |
           echo "## 🧪 Unit Tests - ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -f "test/unit/run-tests.sh" ]; then
             chmod +x test/unit/run-tests.sh
             if ./test/unit/run-tests.sh; then
@@ -217,10 +227,19 @@ jobs:
           TARGET_ENV: ${{ needs.info.outputs.target_environment }}
         run: |
           echo "## 💰 Cost Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
-          
-          # Initialize for cost estimation
-          tofu init -backend=false
-          
+
+          # Initialize with local backend for cost estimation (no state needed)
+          # Create temporary backend override
+          cat > backend_override.tf <<EOF
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate.cost"
+            }
+          }
+          EOF
+
+          tofu init -reconfigure
+
           # Generate plan for cost analysis
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
@@ -228,17 +247,17 @@ jobs:
           else
             tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
           fi
-          
+
           # Extract cost-relevant resources
           RESOURCES=$(tofu show -json cost.tfplan | jq -r '.planned_values.root_module.resources[].type' | sort | uniq -c)
-          
+
           echo "**Estimated Resources:**" >> $GITHUB_STEP_SUMMARY
           echo "$RESOURCES" | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
-          
+
           # Basic cost validation (simplified)
           ESTIMATED_MONTHLY_COST=25  # Simplified estimate
           BUDGET_LIMIT="${{ vars.MONTHLY_BUDGET_LIMIT || '100' }}"
-          
+
           if [ $ESTIMATED_MONTHLY_COST -gt $BUDGET_LIMIT ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **BUDGET EXCEEDED** - Estimated: \$${ESTIMATED_MONTHLY_COST}, Limit: \$${BUDGET_LIMIT}" >> $GITHUB_STEP_SUMMARY
@@ -266,7 +285,7 @@ jobs:
           echo "| Policy Validation | ${{ needs.policy-validation.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Cost Validation | ${{ needs.cost-validation.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          
+
           # Overall result
           FAILED_TESTS=""
           if [ "${{ needs.policy-validation.result }}" != "success" ]; then
@@ -278,7 +297,7 @@ jobs:
           if [ "${{ needs.cost-validation.result }}" != "success" ]; then
             FAILED_TESTS="${FAILED_TESTS}Cost "
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ -z "$FAILED_TESTS" ]; then
             echo "🎉 **ALL TESTS PASSED** - Ready for deployment" >> $GITHUB_STEP_SUMMARY

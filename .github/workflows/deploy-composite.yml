@@ -141,7 +141,7 @@ jobs:
           # Initialize with environment-specific backend
           BACKEND_CONFIG="backend-${{ inputs.environment }}.hcl"
           echo "Using backend: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
-          
+
           tofu init -reconfigure -backend-config="$BACKEND_CONFIG"
           echo "✅ Backend initialized" >> $GITHUB_STEP_SUMMARY
 
@@ -215,7 +215,7 @@ jobs:
             echo "📁 Uploading website content..." >> $GITHUB_STEP_SUMMARY
             aws s3 sync "$WEBSITE_SOURCE_DIR/" s3://$BUCKET_NAME/ --delete
             echo "✅ Website content uploaded" >> $GITHUB_STEP_SUMMARY
-            
+
             # List uploaded files for verification
             echo "📂 **Uploaded files:**" >> $GITHUB_STEP_SUMMARY
             aws s3 ls s3://$BUCKET_NAME/ --recursive | head -10 >> $GITHUB_STEP_SUMMARY
@@ -252,7 +252,7 @@ jobs:
         id: check
         run: |
           echo "## 🏥 Deployment Health Check" >> $GITHUB_STEP_SUMMARY
-          
+
           DEPLOY_URL="${{ needs.website-deployment.outputs.deployment_url }}"
           echo "Testing URL: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
 
@@ -266,7 +266,7 @@ jobs:
             fi
             sleep 30
           done
-          
+
           echo "⚠️ Health check failed after 10 attempts" >> $GITHUB_STEP_SUMMARY
           echo "health_status=unhealthy" >> $GITHUB_OUTPUT
           # Don't fail the deployment, just mark as unhealthy
@@ -287,9 +287,9 @@ jobs:
       - name: Create Tag
         run: |
           echo "## 🏷️ Creating Deployment Tag" >> $GITHUB_STEP_SUMMARY
-          
+
           TAG_NAME="${{ inputs.tag }}"
-          
+
           # Check if tag already exists
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
             echo "⚠️ Tag $TAG_NAME already exists" >> $GITHUB_STEP_SUMMARY
@@ -330,7 +330,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           # Infrastructure status
           INFRA_STATUS="${{ needs.infrastructure-deployment.result }}"
           if [ "${{ inputs.deploy_infrastructure }}" = "true" ]; then
@@ -342,7 +342,7 @@ jobs:
           else
             echo "| Infrastructure | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Website status
           WEBSITE_STATUS="${{ needs.website-deployment.result }}"
           if [ "${{ inputs.deploy_website }}" = "true" ]; then
@@ -354,7 +354,7 @@ jobs:
           else
             echo "| Website | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Health check status
           HEALTH_STATUS="${{ needs.health-check.outputs.health_status }}"
           if [ "$HEALTH_STATUS" = "healthy" ]; then
@@ -364,7 +364,7 @@ jobs:
           else
             echo "| Health Check | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Tag status
           TAG_STATUS="${{ needs.create-tag.result }}"
           if [ -n "${{ inputs.tag }}" ]; then
@@ -376,7 +376,7 @@ jobs:
           else
             echo "| Tag Creation | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Determine overall status
@@ -387,7 +387,7 @@ jobs:
           if [ "${{ inputs.deploy_website }}" = "true" ] && [ "$WEBSITE_STATUS" != "success" ]; then
             FAILED_COMPONENTS="${FAILED_COMPONENTS}Website "
           fi
-          
+
           if [ -z "$FAILED_COMPONENTS" ]; then
             echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
             if [ -n "${{ needs.website-deployment.outputs.deployment_url }}" ]; then
