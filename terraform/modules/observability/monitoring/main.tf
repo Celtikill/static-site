@@ -83,7 +83,7 @@ locals {
       period  = 300
     }
   }] : []
-  
+
   cloudfront_errors_widget = var.cloudfront_distribution_id != "" ? [{
     type   = "metric"
     x      = 12
