@@ -117,9 +117,9 @@ jobs:
           
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
+            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -refresh=false -out=policy.tfplan
           else
-            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
+            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -refresh=false -out=policy.tfplan
           fi
 
           # Convert to JSON for policy evaluation
