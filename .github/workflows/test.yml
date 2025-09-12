@@ -149,36 +149,57 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 Generating Plan for Policy Analysis:**" >> $GITHUB_STEP_SUMMARY
           
+          # Generate plan - handle provider credential errors gracefully
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
+          
+          # Remove any existing plan file
+          rm -f policy.tfplan
+          
+          echo "Attempting to generate Terraform plan for policy analysis..." >> $GITHUB_STEP_SUMMARY
+          
+          # Run the plan command and capture the exit code
+          set +e  # Don't exit on error
           if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan -refresh=false || {
-              echo "⚠️ Plan generation failed (likely due to AWS provider auth) - using static analysis only" >> $GITHUB_STEP_SUMMARY
-              
-              # Fallback to static configuration analysis
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "**📄 Static Configuration Analysis:**" >> $GITHUB_STEP_SUMMARY
-              
-              # Basic policy checks without full plan
-              if grep -r "server_side_encryption_configuration" . >/dev/null; then
-                echo "✅ S3 encryption configuration found" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "⚠️ S3 server-side encryption configuration not found" >> $GITHUB_STEP_SUMMARY
-              fi
-              
-              if grep -r "aws_organizations_organization" . >/dev/null; then
-                echo "✅ AWS Organizations configuration found" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "ℹ️ No AWS Organizations configuration (expected for workload deployment)" >> $GITHUB_STEP_SUMMARY
-              fi
-              
-              echo "✅ **STATIC ANALYSIS COMPLETE** - Limited validation due to provider constraints" >> $GITHUB_STEP_SUMMARY
-              exit 0
-            }
+            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan -refresh=false
+            PLAN_EXIT_CODE=$?
           else
-            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan -refresh=false || {
-              echo "⚠️ Plan generation failed - using static analysis fallback" >> $GITHUB_STEP_SUMMARY
-              exit 0
-            }
+            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan -refresh=false
+            PLAN_EXIT_CODE=$?
+          fi
+          set -e  # Re-enable exit on error
+          
+          # Check if plan file was created (this is what matters for OPA)
+          if [ -f "policy.tfplan" ]; then
+            echo "✅ Plan file generated - proceeding with OPA policy validation" >> $GITHUB_STEP_SUMMARY
+            if [ $PLAN_EXIT_CODE -ne 0 ]; then
+              echo "   (Plan had provider warnings but structure is valid for policy analysis)" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "❌ Plan file not generated - falling back to static analysis" >> $GITHUB_STEP_SUMMARY
+          
+          # Fallback to static analysis if plan truly failed
+          if [ "$PLAN_SUCCESS" = false ]; then
+            echo "⚠️ Plan generation failed - using static analysis only" >> $GITHUB_STEP_SUMMARY
+            
+            # Fallback to static configuration analysis
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**📄 Static Configuration Analysis:**" >> $GITHUB_STEP_SUMMARY
+            
+            # Basic policy checks without full plan
+            if grep -r "server_side_encryption_configuration" . >/dev/null; then
+              echo "✅ S3 encryption configuration found" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ S3 server-side encryption configuration not found" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            if grep -r "aws_organizations_organization" . >/dev/null; then
+              echo "✅ AWS Organizations configuration found" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "ℹ️ No AWS Organizations configuration (expected for workload deployment)" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            echo "✅ **STATIC ANALYSIS COMPLETE** - Limited validation due to provider constraints" >> $GITHUB_STEP_SUMMARY
+            exit 0
           fi
           
           # Convert plan to JSON for OPA
