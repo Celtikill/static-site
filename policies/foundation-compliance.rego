@@ -5,7 +5,7 @@ import rego.v1
 # COMPLIANCE POLICIES - These rules WARN but allow deployment
 
 # Rule: Resources should have required tags
-warn[msg] {
+warn contains msg if {
     resource := input.planned_values.root_module.resources[_]
     
     # Only check taggable resource types
@@ -26,7 +26,7 @@ warn[msg] {
 }
 
 # Rule: S3 bucket names should follow naming convention
-warn[msg] {
+warn contains msg if {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_s3_bucket"
     bucket_name := resource.values.bucket
@@ -38,7 +38,7 @@ warn[msg] {
 }
 
 # Rule: IAM roles should have description
-warn[msg] {
+warn contains msg if {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_iam_role"
     role_name := resource.values.name
@@ -49,7 +49,7 @@ warn[msg] {
 }
 
 # Rule: Organization should have multiple service access principals for comprehensive governance
-warn[msg] {
+warn contains msg if {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_organizations_organization"
     principals := resource.values.aws_service_access_principals
@@ -60,7 +60,7 @@ warn[msg] {
 }
 
 # Rule: Resources in production should have additional compliance tags
-warn[msg] {
+warn contains msg if {
     resource := input.planned_values.root_module.resources[_]
     tags := object.get(resource.values, "tags", {})
     environment := object.get(tags, "Environment", "")
