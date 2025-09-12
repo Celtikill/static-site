@@ -1,0 +1,31 @@
+# Conftest configuration for policy validation
+# This file defines how policies should be evaluated
+
+policy:
+  - foundation-security.rego
+  - foundation-compliance.rego
+
+# Namespace configuration
+namespace: terraform.foundation
+
+# Input format
+input: json
+
+# Output configuration  
+output:
+  - stdout
+  - json
+
+# Failure conditions
+# Security policies (deny rules) cause failure
+# Compliance policies (warn rules) show warnings but don't fail
+fail-on-warn: false
+
+# Data directory for additional data sources
+# data: ./data
+
+# Combine results across all policies
+combine: true
+
+# Trace mode for debugging
+trace: false
