@@ -176,10 +176,6 @@ jobs:
             fi
           else
             echo "❌ Plan file not generated - falling back to static analysis" >> $GITHUB_STEP_SUMMARY
-          
-          # Fallback to static analysis if plan truly failed
-          if [ "$PLAN_SUCCESS" = false ]; then
-            echo "⚠️ Plan generation failed - using static analysis only" >> $GITHUB_STEP_SUMMARY
             
             # Fallback to static configuration analysis
             echo "" >> $GITHUB_STEP_SUMMARY
