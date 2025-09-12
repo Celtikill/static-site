@@ -1,5 +1,7 @@
 package terraform.foundation.compliance
 
+import rego.v1
+
 # COMPLIANCE POLICIES - These rules WARN but allow deployment
 
 # Rule: Resources should have required tags
