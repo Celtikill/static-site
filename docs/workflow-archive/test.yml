@@ -1,0 +1,1072 @@
+name: TEST - Quality Gates and Validation
+
+on:
+  workflow_run:
+    workflows: ["BUILD - Code Validation and Artifact Creation"]
+    types: [completed]
+    branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: 'Build ID to test (optional)'
+        required: false
+        type: string
+      environment:
+        description: 'Target environment'
+        required: false
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+      skip_build_check:
+        description: 'Skip BUILD workflow dependency check'
+        required: false
+        type: boolean
+        default: true
+      force_all_jobs:
+        description: 'Force all jobs to run regardless of change detection'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  security-events: write
+  actions: read
+
+env:
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
+  TF_IN_AUTOMATION: true
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  info:
+    name: "📋 Test Information"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Always require BUILD success for automatic triggers
+    # Manual dispatch allowed only for non-dev environments or with explicit override
+    if: |
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event_name == 'workflow_dispatch'
+    outputs:
+      test_id: ${{ steps.info.outputs.test_id }}
+      build_id: ${{ steps.info.outputs.build_id }}
+      environment: ${{ steps.info.outputs.environment }}
+      has_terraform_changes: ${{ steps.detect.outputs.terraform }}
+      has_website_changes: ${{ steps.detect.outputs.website }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # For workflow_run triggers, explicitly check out the branch that triggered the original workflow
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref }}
+
+
+      - name: Test Info
+        id: info
+        run: |
+          TEST_ID="test-${{ github.run_id }}-${{ github.run_attempt }}"
+
+          # Determine build ID - use the triggering BUILD workflow's ID for artifact naming
+          if [ -n "${{ github.event.inputs.build_id }}" ]; then
+            BUILD_ID="${{ github.event.inputs.build_id }}"
+          elif [ -n "${{ github.event.workflow_run.id }}" ]; then
+            # For workflow_run triggers, use the triggering workflow's ID (BUILD workflow)
+            BUILD_ID="build-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}"
+          else
+            # For manual dispatch, use current workflow's ID
+            BUILD_ID="build-${{ github.run_id }}-${{ github.run_attempt }}"
+          fi
+
+          # Use the triggering branch from workflow_run or current branch for manual dispatch
+          SOURCE_BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+
+          # Determine target environment based on source branch
+          if [ -n "${{ github.event.inputs.environment }}" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+            ENV_SOURCE="Manual Input"
+          elif [[ "$SOURCE_BRANCH" =~ ^(feature|bugfix|hotfix)/ ]]; then
+            ENV="dev"
+            ENV_SOURCE="Feature Branch Auto-Test"
+          elif [ "$SOURCE_BRANCH" = "main" ]; then
+            ENV="staging"
+            ENV_SOURCE="Main Branch Auto-Test"
+          else
+            ENV="dev"
+            ENV_SOURCE="Default"
+          fi
+
+          # Validate dev deployment policy
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$ENV" = "dev" ] && [ "${{ github.event.inputs.skip_build_check }}" != "true" ]; then
+            echo "❌ **POLICY VIOLATION**: Manual dispatch to dev environment requires BUILD success" >> $GITHUB_STEP_SUMMARY
+            echo "   Use skip_build_check=true to override this policy (not recommended)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "test_id=$TEST_ID" >> $GITHUB_OUTPUT
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+
+          echo "# 🧪 TEST Phase" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build ID**: $BUILD_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $ENV ($ENV_SOURCE)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Testing Branch**: ${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Note**: This workflow runs on main branch but tests code from the above branch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔍 Job Execution Decisions" >> $GITHUB_STEP_SUMMARY
+          echo "- **Force All Jobs**: ${{ github.event.inputs.force_all_jobs || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip Build Check**: ${{ github.event.inputs.skip_build_check || 'false' }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Detect Changes
+        id: detect
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            terraform:
+              - 'terraform/**'
+            website:
+              - 'src/**'
+
+      - name: Debug Change Detection
+        run: |
+          echo "- **Terraform Changes**: ${{ steps.detect.outputs.terraform }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Website Changes**: ${{ steps.detect.outputs.website }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Execution Logic:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Infrastructure Tests**: Will run if terraform changes OR skip_build_check OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Policy Validation**: Will run if terraform changes OR skip_build_check OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Website Tests**: Will run if website changes OR skip_build_check OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pre-Deployment Usability**: Will run if environment != dev OR force_all_jobs" >> $GITHUB_STEP_SUMMARY
+
+  infrastructure-tests:
+    name: "🏗️ Infrastructure Unit Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: info
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AWS_ASSUME_ROLE_DEV: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
+      AWS_ASSUME_ROLE_STAGING: ${{ secrets.AWS_ASSUME_ROLE_STAGING }}
+      AWS_ASSUME_ROLE: ${{ secrets.AWS_ASSUME_ROLE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Build Artifacts
+        id: download-artifacts
+        continue-on-error: true
+        run: |
+          echo "Attempting to download build artifacts: build-artifacts-${{ needs.info.outputs.build_id }}"
+
+          # For workflow_run triggers, try to download from the triggering workflow
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            echo "Using GitHub CLI to download artifacts from workflow run ${{ github.event.workflow_run.id }}"
+            mkdir -p ./artifacts
+
+            # List available artifacts for debugging
+            echo "Available artifacts in triggering workflow:"
+            gh run view ${{ github.event.workflow_run.id }} --json artifacts --jq '.artifacts[] | {name: .name, id: .id}'
+
+            # Download the specific artifact
+            gh run download ${{ github.event.workflow_run.id }} \
+              --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+              --dir ./artifacts || {
+                echo "Failed to download from triggering workflow, trying alternative approach"
+
+                # Alternative: try to download any build artifacts from the triggering run
+                gh run download ${{ github.event.workflow_run.id }} \
+                  --pattern "build-artifacts-*" \
+                  --dir ./artifacts || echo "No artifacts found"
+              }
+          else
+            echo "Manual trigger detected"
+            # For manual triggers, check if build_id was provided to download from specific BUILD run
+            if [ -n "${{ github.event.inputs.build_id }}" ]; then
+              # Extract BUILD workflow run ID from build_id format: build-17558293968-1
+              BUILD_RUN_ID=$(echo "${{ github.event.inputs.build_id }}" | sed 's/build-\([0-9]*\)-.*/\1/')
+
+              if [ -n "$BUILD_RUN_ID" ] && [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
+                echo "Downloading artifacts from BUILD workflow run: $BUILD_RUN_ID"
+                mkdir -p ./artifacts
+
+                # List available artifacts for debugging
+                echo "Available artifacts in BUILD workflow $BUILD_RUN_ID:"
+                gh run view $BUILD_RUN_ID --json artifacts --jq '.artifacts[] | {name: .name, id: .id}' || echo "Failed to list artifacts"
+
+                # Download the specific artifact
+                gh run download $BUILD_RUN_ID \
+                  --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+                  --dir ./artifacts || {
+                    echo "Failed to download specific artifact, trying pattern match"
+                    gh run download $BUILD_RUN_ID \
+                      --pattern "build-artifacts-*" \
+                      --dir ./artifacts || echo "No artifacts found in BUILD run $BUILD_RUN_ID"
+                  }
+              else
+                echo "Invalid build_id format: ${{ github.event.inputs.build_id }}"
+                echo "Expected format: build-<run_id>-<attempt>"
+                echo "artifact-available=false" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "No build_id provided for manual trigger"
+              echo "artifact-available=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+          # Check if artifacts were downloaded
+          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts 2>/dev/null)" ]; then
+            echo "Artifacts downloaded successfully"
+            echo "artifact-available=true" >> $GITHUB_OUTPUT
+            ls -la ./artifacts/
+          else
+            echo "No artifacts available"
+            echo "artifact-available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check Artifact Availability
+        id: check-artifacts
+        run: |
+          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts)" ]; then
+            echo "✅ Build artifacts downloaded successfully" >> $GITHUB_STEP_SUMMARY
+            echo "artifacts_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Build artifacts not available - some tests may be skipped" >> $GITHUB_STEP_SUMMARY
+            echo "artifacts_available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Infrastructure Tools
+        run: |
+          echo "## 🔧 Setting up infrastructure test tools" >> $GITHUB_STEP_SUMMARY
+
+          # Install OpenTofu for infrastructure tests
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+
+          # Install jq for JSON processing
+          sudo apt-get update && sudo apt-get install -y jq
+
+          echo "✅ Infrastructure tools ready" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run Comprehensive Unit Tests
+        run: |
+          echo "## 🏗️ Running Comprehensive Unit Tests" >> $GITHUB_STEP_SUMMARY
+
+          # Make test scripts executable
+          chmod +x test/unit/test-static-analysis.sh
+          chmod +x test/unit/run-tests.sh
+
+          # Run static analysis tests (no AWS dependencies)
+          if bash test/unit/test-static-analysis.sh; then
+            echo "✅ Static analysis tests passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Static analysis tests failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Run unit tests individually to avoid orchestrator hanging issues
+          TEST_FAILED=0
+          TOTAL_TESTS=0
+          TOTAL_INDIVIDUAL_TESTS=0
+          PASSED_INDIVIDUAL_TESTS=0
+          FAILED_TEST_DETAILS=()
+
+          echo "**Running Individual Test Suites:**" >> $GITHUB_STEP_SUMMARY
+
+          for test_file in test/unit/test-*.sh; do
+            if [[ -f "$test_file" && ! "$test_file" == *".disabled" ]]; then
+              test_name=$(basename "$test_file" .sh)
+              echo "Running $test_name..."
+
+              if bash "$test_file"; then
+                echo "- ✅ $test_name: PASSED" >> $GITHUB_STEP_SUMMARY
+
+                # Update individual test counts for passing tests
+                result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
+                if [ -f "$result_file" ]; then
+                  suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
+                  TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
+                  PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total))
+                fi
+              else
+                echo "- ❌ $test_name: FAILED" >> $GITHUB_STEP_SUMMARY
+                TEST_FAILED=1
+
+                # Extract failure details from test result file if it exists
+                result_file="test/unit/test-results/${test_name/test-/}-tests-tests-report.json"
+                if [ -f "$result_file" ]; then
+                  # Get basic stats
+                  suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
+                  suite_failed=$(jq -r '.summary.failed_tests // 0' "$result_file" 2>/dev/null || echo "0")
+
+                  # Add to overall counts
+                  TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
+                  PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total - suite_failed))
+
+                  # Extract specific failure details from log file
+                  log_file="test/unit/test-results/test-${test_name/test-/}-tests.log"
+                  if [ -f "$log_file" ]; then
+                    # Extract each failed test as a separate bullet point
+                    while IFS= read -r failed_line; do
+                      if [ -n "$failed_line" ]; then
+                        test_detail=$(echo "$failed_line" | sed 's/.*❌ //' | sed 's/: /: /')
+                        FAILED_TEST_DETAILS+=("$test_detail")
+                      fi
+                    done < <(grep "❌" "$log_file" | head -5)
+                  fi
+                else
+                  # Fallback if no result file
+                  FAILED_TEST_DETAILS+=("$test_name: Test suite failed (details not available)")
+                fi
+              fi
+
+              TOTAL_TESTS=$((TOTAL_TESTS + 1))
+            fi
+          done
+
+          # Display comprehensive summary
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Suite Summary:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Test Suites: $(($TOTAL_TESTS - $TEST_FAILED)) passed, $TEST_FAILED failed, $TOTAL_TESTS total" >> $GITHUB_STEP_SUMMARY
+
+          if [ $TOTAL_INDIVIDUAL_TESTS -gt 0 ]; then
+            success_rate=$(( (PASSED_INDIVIDUAL_TESTS * 100) / TOTAL_INDIVIDUAL_TESTS ))
+            echo "- Individual Tests: $PASSED_INDIVIDUAL_TESTS passed, $(($TOTAL_INDIVIDUAL_TESTS - $PASSED_INDIVIDUAL_TESTS)) failed, $TOTAL_INDIVIDUAL_TESTS total" >> $GITHUB_STEP_SUMMARY
+            echo "- Success Rate: ${success_rate}%" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Show specific failure details
+          if [ $TEST_FAILED -gt 0 ] && [ ${#FAILED_TEST_DETAILS[@]} -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Failed Test Details:**" >> $GITHUB_STEP_SUMMARY
+            for detail in "${FAILED_TEST_DETAILS[@]}"; do
+              echo "- $detail" >> $GITHUB_STEP_SUMMARY
+            done
+          fi
+
+          if [ $TEST_FAILED -eq 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ One or more unit tests failed - see details above" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+
+      - name: Upload Unit Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results-${{ needs.info.outputs.test_id }}
+          path: test/unit/test-results/
+          retention-days: 7
+
+  policy-validation:
+    name: "📋 Policy Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info, infrastructure-tests]
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Infrastructure Test Results
+        id: download-test-results
+        continue-on-error: true
+        run: |
+          echo "Attempting to download test results: unit-test-results-${{ needs.info.outputs.test_id }}"
+
+          # Note: unit-test-results are created by this TEST workflow, not BUILD
+          # So for workflow_run triggers, we need to check current run, not triggering run
+          mkdir -p ./test-results
+
+          # First check if results exist from this workflow run
+          echo "Checking for test results from current workflow run"
+          echo "test-results-available=false" >> $GITHUB_OUTPUT
+
+      - name: Check Test Results Availability
+        id: check-test-results
+        run: |
+          if [ -d "./test-results" ] && [ "$(ls -A ./test-results)" ]; then
+            echo "✅ Test results downloaded successfully" >> $GITHUB_STEP_SUMMARY
+            echo "test_results_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Test results not available - skipping related validations" >> $GITHUB_STEP_SUMMARY
+            echo "test_results_available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Policy Tools
+        run: |
+          echo "## 🔧 Policy Tools Setup" >> $GITHUB_STEP_SUMMARY
+
+          # Install OpenTofu
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+
+          # Install policy tools
+          curl -L -o /tmp/opa https://github.com/open-policy-agent/opa/releases/download/v0.59.0/opa_linux_amd64_static
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/
+
+          echo "✅ Policy tools ready" >> $GITHUB_STEP_SUMMARY
+
+      - name: Policy Validation Tests
+        run: |
+          echo "## 📋 Policy Validation" >> $GITHUB_STEP_SUMMARY
+
+          # Determine environment for policy enforcement
+          ENV="${{ needs.info.outputs.environment }}"
+          echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
+
+          # Create feature-flag-aware security policies
+          mkdir -p policies
+          cat > policies/security.rego << 'EOF'
+          package terraform.security
+
+          # Ensure S3 buckets have encryption (always required)
+          deny[msg] {
+            resource := input.planned_values.root_module.resources[_]
+            resource.type == "aws_s3_bucket"
+            not resource.values.server_side_encryption_configuration
+            msg := sprintf("S3 bucket '%s' must have encryption enabled", [resource.name])
+          }
+
+          # Ensure CloudFront distributions use HTTPS (only when CloudFront is enabled)
+          deny[msg] {
+            resource := input.planned_values.root_module.resources[_]
+            resource.type == "aws_cloudfront_distribution"
+            resource.values.viewer_protocol_policy != "redirect-to-https"
+            msg := sprintf("CloudFront distribution '%s' must redirect HTTP to HTTPS", [resource.name])
+          }
+
+          # When CloudFront is disabled, ensure S3 bucket website configuration is secure
+          deny[msg] {
+            # Check if any S3 bucket has website configuration (indicates S3-only hosting)
+            s3_website := input.planned_values.root_module.resources[_]
+            s3_website.type == "aws_s3_bucket_website_configuration"
+            
+            # But no CloudFront distributions exist (feature flag disabled)
+            count([r | r := input.planned_values.root_module.resources[_]; r.type == "aws_cloudfront_distribution"]) == 0
+            
+            # Ensure public access block is appropriately configured for website hosting
+            bucket_pab := input.planned_values.root_module.resources[_]
+            bucket_pab.type == "aws_s3_bucket_public_access_block"
+            
+            # All public access blocks should allow website hosting when CloudFront disabled
+            bucket_pab.values.block_public_acls == true
+            bucket_pab.values.block_public_policy == true
+            
+            msg := "S3-only website hosting detected but public access is blocked - this will prevent website functionality"
+          }
+
+          # Validate feature flag consistency
+          warn[msg] {
+            # Count CloudFront distributions
+            cf_count := count([r | r := input.planned_values.root_module.resources[_]; r.type == "aws_cloudfront_distribution"])
+            
+            # Count WAF web ACLs
+            waf_count := count([r | r := input.planned_values.root_module.resources[_]; r.type == "aws_wafv2_web_acl"])
+            
+            # WAF should only exist when CloudFront exists
+            waf_count > 0
+            cf_count == 0
+            
+            msg := "WAF resources detected without CloudFront - WAF requires CloudFront to function"
+          }
+          EOF
+
+          # Run policy validation
+          if [ -f "terraform/test.tfplan" ]; then
+            tofu -chdir=terraform show -json test.tfplan > plan.json
+            
+            # Check for policy violations (blocking)
+            POLICY_VIOLATIONS=$(opa eval -d policies/ -i plan.json "data.terraform.security.deny[x]" --format pretty | grep -c "true" || echo "0")
+            
+            # Check for policy warnings (non-blocking)
+            POLICY_WARNINGS=$(opa eval -d policies/ -i plan.json "data.terraform.security.warn[x]" --format pretty | grep -c "true" || echo "0")
+
+            # Report violations (blocking)
+            if [ "$POLICY_VIOLATIONS" -gt 0 ]; then
+              echo "⚠️ **$POLICY_VIOLATIONS policy violation(s) found**" >> $GITHUB_STEP_SUMMARY
+              
+              # Show detailed violation messages
+              opa eval -d policies/ -i plan.json "data.terraform.security.deny[x]" --format pretty | grep -v "^$" >> $GITHUB_STEP_SUMMARY
+
+              # Environment-specific enforcement
+              if [ "$ENV" = "prod" ]; then
+                echo "❌ **PRODUCTION DEPLOYMENT BLOCKED** - Policy violations not allowed in production" >> $GITHUB_STEP_SUMMARY
+                echo "Fix all policy violations before production deployment" >> $GITHUB_STEP_SUMMARY
+                exit 1
+              elif [ "$ENV" = "staging" ]; then
+                echo "⚠️ **WARNING**: Policy violations detected but allowing staging deployment" >> $GITHUB_STEP_SUMMARY
+                echo "These issues must be fixed before production deployment" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "ℹ️ Policy violations noted for development environment" >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+            
+            # Report warnings (non-blocking)
+            if [ "$POLICY_WARNINGS" -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **$POLICY_WARNINGS policy warning(s) found**" >> $GITHUB_STEP_SUMMARY
+              
+              # Show detailed warning messages
+              opa eval -d policies/ -i plan.json "data.terraform.security.warn[x]" --format pretty | grep -v "^$" >> $GITHUB_STEP_SUMMARY
+              echo "These warnings do not block deployment but should be reviewed" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            # Final status message
+            if [ "$POLICY_VIOLATIONS" -eq 0 ] && [ "$POLICY_WARNINGS" -eq 0 ]; then
+              echo "✅ Policy validation passed - no violations or warnings found" >> $GITHUB_STEP_SUMMARY
+            elif [ "$POLICY_VIOLATIONS" -eq 0 ]; then
+              echo "✅ Policy validation passed - no blocking violations found" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "➖ No terraform plan found, skipping policy validation" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  website-tests:
+    name: "🌐 Website Content Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: info
+    if: needs.info.outputs.has_website_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        id: download-website-artifacts
+        continue-on-error: true
+        run: |
+          echo "Attempting to download website build artifacts: build-artifacts-${{ needs.info.outputs.build_id }}"
+
+          # For workflow_run triggers, use GitHub CLI to download from the triggering workflow
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            mkdir -p ./artifacts
+
+            gh run download ${{ github.event.workflow_run.id }} \
+              --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+              --dir ./artifacts || {
+                echo "Failed to download specific artifact, trying pattern match"
+                gh run download ${{ github.event.workflow_run.id }} \
+                  --pattern "build-artifacts-*" \
+                  --dir ./artifacts || echo "No artifacts found"
+              }
+          else
+            # Manual trigger - extract BUILD run ID from build_id input
+            if [ -n "${{ github.event.inputs.build_id }}" ]; then
+              BUILD_RUN_ID=$(echo "${{ github.event.inputs.build_id }}" | sed 's/build-\([0-9]*\)-.*/\1/')
+              if [ -n "$BUILD_RUN_ID" ] && [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
+                echo "Manual trigger: downloading from BUILD run $BUILD_RUN_ID"
+                mkdir -p ./artifacts
+                gh run download $BUILD_RUN_ID \
+                  --name "build-artifacts-${{ needs.info.outputs.build_id }}" \
+                  --dir ./artifacts || {
+                    gh run download $BUILD_RUN_ID \
+                      --pattern "build-artifacts-*" \
+                      --dir ./artifacts || echo "No artifacts found"
+                  }
+              fi
+            fi
+          fi
+
+          # Check if artifacts were downloaded
+          if [ -d "./artifacts" ] && [ "$(ls -A ./artifacts 2>/dev/null)" ]; then
+            echo "Website artifacts downloaded successfully"
+            echo "artifact-available=true" >> $GITHUB_OUTPUT
+            ls -la ./artifacts/
+          else
+            echo "No website artifacts available"
+            echo "artifact-available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check Website Artifacts
+        id: check-website-artifacts
+        run: |
+          if [ -d "./artifacts" ] && ls ./artifacts/website-*.tar.gz >/dev/null 2>&1; then
+            echo "✅ Website artifacts available for testing" >> $GITHUB_STEP_SUMMARY
+            echo "website_artifacts_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Website artifacts not available - using source files for testing" >> $GITHUB_STEP_SUMMARY
+            echo "website_artifacts_available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Website Tests
+        run: |
+          echo "## 🌐 Website Content Tests" >> $GITHUB_STEP_SUMMARY
+
+          # Extract website artifacts if available
+          if [ -f "artifacts/website-*.tar.gz" ]; then
+            mkdir -p website-test
+            tar -xzf artifacts/website-*.tar.gz -C website-test
+          else
+            cp -r src website-test
+          fi
+
+          # Test HTML structure
+          ERRORS=0
+
+          # Check for required HTML elements
+          if grep -q "<title>" website-test/index.html; then
+            echo "✅ index.html has title tag" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ index.html missing title tag" >> $GITHUB_STEP_SUMMARY
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if grep -q "<meta.*viewport" website-test/index.html; then
+            echo "✅ index.html has viewport meta tag" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ index.html missing viewport meta tag" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Check 404 page
+          if [ -f "website-test/404.html" ]; then
+            echo "✅ 404.html exists" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ 404.html missing" >> $GITHUB_STEP_SUMMARY
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          # Check robots.txt
+          if [ -f "website-test/robots.txt" ]; then
+            echo "✅ robots.txt exists" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ robots.txt missing" >> $GITHUB_STEP_SUMMARY
+            ERRORS=$((ERRORS + 1))
+          fi
+
+          if [ $ERRORS -gt 0 ]; then
+            echo "❌ Website tests failed with $ERRORS errors" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+  pre-deployment-usability:
+    name: "🌐 Pre-Deployment Usability Tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: info
+    if: needs.info.outputs.environment != 'dev' || github.event.inputs.force_all_jobs == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pre-Deployment Usability Testing
+        run: |
+          echo "## 🌐 Pre-Deployment Usability Tests" >> $GITHUB_STEP_SUMMARY
+          echo "**Testing current live environment before deployment**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Make usability test script executable
+          chmod +x test/usability/run-usability-tests.sh
+
+          # Run usability tests on current environment
+          ENV="${{ needs.info.outputs.environment }}"
+          echo "**Environment:** $ENV" >> $GITHUB_STEP_SUMMARY
+          echo "**Purpose:** Validate current live environment before deploying new changes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if bash test/usability/run-usability-tests.sh "$ENV"; then
+            echo "✅ Pre-deployment usability tests passed" >> $GITHUB_STEP_SUMMARY
+            echo "- Current $ENV environment is healthy" >> $GITHUB_STEP_SUMMARY
+            echo "- Ready to proceed with deployment" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Pre-deployment usability tests detected issues" >> $GITHUB_STEP_SUMMARY
+            echo "- Current $ENV environment has problems" >> $GITHUB_STEP_SUMMARY
+            echo "- These issues exist before new deployment" >> $GITHUB_STEP_SUMMARY
+
+            # For staging, warn but continue; for production, this should block
+            if [ "$ENV" = "prod" ]; then
+              echo "❌ **PRODUCTION DEPLOYMENT BLOCKED** - Current environment has issues" >> $GITHUB_STEP_SUMMARY
+              echo "Fix current production issues before deploying" >> $GITHUB_STEP_SUMMARY
+              exit 1
+            else
+              echo "⚠️ Proceeding with deployment - will validate post-deployment" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: Upload Pre-Deployment Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pre-deployment-usability-results-${{ needs.info.outputs.test_id }}
+          path: test/usability/test-results/
+          retention-days: 7
+
+  cost-validation:
+    name: "💰 Cost Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info]
+    if: needs.info.outputs.has_terraform_changes == 'true' || github.event.inputs.skip_build_check == 'true' || github.event.inputs.force_all_jobs == 'true'
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      budget_status: ${{ steps.validate.outputs.budget_status }}
+      cost_validation_result: ${{ steps.validate.outputs.cost_validation_result }}
+      monthly_cost: ${{ steps.validate.outputs.monthly_cost }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Cost Projection from BUILD
+        id: download-cost-projection
+        continue-on-error: true
+        run: |
+          echo "Attempting to download cost projection: cost-projection-${{ needs.info.outputs.build_id }}"
+
+          # Cost projections are created by BUILD workflow, so download from triggering workflow
+          if [ -n "${{ github.event.workflow_run.id }}" ]; then
+            mkdir -p ./cost-analysis
+
+            gh run download ${{ github.event.workflow_run.id }} \
+              --name "cost-projection-${{ needs.info.outputs.build_id }}" \
+              --dir ./cost-analysis || {
+                echo "Failed to download cost projection, trying pattern match"
+                gh run download ${{ github.event.workflow_run.id }} \
+                  --pattern "cost-projection-*" \
+                  --dir ./cost-analysis || echo "No cost projection found"
+              }
+          else
+            # Manual trigger - extract BUILD run ID from build_id input
+            if [ -n "${{ github.event.inputs.build_id }}" ]; then
+              BUILD_RUN_ID=$(echo "${{ github.event.inputs.build_id }}" | sed 's/build-\([0-9]*\)-.*/\1/')
+              if [ -n "$BUILD_RUN_ID" ] && [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]]; then
+                echo "Manual trigger: downloading cost projection from BUILD run $BUILD_RUN_ID"
+                mkdir -p ./cost-analysis
+                gh run download $BUILD_RUN_ID \
+                  --name "cost-projection-${{ needs.info.outputs.build_id }}" \
+                  --dir ./cost-analysis || {
+                    gh run download $BUILD_RUN_ID \
+                      --pattern "cost-projection-*" \
+                      --dir ./cost-analysis || echo "No cost projection found"
+                  }
+              fi
+            fi
+          fi
+
+          # Check if cost projection was downloaded
+          if [ -d "./cost-analysis" ] && [ "$(ls -A ./cost-analysis 2>/dev/null)" ]; then
+            echo "Cost projection downloaded successfully"
+            echo "cost-projection-available=true" >> $GITHUB_OUTPUT
+            ls -la ./cost-analysis/
+          else
+            echo "No cost projection available"
+            echo "cost-projection-available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check Cost Projection Availability
+        id: check-cost-projection
+        run: |
+          if [ -d "./cost-analysis" ] && [ "$(ls -A ./cost-analysis)" ]; then
+            echo "✅ Cost projection data available" >> $GITHUB_STEP_SUMMARY
+            echo "cost_projection_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Cost projection not available - using default validation" >> $GITHUB_STEP_SUMMARY
+            echo "cost_projection_available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cost Budget Validation
+        id: validate
+        run: |
+          echo "## 💰 Cost Budget Validation" >> $GITHUB_STEP_SUMMARY
+
+          ENV="${{ needs.info.outputs.environment }}"
+          echo "- **Environment**: $ENV" >> $GITHUB_STEP_SUMMARY
+
+          # Set environment-specific budget limits and thresholds
+          case "$ENV" in
+            "dev")
+              BUDGET_LIMIT=50
+              CRITICAL_THRESHOLD=100
+              WARNING_THRESHOLD=80
+              ;;
+            "staging")
+              BUDGET_LIMIT=75
+              CRITICAL_THRESHOLD=100
+              WARNING_THRESHOLD=80
+              ;;
+            "prod")
+              BUDGET_LIMIT=200
+              CRITICAL_THRESHOLD=100
+              WARNING_THRESHOLD=80
+              ;;
+            *)
+              BUDGET_LIMIT=100
+              CRITICAL_THRESHOLD=100
+              WARNING_THRESHOLD=80
+              ;;
+          esac
+
+          echo "- **Budget Limit**: \$${BUDGET_LIMIT}" >> $GITHUB_STEP_SUMMARY
+
+          # Read cost projection from BUILD phase
+          if [ -f "./cost-analysis/cost-projection.json" ]; then
+            MONTHLY_COST=$(jq -r '.costs.monthly_usd' ./cost-analysis/cost-projection.json 2>/dev/null || echo "0")
+            BUILD_BUDGET_STATUS=$(jq -r '.budget.status' ./cost-analysis/cost-projection.json 2>/dev/null || echo "unknown")
+            UTILIZATION=$(jq -r '.budget.utilization_percent' ./cost-analysis/cost-projection.json 2>/dev/null || echo "0")
+
+            echo "- **Projected Monthly Cost**: \$${MONTHLY_COST}" >> $GITHUB_STEP_SUMMARY
+            echo "- **Budget Utilization**: ${UTILIZATION}%" >> $GITHUB_STEP_SUMMARY
+
+            # Validate against thresholds
+            if [ "$UTILIZATION" -ge "$CRITICAL_THRESHOLD" ]; then
+              VALIDATION_STATUS="critical"
+              VALIDATION_EMOJI="🔴"
+              VALIDATION_MESSAGE="CRITICAL: Cost projection exceeds budget limit!"
+              VALIDATION_RESULT="failure"
+
+              echo "- **Status**: $VALIDATION_EMOJI $VALIDATION_MESSAGE" >> $GITHUB_STEP_SUMMARY
+
+              # Environment-specific enforcement
+              if [ "$ENV" = "prod" ]; then
+                echo "❌ **PRODUCTION DEPLOYMENT BLOCKED**" >> $GITHUB_STEP_SUMMARY
+                echo "Production deployments cannot exceed budget limits" >> $GITHUB_STEP_SUMMARY
+                echo "Please optimize costs or increase budget before proceeding" >> $GITHUB_STEP_SUMMARY
+                exit 1
+              elif [ "$ENV" = "staging" ]; then
+                echo "⚠️ **STAGING WARNING**: Cost exceeds budget - production deployment will be blocked" >> $GITHUB_STEP_SUMMARY
+                echo "Please address cost issues before production deployment" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "⚠️ **DEVELOPMENT WARNING**: Cost exceeds recommended budget" >> $GITHUB_STEP_SUMMARY
+                echo "Consider optimizing development resources" >> $GITHUB_STEP_SUMMARY
+              fi
+
+            elif [ "$UTILIZATION" -ge "$WARNING_THRESHOLD" ]; then
+              VALIDATION_STATUS="warning"
+              VALIDATION_EMOJI="🟡"
+              VALIDATION_MESSAGE="WARNING: Approaching budget limit at ${UTILIZATION}%"
+              VALIDATION_RESULT="success"
+
+              echo "- **Status**: $VALIDATION_EMOJI $VALIDATION_MESSAGE" >> $GITHUB_STEP_SUMMARY
+              echo "### 🎯 Cost Optimization Recommendations" >> $GITHUB_STEP_SUMMARY
+
+              # Environment-specific recommendations
+              case "$ENV" in
+                "dev")
+                  echo "- Consider scheduled shutdown during non-business hours" >> $GITHUB_STEP_SUMMARY
+                  echo "- Use smaller instance types for development" >> $GITHUB_STEP_SUMMARY
+                  ;;
+                "staging")
+                  echo "- Monitor actual vs projected usage carefully" >> $GITHUB_STEP_SUMMARY
+                  echo "- Consider Reserved Instances if patterns are predictable" >> $GITHUB_STEP_SUMMARY
+                  ;;
+                "prod")
+                  echo "- Enable detailed cost monitoring and alerts" >> $GITHUB_STEP_SUMMARY
+                  echo "- Consider Reserved Instances for 30-60% savings" >> $GITHUB_STEP_SUMMARY
+                  echo "- Review high-cost services for optimization opportunities" >> $GITHUB_STEP_SUMMARY
+                  ;;
+              esac
+
+            else
+              VALIDATION_STATUS="healthy"
+              VALIDATION_EMOJI="🟢"
+              VALIDATION_MESSAGE="HEALTHY: Within budget limits at ${UTILIZATION}%"
+              VALIDATION_RESULT="success"
+
+              echo "- **Status**: $VALIDATION_EMOJI $VALIDATION_MESSAGE" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Cost trend analysis (if we have historical data)
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📈 Cost Analysis" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Value | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Monthly Cost | \$${MONTHLY_COST} | ${VALIDATION_EMOJI} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Annual Projection | \$$(echo "$MONTHLY_COST * 12" | bc -l | cut -d. -f1) | - |" >> $GITHUB_STEP_SUMMARY
+            echo "| Budget Utilization | ${UTILIZATION}% | ${VALIDATION_EMOJI} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Environment | $ENV | - |" >> $GITHUB_STEP_SUMMARY
+
+            # Display cost report if available
+            if [ -f "./cost-analysis/cost-projection-report.md" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### 📋 Detailed Cost Report" >> $GITHUB_STEP_SUMMARY
+              echo "Full cost analysis available in artifacts" >> $GITHUB_STEP_SUMMARY
+            fi
+
+          else
+            echo "⚠️ **No cost projection data available from BUILD phase**" >> $GITHUB_STEP_SUMMARY
+            echo "Cost validation skipped - ensure BUILD workflow completed successfully" >> $GITHUB_STEP_SUMMARY
+
+            VALIDATION_STATUS="unknown"
+            VALIDATION_RESULT="success"  # Don't fail if data unavailable
+            MONTHLY_COST="0"
+          fi
+
+          # Set outputs
+          echo "budget_status=${VALIDATION_STATUS}" >> $GITHUB_OUTPUT
+          echo "cost_validation_result=${VALIDATION_RESULT}" >> $GITHUB_OUTPUT
+          echo "monthly_cost=${MONTHLY_COST}" >> $GITHUB_OUTPUT
+
+      - name: Create Cost Validation Report
+        if: always()
+        run: |
+          # Create a summary report for artifacts
+          cat > cost-validation-report.md << EOF
+          # Cost Validation Report
+
+          **Environment:** ${{ needs.info.outputs.environment }}
+          **Test ID:** ${{ needs.info.outputs.test_id }}
+          **Generated:** $(date -u)
+
+          ## Validation Results
+
+          - **Budget Status:** ${{ steps.validate.outputs.budget_status }}
+          - **Monthly Cost:** \$${{ steps.validate.outputs.monthly_cost }}
+          - **Validation Result:** ${{ steps.validate.outputs.cost_validation_result }}
+
+          ## Environment Thresholds
+
+          | Environment | Budget Limit | Warning Threshold | Critical Threshold |
+          |-------------|--------------|------------------|-------------------|
+          | Development | \$50 | 80% | 100% |
+          | Staging | \$75 | 80% | 100% |
+          | Production | \$200 | 80% | 100% |
+
+          ## Next Steps
+
+          EOF
+
+          # Add environment-specific next steps
+          case "${{ needs.info.outputs.environment }}" in
+            "dev")
+              echo "- Monitor development resource usage" >> cost-validation-report.md
+              echo "- Consider cost optimization for frequent development deployments" >> cost-validation-report.md
+              ;;
+            "staging")
+              echo "- Validate costs before production deployment" >> cost-validation-report.md
+              echo "- Ensure production budget can accommodate projected costs" >> cost-validation-report.md
+              ;;
+            "prod")
+              echo "- Monitor actual costs vs projections post-deployment" >> cost-validation-report.md
+              echo "- Set up cost alerts and monitoring dashboards" >> cost-validation-report.md
+              ;;
+          esac
+
+      - name: Upload Cost Validation Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cost-validation-results-${{ needs.info.outputs.test_id }}
+          path: |
+            cost-validation-report.md
+          retention-days: 30
+
+  summary:
+    name: "📊 Test Summary"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, infrastructure-tests, policy-validation, website-tests, pre-deployment-usability, cost-validation]
+    if: needs.info.result == 'success'
+    outputs:
+      tests_passed: ${{ steps.summary.outputs.tests_passed }}
+    steps:
+      - name: Download Unit Test Results
+        id: download-summary-results
+        continue-on-error: true
+        run: |
+          echo "Attempting to download unit test results: unit-test-results-${{ needs.info.outputs.test_id }}"
+
+          # Unit test results are created by this TEST workflow
+          # For summary job, we need to check if previous jobs in THIS workflow created results
+          mkdir -p ./test-results
+
+          echo "Summary job - checking for test results from current workflow"
+          echo "test-results-available=false" >> $GITHUB_OUTPUT
+
+      - name: Check Results Availability
+        id: check-summary-results
+        run: |
+          if [ -d "./test-results" ] && [ "$(ls -A ./test-results)" ]; then
+            echo "✅ Test results available for summary" >> $GITHUB_STEP_SUMMARY
+            echo "results_available=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Test results not available for detailed summary" >> $GITHUB_STEP_SUMMARY
+            echo "results_available=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Test Summary
+        id: summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.infrastructure-tests.result == 'success' && '✅ Passed' || needs.infrastructure-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Policy Validation | ${{ needs.policy-validation.result == 'success' && '✅ Passed' || needs.policy-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Website Content | ${{ needs.website-tests.result == 'success' && '✅ Passed' || needs.website-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Pre-Deployment Usability | ${{ needs.pre-deployment-usability.result == 'success' && '✅ Passed' || needs.pre-deployment-usability.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost Validation | ${{ needs.cost-validation.result == 'success' && '💰 Validated' || needs.cost-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Display detailed unit test results if available
+          if [ -f "./test-results/test-summary.json" ]; then
+            TOTAL_TESTS=$(jq -r '.individual_tests.total' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            PASSED_TESTS=$(jq -r '.individual_tests.passed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            FAILED_TESTS=$(jq -r '.individual_tests.failed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            SUCCESS_RATE=$(jq -r '.individual_tests.success_rate' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+
+            echo "### 🏗️ Infrastructure Unit Tests Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Tests**: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Passed**: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Failed**: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Success Rate**: $SUCCESS_RATE%" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show failed test details if any failures occurred
+            if [ "$FAILED_TESTS" != "0" ] && [ "$FAILED_TESTS" != "N/A" ]; then
+              echo "### ❌ Failed Test Details" >> $GITHUB_STEP_SUMMARY
+
+              # Look for failed test suite logs
+              for log_file in ./test-results/*.log; do
+                if [ -f "$log_file" ] && grep -q "ERROR" "$log_file"; then
+                  suite_name=$(basename "$log_file" .log)
+                  echo "#### **$suite_name**" >> $GITHUB_STEP_SUMMARY
+
+                  # Extract and show key failure information
+                  grep "ERROR" "$log_file" | head -5 | while read -r line; do
+                    clean_error="${line#*ERROR}"
+                    echo "- $clean_error" >> $GITHUB_STEP_SUMMARY
+                  done
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+            fi
+          elif [ "${{ needs.infrastructure-tests.result }}" = "failure" ]; then
+            echo "### 🏗️ Infrastructure Unit Tests Details" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Unit tests failed** - Test results not available for detailed analysis" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Check overall status
+          FAILED_JOBS=""
+          if [ "${{ needs.infrastructure-tests.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Infrastructure "; fi
+          if [ "${{ needs.policy-validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Policy "; fi
+          if [ "${{ needs.website-tests.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Website "; fi
+          if [ "${{ needs.pre-deployment-usability.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Pre-Deployment-Usability "; fi
+          if [ "${{ needs.cost-validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Cost-Validation "; fi
+
+          if [ -z "$FAILED_JOBS" ]; then
+            echo "🎉 **ALL TESTS PASSED** - Ready for RUN phase" >> $GITHUB_STEP_SUMMARY
+            echo "tests_passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ **TESTS FAILED** - Failed jobs: $FAILED_JOBS" >> $GITHUB_STEP_SUMMARY
+            echo "tests_passed=false" >> $GITHUB_OUTPUT
+          fi
