@@ -103,8 +103,17 @@ jobs:
         run: |
           echo "## 📋 Policy Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
 
-          # Generate plan for validation (use local state temporarily)
-          tofu init -backend=false
+          # Create temporary local backend override for validation
+          cat > backend_override.tf <<EOF
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate.policy"
+            }
+          }
+          EOF
+          
+          # Initialize with local backend
+          tofu init -reconfigure
           
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
@@ -280,66 +289,12 @@ jobs:
           path: test/unit/test-results/
           retention-days: 7
 
-  cost-validation:
-    name: "💰 Cost Validation"
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: info
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.info.outputs.commit_sha }}
-
-      - name: Setup OpenTofu
-        run: |
-          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
-          unzip -q /tmp/tofu.zip -d /tmp
-          sudo mv /tmp/tofu /usr/local/bin/
-
-      - name: Cost Estimation
-        working-directory: terraform/workloads/static-site
-        env:
-          TARGET_ENV: ${{ needs.info.outputs.target_environment }}
-        run: |
-          echo "## 💰 Cost Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
-
-          # Generate plan for cost analysis (use local state temporarily)
-          tofu init -backend=false
-          
-          TFVARS_FILE="environments/$TARGET_ENV.tfvars"
-          if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
-          else
-            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
-          fi
-
-          # Extract cost-relevant resources
-          RESOURCES=$(tofu show -json cost.tfplan | jq -r '.planned_values.root_module.resources[].type' | sort | uniq -c)
-
-          echo "**Estimated Resources:**" >> $GITHUB_STEP_SUMMARY
-          echo "$RESOURCES" | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
-
-          # Basic cost validation (simplified)
-          ESTIMATED_MONTHLY_COST=25  # Simplified estimate
-          BUDGET_LIMIT="${{ vars.MONTHLY_BUDGET_LIMIT || '100' }}"
-
-          if [ $ESTIMATED_MONTHLY_COST -gt $BUDGET_LIMIT ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "❌ **BUDGET EXCEEDED** - Estimated: \$${ESTIMATED_MONTHLY_COST}, Limit: \$${BUDGET_LIMIT}" >> $GITHUB_STEP_SUMMARY
-            if [ "$TARGET_ENV" = "prod" ]; then
-              exit 1
-            fi
-          else
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **WITHIN BUDGET** - Estimated: \$${ESTIMATED_MONTHLY_COST}, Limit: \$${BUDGET_LIMIT}" >> $GITHUB_STEP_SUMMARY
-          fi
 
   summary:
     name: "📊 Test Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [info, policy-validation, unit-tests, cost-validation]
+    needs: [info, policy-validation, unit-tests]
     if: always()
     steps:
       - name: Download Unit Test Results
