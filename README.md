@@ -10,6 +10,21 @@
 
 Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu (Terraform-compatible).
 
+## 🌐 Live Deployments
+
+**Development Environment** ✅ OPERATIONAL
+- URL: http://static-website-dev-c21da271.s3-website-us-east-1.amazonaws.com
+- Status: HTTP S3 Website MVP deployed and tested
+- Account: 822529998967
+
+**Staging Environment** ⚠️ BACKEND ISSUE  
+- Status: S3 backend PermanentRedirect error blocking deployments
+- Account: 927588814642
+
+**Production Environment** ⏳ PENDING
+- Status: Awaiting staging issue resolution
+- Account: 224071442216
+
 ## 🚀 Features
 
 - **🚩 Feature Flags**: Cost-optimized deployment with configurable CloudFront/WAF (~$1-5/month S3-only vs ~$20-35/month full stack)
