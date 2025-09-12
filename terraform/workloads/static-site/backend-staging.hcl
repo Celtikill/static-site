@@ -4,7 +4,7 @@
 # Core S3 Backend Configuration
 bucket                     = "static-site-terraform-state-staging-927588814642"
 key                        = "workloads/static-site/staging/terraform.tfstate"
-region                     = "us-east-1"
+region                     = "us-east-2"  # FIXED: Bucket is in us-east-2, not us-east-1
 encrypt                    = true
 
 # Note: S3 backend uses DynamoDB for state locking
