@@ -292,7 +292,18 @@ jobs:
           
           echo "Security validation output: $SECURITY_OUTPUT"
           
-          if [ $SECURITY_EXIT_CODE -eq 0 ]; then
+          # Critical: Check for syntax errors or system failures vs policy violations
+          if echo "$SECURITY_OUTPUT" | grep -q "rego_parse_error\|load: loading policies\|Error: running verification"; then
+            echo "❌ **CRITICAL ERROR** - Conftest syntax or system error in security policies" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Error Details:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$SECURITY_OUTPUT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**This is a system failure, not a policy violation. Fix the policy syntax before proceeding.**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          elif [ $SECURITY_EXIT_CODE -eq 0 ]; then
             echo "✅ All security policies passed" >> $GITHUB_STEP_SUMMARY
             echo "Security policies executed successfully - no violations detected" >> $GITHUB_STEP_SUMMARY
           else
