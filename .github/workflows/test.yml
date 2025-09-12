@@ -2,7 +2,7 @@ name: TEST - Quality Gates and Validation (Streamlined)
 
 on:
   workflow_run:
-    workflows: ["BUILD - Security Scanning and Validation"]
+    workflows: ["BUILD - Code Validation and Artifact Creation"]
     types: [completed]
     branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
   workflow_dispatch:
