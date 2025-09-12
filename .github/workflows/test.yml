@@ -106,13 +106,16 @@ jobs:
           # Install Conftest
           CONFTEST_VERSION=0.46.0
           curl -L -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz
-          tar xzf /tmp/conftest.tar.gz -C /tmp
+          cd /tmp && tar xzf conftest.tar.gz
           sudo mv /tmp/conftest /usr/local/bin/
+          chmod +x /usr/local/bin/conftest
           
-          # Verify installations
-          tofu version
-          opa version
-          conftest --version
+          # Verify installations with explicit error handling
+          echo "=== Tool Verification ==="
+          tofu version || { echo "❌ OpenTofu installation failed"; exit 1; }
+          opa version || { echo "❌ OPA installation failed"; exit 1; }
+          conftest --version || { echo "❌ Conftest installation failed"; exit 1; }
+          echo "✅ All policy tools installed successfully"
 
       - name: Policy Validation with OPA
         working-directory: terraform/workloads/static-site
@@ -121,6 +124,29 @@ jobs:
         run: |
           echo "## 📋 Policy Validation with OPA - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify required tools are available before proceeding
+          echo "=== Policy Tool Verification ==="
+          
+          if ! command -v tofu >/dev/null 2>&1; then
+            echo "❌ **CRITICAL ERROR** - OpenTofu binary not found" >> $GITHUB_STEP_SUMMARY
+            echo "Installation step may have failed. Check setup logs." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          if ! command -v opa >/dev/null 2>&1; then
+            echo "❌ **CRITICAL ERROR** - OPA binary not found" >> $GITHUB_STEP_SUMMARY
+            echo "Installation step may have failed. Check setup logs." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          if ! command -v conftest >/dev/null 2>&1; then
+            echo "❌ **CRITICAL ERROR** - Conftest binary not found" >> $GITHUB_STEP_SUMMARY
+            echo "Installation step may have failed. Check setup logs." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "✅ All required policy tools verified"
 
           # Create temporary local backend override to avoid AWS credentials
           cat > backend_override.tf <<EOF
