@@ -90,11 +90,29 @@ jobs:
         with:
           ref: ${{ needs.info.outputs.commit_sha }}
 
-      - name: Setup OpenTofu
+      - name: Setup OpenTofu and Policy Tools
         run: |
+          # Install OpenTofu
           curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
+          
+          # Install OPA (Open Policy Agent)
+          OPA_VERSION=v0.57.0
+          curl -L -o /tmp/opa https://openpolicyagent.org/downloads/${OPA_VERSION}/opa_linux_amd64_static
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/
+          
+          # Install Conftest
+          CONFTEST_VERSION=0.46.0
+          curl -L -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz
+          tar xzf /tmp/conftest.tar.gz -C /tmp
+          sudo mv /tmp/conftest /usr/local/bin/
+          
+          # Verify installations
+          tofu version
+          opa version
+          conftest --version
 
       - name: Policy Validation with OPA
         working-directory: terraform/workloads/static-site
