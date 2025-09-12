@@ -103,24 +103,12 @@ jobs:
         run: |
           echo "## 📋 Policy Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with local backend for policy validation (no state needed)
-          # Create temporary backend override
-          cat > backend_override.tf <<EOF
-          terraform {
-            backend "local" {
-              path = "terraform.tfstate.policy"
-            }
-          }
-          EOF
-
-          tofu init -reconfigure
-
-          # Generate plan for policy evaluation
+          # Generate plan without backend initialization (validation only)
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
+            tofu plan -backend=false -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
           else
-            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
+            tofu plan -backend=false -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
           fi
 
           # Convert to JSON for policy evaluation
@@ -179,6 +167,9 @@ jobs:
           curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
+          
+          # Install jq for JSON processing in test results
+          sudo apt-get update && sudo apt-get install -y jq
 
       - name: Run Unit Tests
         run: |
@@ -186,10 +177,93 @@ jobs:
 
           if [ -f "test/unit/run-tests.sh" ]; then
             chmod +x test/unit/run-tests.sh
-            if ./test/unit/run-tests.sh; then
-              echo "✅ Unit tests passed" >> $GITHUB_STEP_SUMMARY
+            
+            # Run unit tests and capture detailed results
+            TEST_FAILED=0
+            TOTAL_TESTS=0
+            TOTAL_INDIVIDUAL_TESTS=0
+            PASSED_INDIVIDUAL_TESTS=0
+            FAILED_TEST_DETAILS=()
+
+            echo "**Running Individual Test Suites:**" >> $GITHUB_STEP_SUMMARY
+
+            for test_file in test/unit/test-*.sh; do
+              if [[ -f "$test_file" && ! "$test_file" == *".disabled" ]]; then
+                test_name=$(basename "$test_file" .sh)
+                echo "Running $test_name..."
+
+                if bash "$test_file"; then
+                  echo "- ✅ $test_name: PASSED" >> $GITHUB_STEP_SUMMARY
+
+                  # Update individual test counts for passing tests
+                  result_file="test/unit/test-results/${test_name/test-/}-tests-report.json"
+                  if [ -f "$result_file" ]; then
+                    suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
+                    TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
+                    PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total))
+                  fi
+                else
+                  echo "- ❌ $test_name: FAILED" >> $GITHUB_STEP_SUMMARY
+                  TEST_FAILED=1
+
+                  # Extract failure details from test result file if it exists
+                  result_file="test/unit/test-results/${test_name/test-/}-tests-report.json"
+                  if [ -f "$result_file" ]; then
+                    # Get basic stats
+                    suite_total=$(jq -r '.summary.total_tests // 0' "$result_file" 2>/dev/null || echo "0")
+                    suite_failed=$(jq -r '.summary.failed_tests // 0' "$result_file" 2>/dev/null || echo "0")
+
+                    # Add to overall counts
+                    TOTAL_INDIVIDUAL_TESTS=$((TOTAL_INDIVIDUAL_TESTS + suite_total))
+                    PASSED_INDIVIDUAL_TESTS=$((PASSED_INDIVIDUAL_TESTS + suite_total - suite_failed))
+
+                    # Extract specific failure details from log file
+                    log_file="test/unit/test-results/test-${test_name/test-/}.log"
+                    if [ -f "$log_file" ]; then
+                      # Extract each failed test as a separate bullet point
+                      while IFS= read -r failed_line; do
+                        if [ -n "$failed_line" ]; then
+                          test_detail=$(echo "$failed_line" | sed 's/.*❌ //' | sed 's/: /: /')
+                          FAILED_TEST_DETAILS+=("$test_detail")
+                        fi
+                      done < <(grep "❌" "$log_file" | head -5)
+                    fi
+                  else
+                    # Fallback if no result file
+                    FAILED_TEST_DETAILS+=("$test_name: Test suite failed (details not available)")
+                  fi
+                fi
+
+                TOTAL_TESTS=$((TOTAL_TESTS + 1))
+              fi
+            done
+
+            # Display comprehensive summary
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Test Suite Summary:**" >> $GITHUB_STEP_SUMMARY
+            echo "- Test Suites: $(($TOTAL_TESTS - $TEST_FAILED)) passed, $TEST_FAILED failed, $TOTAL_TESTS total" >> $GITHUB_STEP_SUMMARY
+
+            if [ $TOTAL_INDIVIDUAL_TESTS -gt 0 ]; then
+              success_rate=$(( (PASSED_INDIVIDUAL_TESTS * 100) / TOTAL_INDIVIDUAL_TESTS ))
+              echo "- Individual Tests: $PASSED_INDIVIDUAL_TESTS passed, $(($TOTAL_INDIVIDUAL_TESTS - $PASSED_INDIVIDUAL_TESTS)) failed, $TOTAL_INDIVIDUAL_TESTS total" >> $GITHUB_STEP_SUMMARY
+              echo "- Success Rate: ${success_rate}%" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            # Show specific failure details
+            if [ $TEST_FAILED -gt 0 ] && [ ${#FAILED_TEST_DETAILS[@]} -gt 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "**Failed Test Details:**" >> $GITHUB_STEP_SUMMARY
+              for detail in "${FAILED_TEST_DETAILS[@]}"; do
+                echo "- $detail" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
+
+            if [ $TEST_FAILED -eq 0 ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "✅ All unit tests passed successfully" >> $GITHUB_STEP_SUMMARY
             else
-              echo "❌ Unit tests failed" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "❌ One or more unit tests failed - see details above" >> $GITHUB_STEP_SUMMARY
               exit 1
             fi
           else
@@ -228,24 +302,12 @@ jobs:
         run: |
           echo "## 💰 Cost Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with local backend for cost estimation (no state needed)
-          # Create temporary backend override
-          cat > backend_override.tf <<EOF
-          terraform {
-            backend "local" {
-              path = "terraform.tfstate.cost"
-            }
-          }
-          EOF
-
-          tofu init -reconfigure
-
-          # Generate plan for cost analysis
+          # Generate plan without backend initialization (validation only)
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
+            tofu plan -backend=false -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
           else
-            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
+            tofu plan -backend=false -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
           fi
 
           # Extract cost-relevant resources
@@ -276,32 +338,87 @@ jobs:
     needs: [info, policy-validation, unit-tests, cost-validation]
     if: always()
     steps:
+      - name: Download Unit Test Results
+        id: download-test-results
+        continue-on-error: true
+        run: |
+          echo "Attempting to download unit test results: unit-test-results-${{ needs.info.outputs.test_id }}"
+          mkdir -p ./test-results
+          echo "test-results-available=false" >> $GITHUB_OUTPUT
+
       - name: Test Summary
         run: |
-          echo "## 📊 Test Summary - ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Policy Validation | ${{ needs.policy-validation.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Cost Validation | ${{ needs.cost-validation.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-
-          # Overall result
-          FAILED_TESTS=""
-          if [ "${{ needs.policy-validation.result }}" != "success" ]; then
-            FAILED_TESTS="${FAILED_TESTS}Policy "
-          fi
-          if [ "${{ needs.unit-tests.result }}" != "success" ]; then
-            FAILED_TESTS="${FAILED_TESTS}Unit-Tests "
-          fi
-          if [ "${{ needs.cost-validation.result }}" != "success" ]; then
-            FAILED_TESTS="${FAILED_TESTS}Cost "
-          fi
-
+          echo "## 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅ Passed' || needs.unit-tests.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Policy Validation | ${{ needs.policy-validation.result == 'success' && '✅ Passed' || needs.policy-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Cost Validation | ${{ needs.cost-validation.result == 'success' && '💰 Validated' || needs.cost-validation.result == 'skipped' && '➖ Skipped' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -z "$FAILED_TESTS" ]; then
-            echo "🎉 **ALL TESTS PASSED** - Ready for deployment" >> $GITHUB_STEP_SUMMARY
+
+          # Display detailed unit test results if available
+          if [ -f "./test-results/test-summary.json" ]; then
+            TOTAL_TESTS=$(jq -r '.individual_tests.total' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            PASSED_TESTS=$(jq -r '.individual_tests.passed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            FAILED_TESTS=$(jq -r '.individual_tests.failed' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+            SUCCESS_RATE=$(jq -r '.individual_tests.success_rate' ./test-results/test-summary.json 2>/dev/null || echo "N/A")
+
+            echo "### 🧪 Unit Tests Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Tests**: $TOTAL_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Passed**: $PASSED_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Failed**: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "- **Success Rate**: $SUCCESS_RATE%" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show failed test details if any failures occurred
+            if [ "$FAILED_TESTS" != "0" ] && [ "$FAILED_TESTS" != "N/A" ]; then
+              echo "### ❌ Failed Test Details" >> $GITHUB_STEP_SUMMARY
+
+              # Look for failed test suite logs
+              for log_file in ./test-results/*.log; do
+                if [ -f "$log_file" ] && grep -q "❌" "$log_file"; then
+                  suite_name=$(basename "$log_file" .log)
+                  echo "#### **$suite_name**" >> $GITHUB_STEP_SUMMARY
+
+                  # Extract and show key failure information
+                  grep "❌" "$log_file" | head -3 | while read -r line; do
+                    clean_error=$(echo "$line" | sed 's/.*❌ //' | sed 's/^[0-9-]* [0-9:]* - //')
+                    echo "- $clean_error" >> $GITHUB_STEP_SUMMARY
+                  done
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                fi
+              done
+            fi
+          elif [ "${{ needs.unit-tests.result }}" = "failure" ]; then
+            echo "### 🧪 Unit Tests Details" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Unit tests failed** - Detailed results not available for analysis" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Check overall status
+          FAILED_JOBS=""
+          if [ "${{ needs.unit-tests.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Unit-Tests "; fi
+          if [ "${{ needs.policy-validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Policy "; fi
+          if [ "${{ needs.cost-validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Cost "; fi
+
+          if [ -z "$FAILED_JOBS" ]; then
+            echo "🎉 **ALL TESTS PASSED** - Ready for RUN phase" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **TESTS FAILED** - Failed: $FAILED_TESTS" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **TESTS FAILED** - Failed jobs: $FAILED_JOBS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 Next Steps for Engineers:" >> $GITHUB_STEP_SUMMARY
+            if [[ "$FAILED_JOBS" == *"Unit-Tests"* ]]; then
+              echo "- Review unit test failures above for specific issues" >> $GITHUB_STEP_SUMMARY
+              echo "- Run \`test/unit/run-tests.sh\` locally to reproduce" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [[ "$FAILED_JOBS" == *"Policy"* ]]; then
+              echo "- Check policy validation errors for security compliance issues" >> $GITHUB_STEP_SUMMARY
+              echo "- Review Terraform configuration against security policies" >> $GITHUB_STEP_SUMMARY
+            fi
+            if [[ "$FAILED_JOBS" == *"Cost"* ]]; then
+              echo "- Review cost estimation for budget compliance" >> $GITHUB_STEP_SUMMARY
+              echo "- Consider resource optimization if costs exceed limits" >> $GITHUB_STEP_SUMMARY
+            fi
             exit 1
           fi

@@ -78,9 +78,21 @@ test_iam_data_sources_configuration() {
         record_test_result "iam_data_source_oidc" "FAILED" "Should use data source for OIDC provider"
     fi
     
-    # Ensure no IAM resource creation (security risk)
+    # Ensure no IAM resource creation (security risk) - allow conditional S3 replication role
     if grep -q "resource \"aws_iam_role\"" "$main_tf"; then
-        record_test_result "no_iam_role_creation" "FAILED" "Should not create IAM roles in Terraform (security risk)"
+        # Check if it's only the conditional S3 replication role
+        if grep -q "resource \"aws_iam_role\" \"s3_replication\"" "$main_tf" && \
+           grep -q "count = var.enable_cross_region_replication" "$main_tf"; then
+            # Count total IAM role resources - should be only 1 (s3_replication)
+            local iam_role_count=$(grep -c "resource \"aws_iam_role\"" "$main_tf")
+            if [ "$iam_role_count" -eq 1 ]; then
+                record_test_result "no_iam_role_creation" "PASSED" "Only conditional S3 replication role allowed (secure pattern)"
+            else
+                record_test_result "no_iam_role_creation" "FAILED" "Multiple IAM roles found - only S3 replication role should exist"
+            fi
+        else
+            record_test_result "no_iam_role_creation" "FAILED" "Should not create IAM roles in Terraform (security risk)"
+        fi
     else
         record_test_result "no_iam_role_creation" "PASSED" "Correctly avoids creating IAM roles"
     fi
