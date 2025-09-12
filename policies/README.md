@@ -41,10 +41,10 @@ This directory contains Open Policy Agent (OPA) Rego policies for validating Ter
 
 ```bash
 # Install tools
-curl -L -o opa https://openpolicyagent.org/downloads/v0.57.0/opa_linux_amd64_static
+curl -L -o opa https://openpolicyagent.org/downloads/v1.8.0/opa_linux_amd64_static
 chmod +x opa && sudo mv opa /usr/local/bin/
 
-curl -L -o conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v0.46.0/conftest_0.46.0_Linux_x86_64.tar.gz
+curl -L -o conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v0.62.0/conftest_0.62.0_Linux_x86_64.tar.gz
 tar xzf conftest.tar.gz && sudo mv conftest /usr/local/bin/
 
 # Generate plan for validation
@@ -62,7 +62,7 @@ conftest verify --policy foundation-compliance.rego ../terraform/workloads/stati
 ## Integration
 
 These policies are automatically executed in the GitHub Actions workflow:
-- Installed: OPA v0.57.0, Conftest v0.46.0
+- Installed: OPA v1.8.0, Conftest v0.62.0
 - Executed: During `policy-validation` job in TEST workflow
 - Reporting: Results appear in GitHub Actions job summary
 
