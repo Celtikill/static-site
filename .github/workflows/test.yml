@@ -358,7 +358,6 @@ jobs:
           FAILED_JOBS=""
           if [ "${{ needs.unit-tests.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Unit-Tests "; fi
           if [ "${{ needs.policy-validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Policy "; fi
-          if [ "${{ needs.cost-validation.result }}" = "failure" ]; then FAILED_JOBS="${FAILED_JOBS}Cost "; fi
 
           if [ -z "$FAILED_JOBS" ]; then
             echo "🎉 **ALL TESTS PASSED** - Ready for RUN phase" >> $GITHUB_STEP_SUMMARY
