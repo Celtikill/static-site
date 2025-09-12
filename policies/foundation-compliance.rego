@@ -1,11 +1,9 @@
 package terraform.foundation.compliance
 
-import rego.v1
-
 # COMPLIANCE POLICIES - These rules WARN but allow deployment
 
 # Rule: Resources should have required tags
-warn contains msg if {
+warn[msg] {
     resource := input.planned_values.root_module.resources[_]
     
     # Only check taggable resource types
@@ -26,7 +24,7 @@ warn contains msg if {
 }
 
 # Rule: S3 bucket names should follow naming convention
-warn contains msg if {
+warn[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_s3_bucket"
     bucket_name := resource.values.bucket
@@ -38,7 +36,7 @@ warn contains msg if {
 }
 
 # Rule: IAM roles should have description
-warn contains msg if {
+warn[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_iam_role"
     role_name := resource.values.name
@@ -49,7 +47,7 @@ warn contains msg if {
 }
 
 # Rule: Organization should have multiple service access principals for comprehensive governance
-warn contains msg if {
+warn[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_organizations_organization"
     principals := resource.values.aws_service_access_principals
@@ -60,7 +58,7 @@ warn contains msg if {
 }
 
 # Rule: Resources in production should have additional compliance tags
-warn contains msg if {
+warn[msg] {
     resource := input.planned_values.root_module.resources[_]
     tags := object.get(resource.values, "tags", {})
     environment := object.get(tags, "Environment", "")

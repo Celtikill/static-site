@@ -3,7 +3,7 @@ package terraform.foundation.security
 # SECURITY POLICIES - These rules DENY deployment if violated
 
 # Rule: S3 backends must have encryption enabled
-deny contains msg if {
+deny[msg] {
     resource := input.configuration.root_module.resources[_]
     resource.type == "terraform"
     backend := resource.expressions.backend[0]
@@ -14,7 +14,7 @@ deny contains msg if {
 }
 
 # Rule: S3 buckets must have server-side encryption
-deny contains msg if {
+deny[msg] {
     resource := input.planned_values.root_module.resources[_] 
     resource.type == "aws_s3_bucket"
     bucket_name := resource.values.bucket
@@ -32,7 +32,7 @@ deny contains msg if {
 }
 
 # Rule: AWS Organizations must have CloudTrail service access
-deny contains msg if {
+deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_organizations_organization"
     principals := resource.values.aws_service_access_principals
@@ -43,7 +43,7 @@ deny contains msg if {
 }
 
 # Rule: AWS Organizations must have Config service access  
-deny contains msg if {
+deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_organizations_organization"
     principals := resource.values.aws_service_access_principals
@@ -54,7 +54,7 @@ deny contains msg if {
 }
 
 # Rule: Organizations must have Service Control Policies enabled
-deny contains msg if {
+deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_organizations_organization"
     policy_types := resource.values.enabled_policy_types
@@ -65,7 +65,7 @@ deny contains msg if {
 }
 
 # Rule: IAM roles should use data sources, not create new ones (except for specific cases)
-deny contains msg if {
+deny[msg] {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_iam_role"
     role_name := resource.values.name
