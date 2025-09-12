@@ -377,25 +377,25 @@ jobs:
             echo "| Tag Creation | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Determine overall status
-          FAILED_COMPONENTS=""
-          if [ "${{ inputs.deploy_infrastructure }}" = "true" ] && [ "$INFRA_STATUS" != "success" ]; then
-            FAILED_COMPONENTS="${FAILED_COMPONENTS}Infrastructure "
-          fi
-          if [ "${{ inputs.deploy_website }}" = "true" ] && [ "$WEBSITE_STATUS" != "success" ]; then
-            FAILED_COMPONENTS="${FAILED_COMPONENTS}Website "
-          fi
-
-          if [ -z "$FAILED_COMPONENTS" ]; then
-            echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
-            if [ -n "${{ needs.website-deployment.outputs.deployment_url }}" ]; then
-              echo "🌐 **URL**: ${{ needs.website-deployment.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ **DEPLOYMENT FAILED** - Failed components: $FAILED_COMPONENTS" >> $GITHUB_STEP_SUMMARY
-            echo "status=failed" >> $GITHUB_OUTPUT
-            exit 1
-          fi
+                    echo "" >> $GITHUB_STEP_SUMMARY
+          
+                    # Determine overall status
+                    FAILED_COMPONENTS=""
+                    if [ "${{ inputs.deploy_infrastructure }}" = "true" ] && [ "$INFRA_STATUS" != "success" ]; then
+                      FAILED_COMPONENTS="${FAILED_COMPONENTS}Infrastructure "
+                    fi
+                    if [ "${{ inputs.deploy_website }}" = "true" ] && [ "$WEBSITE_STATUS" != "success" ]; then
+                      FAILED_COMPONENTS="${FAILED_COMPONENTS}Website "
+                    fi
+          
+                    if [ -z "$FAILED_COMPONENTS" ]; then
+                      echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
+                      if [ -n "${{ needs.website-deployment.outputs.deployment_url }}" ]; then
+                        echo "🌐 **URL**: ${{ needs.website-deployment.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
+                      fi
+                      echo "status=success" >> $GITHUB_OUTPUT
+                    else
+                      echo "❌ **DEPLOYMENT FAILED** - Failed components: $FAILED_COMPONENTS" >> $GITHUB_STEP_SUMMARY
+                      echo "status=failed" >> $GITHUB_OUTPUT
+                      exit 1
+                    fi
