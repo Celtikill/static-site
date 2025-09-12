@@ -103,12 +103,14 @@ jobs:
         run: |
           echo "## 📋 Policy Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
 
-          # Generate plan without backend initialization (validation only)
+          # Generate plan for validation (use local state temporarily)
+          tofu init -backend=false
+          
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -backend=false -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
+            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
           else
-            tofu plan -backend=false -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
+            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan
           fi
 
           # Convert to JSON for policy evaluation
@@ -302,12 +304,14 @@ jobs:
         run: |
           echo "## 💰 Cost Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
 
-          # Generate plan without backend initialization (validation only)
+          # Generate plan for cost analysis (use local state temporarily)
+          tofu init -backend=false
+          
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -backend=false -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
+            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
           else
-            tofu plan -backend=false -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
+            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=cost.tfplan
           fi
 
           # Extract cost-relevant resources
