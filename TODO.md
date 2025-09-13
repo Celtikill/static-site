@@ -1,16 +1,23 @@
 # Static Site Infrastructure - Next Steps
 
-**Last Updated**: 2025-09-12  
-**Status**: ✅ WORKFLOWS OPERATIONAL - Ready for Multi-Account Deployment
+**Last Updated**: 2025-09-13  
+**Status**: ⚠️ OPA INTEGRATION IN PROGRESS - Workflow Issues Need Resolution
 
 ## Current State
 
 ```
-✅ COMPLETED: Streamlined Workflow Architecture
-├── BUILD: Security scanning, artifact creation (21s)
-├── TEST: Policy validation, backend overrides working
-├── RUN: Environment coordination operational
-└── Deploy-Composite: Reusable workflow validated
+⚠️ IN PROGRESS: OPA Policy Integration
+├── BUILD: Working correctly (16s runtime) ✅
+├── TEST: Workflow file issues - not triggering ❌
+├── RUN: Not tested due to TEST dependency
+└── Deploy-Composite: Workflow syntax issues ❌
+
+OPA Integration Status:
+├── Policies written and tested locally ✅
+├── Conftest commands fixed (verify → test) ✅
+├── YAML trailing spaces removed ✅
+├── Namespaces correctly configured ✅
+└── Workflow triggering issues ❌
 
 AWS Organization: o-0hh51yjgxw
 ├── Management (223938610551): OIDC provider ✅
@@ -19,9 +26,59 @@ AWS Organization: o-0hh51yjgxw
 └── Prod (224071442216): Ready for deployment
 ```
 
-## Next Priority: Multi-Account Deployment
+## Session Summary - September 13, 2025
 
-### Phase 1: AWS Credential Configuration
+### Completed Tasks
+1. **OPA Integration Fixes**
+   - Fixed YAML syntax errors (removed trailing spaces)
+   - Corrected conftest commands from `verify` to `test`
+   - Added proper namespace specifications
+   - Tested policies locally - working correctly
+
+### Issues Discovered
+1. **TEST Workflow Not Triggering**
+   - Push trigger fails immediately (0s runtime)
+   - workflow_run trigger from BUILD not firing
+   - Manual workflow_dispatch not working
+   - GitHub shows workflow as active but with improper name
+
+2. **Deploy-Composite Workflow**
+   - Similar immediate failure pattern
+   - Needs investigation alongside TEST workflow
+
+### Technical Details
+- **Working Commands**: 
+  ```bash
+  conftest test --policy foundation-security.rego plan.json --namespace terraform.foundation.security
+  conftest test --policy foundation-compliance.rego plan.json --namespace terraform.foundation.compliance
+  ```
+- **Policy Results**: Security (6/6 passed), Compliance (4/5 passed, 1 warning as expected)
+- **BUILD Workflow**: Consistently successful (16-22s runtime)
+
+## Next Week's Priorities (Resume Development)
+
+### Priority 1: Fix Workflow Triggering Issues
+**Investigation Areas:**
+1. Check GitHub Actions syntax validators for hidden issues
+2. Review workflow permissions and token scopes
+3. Test with simplified workflow versions
+4. Consider splitting test.yml into smaller workflows
+5. Examine GitHub Actions logs via API for detailed errors
+
+**Potential Solutions:**
+- Recreate workflows from scratch with minimal config
+- Use alternative trigger mechanisms (repository_dispatch)
+- Check for GitHub Actions service issues or limitations
+- Review recent GitHub Actions changes that might affect workflows
+
+### Priority 2: Complete OPA Integration
+Once workflows are triggering:
+1. Validate OPA policies run in CI environment
+2. Test with actual Terraform plans from different environments
+3. Implement policy documentation
+4. Add custom policy exceptions handling
+
+### Priority 3: Multi-Account Deployment
 ```bash
 # Configure GitHub Secrets for cross-account deployment
 AWS_ASSUME_ROLE_STAGING=arn:aws:iam::927588814642:role/OrganizationAccountAccessRole
@@ -46,17 +103,18 @@ gh workflow run run.yml --field environment=prod --field deploy_infrastructure=t
 
 ## Completed Achievements ✅
 
-**Workflow Architecture Fixes:**
-- Backend override solution for TEST workflows
-- YAML syntax fixes for deploy-composite.yml  
-- OpenTofu dependency setup across all jobs
-- Format cleanup and validation warnings resolved
+**OPA Policy Integration (September 13):**
+- Created foundation-security.rego with 6 security rules
+- Created foundation-compliance.rego with 5 compliance rules
+- Fixed conftest command usage (verify → test)
+- Added proper namespace configurations
+- Removed YAML trailing spaces from workflows
+- Tested policies locally - all working correctly
 
-**Operational Validation:**
-- BUILD workflow: 21s runtime, security scanning working
-- TEST workflow: Backend initialization successful, reaches credential validation
-- RUN workflow: Environment coordination functional
-- Deploy-composite: Reusable workflow pattern operational
+**Previous Workflow Fixes:**
+- Backend override solution for TEST workflows
+- OpenTofu dependency setup across all jobs
+- BUILD workflow: Consistently operational (16-22s)
 
 ## Essential Commands
 
