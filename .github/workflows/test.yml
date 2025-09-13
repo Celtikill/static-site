@@ -96,20 +96,20 @@ jobs:
           curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
-          
+
           # Install OPA (Open Policy Agent)
           OPA_VERSION=v1.8.0
           curl -L -o /tmp/opa https://openpolicyagent.org/downloads/${OPA_VERSION}/opa_linux_amd64_static
           chmod +x /tmp/opa
           sudo mv /tmp/opa /usr/local/bin/
-          
+
           # Install Conftest
           CONFTEST_VERSION=0.62.0
           curl -L -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz
           cd /tmp && tar xzf conftest.tar.gz
           sudo mv /tmp/conftest /usr/local/bin/
           chmod +x /usr/local/bin/conftest
-          
+
           # Verify installations with explicit error handling
           echo "=== Tool Verification ==="
           tofu version || { echo "❌ OpenTofu installation failed"; exit 1; }
@@ -135,25 +135,25 @@ jobs:
 
           # Verify required tools are available before proceeding
           echo "=== Policy Tool Verification ==="
-          
+
           if ! command -v tofu >/dev/null 2>&1; then
             echo "❌ **CRITICAL ERROR** - OpenTofu binary not found" >> $GITHUB_STEP_SUMMARY
             echo "Installation step may have failed. Check setup logs." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           if ! command -v opa >/dev/null 2>&1; then
             echo "❌ **CRITICAL ERROR** - OPA binary not found" >> $GITHUB_STEP_SUMMARY
             echo "Installation step may have failed. Check setup logs." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           if ! command -v conftest >/dev/null 2>&1; then
             echo "❌ **CRITICAL ERROR** - Conftest binary not found" >> $GITHUB_STEP_SUMMARY
             echo "Installation step may have failed. Check setup logs." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           echo "✅ All required policy tools verified"
 
           # Create temporary local backend override to avoid AWS credentials
@@ -164,10 +164,10 @@ jobs:
             }
           }
           EOF
-          
+
           # Initialize and generate plan for policy analysis
           tofu init -reconfigure
-          
+
           # Configuration validation first
           echo "**🔍 Configuration Validation:**" >> $GITHUB_STEP_SUMMARY
           if tofu validate; then
@@ -178,19 +178,19 @@ jobs:
             echo "❌ **CONFIGURATION INVALID** - Fix syntax errors before policy validation" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Generate plan JSON for OPA analysis (using mock values to avoid AWS calls)
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 Generating Plan for Policy Analysis:**" >> $GITHUB_STEP_SUMMARY
-          
+
           # Generate plan - handle provider credential errors gracefully
           TFVARS_FILE="environments/$TARGET_ENV.tfvars"
-          
+
           # Remove any existing plan file
           rm -f policy.tfplan
-          
+
           echo "Attempting to generate Terraform plan for policy analysis..." >> $GITHUB_STEP_SUMMARY
-          
+
           # Run the plan command and capture the exit code
           set +e  # Don't exit on error
           if [ -f "$TFVARS_FILE" ]; then
@@ -201,7 +201,7 @@ jobs:
             PLAN_EXIT_CODE=$?
           fi
           set -e  # Re-enable exit on error
-          
+
           # Check if plan file was created (this is what matters for OPA)
           if [ -f "policy.tfplan" ]; then
             echo "✅ Plan file generated - proceeding with OPA policy validation" >> $GITHUB_STEP_SUMMARY
@@ -231,7 +231,7 @@ jobs:
             echo "❌ **POLICY VALIDATION FAILED** - Fix plan generation to enable OPA validation" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Convert plan to JSON for OPA
           echo "Converting plan to JSON for policy analysis..." >> $GITHUB_STEP_SUMMARY
           if ! tofu show -json policy.tfplan > plan.json; then
@@ -239,13 +239,13 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔧 For Engineers - Plan JSON Conversion Error:" >> $GITHUB_STEP_SUMMARY
             echo "- The Terraform plan file exists but cannot be converted to JSON" >> $GITHUB_STEP_SUMMARY
-            echo "- This may indicate a corrupted plan file or OpenTofu version issue" >> $GITHUB_STEP_SUMMARY  
+            echo "- This may indicate a corrupted plan file or OpenTofu version issue" >> $GITHUB_STEP_SUMMARY
             echo "- Try running \`tofu show -json plan.tfplan\` locally to debug" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **POLICY VALIDATION FAILED** - Cannot analyze plan for OPA validation" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Copy policy files to current directory
           if ! cp ../../../policies/*.rego . 2>/dev/null; then
             echo "❌ **OPA POLICY FILES MISSING**" >> $GITHUB_STEP_SUMMARY
@@ -258,14 +258,14 @@ jobs:
             echo "❌ **POLICY VALIDATION FAILED** - Missing policy definitions" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           if ! cp ../../../policies/conftest.yaml . 2>/dev/null; then
             echo "⚠️ Conftest configuration not found - using default settings" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Verify OPA tools are available
           if ! command -v conftest >/dev/null 2>&1; then
-            echo "❌ **CONFTEST NOT AVAILABLE**" >> $GITHUB_STEP_SUMMARY  
+            echo "❌ **CONFTEST NOT AVAILABLE**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 🔧 For Engineers - Conftest Installation Error:" >> $GITHUB_STEP_SUMMARY
             echo "- Conftest policy runner is not installed or not in PATH" >> $GITHUB_STEP_SUMMARY
@@ -275,21 +275,21 @@ jobs:
             echo "❌ **POLICY VALIDATION FAILED** - Missing policy validation tools" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           # Run OPA policy validation
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**🛡️ OPA Security Policy Validation:**" >> $GITHUB_STEP_SUMMARY
-          
+
           SECURITY_VIOLATIONS=0
-          
+
           # Run security policies (deny rules) with proper error handling and output validation
           set +e  # Don't exit on conftest failure - we want to capture details
-          
+
           echo "🔍 Running security policy validation..."
-          SECURITY_OUTPUT=$(conftest verify --policy foundation-security.rego plan.json --output table 2>&1)
+          SECURITY_OUTPUT=$(conftest test --policy foundation-security.rego plan.json --output table --namespace terraform.foundation.security 2>&1)
           SECURITY_EXIT_CODE=$?
           set -e
-          
+
           # Critical: Detect silent failures where conftest produces no output
           if [ -z "$SECURITY_OUTPUT" ] && [ $SECURITY_EXIT_CODE -eq 0 ]; then
             echo "❌ **CRITICAL ERROR** - Conftest security validation produced no output" >> $GITHUB_STEP_SUMMARY
@@ -297,9 +297,9 @@ jobs:
             echo "**Tools status:** conftest binary verified but execution failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           echo "Security validation output: $SECURITY_OUTPUT"
-          
+
           # Critical: Check for syntax errors or system failures vs policy violations
           if echo "$SECURITY_OUTPUT" | grep -q "rego_parse_error\|load: loading policies\|Error: running verification"; then
             echo "❌ **CRITICAL ERROR** - Conftest syntax or system error in security policies" >> $GITHUB_STEP_SUMMARY
@@ -317,16 +317,16 @@ jobs:
           else
             echo "❌ Security policy violations found" >> $GITHUB_STEP_SUMMARY
             SECURITY_VIOLATIONS=1
-            
+
             # Get detailed security violations with error handling
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Security Policy Details:**" >> $GITHUB_STEP_SUMMARY
-            
+
             set +e
-            SECURITY_DETAILS=$(conftest verify --policy foundation-security.rego plan.json --output json 2>&1)
+            SECURITY_DETAILS=$(conftest test --policy foundation-security.rego plan.json --output json --namespace terraform.foundation.security 2>&1)
             SECURITY_JSON_EXIT=$?
             set -e
-            
+
             if [ $SECURITY_JSON_EXIT -eq 0 ] && [ -n "$SECURITY_DETAILS" ]; then
               echo "$SECURITY_DETAILS" | jq -r '.[] | select(.failures) | .failures[] | "❌ " + .msg' >> $GITHUB_STEP_SUMMARY 2>/dev/null || {
                 echo "❌ Policy violations detected but details unavailable (JSON parsing error)" >> $GITHUB_STEP_SUMMARY
@@ -336,17 +336,17 @@ jobs:
               echo "❌ Policy violations detected but details unavailable (conftest error)" >> $GITHUB_STEP_SUMMARY
             fi
           fi
-          
+
           # Run compliance policies (warn rules) with output validation
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 OPA Compliance Policy Validation:**" >> $GITHUB_STEP_SUMMARY
-          
+
           set +e
           echo "🔍 Running compliance policy validation..."
-          COMPLIANCE_OUTPUT=$(conftest verify --policy foundation-compliance.rego plan.json --output table 2>&1)
+          COMPLIANCE_OUTPUT=$(conftest test --policy foundation-compliance.rego plan.json --output table --namespace terraform.foundation.compliance 2>&1)
           COMPLIANCE_EXIT_CODE=$?
           set -e
-          
+
           # Critical: Detect silent failures where conftest produces no output
           if [ -z "$COMPLIANCE_OUTPUT" ] && [ $COMPLIANCE_EXIT_CODE -eq 0 ]; then
             echo "❌ **CRITICAL ERROR** - Conftest compliance validation produced no output" >> $GITHUB_STEP_SUMMARY
@@ -354,9 +354,9 @@ jobs:
             echo "**Tools status:** conftest binary verified but execution failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           echo "Compliance validation output: $COMPLIANCE_OUTPUT"
-          
+
           # Critical: Check for syntax errors or system failures vs policy violations
           if echo "$COMPLIANCE_OUTPUT" | grep -q "rego_parse_error\|load: loading policies\|Error: running verification"; then
             echo "❌ **CRITICAL ERROR** - Conftest syntax or system error in compliance policies" >> $GITHUB_STEP_SUMMARY
@@ -373,26 +373,26 @@ jobs:
             echo "Compliance policies executed successfully - no warnings detected" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ Compliance policy warnings found" >> $GITHUB_STEP_SUMMARY
-            
+
             # Get detailed compliance warnings with error handling
-            echo "" >> $GITHUB_STEP_SUMMARY  
+            echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Compliance Policy Details:**" >> $GITHUB_STEP_SUMMARY
-            
+
             set +e
-            COMPLIANCE_DETAILS=$(conftest verify --policy foundation-compliance.rego plan.json --output json 2>&1)
+            COMPLIANCE_DETAILS=$(conftest test --policy foundation-compliance.rego plan.json --output json --namespace terraform.foundation.compliance 2>&1)
             COMPLIANCE_JSON_EXIT=$?
             set -e
-            
+
             if [ $COMPLIANCE_JSON_EXIT -eq 0 ] && [ -n "$COMPLIANCE_DETAILS" ]; then
               echo "$COMPLIANCE_DETAILS" | jq -r '.[] | select(.warnings) | .warnings[] | "⚠️ " + .msg' >> $GITHUB_STEP_SUMMARY 2>/dev/null || {
-                echo "⚠️ Policy warnings detected but details unavailable (JSON parsing error)" >> $GITHUB_STEP_SUMMARY  
+                echo "⚠️ Policy warnings detected but details unavailable (JSON parsing error)" >> $GITHUB_STEP_SUMMARY
                 echo "Raw output: $COMPLIANCE_DETAILS" >> $GITHUB_STEP_SUMMARY
               }
             else
               echo "⚠️ Policy warnings detected but details unavailable (conftest error)" >> $GITHUB_STEP_SUMMARY
             fi
           fi
-          
+
           # Environment-specific enforcement with actionable guidance
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "$TARGET_ENV" = "prod" ] && [ $SECURITY_VIOLATIONS -gt 0 ]; then
@@ -403,7 +403,7 @@ jobs:
             echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
             echo "1. Review the security policy details above for specific violations" >> $GITHUB_STEP_SUMMARY
             echo "2. Fix each violation in your Terraform configuration" >> $GITHUB_STEP_SUMMARY
-            echo "3. Test locally: \`conftest verify --policy policies/foundation-security.rego plan.json\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Test locally: \`conftest test --policy policies/foundation-security.rego plan.json --namespace terraform.foundation.security\`" >> $GITHUB_STEP_SUMMARY
             echo "4. Commit fixes and re-run this workflow" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Policy Documentation:** See \`policies/README.md\` for policy details and examples" >> $GITHUB_STEP_SUMMARY
@@ -418,7 +418,7 @@ jobs:
             echo "**Action Required:**" >> $GITHUB_STEP_SUMMARY
             echo "- Review security policy violations above" >> $GITHUB_STEP_SUMMARY
             echo "- While $TARGET_ENV deployment is allowed, these should be fixed" >> $GITHUB_STEP_SUMMARY
-            echo "- Use \`conftest verify --policy policies/foundation-security.rego plan.json\` to test fixes" >> $GITHUB_STEP_SUMMARY
+            echo "- Use \`conftest test --policy policies/foundation-security.rego plan.json --namespace terraform.foundation.security\` to test fixes" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "⚠️ **These violations will block production deployment** - fix before promoting to prod" >> $GITHUB_STEP_SUMMARY
           else
@@ -443,7 +443,7 @@ jobs:
           curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
-          
+
           # Install jq for JSON processing in test results
           sudo apt-get update && sudo apt-get install -y jq
 
@@ -453,7 +453,7 @@ jobs:
 
           if [ -f "test/unit/run-tests.sh" ]; then
             chmod +x test/unit/run-tests.sh
-            
+
             # Run unit tests and capture detailed results
             TEST_FAILED=0
             TOTAL_TESTS=0
