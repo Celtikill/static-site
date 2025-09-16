@@ -1,23 +1,40 @@
 #!/bin/bash
 set -e
 
-ACCOUNT_ID="927588814642"
-OLD_BUCKET="static-website-state-staging"
+# Environment-specific bucket fixing
+ENVIRONMENT=${1:-staging}
+
+case "$ENVIRONMENT" in
+  staging)
+    ACCOUNT_ID="927588814642"
+    OLD_BUCKET="static-website-state-staging"
+    ;;
+  prod)
+    ACCOUNT_ID="546274483801"
+    OLD_BUCKET="static-website-state-prod"
+    ;;
+  *)
+    echo "❌ Unknown environment: $ENVIRONMENT"
+    echo "Usage: $0 [staging|prod]"
+    exit 1
+    ;;
+esac
+
 REGION="us-east-1"
 
-echo "🔧 Fixing staging state bucket region mismatch..."
+echo "🔧 Fixing $ENVIRONMENT state bucket region mismatch..."
 
-# Assume role in staging account
+# Assume role in target account
 CREDS=$(aws sts assume-role \
   --role-arn "arn:aws:iam::${ACCOUNT_ID}:role/OrganizationAccountAccessRole" \
-  --role-session-name "fix-staging-bucket" \
+  --role-session-name "fix-$ENVIRONMENT-bucket" \
   --duration-seconds 1800)
 
 export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')
 export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')
 export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')
 
-echo "✅ Assumed role in staging account"
+echo "✅ Assumed role in $ENVIRONMENT account"
 
 # Check current bucket location
 echo "📍 Checking current bucket location..."
@@ -80,4 +97,4 @@ else
   echo "✅ Bucket is already in correct region"
 fi
 
-echo "🎉 Staging bucket region fix complete!"
+echo "🎉 $ENVIRONMENT bucket region fix complete!"
