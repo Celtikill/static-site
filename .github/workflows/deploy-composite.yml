@@ -127,10 +127,15 @@ jobs:
           audience: sts.amazonaws.com
 
       - name: Assume Target Account Role
-        if: needs.setup.outputs.environment != 'dev'
+        if: inputs.environment != 'dev'
         run: |
+          # Install jq if not available
+          which jq || sudo apt-get update && sudo apt-get install -y jq
+
           # For staging and production, assume cross-account role
           TARGET_ROLE="arn:aws:iam::${{ needs.setup.outputs.account_id }}:role/OrganizationAccountAccessRole"
+
+          echo "Assuming role: $TARGET_ROLE"
 
           # Assume the target account role
           CREDS=$(aws sts assume-role \
@@ -218,10 +223,12 @@ jobs:
           audience: sts.amazonaws.com
 
       - name: Assume Target Account Role
-        if: needs.setup.outputs.environment != 'dev'
+        if: inputs.environment != 'dev'
         run: |
           # For staging and production, assume cross-account role
           TARGET_ROLE="arn:aws:iam::${{ needs.setup.outputs.account_id }}:role/OrganizationAccountAccessRole"
+
+          echo "Assuming role: $TARGET_ROLE"
 
           # Assume the target account role
           CREDS=$(aws sts assume-role \
