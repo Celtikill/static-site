@@ -121,7 +121,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
           role-session-name: github-actions-deploy-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
@@ -217,7 +217,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_DEV }}
           role-session-name: github-actions-website-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
