@@ -139,6 +139,7 @@ jobs:
       deploy_infrastructure: ${{ needs.info.outputs.deploy_infrastructure == 'true' }}
       deploy_website: ${{ needs.info.outputs.deploy_website == 'true' }}
       deployment_id: ${{ needs.info.outputs.run_id }}
+    secrets: inherit
 
   summary:
     name: "📊 Deployment Summary"
