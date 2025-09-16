@@ -132,7 +132,7 @@ jobs:
     name: "🚀 Deploy via Composite Workflow"
     uses: ./.github/workflows/deploy-composite.yml
     needs: [info, authorization]
-    if: needs.info.result == 'success' && (needs.authorization.result == 'success' || needs.authorization.result == 'skipped')
+    if: always() && needs.info.result == 'success' && (needs.authorization.result == 'success' || needs.authorization.result == 'skipped')
     with:
       environment: ${{ needs.info.outputs.target_environment }}
       ref: ${{ needs.info.outputs.commit_sha }}
