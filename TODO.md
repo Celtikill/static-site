@@ -67,7 +67,13 @@ AWS Organization: o-0hh51yjgxw
 
 ## Next Steps (Main Branch Completion)
 
-### Priority 1: Fix S3 State Bucket Issue 🔧
+### Priority 1: Complete PR-Based Workflow Testing 🌿
+**Status**: Testing PR-based staging deployment workflow from feature branch
+- Created pr-deploy.yml workflow for automatic staging deployments
+- Tests deployment on PR open/sync/reopen and approved reviews
+- Adds deployment status comments to PRs with preview URLs
+
+### Priority 2: Fix Production S3 State Bucket Issue 🔧
 **Current Problem**: Terraform can't find staging state bucket
 - Bucket region mismatch (created in us-east-2, expecting us-east-1)
 - AWS CLI defaulting to wrong region despite environment variables

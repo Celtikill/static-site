@@ -1,0 +1,201 @@
+name: PR Deploy - Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  deployments: write
+  actions: read
+
+env:
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
+  TF_IN_AUTOMATION: true
+
+jobs:
+  info:
+    name: "📋 PR Deployment Information"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      pr_number: ${{ steps.check.outputs.pr_number }}
+      deployment_id: ${{ steps.check.outputs.deployment_id }}
+    steps:
+      - name: Check Deployment Conditions
+        id: check
+        run: |
+          echo "# 🔍 PR Deployment Analysis" >> $GITHUB_STEP_SUMMARY
+
+          # Extract PR number
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          if [ -z "$PR_NUMBER" ]; then
+            PR_NUMBER="${{ github.event.review.pull_request.number }}"
+          fi
+
+          DEPLOYMENT_ID="pr-$PR_NUMBER-$(date +%Y%m%d-%H%M%S)-${{ github.run_id }}"
+
+          # Determine if we should deploy
+          SHOULD_DEPLOY="false"
+
+          # Deploy on PR open/sync/reopen
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            SHOULD_DEPLOY="true"
+            echo "- **Trigger**: PR ${{ github.event.action }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Deploy on approved review
+          if [ "${{ github.event_name }}" = "pull_request_review" ] && [ "${{ github.event.review.state }}" = "approved" ]; then
+            SHOULD_DEPLOY="true"
+            echo "- **Trigger**: PR approved by ${{ github.event.review.user.login }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "should_deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+
+          echo "- **PR Number**: #$PR_NUMBER" >> $GITHUB_STEP_SUMMARY
+          echo "- **Should Deploy**: $SHOULD_DEPLOY" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment ID**: $DEPLOYMENT_ID" >> $GITHUB_STEP_SUMMARY
+
+  staging-deploy:
+    name: "🚀 Deploy to Staging"
+    runs-on: ubuntu-latest
+    needs: info
+    if: needs.info.outputs.should_deploy == 'true'
+    uses: ./.github/workflows/deploy-composite.yml
+    with:
+      environment: staging
+      ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      deploy_infrastructure: true
+      deploy_website: true
+      deployment_id: ${{ needs.info.outputs.deployment_id }}
+    secrets: inherit
+
+  comment:
+    name: "💬 Update PR Comment"
+    runs-on: ubuntu-latest
+    needs: [info, staging-deploy]
+    if: always() && needs.info.outputs.should_deploy == 'true'
+    steps:
+      - name: Update PR with Deployment Status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr_number = ${{ needs.info.outputs.pr_number }};
+            const deployment_id = "${{ needs.info.outputs.deployment_id }}";
+            const staging_status = "${{ needs.staging-deploy.result }}";
+            const deployment_url = "${{ needs.staging-deploy.outputs.deployment_url }}";
+
+            let status_emoji, status_text, body_content;
+
+            if (staging_status === 'success') {
+              status_emoji = '✅';
+              status_text = 'SUCCESS';
+              body_content = `
+            ## ${status_emoji} PR Deployment ${status_text}
+
+            **Deployment ID**: \`${deployment_id}\`
+            **Status**: Deployment completed successfully
+            **Environment**: Staging
+            ${deployment_url ? `**Preview URL**: ${deployment_url}` : ''}
+
+            ### 🧪 Testing
+            - [ ] Verify infrastructure changes
+            - [ ] Test website functionality
+            - [ ] Check monitoring and alerts
+
+            ### 🚀 Next Steps
+            Once testing is complete and approved, this PR can be merged to deploy to production.
+            `;
+            } else if (staging_status === 'failure') {
+              status_emoji = '❌';
+              status_text = 'FAILED';
+              body_content = `
+            ## ${status_emoji} PR Deployment ${status_text}
+
+            **Deployment ID**: \`${deployment_id}\`
+            **Status**: Deployment failed
+            **Environment**: Staging
+
+            ### 🔧 Action Required
+            Please check the [workflow logs](${context.payload.repository.html_url}/actions/runs/${context.runId}) for error details.
+
+            Common issues:
+            - Infrastructure validation errors
+            - Missing dependencies
+            - Permission issues
+            `;
+            } else {
+              status_emoji = '⏸️';
+              status_text = 'CANCELLED';
+              body_content = `
+            ## ${status_emoji} PR Deployment ${status_text}
+
+            **Deployment ID**: \`${deployment_id}\`
+            **Status**: Deployment was cancelled
+            **Environment**: Staging
+            `;
+            }
+
+            // Find existing deployment comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr_number
+            });
+
+            const existingComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('PR Deployment')
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: body_content
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr_number,
+                body: body_content
+              });
+            }
+
+  cleanup:
+    name: "🧹 Cleanup on PR Close"
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Add Cleanup Comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr_number = ${{ github.event.pull_request.number }};
+
+            const cleanupComment = `
+            ## 🧹 PR Deployment Cleanup
+
+            This PR has been closed. The staging deployment will remain available for reference but should be considered inactive.
+
+            **Status**: Closed ${github.event.pull_request.merged ? '(merged)' : '(not merged)'}
+            ${github.event.pull_request.merged ? '**Production Deployment**: Will be triggered automatically from main branch' : ''}
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr_number,
+              body: cleanupComment
+            });
