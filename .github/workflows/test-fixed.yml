@@ -1,0 +1,169 @@
+name: TEST - Fixed Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target test environment'
+        required: false
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
+
+jobs:
+  info:
+    name: "📋 Test Information"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      target_environment: ${{ steps.info.outputs.target_environment }}
+      test_id: ${{ steps.info.outputs.test_id }}
+    steps:
+      - name: Determine Test Configuration
+        id: info
+        run: |
+          TEST_ID="test-$(date +%Y%m%d-%H%M%S)-${{ github.run_id }}"
+          TARGET_ENV="${{ inputs.environment || 'dev' }}"
+
+          echo "target_environment=$TARGET_ENV" >> $GITHUB_OUTPUT
+          echo "test_id=$TEST_ID" >> $GITHUB_OUTPUT
+
+          echo "# 🧪 TEST Phase - Fixed Version" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test ID**: $TEST_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  policy-validation:
+    name: "📋 Policy Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: info
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        run: |
+          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+          tofu version
+
+      - name: Install OPA and Conftest
+        run: |
+          # Install OPA
+          OPA_VERSION=v1.8.0
+          curl -L -o /tmp/opa https://openpolicyagent.org/downloads/${OPA_VERSION}/opa_linux_amd64_static
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/
+
+          # Install Conftest
+          CONFTEST_VERSION=0.62.0
+          curl -L -o /tmp/conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz
+          cd /tmp && tar xzf conftest.tar.gz
+          sudo mv /tmp/conftest /usr/local/bin/
+
+          # Verify
+          opa version
+          conftest --version
+
+      - name: Run OPA Policy Validation
+        working-directory: terraform/workloads/static-site
+        env:
+          TARGET_ENV: ${{ needs.info.outputs.target_environment }}
+        run: |
+          echo "## 📋 Policy Validation - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
+
+          # Create local backend for testing
+          cat > backend_override.tf <<EOF
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate.policy"
+            }
+          }
+          EOF
+
+          # Initialize
+          tofu init -reconfigure
+
+          # Validate configuration
+          if tofu validate; then
+            echo "✅ Configuration valid" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Configuration invalid" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Generate plan for OPA
+          TFVARS_FILE="environments/$TARGET_ENV.tfvars"
+          if [ -f "$TFVARS_FILE" ]; then
+            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=policy.tfplan -refresh=false || true
+          else
+            tofu plan -var="environment=$TARGET_ENV" -var="github_repository=${{ github.repository }}" -out=policy.tfplan -refresh=false || true
+          fi
+
+          # Check plan exists
+          if [ ! -f "policy.tfplan" ]; then
+            echo "❌ Plan generation failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Convert to JSON
+          tofu show -json policy.tfplan > plan.json
+
+          # Copy policies
+          cp ../../../policies/*.rego . || exit 1
+
+          # Run security policies
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Security Policies:**" >> $GITHUB_STEP_SUMMARY
+
+          if conftest test --policy foundation-security.rego plan.json --namespace terraform.foundation.security; then
+            echo "✅ All security policies passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Security policy violations found" >> $GITHUB_STEP_SUMMARY
+            if [ "$TARGET_ENV" = "prod" ]; then
+              exit 1
+            fi
+          fi
+
+          # Run compliance policies
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Compliance Policies:**" >> $GITHUB_STEP_SUMMARY
+
+          if conftest test --policy foundation-compliance.rego plan.json --namespace terraform.foundation.compliance; then
+            echo "✅ All compliance policies passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Compliance warnings found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  summary:
+    name: "📊 Test Summary"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: [info, policy-validation]
+    if: always()
+    steps:
+      - name: Test Summary
+        run: |
+          echo "## 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Policy Validation | ${{ needs.policy-validation.result == 'success' && '✅ Passed' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.policy-validation.result }}" = "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **ALL TESTS PASSED**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **TESTS FAILED** - Check policy validation results" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

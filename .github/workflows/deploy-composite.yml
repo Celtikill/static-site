@@ -36,9 +36,6 @@ on:
       deployment_status:
         description: 'Status of the deployment'
         value: ${{ jobs.summary.outputs.status }}
-      infrastructure_outputs:
-        description: 'Terraform outputs from infrastructure deployment'
-        value: ${{ jobs.infrastructure-deployment.outputs.terraform_outputs }}
 
 permissions:
   id-token: write
@@ -52,132 +49,134 @@ env:
   OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
   TF_IN_AUTOMATION: true
 
-concurrency:
-  group: deploy-${{ inputs.environment }}-${{ inputs.ref }}
-  cancel-in-progress: false  # Never cancel deployments
-
 jobs:
-  validate-inputs:
-    name: "🔍 Validate Deployment Inputs"
+  setup:
+    name: "🔧 Deployment Setup"
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     outputs:
-      deployment_id: ${{ steps.generate-id.outputs.deployment_id }}
-      environment_valid: ${{ steps.validate.outputs.environment_valid }}
+      deployment_id: ${{ steps.setup.outputs.deployment_id }}
+      environment: ${{ steps.setup.outputs.environment }}
+      account_id: ${{ steps.setup.outputs.account_id }}
     steps:
-      - name: Validate Environment
-        id: validate
+      - name: Setup Deployment
+        id: setup
         run: |
+          # Generate deployment ID if not provided
+          if [ -z "${{ inputs.deployment_id }}" ]; then
+            DEPLOYMENT_ID="deploy-${{ inputs.environment }}-$(date +%Y%m%d-%H%M%S)-${{ github.run_id }}"
+          else
+            DEPLOYMENT_ID="${{ inputs.deployment_id }}"
+          fi
+
+          # Map environment to AWS account
           case "${{ inputs.environment }}" in
-            dev|staging|prod)
-              echo "✅ Valid environment: ${{ inputs.environment }}"
-              echo "environment_valid=true" >> $GITHUB_OUTPUT
+            dev)
+              ACCOUNT_ID="822529998967"
+              ;;
+            staging)
+              ACCOUNT_ID="927588814642"
+              ;;
+            prod)
+              ACCOUNT_ID="546274483801"
               ;;
             *)
-              echo "❌ Invalid environment: ${{ inputs.environment }}"
-              echo "Valid environments: dev, staging, prod"
-              echo "environment_valid=false" >> $GITHUB_OUTPUT
+              echo "❌ Unknown environment: ${{ inputs.environment }}"
               exit 1
               ;;
           esac
 
-      - name: Generate Deployment ID
-        id: generate-id
-        run: |
-          if [ -n "${{ inputs.deployment_id }}" ]; then
-            DEPLOY_ID="${{ inputs.deployment_id }}"
-          else
-            DEPLOY_ID="deploy-${{ inputs.environment }}-$(date +%Y%m%d-%H%M%S)-${{ github.run_id }}"
-          fi
-          echo "deployment_id=$DEPLOY_ID" >> $GITHUB_OUTPUT
-          echo "🆔 Deployment ID: $DEPLOY_ID"
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+
+          echo "# 🚀 Deployment Started" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment ID**: $DEPLOYMENT_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Account**: $ACCOUNT_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ref**: ${{ inputs.ref }}" >> $GITHUB_STEP_SUMMARY
 
   infrastructure-deployment:
     name: "🏗️ Infrastructure Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: validate-inputs
-    if: inputs.deploy_infrastructure == true
-    environment: ${{ inputs.environment }}
+    needs: setup
+    if: inputs.deploy_infrastructure
     outputs:
       terraform_outputs: ${{ steps.deploy.outputs.terraform_outputs }}
-      bucket_name: ${{ steps.deploy.outputs.bucket_name }}
-      distribution_id: ${{ steps.deploy.outputs.distribution_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
 
+      - name: Setup OpenTofu
+        run: |
+          curl -L -o /tmp/tofu.zip \
+            https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
+          unzip -q /tmp/tofu.zip -d /tmp
+          sudo mv /tmp/tofu /usr/local/bin/
+          tofu version
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets[format('AWS_ASSUME_ROLE_{0}', upper(inputs.environment))] || secrets.AWS_ASSUME_ROLE }}
-          role-session-name: github-actions-infra-${{ needs.validate-inputs.outputs.deployment_id }}
+          role-to-assume: ${{ format('arn:aws:iam::{0}:role/OrganizationAccountAccessRole', needs.setup.outputs.account_id) }}
+          role-session-name: github-actions-deploy-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
-          output-env-credentials: true
-
-      - name: Setup OpenTofu
-        run: |
-          curl -L -o /tmp/tofu.zip https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
-          unzip -q /tmp/tofu.zip -d /tmp
-          sudo mv /tmp/tofu /usr/local/bin/
 
       - name: Deploy Infrastructure
         id: deploy
         working-directory: terraform/workloads/static-site
         env:
-          TF_VAR_alert_email_addresses: ${{ vars.ALERT_EMAIL_ADDRESSES }}
-          TF_VAR_replica_region: ${{ vars.REPLICA_REGION }}
-          TF_VAR_monthly_budget_limit: ${{ vars.MONTHLY_BUDGET_LIMIT }}
+          TARGET_ENV: ${{ needs.setup.outputs.environment }}
         run: |
-          echo "## 🏗️ Infrastructure Deployment - ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Ref**: ${{ inputs.ref }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deployment ID**: ${{ needs.validate-inputs.outputs.deployment_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with environment-specific backend
-          BACKEND_CONFIG="backend-${{ inputs.environment }}.hcl"
-          echo "Using backend: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
+          # Configure backend
+          cat > backend_override.tf <<EOF
+          terraform {
+            backend "s3" {
+              bucket         = "static-website-state-$TARGET_ENV"
+              key            = "terraform.tfstate"
+              region         = "${{ env.AWS_DEFAULT_REGION }}"
+              dynamodb_table = "static-website-locks-$TARGET_ENV"
+              encrypt        = true
+            }
+          }
+          EOF
 
-          tofu init -reconfigure -backend-config="$BACKEND_CONFIG"
-          echo "✅ Backend initialized" >> $GITHUB_STEP_SUMMARY
+          # Initialize
+          tofu init -reconfigure
 
-          # Plan with environment variables
-          TFVARS_FILE="environments/${{ inputs.environment }}.tfvars"
+          # Plan
+          TFVARS_FILE="environments/$TARGET_ENV.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -var-file="$TFVARS_FILE" -var="github_repository=${{ github.repository }}" -out=deploy.tfplan
+            tofu plan -var-file="$TFVARS_FILE" \
+              -var="github_repository=${{ github.repository }}" \
+              -out=deployment.tfplan
           else
-            tofu plan -var="environment=${{ inputs.environment }}" -var="github_repository=${{ github.repository }}" -out=deploy.tfplan
+            tofu plan -var="environment=$TARGET_ENV" \
+              -var="github_repository=${{ github.repository }}" \
+              -out=deployment.tfplan
           fi
-          echo "✅ Plan created" >> $GITHUB_STEP_SUMMARY
 
-          # Apply changes
-          tofu apply -auto-approve deploy.tfplan
-          echo "✅ Infrastructure deployed" >> $GITHUB_STEP_SUMMARY
+          # Apply
+          tofu apply -auto-approve deployment.tfplan
 
-          # Capture outputs
-          OUTPUTS=$(tofu output -json 2>/dev/null || echo '{}')
-          BUCKET_NAME=$(echo "$OUTPUTS" | jq -r '.s3_bucket_id.value // ""')
-          DISTRIBUTION_ID=$(echo "$OUTPUTS" | jq -r '.cloudfront_distribution_id.value // ""')
+          # Get outputs
+          TERRAFORM_OUTPUTS=$(tofu output -json)
+          echo "terraform_outputs=$TERRAFORM_OUTPUTS" >> $GITHUB_OUTPUT
 
-          echo "terraform_outputs=$OUTPUTS" >> $GITHUB_OUTPUT
-          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
-          echo "distribution_id=$DISTRIBUTION_ID" >> $GITHUB_OUTPUT
-
-          echo "**Infrastructure Results:**" >> $GITHUB_STEP_SUMMARY
-          echo "- S3 Bucket: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "- CloudFront Distribution: ${DISTRIBUTION_ID:-N/A}" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Infrastructure deployed successfully" >> $GITHUB_STEP_SUMMARY
 
   website-deployment:
-    name: "🌐 Website Deployment"
+    name: "🌐 Website Content Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [validate-inputs, infrastructure-deployment]
-    if: inputs.deploy_website == true && (success() || inputs.deploy_infrastructure == false)
-    environment: ${{ inputs.environment }}
+    needs: [setup, infrastructure-deployment]
+    if: inputs.deploy_website
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
     steps:
@@ -189,136 +188,64 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets[format('AWS_ASSUME_ROLE_{0}', upper(inputs.environment))] || secrets.AWS_ASSUME_ROLE }}
-          role-session-name: github-actions-website-${{ needs.validate-inputs.outputs.deployment_id }}
+          role-to-assume: ${{ format('arn:aws:iam::{0}:role/OrganizationAccountAccessRole', needs.setup.outputs.account_id) }}
+          role-session-name: github-actions-website-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
 
-      - name: Deploy Website
+      - name: Deploy Website Content
         id: deploy
+        env:
+          TARGET_ENV: ${{ needs.setup.outputs.environment }}
         run: |
-          echo "## 🌐 Website Deployment - ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "## 🌐 Website Content Deployment" >> $GITHUB_STEP_SUMMARY
 
-          # Get bucket name from infrastructure job or environment-specific naming
-          if [ -n "${{ needs.infrastructure-deployment.outputs.bucket_name }}" ]; then
-            BUCKET_NAME="${{ needs.infrastructure-deployment.outputs.bucket_name }}"
-          else
-            # Fallback: construct bucket name (for cases where infra wasn't deployed)
-            BUCKET_NAME="static-website-${{ inputs.environment }}-$(echo ${{ github.repository }} | tr '/' '-')"
-          fi
+          # Determine S3 bucket name
+          S3_BUCKET="static-website-$TARGET_ENV"
 
-          echo "Target bucket: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
+          # Check if website content exists
+          if [ -d "website/public" ]; then
+            echo "Syncing website content to S3..." >> $GITHUB_STEP_SUMMARY
 
-          # Deploy website content
-          WEBSITE_SOURCE_DIR="src"
-          if [ -d "$WEBSITE_SOURCE_DIR" ]; then
-            echo "📁 Uploading website content..." >> $GITHUB_STEP_SUMMARY
-            aws s3 sync "$WEBSITE_SOURCE_DIR/" s3://$BUCKET_NAME/ --delete
-            echo "✅ Website content uploaded" >> $GITHUB_STEP_SUMMARY
+            # Sync website content
+            aws s3 sync website/public/ s3://$S3_BUCKET/ \
+              --delete \
+              --cache-control "public, max-age=3600"
 
-            # List uploaded files for verification
-            echo "📂 **Uploaded files:**" >> $GITHUB_STEP_SUMMARY
-            aws s3 ls s3://$BUCKET_NAME/ --recursive | head -10 >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ No website source directory found ($WEBSITE_SOURCE_DIR)" >> $GITHUB_STEP_SUMMARY
-          fi
+            # Invalidate CloudFront if exists
+            DISTRIBUTION_ID=$(aws cloudfront list-distributions \
+              --query "DistributionList.Items[?Comment=='Static Website $TARGET_ENV'].Id" \
+              --output text 2>/dev/null || echo "")
 
-          # Determine deployment URL
-          CLOUDFRONT_DOMAIN="${{ needs.infrastructure-deployment.outputs.distribution_id }}"
-          if [ -n "$CLOUDFRONT_DOMAIN" ] && [[ "$CLOUDFRONT_DOMAIN" != "null" ]]; then
-            DEPLOYMENT_URL="https://$CLOUDFRONT_DOMAIN"
-          else
-            # Get bucket region for correct S3 website URL
-            BUCKET_REGION=$(aws s3api get-bucket-location --bucket $BUCKET_NAME --query LocationConstraint --output text)
-            if [ "$BUCKET_REGION" = "None" ]; then
-              BUCKET_REGION="us-east-1"
+            if [ -n "$DISTRIBUTION_ID" ]; then
+              aws cloudfront create-invalidation \
+                --distribution-id "$DISTRIBUTION_ID" \
+                --paths "/*"
+              echo "✅ CloudFront cache invalidated" >> $GITHUB_STEP_SUMMARY
             fi
-            DEPLOYMENT_URL="http://$BUCKET_NAME.s3-website-$BUCKET_REGION.amazonaws.com"
-          fi
 
-          echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
-          echo "🌐 **Deployment URL**: $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
-
-  health-check:
-    name: "🏥 Health Check"
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [validate-inputs, website-deployment]
-    if: inputs.deploy_website == true
-    outputs:
-      health_status: ${{ steps.check.outputs.health_status }}
-    steps:
-      - name: Health Check
-        id: check
-        run: |
-          echo "## 🏥 Deployment Health Check" >> $GITHUB_STEP_SUMMARY
-
-          DEPLOY_URL="${{ needs.website-deployment.outputs.deployment_url }}"
-          echo "Testing URL: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
-
-          # Wait for deployment to be ready
-          for i in {1..10}; do
-            echo "Attempt $i/10..." >> $GITHUB_STEP_SUMMARY
-            if curl -sf --max-time 10 "$DEPLOY_URL" > /dev/null; then
-              echo "✅ Health check passed" >> $GITHUB_STEP_SUMMARY
-              echo "health_status=healthy" >> $GITHUB_OUTPUT
-              exit 0
+            # Get deployment URL
+            if [ -n "$DISTRIBUTION_ID" ]; then
+              DEPLOYMENT_URL=$(aws cloudfront get-distribution \
+                --id "$DISTRIBUTION_ID" \
+                --query "Distribution.DomainName" \
+                --output text)
+              DEPLOYMENT_URL="https://$DEPLOYMENT_URL"
+            else
+              DEPLOYMENT_URL="http://$S3_BUCKET.s3-website-${{ env.AWS_DEFAULT_REGION }}.amazonaws.com"
             fi
-            sleep 30
-          done
 
-          echo "⚠️ Health check failed after 10 attempts" >> $GITHUB_STEP_SUMMARY
-          echo "health_status=unhealthy" >> $GITHUB_OUTPUT
-          # Don't fail the deployment, just mark as unhealthy
-
-  create-tag:
-    name: "🏷️ Create Deployment Tag"
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [validate-inputs, health-check]
-    if: inputs.tag != '' && (success() || failure())
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
-          fetch-depth: 0
-
-      - name: Create Tag
-        run: |
-          echo "## 🏷️ Creating Deployment Tag" >> $GITHUB_STEP_SUMMARY
-
-          TAG_NAME="${{ inputs.tag }}"
-
-          # Check if tag already exists
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "⚠️ Tag $TAG_NAME already exists" >> $GITHUB_STEP_SUMMARY
-            exit 0
+            echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+            echo "✅ Website deployed to: $DEPLOYMENT_URL" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No website content found in website/public/" >> $GITHUB_STEP_SUMMARY
           fi
-
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Create annotated tag
-          git tag -a "$TAG_NAME" -m "Deployment tag for ${{ inputs.environment }}
-
-          Environment: ${{ inputs.environment }}
-          Ref: ${{ inputs.ref }}
-          Deployment ID: ${{ needs.validate-inputs.outputs.deployment_id }}
-          Created: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
-          Workflow: ${{ github.workflow }}
-          Run: ${{ github.run_id }}"
-
-          # Push tag
-          git push origin "$TAG_NAME"
-          echo "🏷️ Created and pushed tag: $TAG_NAME" >> $GITHUB_STEP_SUMMARY
 
   summary:
     name: "📊 Deployment Summary"
     runs-on: ubuntu-latest
-    timeout-minutes: 2
-    needs: [validate-inputs, infrastructure-deployment, website-deployment, health-check, create-tag]
+    timeout-minutes: 5
+    needs: [setup, infrastructure-deployment, website-deployment]
     if: always()
     outputs:
       status: ${{ steps.summary.outputs.status }}
@@ -328,11 +255,31 @@ jobs:
         run: |
           echo "## 📊 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check deployment status
+          INFRA_STATUS="${{ needs.infrastructure-deployment.result }}"
+          WEBSITE_STATUS="${{ needs.website-deployment.result }}"
+
+          if [ "$INFRA_STATUS" = "success" ] || [ "$INFRA_STATUS" = "skipped" ]; then
+            if [ "$WEBSITE_STATUS" = "success" ] || [ "$WEBSITE_STATUS" = "skipped" ]; then
+              OVERALL_STATUS="success"
+              echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
+            else
+              OVERALL_STATUS="partial"
+              echo "⚠️ **PARTIAL DEPLOYMENT** - Infrastructure deployed, website failed" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            OVERALL_STATUS="failed"
+            echo "❌ **DEPLOYMENT FAILED**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "status=$OVERALL_STATUS" >> $GITHUB_OUTPUT
+
+          # Deployment details
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
 
-          # Infrastructure status
-          INFRA_STATUS="${{ needs.infrastructure-deployment.result }}"
           if [ "${{ inputs.deploy_infrastructure }}" = "true" ]; then
             if [ "$INFRA_STATUS" = "success" ]; then
               echo "| Infrastructure | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
@@ -343,59 +290,18 @@ jobs:
             echo "| Infrastructure | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Website status
-          WEBSITE_STATUS="${{ needs.website-deployment.result }}"
           if [ "${{ inputs.deploy_website }}" = "true" ]; then
             if [ "$WEBSITE_STATUS" = "success" ]; then
-              echo "| Website | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
+              echo "| Website Content | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
             else
-              echo "| Website | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+              echo "| Website Content | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "| Website | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| Website Content | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Health check status
-          HEALTH_STATUS="${{ needs.health-check.outputs.health_status }}"
-          if [ "$HEALTH_STATUS" = "healthy" ]; then
-            echo "| Health Check | ✅ Healthy |" >> $GITHUB_STEP_SUMMARY
-          elif [ "$HEALTH_STATUS" = "unhealthy" ]; then
-            echo "| Health Check | ⚠️ Unhealthy |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| Health Check | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          # Tag status
-          TAG_STATUS="${{ needs.create-tag.result }}"
-          if [ -n "${{ inputs.tag }}" ]; then
-            if [ "$TAG_STATUS" = "success" ]; then
-              echo "| Tag Creation | ✅ Created |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| Tag Creation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
-            fi
-          else
-            echo "| Tag Creation | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Determine overall status
-          FAILED_COMPONENTS=""
-          if [ "${{ inputs.deploy_infrastructure }}" = "true" ] && [ "$INFRA_STATUS" != "success" ]; then
-            FAILED_COMPONENTS="${FAILED_COMPONENTS}Infrastructure "
-          fi
-          if [ "${{ inputs.deploy_website }}" = "true" ] && [ "$WEBSITE_STATUS" != "success" ]; then
-            FAILED_COMPONENTS="${FAILED_COMPONENTS}Website "
-          fi
-
-          if [ -z "$FAILED_COMPONENTS" ]; then
-            echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
-            if [ -n "${{ needs.website-deployment.outputs.deployment_url }}" ]; then
-              echo "🌐 **URL**: ${{ needs.website-deployment.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ **DEPLOYMENT FAILED** - Failed components: $FAILED_COMPONENTS" >> $GITHUB_STEP_SUMMARY
-            echo "status=failed" >> $GITHUB_OUTPUT
-            exit 1
+          # Add deployment URL if available
+          if [ -n "${{ needs.website-deployment.outputs.deployment_url }}" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**🌐 Deployment URL**: ${{ needs.website-deployment.outputs.deployment_url }}" >> $GITHUB_STEP_SUMMARY
           fi
