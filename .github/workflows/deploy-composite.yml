@@ -121,10 +121,34 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ format('arn:aws:iam::{0}:role/OrganizationAccountAccessRole', needs.setup.outputs.account_id) }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
           role-session-name: github-actions-deploy-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
+
+      - name: Assume Target Account Role
+        if: needs.setup.outputs.environment != 'dev'
+        run: |
+          # For staging and production, assume cross-account role
+          TARGET_ROLE="arn:aws:iam::${{ needs.setup.outputs.account_id }}:role/OrganizationAccountAccessRole"
+
+          # Assume the target account role
+          CREDS=$(aws sts assume-role \
+            --role-arn "$TARGET_ROLE" \
+            --role-session-name "github-deploy-${{ github.run_id }}" \
+            --duration-seconds 3600)
+
+          # Export new credentials
+          export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')
+          export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')
+          export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')
+
+          # Make credentials available to subsequent steps
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
+
+          echo "✅ Assumed role in account ${{ needs.setup.outputs.account_id }}"
 
       - name: Deploy Infrastructure
         id: deploy
@@ -188,10 +212,34 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ format('arn:aws:iam::{0}:role/OrganizationAccountAccessRole', needs.setup.outputs.account_id) }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
           role-session-name: github-actions-website-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
+
+      - name: Assume Target Account Role
+        if: needs.setup.outputs.environment != 'dev'
+        run: |
+          # For staging and production, assume cross-account role
+          TARGET_ROLE="arn:aws:iam::${{ needs.setup.outputs.account_id }}:role/OrganizationAccountAccessRole"
+
+          # Assume the target account role
+          CREDS=$(aws sts assume-role \
+            --role-arn "$TARGET_ROLE" \
+            --role-session-name "github-website-${{ github.run_id }}" \
+            --duration-seconds 3600)
+
+          # Export new credentials
+          export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')
+          export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')
+          export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')
+
+          # Make credentials available to subsequent steps
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
+
+          echo "✅ Assumed role in account ${{ needs.setup.outputs.account_id }}"
 
       - name: Deploy Website Content
         id: deploy
