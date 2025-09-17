@@ -139,8 +139,22 @@ jobs:
           echo "## 📋 Policy Validation with OPA - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with existing backend configuration
-          tofu init
+          # Temporarily move existing backend configuration for policy validation
+          if [ -f "backend.tf" ]; then
+            mv backend.tf backend.tf.bak
+          fi
+
+          # Create local backend for policy validation
+          cat > backend.tf <<EOF
+          terraform {
+            backend "local" {
+              path = "terraform.tfstate.policy"
+            }
+          }
+          EOF
+
+          # Initialize with local backend for policy validation
+          tofu init -reconfigure
 
           # Configuration validation
           echo "**🔍 Configuration Validation:**" >> $GITHUB_STEP_SUMMARY
@@ -221,6 +235,11 @@ jobs:
             echo "⚠️ **SECURITY VIOLATIONS FOUND** - Review for $TARGET_ENV environment" >> $GITHUB_STEP_SUMMARY
           else
             echo "🎉 **ALL POLICIES COMPLIANT**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Restore original backend configuration
+          if [ -f "backend.tf.bak" ]; then
+            mv backend.tf.bak backend.tf
           fi
 
   summary:
