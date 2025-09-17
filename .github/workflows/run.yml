@@ -188,6 +188,20 @@ jobs:
           echo "- **Target Role**: $TARGET_ROLE" >> $GITHUB_STEP_SUMMARY
           echo "- **AWS Region**: $AWS_REGION" >> $GITHUB_STEP_SUMMARY
 
+  debug:
+    name: "🔍 Debug Outputs"
+    runs-on: ubuntu-latest
+    needs: info
+    steps:
+      - name: Debug Info Outputs
+        run: |
+          echo "🔍 Debugging info job outputs:"
+          echo "- target_environment: '${{ needs.info.outputs.target_environment }}'"
+          echo "- deploy_infrastructure: '${{ needs.info.outputs.deploy_infrastructure }}'"
+          echo "- deploy_website: '${{ needs.info.outputs.deploy_website }}'"
+          echo "- commit_sha: '${{ needs.info.outputs.commit_sha }}'"
+          echo "- run_id: '${{ needs.info.outputs.run_id }}'"
+
   deploy_infrastructure:
     name: "🏗️ Infrastructure Deployment"
     runs-on: ubuntu-latest
