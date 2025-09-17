@@ -228,12 +228,11 @@ jobs:
           echo "rollback_target=$ROLLBACK_TARGET" >> $GITHUB_ENV
           echo "trigger_deployment=true" >> $GITHUB_ENV
 
-      # TODO: Update to use environment-specific OIDC roles like RUN workflow
       - name: Configure AWS Credentials
         if: env.trigger_deployment == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
+          role-to-assume: ${{ inputs.environment == 'staging' && vars.AWS_ROLE_ARN_STAGING || inputs.environment == 'prod' && vars.AWS_ROLE_ARN_PROD || secrets.AWS_ASSUME_ROLE_CENTRAL }}
           role-session-name: emergency-${{ inputs.operation }}-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
@@ -267,9 +266,9 @@ jobs:
           # Deploy based on operation type
           if [ "$OPERATION" = "hotfix" ] || [ "${{ inputs.rollback_method }}" != "content_only" ]; then
             echo "### Infrastructure Deployment" >> $GITHUB_STEP_SUMMARY
-            cd terraform
+            cd terraform/environments/$ENVIRONMENT
 
-            if tofu init -reconfigure && tofu plan -var="environment=$ENVIRONMENT" -out=emergency.tfplan; then
+            if tofu init -reconfigure && tofu plan -out=emergency.tfplan; then
               if tofu apply -auto-approve emergency.tfplan; then
                 echo "✅ Infrastructure deployment completed" >> $GITHUB_STEP_SUMMARY
               else
@@ -280,14 +279,14 @@ jobs:
               echo "❌ Infrastructure planning failed" >> $GITHUB_STEP_SUMMARY
               exit 1
             fi
-            cd ..
+            cd ../../..
           fi
 
           if [ "$OPERATION" = "hotfix" ] || [ "${{ inputs.rollback_method }}" != "infrastructure_only" ]; then
             echo "### Website Deployment" >> $GITHUB_STEP_SUMMARY
 
-            # Get bucket name
-            BUCKET_NAME=$(cd terraform && tofu output -raw s3_bucket_name 2>/dev/null || echo "")
+            # Get bucket name from environment-specific directory
+            BUCKET_NAME=$(cd terraform/environments/$ENVIRONMENT && tofu output -raw s3_bucket_name 2>/dev/null || echo "")
             if [ -z "$BUCKET_NAME" ]; then
               echo "❌ Could not determine S3 bucket name" >> $GITHUB_STEP_SUMMARY
               exit 1
@@ -298,7 +297,7 @@ jobs:
               echo "✅ Website content deployed" >> $GITHUB_STEP_SUMMARY
 
               # Invalidate CloudFront cache
-              DISTRIBUTION_ID=$(cd terraform && tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+              DISTRIBUTION_ID=$(cd terraform/environments/$ENVIRONMENT && tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
               if [ -n "$DISTRIBUTION_ID" ]; then
                 aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
                 echo "✅ CloudFront cache invalidated" >> $GITHUB_STEP_SUMMARY
