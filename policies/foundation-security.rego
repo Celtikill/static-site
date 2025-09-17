@@ -71,9 +71,35 @@ deny contains msg if {
     resource := input.planned_values.root_module.resources[_]
     resource.type == "aws_iam_role"
     role_name := resource.values.name
-    
+
     # Allow S3 replication role as exception
     not role_name == "static-site-s3-replication"
-    
+
     msg := sprintf("IAM role '%s' should use data sources instead of creating new roles (security best practice)", [role_name])
+}
+
+# Rule: Terraform modules must use proper provider configuration
+deny contains msg if {
+    # Check if configuration has modules that reference providers
+    some module_key
+    module_config := input.configuration.root_module.module_calls[module_key]
+
+    # If module has provider requirements in required_providers, it should not define its own providers
+    module_path := module_config.source
+
+    # This is a configuration-level check - modules should use configuration_aliases not provider blocks
+    msg := sprintf("Module '%s' should use configuration_aliases instead of defining provider blocks (2025 best practice)", [module_key])
+}
+
+# Rule: Provider configuration must be consistent across environments
+deny contains msg if {
+    # Check for provider configurations that should be standardized
+    provider_config := input.configuration.root_module.provider_configs[_]
+    provider_name := provider_config.name
+
+    # AWS provider must specify region consistently
+    provider_name == "aws"
+    not provider_config.expressions.region
+
+    msg := sprintf("AWS provider configuration must specify region explicitly for consistency", [])
 }

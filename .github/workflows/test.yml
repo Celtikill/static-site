@@ -132,24 +132,15 @@ jobs:
           audience: sts.amazonaws.com
 
       - name: Policy Validation with OPA
-        working-directory: terraform/workloads/static-site
+        working-directory: terraform/environments/staging
         env:
           TARGET_ENV: ${{ needs.info.outputs.target_environment }}
         run: |
           echo "## 📋 Policy Validation with OPA - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Create temporary local backend override
-          cat > backend_override.tf <<EOF
-          terraform {
-            backend "local" {
-              path = "terraform.tfstate.policy"
-            }
-          }
-          EOF
-
-          # Initialize and generate plan
-          tofu init -reconfigure
+          # Initialize with existing backend configuration
+          tofu init
 
           # Configuration validation
           echo "**🔍 Configuration Validation:**" >> $GITHUB_STEP_SUMMARY
@@ -164,24 +155,13 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 Generating Plan for Policy Analysis:**" >> $GITHUB_STEP_SUMMARY
 
-          TFVARS_FILE="environments/$TARGET_ENV.tfvars"
-
           # Remove any existing plan file
           rm -f policy.tfplan
 
-          # Run the plan command
+          # Run the plan command (using staging environment defaults)
           set +e
-          if [ -f "$TFVARS_FILE" ]; then
-            tofu plan -var-file="$TFVARS_FILE" \
-              -var="github_repository=${{ github.repository }}" \
-              -out=policy.tfplan -refresh=false
-            PLAN_EXIT_CODE=$?
-          else
-            tofu plan -var="environment=$TARGET_ENV" \
-              -var="github_repository=${{ github.repository }}" \
-              -out=policy.tfplan -refresh=false
-            PLAN_EXIT_CODE=$?
-          fi
+          tofu plan -out=policy.tfplan -refresh=false
+          PLAN_EXIT_CODE=$?
           set -e
 
           # Check if plan file was created
@@ -196,7 +176,7 @@ jobs:
           tofu show -json policy.tfplan > plan.json
 
           # Copy policy files
-          cp ../../../policies/*.rego . || exit 1
+          cp ../../policies/*.rego . || exit 1
 
           # Run security policies
           echo "" >> $GITHUB_STEP_SUMMARY
