@@ -60,8 +60,18 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TARGET_ENV="${{ inputs.environment }}"
             COMMIT_SHA="${{ github.sha }}"
-            DEPLOY_INFRA="${{ inputs.deploy_infrastructure }}"
-            DEPLOY_WEBSITE="${{ inputs.deploy_website }}"
+            # Convert boolean inputs to string values
+            if [ "${{ inputs.deploy_infrastructure }}" = "true" ]; then
+              DEPLOY_INFRA="true"
+            else
+              DEPLOY_INFRA="false"
+            fi
+
+            if [ "${{ inputs.deploy_website }}" = "true" ]; then
+              DEPLOY_WEBSITE="true"
+            else
+              DEPLOY_WEBSITE="false"
+            fi
             TRIGGER_SOURCE="manual dispatch"
           else
             # Triggered by TEST workflow completion
@@ -99,18 +109,9 @@ jobs:
 
           echo "target_environment=$TARGET_ENV" >> $GITHUB_OUTPUT
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          # Normalize boolean values to string 'true' or 'false'
-          if [[ "$DEPLOY_INFRA" == "true" || "$DEPLOY_INFRA" == true ]]; then
-            echo "deploy_infrastructure=true" >> $GITHUB_OUTPUT
-          else
-            echo "deploy_infrastructure=false" >> $GITHUB_OUTPUT
-          fi
-
-          if [[ "$DEPLOY_WEBSITE" == "true" || "$DEPLOY_WEBSITE" == true ]]; then
-            echo "deploy_website=true" >> $GITHUB_OUTPUT
-          else
-            echo "deploy_website=false" >> $GITHUB_OUTPUT
-          fi
+          # Ensure boolean values are properly formatted for output
+          echo "deploy_infrastructure=$DEPLOY_INFRA" >> $GITHUB_OUTPUT
+          echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
           echo "# 🚀 RUN Phase - Streamlined" >> $GITHUB_STEP_SUMMARY
