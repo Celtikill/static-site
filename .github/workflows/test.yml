@@ -190,7 +190,7 @@ jobs:
           tofu show -json policy.tfplan > plan.json
 
           # Copy policy files
-          cp ../../policies/*.rego . || exit 1
+          cp ../../../policies/*.rego . || exit 1
 
           # Run security policies
           echo "" >> $GITHUB_STEP_SUMMARY
