@@ -24,58 +24,71 @@
 
 ## Refactor Strategy Overview
 
-**Objective**: Replace all ad-hoc infrastructure fixes with Terraform-native, secure, best-practice implementations.
+**Objective**: Replace all ad-hoc infrastructure fixes with AWS-recommended OIDC + Terraform-native architecture.
 
-**Approach**: Zero-risk migration with import-first strategy and parallel deployment testing.
+**Approach**: AWS best practice multi-account CI/CD with environment-specific OIDC authentication and least-privilege IAM roles.
 
-## Phase 1: Foundation Infrastructure as Code (Week 1)
+## AWS Best Practice Architecture (2025)
 
-### 🏗️ State Backend Module Creation
-**Priority**: P0 - Foundation for all other work
+### Central OIDC + Cross-Account Pattern
+```
+Management Account (223938610551)
+├── OIDC Provider (github.com) ✅ EXISTS
+├── Central GitHub Actions Role
+└── Cross-Account Assume Role Capability
 
-**Tasks**:
-- [ ] Create `terraform/modules/foundations/state-backend/` module
-  - [ ] S3 bucket with versioning, encryption, and proper policies
-  - [ ] DynamoDB table with encryption and proper IAM
-  - [ ] KMS keys for state encryption
-  - [ ] Least-privilege IAM policies for state access
-- [ ] Import existing state infrastructure before any changes
-- [ ] Validate state file integrity during import process
+Target Accounts (Dev/Staging/Prod)
+├── Environment-Specific Deployment Role
+├── Trust Policy → Central Account Role
+└── Least-Privilege Permissions (Terraform + S3 State only)
+```
 
-**Security Controls**:
-- ✅ KMS encryption for all state data
-- ✅ Bucket policies enforcing least-privilege access
-- ✅ No hardcoded account IDs or regions
-- ✅ Environment-specific resource naming
+### Security Controls
+- ✅ Repository/environment-specific OIDC trust conditions
+- ✅ Time-limited sessions (1 hour max)
+- ✅ Least-privilege permissions per environment
+- ✅ Zero standing credentials
+- ✅ Environment isolation enforcement
 
-### 🔐 Environment-Specific Backend Configurations
-**Priority**: P0 - Eliminates dynamic backend generation
+## Phase 1: OIDC + IAM Role Architecture (Day 1)
 
-**Tasks**:
-- [ ] Create static backend configs: `terraform/accounts/{env}/backend.tf`
-- [ ] Remove dynamic `backend_override.tf` generation from workflows
-- [ ] Test backend migrations with state backup procedures
-- [ ] Validate environment isolation
-
-**Security Controls**:
-- ✅ Static configurations (no runtime generation)
-- ✅ Environment-specific state isolation
-- ✅ Immutable backend configurations
-
-### 👤 Dedicated IAM Roles per Environment
-**Priority**: P1 - Replaces OrganizationAccountAccessRole
+### 🔐 Central OIDC Setup (Hours 1-2)
+**Priority**: P0 - Foundation for secure multi-account access
 
 **Tasks**:
-- [ ] Create `terraform/accounts/{env}/iam.tf` for each environment
-- [ ] Design least-privilege permissions per environment
-- [ ] Deploy alongside existing roles for testing
-- [ ] Update OIDC trust relationships per environment
-- [ ] Test role assumption and permissions
+- [ ] Create `terraform/foundations/github-oidc/` module
+- [ ] Central GitHub Actions Role in management account
+- [ ] Cross-account assume role capability
+- [ ] Repository/environment-specific trust conditions
+
+**OIDC Trust Policy Example**:
+```json
+{
+  "StringLike": {
+    "token.actions.githubusercontent.com:sub": "repo:Celtikill/static-site:environment:*"
+  },
+  "StringEquals": {
+    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+  }
+}
+```
+
+### 👤 Environment-Specific Deployment Roles (Hours 3-4)
+**Priority**: P0 - Replaces OrganizationAccountAccessRole
+
+**Tasks**:
+- [ ] Create deployment roles in each target account:
+  - [ ] `GitHubActions-StaticSite-Dev-Role` (822529998967)
+  - [ ] `GitHubActions-StaticSite-Staging-Role` (927588814642)
+  - [ ] `GitHubActions-StaticSite-Prod-Role` (546274483801)
+- [ ] Least-privilege permissions (Terraform + S3 state only)
+- [ ] Trust policies pointing to central management role
+- [ ] Test role assumption chain
 
 **Security Controls**:
-- ✅ Least-privilege principle enforcement
 - ✅ Environment-scoped permissions only
 - ✅ No cross-environment access capabilities
+- ✅ Time-limited sessions (1 hour max)
 - ✅ Audit trail for all role assumptions
 
 ## Phase 2: Workflow Security Hardening (Week 2)
@@ -216,19 +229,30 @@ terraform import module.state_backend.aws_s3_bucket_policy.state_policy static-w
 
 ## Current Focus
 
-🎯 **Phase 1 in Progress**: Creating Terraform state backend module to replace all manual state infrastructure management.
+🎯 **Phase 1 in Progress**: AWS best practice OIDC + IAM role architecture implementation.
 
-**Next Immediate Actions**:
-1. Design and implement state backend Terraform module
-2. Create import procedures for existing infrastructure
-3. Test import process in development environment
-4. Validate state operations with imported resources
+**Next Immediate Actions** (Day 1):
+1. Create central OIDC provider and GitHub Actions role in management account
+2. Deploy environment-specific deployment roles in target accounts
+3. Test complete OIDC authentication chain
+4. Validate least-privilege permissions per environment
+
+**Migration Timeline**:
+- **Day 1**: OIDC + IAM role architecture
+- **Day 2**: Terraform-native backend infrastructure
+- **Day 3**: Workflow updates and security validation
 
 **Blocked/Deprecated Items**:
+- ❌ OrganizationAccountAccessRole usage (over-privileged)
 - ❌ Manual S3 bucket creation via AWS CLI
-- ❌ Manual DynamoDB table creation via AWS CLI
 - ❌ Dynamic backend configuration generation
-- ❌ OrganizationAccountAccessRole usage
 - ❌ Hardcoded account IDs in workflows
+- ❌ Cross-environment role access
 
-All previous ad-hoc fixes have been replaced with this structured, Terraform-native approach that eliminates security risks and follows infrastructure-as-code best practices.
+**AWS Best Practice Compliance**:
+- ✅ Central OIDC provider pattern
+- ✅ Environment-specific deployment roles
+- ✅ Least-privilege permissions
+- ✅ Repository/environment trust conditions
+- ✅ Zero standing credentials
+- ✅ Time-limited sessions
