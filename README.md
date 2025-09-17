@@ -20,7 +20,7 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 
 **Production Environment** ✅ READY
 - Status: Multi-account infrastructure prepared
-- Account: 224071442216
+- Account: 546274483801
 
 ## 🚀 Features
 
@@ -48,13 +48,12 @@ Enterprise-grade infrastructure as code for deploying secure, scalable static we
 - BUILD: Security scanning and artifact creation (21s)
 - TEST: Policy validation with backend overrides (35s)
 - RUN: Environment deployment coordination
-- Deploy-Composite: Reusable workflow pattern
 
 **Recent Achievements**:
-- Backend override solution for TEST workflows
-- YAML syntax fixes for all deployment workflows
-- OpenTofu dependency setup across all jobs
-- Comprehensive validation reaching credential authentication
+- OIDC authentication with central role pattern
+- Environment-specific deployment roles operational
+- OPA policy validation integrated and operational
+- Complete workflow cleanup and consolidation
 
 This project implements a simplified 3-phase deployment strategy with comprehensive workflow orchestration:
 
@@ -111,8 +110,8 @@ The project uses a simplified status monitoring approach:
 
 2. **Configure GitHub secrets** (required for CI/CD)
    ```bash
-   # Add these secrets to your GitHub repository:
-   # AWS_ASSUME_ROLE_DEV, AWS_ASSUME_ROLE_STAGING, AWS_ASSUME_ROLE
+   # Add this secret to your GitHub repository:
+   # AWS_ASSUME_ROLE_CENTRAL
    # See docs/guides/iam-setup.md for details
    ```
 
@@ -164,9 +163,9 @@ The project uses a simplified status monitoring approach:
 
 ## ⚙️ Configuration & Security
 
-**Key Variables**: `project_name`, `environment`, `alert_email_addresses`, `github_repository`  
-**Security Features**: OIDC authentication, KMS encryption, WAF protection, CloudFront OAC  
-**Setup Required**: IAM roles must be created manually before deployment
+**Key Variables**: `project_name`, `environment`, `alert_email_addresses`, `github_repository`
+**Security Features**: Central OIDC authentication, KMS encryption, WAF protection, CloudFront OAC
+**Setup Required**: Central GitHub Actions role and environment-specific deployment roles configured
 
 📖 **Complete Details**: [Configuration Guide](docs/guides/iam-setup.md) | [Security Guide](SECURITY.md) | [Workflow Guide](docs/workflows.md)
 

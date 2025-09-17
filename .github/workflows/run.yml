@@ -128,24 +128,251 @@ jobs:
           echo "✅ **AUTHORIZED**: Manual production deployment" >> \
             $GITHUB_STEP_SUMMARY
 
-  deploy:
-    name: "🚀 Deploy via Composite Workflow"
-    uses: ./.github/workflows/deploy-composite.yml
+  setup:
+    name: "⚙️ Setup AWS Authentication"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [info, authorization]
     if: always() && needs.info.result == 'success' && (needs.authorization.result == 'success' || needs.authorization.result == 'skipped')
-    with:
-      environment: ${{ needs.info.outputs.target_environment }}
-      ref: ${{ needs.info.outputs.commit_sha }}
-      deploy_infrastructure: ${{ needs.info.outputs.deploy_infrastructure == 'true' }}
-      deploy_website: ${{ needs.info.outputs.deploy_website == 'true' }}
-      deployment_id: ${{ needs.info.outputs.run_id }}
-    secrets: inherit
+    outputs:
+      target_role_arn: ${{ steps.config.outputs.target_role_arn }}
+      aws_region: ${{ steps.config.outputs.aws_region }}
+    steps:
+      - name: Configure Environment-Specific Authentication
+        id: config
+        run: |
+          TARGET_ENV="${{ needs.info.outputs.target_environment }}"
+
+          # Environment-specific role mapping
+          case "$TARGET_ENV" in
+            dev)
+              TARGET_ROLE="arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role"
+              AWS_REGION="us-east-2"
+              ;;
+            staging)
+              TARGET_ROLE="arn:aws:iam::927588814642:role/GitHubActions-StaticSite-Staging-Role"
+              AWS_REGION="us-east-2"
+              ;;
+            prod)
+              TARGET_ROLE="arn:aws:iam::546274483801:role/GitHubActions-StaticSite-Prod-Role"
+              AWS_REGION="us-east-2"
+              ;;
+            *)
+              echo "❌ Invalid environment: $TARGET_ENV"
+              exit 1
+              ;;
+          esac
+
+          echo "target_role_arn=$TARGET_ROLE" >> $GITHUB_OUTPUT
+          echo "aws_region=$AWS_REGION" >> $GITHUB_OUTPUT
+
+          echo "🔐 **Environment Authentication Setup**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Role**: $TARGET_ROLE" >> $GITHUB_STEP_SUMMARY
+          echo "- **AWS Region**: $AWS_REGION" >> $GITHUB_STEP_SUMMARY
+
+  deploy_infrastructure:
+    name: "🏗️ Infrastructure Deployment"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [info, setup]
+    if: needs.info.outputs.deploy_infrastructure == 'true'
+    outputs:
+      deployment_status: ${{ steps.deploy.outputs.deployment_status }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.info.outputs.commit_sha }}
+
+      - name: Configure AWS Credentials (Central Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
+          role-session-name: github-actions-central-${{ github.run_id }}
+          aws-region: ${{ needs.setup.outputs.aws_region }}
+          audience: sts.amazonaws.com
+
+      - name: Assume Environment-Specific Role
+        run: |
+          TARGET_ROLE="${{ needs.setup.outputs.target_role_arn }}"
+          EXTERNAL_ID="github-actions-static-site"
+          SESSION_NAME="github-actions-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}"
+
+          echo "🔄 Assuming environment role: $TARGET_ROLE"
+
+          CREDS=$(aws sts assume-role \
+            --role-arn "$TARGET_ROLE" \
+            --role-session-name "$SESSION_NAME" \
+            --external-id "$EXTERNAL_ID" \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+            --output text)
+
+          if [ $? -ne 0 ]; then
+            echo "❌ Failed to assume role: $TARGET_ROLE"
+            exit 1
+          fi
+
+          AWS_ACCESS_KEY_ID=$(echo $CREDS | cut -d' ' -f1)
+          AWS_SECRET_ACCESS_KEY=$(echo $CREDS | cut -d' ' -f2)
+          AWS_SESSION_TOKEN=$(echo $CREDS | cut -d' ' -f3)
+
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
+
+          echo "✅ Successfully assumed environment role"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+
+      - name: Deploy Infrastructure
+        id: deploy
+        working-directory: terraform/environments/${{ needs.info.outputs.target_environment }}
+        run: |
+          echo "🏗️ **Infrastructure Deployment**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ needs.info.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
+
+          # Initialize Terraform
+          tofu init
+
+          # Plan deployment
+          echo "📋 Creating deployment plan..."
+          tofu plan -out=deployment.tfplan
+
+          # Apply deployment
+          echo "🚀 Applying infrastructure changes..."
+          tofu apply -auto-approve deployment.tfplan
+
+          # Get outputs
+          BUCKET_NAME=$(tofu output -raw s3_bucket_name || echo "")
+          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id || echo "")
+          WEBSITE_URL=$(tofu output -raw website_url || echo "")
+
+          echo "deployment_status=success" >> $GITHUB_OUTPUT
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
+          echo "cloudfront_id=$CLOUDFRONT_ID" >> $GITHUB_ENV
+          echo "website_url=$WEBSITE_URL" >> $GITHUB_ENV
+
+          echo "✅ Infrastructure deployment completed successfully" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$WEBSITE_URL" ]; then
+            echo "🌐 **Website URL**: $WEBSITE_URL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  deploy_website:
+    name: "🌐 Website Deployment"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [info, setup, deploy_infrastructure]
+    if: needs.info.outputs.deploy_website == 'true' && (needs.deploy_infrastructure.result == 'success' || needs.deploy_infrastructure.result == 'skipped')
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.info.outputs.commit_sha }}
+
+      - name: Configure AWS Credentials (Central Role)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
+          role-session-name: github-actions-central-${{ github.run_id }}
+          aws-region: ${{ needs.setup.outputs.aws_region }}
+          audience: sts.amazonaws.com
+
+      - name: Assume Environment-Specific Role
+        run: |
+          TARGET_ROLE="${{ needs.setup.outputs.target_role_arn }}"
+          EXTERNAL_ID="github-actions-static-site"
+          SESSION_NAME="github-actions-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}"
+
+          CREDS=$(aws sts assume-role \
+            --role-arn "$TARGET_ROLE" \
+            --role-session-name "$SESSION_NAME" \
+            --external-id "$EXTERNAL_ID" \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+            --output text)
+
+          AWS_ACCESS_KEY_ID=$(echo $CREDS | cut -d' ' -f1)
+          AWS_SECRET_ACCESS_KEY=$(echo $CREDS | cut -d' ' -f2)
+          AWS_SESSION_TOKEN=$(echo $CREDS | cut -d' ' -f3)
+
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
+
+      - name: Deploy Website Content
+        id: deploy
+        run: |
+          echo "🌐 **Website Deployment**" >> $GITHUB_STEP_SUMMARY
+
+          # Get infrastructure outputs
+          cd terraform/environments/${{ needs.info.outputs.target_environment }}
+          BUCKET_NAME=$(tofu output -raw s3_bucket_name)
+          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id || echo "")
+          WEBSITE_URL=$(tofu output -raw website_url)
+
+          echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
+
+          # Sync website content
+          echo "📤 Syncing website content to S3..."
+          aws s3 sync website/ s3://$BUCKET_NAME --delete
+
+          # Invalidate CloudFront cache if distribution exists
+          if [ -n "$CLOUDFRONT_ID" ]; then
+            echo "🔄 Invalidating CloudFront cache..."
+            aws cloudfront create-invalidation \
+              --distribution-id $CLOUDFRONT_ID \
+              --paths "/*"
+          fi
+
+          echo "deployment_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+
+          echo "✅ Website deployment completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Live URL**: [$WEBSITE_URL]($WEBSITE_URL)" >> $GITHUB_STEP_SUMMARY
+
+  validation:
+    name: "✅ Post-Deployment Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, deploy_infrastructure, deploy_website]
+    if: always() && (needs.deploy_infrastructure.result == 'success' || needs.deploy_website.result == 'success')
+    steps:
+      - name: Health Check
+        run: |
+          echo "✅ **Post-Deployment Validation**" >> $GITHUB_STEP_SUMMARY
+
+          WEBSITE_URL="${{ needs.deploy_website.outputs.deployment_url }}"
+
+          if [ -n "$WEBSITE_URL" ]; then
+            echo "🔍 Testing website accessibility..."
+
+            # Test website accessibility
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$WEBSITE_URL" || echo "000")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Website is accessible (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ Website returned HTTP $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            echo "🌐 **Validated URL**: [$WEBSITE_URL]($WEBSITE_URL)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No website URL available for validation" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "✅ Post-deployment validation completed" >> $GITHUB_STEP_SUMMARY
 
   summary:
     name: "📊 Deployment Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [info, deploy]
+    needs: [info, deploy_infrastructure, deploy_website, validation]
     if: always()
     steps:
       - name: Final Summary
@@ -155,16 +382,22 @@ jobs:
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Environment | ${{ needs.info.outputs.target_environment }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Deployment Status | ${{ needs.deploy.outputs.deployment_status || 'Unknown' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.deploy_infrastructure.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Website | ${{ needs.deploy_website.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation | ${{ needs.validation.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
 
-          DEPLOY_URL="${{ needs.deploy.outputs.deployment_url }}"
+          DEPLOY_URL="${{ needs.deploy_website.outputs.deployment_url }}"
           if [ -n "$DEPLOY_URL" ]; then
             echo "| Deployment URL | [$DEPLOY_URL]($DEPLOY_URL) |" >> \
               $GITHUB_STEP_SUMMARY
           fi
 
           # Final status determination
-          if [ "${{ needs.deploy.result }}" = "success" ]; then
+          INFRA_SUCCESS="${{ needs.deploy_infrastructure.result }}"
+          WEBSITE_SUCCESS="${{ needs.deploy_website.result }}"
+
+          if [[ "$INFRA_SUCCESS" == "success" || "$INFRA_SUCCESS" == "skipped" ]] && \
+             [[ "$WEBSITE_SUCCESS" == "success" || "$WEBSITE_SUCCESS" == "skipped" ]]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
             if [ -n "$DEPLOY_URL" ]; then
@@ -173,6 +406,6 @@ jobs:
           else
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **DEPLOYMENT FAILED**" >> $GITHUB_STEP_SUMMARY
-            echo "Check the deploy job logs for details" >> $GITHUB_STEP_SUMMARY
+            echo "Check the deployment job logs for details" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi

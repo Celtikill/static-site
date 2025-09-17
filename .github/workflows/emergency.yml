@@ -228,13 +228,15 @@ jobs:
           echo "rollback_target=$ROLLBACK_TARGET" >> $GITHUB_ENV
           echo "trigger_deployment=true" >> $GITHUB_ENV
 
+      # TODO: Update to use environment-specific OIDC roles like RUN workflow
       - name: Configure AWS Credentials
         if: env.trigger_deployment == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
           role-session-name: emergency-${{ inputs.operation }}-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
+          audience: sts.amazonaws.com
 
       - name: Emergency Deployment
         if: env.trigger_deployment == 'true'

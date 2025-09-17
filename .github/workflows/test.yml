@@ -126,7 +126,7 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE }}
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
           role-session-name: github-actions-policy-validation-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
