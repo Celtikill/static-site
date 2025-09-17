@@ -37,7 +37,7 @@ variable "github_repository" {
   default     = "Celtikill/static-site"
 }
 
-# Configure AWS Provider
+# Configure AWS Provider - Primary region
 provider "aws" {
   region = var.default_region
 
@@ -51,6 +51,38 @@ provider "aws" {
   }
 }
 
+# Configure AWS Provider - Replica region for cross-region replication
+provider "aws" {
+  alias  = "replica"
+  region = "us-west-2"
+
+  default_tags {
+    tags = {
+      Environment  = "prod"
+      Project      = "static-site"
+      ManagedBy    = "opentofu"
+      Repository   = var.github_repository
+      BackupRegion = "true"
+    }
+  }
+}
+
+# Configure AWS Provider - CloudFront region (must be us-east-1)
+provider "aws" {
+  alias  = "cloudfront"
+  region = "us-east-1"
+
+  default_tags {
+    tags = {
+      Environment = "prod"
+      Project     = "static-site"
+      ManagedBy   = "opentofu"
+      Repository  = var.github_repository
+      Region      = "us-east-1"
+    }
+  }
+}
+
 # Use the static website workload module
 module "static_website" {
   source = "../../workloads/static-site"
@@ -59,8 +91,10 @@ module "static_website" {
   github_repository = var.github_repository
   replica_region    = "us-west-2"
 
-  # Override any hard-coded values with variables
+  # Pass all required providers to child module
   providers = {
-    aws = aws
+    aws            = aws
+    aws.replica    = aws.replica
+    aws.cloudfront = aws.cloudfront
   }
 }

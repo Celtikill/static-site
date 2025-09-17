@@ -8,63 +8,14 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
+      configuration_aliases = [
+        aws.replica,
+        aws.cloudfront
+      ]
     }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.4"
-    }
-  }
-
-  # S3 backend configuration - uses environment-specific state files
-  backend "s3" {
-    # Backend configuration will be loaded from backend-{env}.hcl files
-    # This allows the same terraform to be used across dev/staging/prod environments
-    # with different state files and proper isolation
-  }
-}
-
-# Provider configuration for replica region (used by S3 module)
-provider "aws" {
-  alias  = "replica"
-  region = var.replica_region
-
-  default_tags {
-    tags = {
-      Project      = var.project_name
-      Environment  = var.environment
-      ManagedBy    = "opentofu"
-      Repository   = var.github_repository
-      BackupRegion = "true"
-    }
-  }
-}
-
-# Provider configuration for CloudFront resources (must be us-east-1)
-provider "aws" {
-  alias  = "cloudfront"
-  region = "us-east-1"
-
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "opentofu"
-      Repository  = var.github_repository
-      Region      = "us-east-1"
-    }
-  }
-}
-
-# Main provider configuration
-provider "aws" {
-  region = var.aws_region
-
-  default_tags {
-    tags = {
-      Project     = var.project_name
-      Environment = var.environment
-      ManagedBy   = "opentofu"
-      Repository  = var.github_repository
     }
   }
 }
