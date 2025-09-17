@@ -38,7 +38,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 # Central GitHub Actions Role (in Management Account)
 resource "aws_iam_role" "github_actions_central" {
-  name = "GitHubActions-StaticSite-Central"
+  name        = "GitHubActions-StaticSite-Central"
   description = "Central role for GitHub Actions multi-account deployments"
 
   assume_role_policy = jsonencode({

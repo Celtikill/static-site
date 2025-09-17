@@ -37,9 +37,9 @@ output "target_deployment_role_arns" {
 output "github_actions_workflow_config" {
   description = "Configuration for GitHub Actions workflow"
   value = {
-    role_to_assume  = aws_iam_role.github_actions_central.arn
-    session_name    = "github-actions-deployment"
-    aws_region      = "us-east-1"
-    external_id     = var.external_id
+    role_to_assume = aws_iam_role.github_actions_central.arn
+    session_name   = "github-actions-deployment"
+    aws_region     = "us-east-1"
+    external_id    = var.external_id
   }
 }

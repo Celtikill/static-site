@@ -41,3 +41,15 @@ variable "additional_s3_bucket_patterns" {
   type        = list(string)
   default     = []
 }
+
+variable "state_bucket_account_id" {
+  description = "AWS account ID where the Terraform state bucket is located"
+  type        = string
+  default     = "223938610551" # Management account
+}
+
+variable "state_bucket_region" {
+  description = "AWS region where the Terraform state bucket is located"
+  type        = string
+  default     = "us-east-2"
+}

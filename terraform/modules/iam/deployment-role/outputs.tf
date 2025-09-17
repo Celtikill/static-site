@@ -22,7 +22,7 @@ output "static_website_policy_arn" {
 
 output "role_assumption_command" {
   description = "AWS CLI command to assume this role from central role"
-  value = "aws sts assume-role --role-arn ${aws_iam_role.deployment.arn} --role-session-name github-actions-${var.environment} --external-id ${var.external_id}"
+  value       = "aws sts assume-role --role-arn ${aws_iam_role.deployment.arn} --role-session-name github-actions-${var.environment} --external-id ${var.external_id}"
 }
 
 output "github_actions_config" {
