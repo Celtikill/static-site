@@ -66,7 +66,7 @@ tofu init -migrate-state
 3. Verify GitHub secrets are set:
    ```bash
    gh secret list
-   # Should show: AWS_ASSUME_ROLE_DEV, AWS_ASSUME_ROLE_STAGING, AWS_ASSUME_ROLE
+   # Should show: AWS_ASSUME_ROLE_CENTRAL
    ```
 
 ### Workflow Dependency Failures

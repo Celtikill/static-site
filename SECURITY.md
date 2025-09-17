@@ -29,12 +29,13 @@ If you discover a security vulnerability in this project, please:
 
 ### CI/CD Security
 
-- **GitHub Actions OIDC**: No long-lived credentials stored
-- **Service-Scoped Permissions**: IAM policies use service-level wildcards (e.g., `s3:*`) with resource constraints
-- **Resource-Constrained Access**: All service permissions limited to project-specific resources
-- **Policy as Code**: OPA/Conftest validation with automated testing
-- **Security Scanning**: Checkov, Trivy, SARIF integration
-- **Dependency Scanning**: Automated vulnerability detection
+- **Central OIDC Authentication**: GitHubActions-StaticSite-Central role in management account
+- **Environment-Specific Roles**: Least-privilege deployment roles per target account
+- **Role Assumption Chain**: OIDC → Central Role → Environment Role pattern
+- **Service-Scoped Permissions**: IAM policies use service-level wildcards with resource constraints
+- **Policy as Code**: OPA/Conftest validation operational in TEST workflow
+- **Security Scanning**: Checkov, Trivy integrated in BUILD workflow
+- **Zero Standing Credentials**: Time-limited sessions (1 hour max)
 
 ### IAM Security Model
 
@@ -127,29 +128,24 @@ This infrastructure is designed to meet:
 
 ## Recent Security Updates
 
-### 2025-09-09: IAM Policy Update for GitHub Actions
+### 2025-09-17: OIDC Architecture Implementation Complete
 
-**Issue**: RUN workflow failing due to missing IAM permissions for `github-actions-management` role.
+**Enhancement**: Completed migration to AWS best practice OIDC authentication pattern.
 
-**Resolution**: 
-1. **Updated Terraform**: Changed IAM role reference from `static-site-github-actions` to `github-actions-management` in `terraform/workloads/static-site/main.tf:203`
-2. **Policy Update Required**: Need to add IAM read permissions to `github-actions-org-management` policy
+**Implementation**:
+1. **Central OIDC Provider**: Configured in management account (223938610551)
+2. **Central Role**: GitHubActions-StaticSite-Central with cross-account capabilities
+3. **Environment Roles**: Deployment-specific roles in target accounts:
+   - Dev: GitHubActions-StaticSite-Dev-Role (822529998967)
+   - Staging: GitHubActions-StaticSite-Staging-Role (927588814642)
+   - Prod: GitHubActions-StaticSite-Prod-Role (546274483801)
 
-**Required Policy Update**:
-```bash
-# Apply the updated policy v3 with IAM read permissions
-aws iam create-policy-version \
-  --policy-arn "arn:aws:iam::223938610551:policy/github-actions-org-management" \
-  --policy-document file://docs/iam/github-actions-org-management-policy-v3.json \
-  --set-as-default
-```
-
-**Added Permissions**:
-- `iam:GetRole` - Required for Terraform to read IAM role data
-- `iam:ListOpenIDConnectProviders` - Required for Terraform to find OIDC provider
-- `iam:GetOpenIDConnectProvider` - Required for Terraform OIDC provider data
-
-**Policy Location**: `docs/iam/github-actions-org-management-policy-v3.json`
+**Security Improvements**:
+- Eliminated OrganizationAccountAccessRole usage (over-privileged)
+- Implemented least-privilege permissions per environment
+- Added repository and environment-specific trust conditions
+- Established complete account-level isolation
+- Single GitHub secret (AWS_ASSUME_ROLE_CENTRAL) for all environments
 
 ## Additional Resources
 

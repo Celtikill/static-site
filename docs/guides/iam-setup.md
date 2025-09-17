@@ -4,9 +4,10 @@ This guide provides comprehensive instructions for setting up IAM roles and poli
 
 ## Overview
 
-The infrastructure uses AWS IAM for access control with two primary authentication methods:
-- **GitHub Actions**: OIDC-based authentication for CI/CD pipelines
-- **Local Development**: AWS CLI profiles with temporary credentials
+The infrastructure uses AWS IAM with a central OIDC authentication pattern:
+- **GitHub Actions**: Central OIDC role with cross-account assume capabilities
+- **Multi-Account Access**: Environment-specific deployment roles in target accounts
+- **Local Development**: AWS CLI profiles with pass integration for credential management
 
 ### Security Approach: "Middle Way"
 
@@ -17,13 +18,15 @@ This project implements a **service-scoped permissions** model that balances sec
 
 ### Quick Setup
 
-For automated IAM setup, use the provided scripts:
-```bash
-# Update IAM permissions (if role already exists)
-./scripts/update-iam-policy.sh
+**Current Status**: OIDC architecture is operational with:
+- Central role: `GitHubActions-StaticSite-Central` in management account (223938610551)
+- Environment roles deployed in target accounts
+- Single GitHub secret: `AWS_ASSUME_ROLE_CENTRAL`
 
-# Validate IAM configuration
-./scripts/validate-iam-permissions.sh
+For validation:
+```bash
+# Test OIDC authentication chain
+gh workflow run test.yml --field environment=dev
 ```
 
 ## Prerequisites
@@ -33,57 +36,42 @@ For automated IAM setup, use the provided scripts:
 - GitHub repository for your static site
 - Basic understanding of AWS IAM concepts
 
-## GitHub Actions OIDC Setup
+## Current OIDC Architecture
 
-### 1. Create OIDC Identity Provider
+### Central Authentication Pattern
 
-First, create an OIDC provider for GitHub in your AWS account:
+The current implementation uses AWS best practice multi-account OIDC:
 
-```bash
-aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+```
+Management Account (223938610551)
+├── OIDC Provider (github.com) ✅
+├── GitHubActions-StaticSite-Central ✅
+└── Cross-Account Assume Role Capability ✅
+
+Target Accounts
+├── Dev (822529998967): GitHubActions-StaticSite-Dev-Role ✅
+├── Staging (927588814642): GitHubActions-StaticSite-Staging-Role ✅
+└── Prod (546274483801): GitHubActions-StaticSite-Prod-Role ✅
 ```
 
-### 2. Create IAM Role for GitHub Actions
+### Authentication Flow
 
-Create a role that GitHub Actions can assume:
+**Current Operational Flow**:
+1. GitHub Actions authenticates with OIDC Provider in management account
+2. Assumes `GitHubActions-StaticSite-Central` role
+3. Uses central role to assume environment-specific deployment role
+4. Deploys infrastructure with least-privilege permissions
 
-```bash
-# Create the trust policy
-cat > github-trust-policy.json << 'EOF'
+**Trust Relationship**:
+```json
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_ORG/YOUR_REPO:*"
-        }
-      }
-    }
-  ]
+  "StringLike": {
+    "token.actions.githubusercontent.com:sub": "repo:celtikill/static-site:*"
+  },
+  "StringEquals": {
+    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+  }
 }
-EOF
-
-# Replace placeholders
-sed -i "s/ACCOUNT_ID/$(aws sts get-caller-identity --query Account --output text)/g" github-trust-policy.json
-sed -i "s/YOUR_GITHUB_ORG\/YOUR_REPO/${GITHUB_REPOSITORY}/g" github-trust-policy.json
-
-# Create the role
-aws iam create-role \
-  --role-name github-actions-management \
-  --assume-role-policy-document file://github-trust-policy.json \
-  --description "Role for GitHub Actions to deploy static website infrastructure"
 ```
 
 ### 3. Attach Permissions Policy
@@ -248,49 +236,41 @@ aws iam attach-role-policy \
   --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/github-actions-static-site-deployment
 ```
 
-### 4. Configure GitHub Repository
+### GitHub Repository Configuration
 
-Add the role ARN to your GitHub repository secrets:
-
+**Current Secrets** (operational):
 ```bash
-# Get the role ARN
-ROLE_ARN=$(aws iam get-role --role-name github-actions-management --query 'Role.Arn' --output text)
-echo "Add this to GitHub Secrets as AWS_ROLE_ARN: $ROLE_ARN"
+# Single secret for all environments
+AWS_ASSUME_ROLE_CENTRAL="arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
 
-# Also add AWS_REGION (e.g., us-east-1)
+# No additional secrets required - environment roles are assumed dynamically
 ```
 
 ## Local Development Setup
 
-For local development and testing:
+**Current Pattern**: Profile-based authentication with pass integration
 
-### 1. Create IAM User
+### AWS CLI Configuration
 
 ```bash
-aws iam create-user --user-name static-site-developer
+# Profile configuration with credential_process
+[profile dev-static-site]
+region = us-east-1
+role_arn = arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role
+source_profile = central
+credential_process = pass show aws/github-actions-central
+
+[profile central]
+region = us-east-1
 ```
 
-### 2. Attach Policy
+### Local Authentication Test
 
 ```bash
-aws iam attach-user-policy \
-  --user-name static-site-developer \
-  --policy-arn arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/github-actions-static-site-policy
-```
+# Test authentication
+AWS_PROFILE=dev-static-site aws sts get-caller-identity
 
-### 3. Create Access Keys
-
-```bash
-aws iam create-access-key --user-name static-site-developer
-```
-
-### 4. Configure AWS CLI Profile
-
-```bash
-aws configure --profile static-site
-# Enter the access key ID and secret access key from step 3
-# Enter your preferred region (e.g., us-east-1)
-# Enter your preferred output format (e.g., json)
+# Should show dev account role assumption
 ```
 
 ## S3 Cross-Region Replication Role
@@ -363,28 +343,34 @@ aws iam put-role-policy \
 
 ## Verification
 
-### Test GitHub Actions Authentication
+### Test Current Authentication
 
-In your GitHub Actions workflow:
+In GitHub Actions workflows:
 
 ```yaml
-- name: Configure AWS Credentials
+- name: Configure AWS Credentials (Central)
   uses: aws-actions/configure-aws-credentials@v4
   with:
-    role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-    aws-region: ${{ secrets.AWS_REGION }}
+    role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
+    aws-region: us-east-1
 
-- name: Test Authentication
-  run: aws sts get-caller-identity
+- name: Assume Environment Role
+  run: |
+    aws sts assume-role \
+      --role-arn arn:aws:iam::${{ env.ACCOUNT_ID }}:role/GitHubActions-StaticSite-${{ env.ENVIRONMENT }}-Role \
+      --role-session-name github-actions-${{ env.ENVIRONMENT }}
 ```
 
 ### Test Local Authentication
 
 ```bash
-# Test with the configured profile
-AWS_PROFILE=static-site aws sts get-caller-identity
+# Test central role access
+AWS_PROFILE=central aws sts get-caller-identity
 
-# Should return your user details
+# Test environment-specific access
+AWS_PROFILE=dev-static-site aws sts get-caller-identity
+
+# Should show proper role assumption chain
 ```
 
 ## Security Best Practices

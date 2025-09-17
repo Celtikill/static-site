@@ -504,10 +504,8 @@ aws cloudwatch get-dashboard \
 #### Required Secrets
 Add to GitHub repository secrets:
 ```bash
-# AWS Role ARNs for OIDC authentication
-AWS_ASSUME_ROLE_DEV       # Development deployment role
-AWS_ASSUME_ROLE_STAGING   # Staging deployment role
-AWS_ASSUME_ROLE           # Production deployment role
+# AWS Central Role ARN for OIDC authentication
+AWS_ASSUME_ROLE_CENTRAL   # Central role for all environment access
 
 # Monitoring configuration
 ALERT_EMAIL_ADDRESSES     # JSON array of alert recipients

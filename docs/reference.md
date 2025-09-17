@@ -88,10 +88,9 @@ aws dynamodb describe-table --table-name static-website-locks-<env>
 - **Monitoring**: CloudWatch dashboards and budget alerts
 
 ### Workflow Performance
-- **BUILD**: 21s (security scanning, artifact creation)
-- **TEST**: 35s (policy validation, backend overrides)
-- **RUN**: Variable (deployment coordination)
-- **Deploy-Composite**: Reusable workflow pattern
+- **BUILD**: Security scanning and artifact creation
+- **TEST**: Policy validation and unit testing
+- **RUN**: Unified environment deployment workflow
 
 ### Performance Targets
 - **Latency**: <100ms global response time

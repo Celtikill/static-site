@@ -1,42 +1,52 @@
 # GitHub Secrets and Variables Configuration
 
-This guide documents all required GitHub Secrets and Variables for the AWS Static Website Infrastructure CI/CD pipeline.
+This guide documents the required GitHub Secrets and Variables for the AWS Static Website Infrastructure CI/CD pipeline using the current central OIDC authentication pattern.
 
 ## Table of Contents
+- [Current Architecture](#current-architecture)
 - [Required GitHub Secrets](#required-github-secrets)
 - [Required GitHub Variables](#required-github-variables)
-- [AWS OIDC Setup](#aws-oidc-setup)
-- [Secret Rotation Procedures](#secret-rotation-procedures)
+- [AWS OIDC Configuration](#aws-oidc-configuration)
 - [Security Best Practices](#security-best-practices)
+
+## Current Architecture
+
+**Central OIDC Authentication Pattern** (Operational):
+```
+Management Account (223938610551)
+├── OIDC Provider (github.com) ✅
+├── GitHubActions-StaticSite-Central ✅
+└── Cross-Account Assume Role Capability ✅
+
+Target Accounts
+├── Dev (822529998967): GitHubActions-StaticSite-Dev-Role ✅
+├── Staging (927588814642): GitHubActions-StaticSite-Staging-Role ✅
+└── Prod (546274483801): GitHubActions-StaticSite-Prod-Role ✅
+```
+
+**Authentication Flow**:
+1. GitHub Actions authenticates with OIDC Provider
+2. Assumes `GitHubActions-StaticSite-Central` role
+3. Uses central role to assume environment-specific deployment role
+4. Deploys infrastructure with least-privilege permissions
 
 ## Required GitHub Secrets
 
-### AWS Role ARNs (Required)
+### AWS Central Role ARN (Required)
 
-These secrets contain the AWS IAM Role ARNs that GitHub Actions will assume via OIDC:
+**Single Secret Configuration**:
 
 | Secret Name | Description | Example Value |
 |------------|-------------|---------------|
-| `AWS_ASSUME_ROLE_DEV` | Development environment role ARN | `arn:aws:iam::123456789012:role/github-actions-dev` |
-| `AWS_ASSUME_ROLE_STAGING` | Staging environment role ARN | `arn:aws:iam::123456789012:role/github-actions-staging` |
-| `AWS_ASSUME_ROLE` | Production environment role ARN | `arn:aws:iam::123456789012:role/github-actions-prod` |
-
-### GitHub Token (Optional)
-
-| Secret Name | Description | Required For |
-|------------|-------------|--------------|
-| `GITHUB_TOKEN` | Automatically provided by GitHub Actions | Default workflows |
-| `GH_PAT` | Personal Access Token (optional) | Cross-repository operations |
+| `AWS_ASSUME_ROLE_CENTRAL` | Central role ARN for all environment access | `arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central` |
 
 ### Setting Secrets via GitHub CLI
 
 ```bash
-# Set AWS role ARNs
-gh secret set AWS_ASSUME_ROLE_DEV --body "arn:aws:iam::123456789012:role/github-actions-dev"
-gh secret set AWS_ASSUME_ROLE_STAGING --body "arn:aws:iam::123456789012:role/github-actions-staging"
-gh secret set AWS_ASSUME_ROLE --body "arn:aws:iam::123456789012:role/github-actions-prod"
+# Set the central role ARN
+gh secret set AWS_ASSUME_ROLE_CENTRAL --body "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
 
-# List all secrets to verify
+# Verify secret is set
 gh secret list
 ```
 
@@ -53,7 +63,6 @@ gh secret list
 
 | Variable Name | Description | Default Value | Required |
 |--------------|-------------|---------------|----------|
-| `TERRAFORM_VERSION` | Terraform version (if not using OpenTofu) | - | No |
 | `CHECKOV_VERSION` | Checkov security scanner version | `latest` | No |
 | `TRIVY_VERSION` | Trivy vulnerability scanner version | `0.48.3` | No |
 
@@ -68,24 +77,20 @@ gh variable set OPENTOFU_VERSION --body "1.6.1"
 gh variable list
 ```
 
-## AWS OIDC Setup
+## AWS OIDC Configuration
 
-### Step 1: Create OIDC Provider
+### Current Setup (Operational)
 
-```bash
-# Create OIDC provider in AWS
-aws iam create-open-id-connect-provider \
-    --url https://token.actions.githubusercontent.com \
-    --client-id-list sts.amazonaws.com \
-    --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
-```
+The OIDC infrastructure is already deployed and operational:
 
-### Step 2: Create IAM Roles
+1. **OIDC Provider**: Created in management account (223938610551)
+2. **Central Role**: `GitHubActions-StaticSite-Central` with cross-account capabilities
+3. **Environment Roles**: Deployment-specific roles in target accounts
+4. **Trust Relationships**: Repository and environment-specific conditions
 
-Create separate roles for each environment with appropriate trust policies:
+### Trust Policy Structure
 
-#### Trust Policy Template
-
+**Central Role Trust Policy**:
 ```json
 {
   "Version": "2012-10-17",
@@ -93,7 +98,7 @@ Create separate roles for each environment with appropriate trust policies:
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::223938610551:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -101,7 +106,7 @@ Create separate roles for each environment with appropriate trust policies:
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
+          "token.actions.githubusercontent.com:sub": "repo:celtikill/static-site:*"
         }
       }
     }
@@ -109,131 +114,44 @@ Create separate roles for each environment with appropriate trust policies:
 }
 ```
 
-#### Create Roles
-
-```bash
-# Development role
-aws iam create-role \
-    --role-name github-actions-dev \
-    --assume-role-policy-document file://trust-policy.json \
-    --description "GitHub Actions role for development environment"
-
-# Staging role
-aws iam create-role \
-    --role-name github-actions-staging \
-    --assume-role-policy-document file://trust-policy.json \
-    --description "GitHub Actions role for staging environment"
-
-# Production role
-aws iam create-role \
-    --role-name github-actions-prod \
-    --assume-role-policy-document file://trust-policy.json \
-    --description "GitHub Actions role for production environment"
+**Environment Role Trust Policy** (Example):
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
 ```
-
-### Step 3: Attach Policies
-
-Attach the appropriate policies to each role:
-
-```bash
-# Attach policies to development role
-aws iam attach-role-policy \
-    --role-name github-actions-dev \
-    --policy-arn arn:aws:iam::ACCOUNT_ID:policy/GitHubActionsCoreInfrastructurePolicy
-
-# Attach policies to staging role
-aws iam attach-role-policy \
-    --role-name github-actions-staging \
-    --policy-arn arn:aws:iam::ACCOUNT_ID:policy/GitHubActionsCoreInfrastructurePolicy
-
-# Attach policies to production role (with additional restrictions)
-aws iam attach-role-policy \
-    --role-name github-actions-prod \
-    --policy-arn arn:aws:iam::ACCOUNT_ID:policy/GitHubActionsCoreInfrastructurePolicy
-```
-
-## Secret Rotation Procedures
-
-### Automated Rotation Schedule
-
-| Secret Type | Rotation Frequency | Method |
-|------------|-------------------|---------|
-| AWS IAM Role ARNs | Never (OIDC-based) | N/A - No credentials stored |
-| GitHub PAT | 90 days | Manual rotation |
-| API Keys | 30 days | Automated via AWS Secrets Manager |
-
-### Manual Rotation Process
-
-#### Rotating GitHub Personal Access Token
-
-1. **Generate new token**:
-   ```bash
-   # Generate new PAT via GitHub UI or API
-   # Settings → Developer settings → Personal access tokens
-   ```
-
-2. **Update secret**:
-   ```bash
-   # Update the secret in GitHub
-   gh secret set GH_PAT --body "ghp_NEW_TOKEN_HERE"
-   ```
-
-3. **Verify workflows**:
-   ```bash
-   # Test workflows with new token
-   gh workflow run build.yml --field force_build=true
-   ```
-
-#### Rotating AWS Role Permissions
-
-Since we use OIDC, there are no credentials to rotate. To update permissions:
-
-1. **Update IAM policies**:
-   ```bash
-   # Update policy document
-   aws iam put-role-policy \
-       --role-name github-actions-dev \
-       --policy-name UpdatedPolicy \
-       --policy-document file://new-policy.json
-   ```
-
-2. **Test new permissions**:
-   ```bash
-   # Trigger test workflow
-   gh workflow run build.yml --field force_build=true --field environment=dev
-   ```
 
 ## Security Best Practices
 
-### Secret Management
+### Architecture Benefits
 
-1. **Use OIDC over static credentials**
-   - No long-lived AWS credentials stored in GitHub
-   - Automatic credential rotation via STS
-   - Fine-grained permission control
+1. **Single Point of Control**
+   - One GitHub secret for all environments
+   - Centralized authentication and auditing
+   - Simplified secret rotation (zero rotation needed for OIDC)
 
-2. **Principle of Least Privilege**
-   - Development: Broader permissions for experimentation
-   - Staging: Production-like with some flexibility
-   - Production: Minimal required permissions only
+2. **Least Privilege Access**
+   - Environment-specific deployment roles
+   - Account-level isolation
+   - Time-limited sessions (1 hour max)
 
-3. **Environment Separation**
-   - Separate AWS accounts per environment (recommended)
-   - Separate IAM roles per environment (minimum)
-   - Environment-specific resource tagging
+3. **Complete Audit Trail**
+   - All role assumptions logged in CloudTrail
+   - Environment-specific access patterns
+   - No long-lived credentials
 
 ### Access Control
 
-1. **Repository Settings**:
-   ```bash
-   # Enable required reviewers for production secrets
-   gh api repos/:owner/:repo/environments/production \
-       --method PUT \
-       --field reviewers[]="@codeowner1" \
-       --field reviewers[]="@codeowner2"
-   ```
-
-2. **Branch Protection**:
+1. **Repository Protection**:
    ```bash
    # Protect main branch
    gh api repos/:owner/:repo/branches/main/protection \
@@ -242,92 +160,123 @@ Since we use OIDC, there are no credentials to rotate. To update permissions:
        --field required_status_checks.contexts[]="build"
    ```
 
+2. **Environment-Based Access**:
+   - Dev: Automatic deployment on feature branches
+   - Staging: Manual approval required
+   - Prod: Code owner approval required
+
 ### Monitoring and Auditing
 
-1. **Secret Access Logs**:
+1. **Workflow Monitoring**:
    ```bash
-   # View secret access in workflow logs
-   gh run list --workflow=build.yml --json conclusion,name,startedAt
+   # View recent workflow runs
+   gh run list --limit 10
+
+   # Check specific workflow logs
+   gh run view <run-id> --log
    ```
 
-2. **AWS CloudTrail**:
+2. **AWS CloudTrail Monitoring**:
    ```bash
-   # Monitor role assumption events
-   aws cloudtrail lookup-events \
-       --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity
+   # Monitor central role assumptions
+   aws logs filter-log-events \
+       --log-group-name CloudTrail/management \
+       --filter-pattern "GitHubActions-StaticSite-Central"
    ```
 
-3. **Regular Audits**:
-   - Review secret usage monthly
-   - Check for unused secrets quarterly
-   - Validate OIDC trust policies annually
-
-### Emergency Procedures
-
-#### Compromised Secret Response
-
-1. **Immediate Actions**:
+3. **Cross-Account Access Auditing**:
    ```bash
-   # Delete compromised secret
-   gh secret delete SECRET_NAME
-   
-   # Revoke AWS role trust temporarily
-   aws iam update-assume-role-policy \
-       --role-name github-actions-prod \
-       --policy-document file://deny-all-policy.json
-   ```
-
-2. **Investigation**:
-   - Review workflow run history
-   - Check AWS CloudTrail logs
-   - Identify unauthorized access
-
-3. **Recovery**:
-   ```bash
-   # Create new secret
-   gh secret set NEW_SECRET_NAME --body "new-value"
-   
-   # Update workflows to use new secret
-   # Update IAM trust policy
-   # Re-enable access
+   # Monitor environment role assumptions
+   aws logs filter-log-events \
+       --log-group-name CloudTrail/dev \
+       --filter-pattern "GitHubActions-StaticSite-Dev-Role"
    ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### OIDC Authentication Failures
+#### Central Role Authentication Failures
 
-**Symptom**: `Error: Could not assume role`
+**Symptom**: `Error: Could not assume central role`
 
 **Solution**:
 ```bash
 # Verify OIDC provider exists
 aws iam list-open-id-connect-providers
 
-# Check trust policy
-aws iam get-role --role-name github-actions-dev \
+# Check central role trust policy
+aws iam get-role --role-name GitHubActions-StaticSite-Central \
     --query 'Role.AssumeRolePolicyDocument'
 
-# Verify repository name in trust policy matches exactly
+# Verify repository name matches exactly
+```
+
+#### Environment Role Assumption Failures
+
+**Symptom**: `Error: Could not assume environment role`
+
+**Solution**:
+```bash
+# Check environment role exists
+aws iam get-role --role-name GitHubActions-StaticSite-Dev-Role
+
+# Verify cross-account trust policy
+aws iam get-role --role-name GitHubActions-StaticSite-Dev-Role \
+    --query 'Role.AssumeRolePolicyDocument'
+
+# Test manual role assumption
+aws sts assume-role \
+    --role-arn arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role \
+    --role-session-name test-session
 ```
 
 #### Secret Not Found
 
-**Symptom**: `Error: Secret SECRET_NAME not found`
+**Symptom**: `Error: Secret AWS_ASSUME_ROLE_CENTRAL not found`
 
 **Solution**:
 ```bash
 # List all secrets
 gh secret list
 
-# Check secret is available for environment
-gh api repos/:owner/:repo/environments/production/secrets
+# Set the secret if missing
+gh secret set AWS_ASSUME_ROLE_CENTRAL --body "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+```
+
+## Testing Authentication
+
+### Validate Complete Flow
+
+```bash
+# Test BUILD workflow with authentication
+gh workflow run build.yml --field force_build=true --field environment=dev
+
+# Test TEST workflow
+gh workflow run test.yml --field environment=dev
+
+# Test RUN workflow
+gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
+```
+
+### Manual Authentication Test
+
+```bash
+# Test OIDC authentication locally (requires AWS CLI and GitHub CLI)
+export AWS_ROLE_ARN="arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+export AWS_WEB_IDENTITY_TOKEN_FILE=<path-to-token>
+
+# Should show central role identity
+aws sts get-caller-identity
 ```
 
 ## Related Documentation
 
-- [GitHub Actions OIDC Documentation](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect)
-- [AWS IAM OIDC Provider Documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html)
-- [IAM Policy Documents](../iam-policies/) - Pre-configured IAM policies
-- [Troubleshooting Guide](../../TROUBLESHOOTING.md) - Common issues and solutions
+- [IAM Setup Guide](../guides/iam-setup.md) - Current OIDC architecture details
+- [Deployment Guide](../guides/deployment-guide.md) - Full deployment procedures
+- [Troubleshooting Guide](../troubleshooting.md) - Common issues and solutions
+- [Security Guide](../guides/security-guide.md) - Security best practices
+
+---
+
+**💡 Note**: This configuration reflects the current operational state as of September 2025. The central OIDC pattern provides enhanced security and simplified management compared to previous multi-role approaches.
