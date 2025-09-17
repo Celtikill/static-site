@@ -594,20 +594,7 @@ jobs:
             echo "ℹ️ No changes to README.md" >> $GITHUB_STEP_SUMMARY
           else
             git add README.md
-            git commit -m "$(cat <<'EOF'
-🌐 Update deployment URLs for ${{ needs.info.outputs.target_environment }} environment
-
-Automated update from deployment run ${{ needs.info.outputs.run_id }}
-
-- Environment: ${{ needs.info.outputs.target_environment }}
-- URL: ${{ needs.deploy_website.outputs.deployment_url }}
-- Updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-
-🤖 Generated with [Claude Code](https://claude.ai/code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
+            git commit -m "🌐 Update ${{ needs.info.outputs.target_environment }} deployment URLs 🤖 Generated with Claude Code"
             git push
             echo "✅ README.md updated and committed" >> $GITHUB_STEP_SUMMARY
           fi
