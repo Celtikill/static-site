@@ -12,7 +12,7 @@ terraform {
   }
 }
 
-# Data source for current AWS caller identity
+# Data source for current AWS caller identity (only used for KMS and DynamoDB in same account)
 data "aws_caller_identity" "current" {}
 
 # Data source for current AWS region
@@ -68,8 +68,8 @@ resource "aws_iam_policy" "terraform_state" {
           "s3:ListBucket"
         ]
         Resource = [
-          "arn:aws:s3:::static-site-terraform-state-${data.aws_caller_identity.current.account_id}",
-          "arn:aws:s3:::static-site-terraform-state-${data.aws_caller_identity.current.account_id}/*"
+          "arn:aws:s3:::static-site-terraform-state-${var.state_bucket_account_id}",
+          "arn:aws:s3:::static-site-terraform-state-${var.state_bucket_account_id}/*"
         ]
       },
       {
@@ -79,7 +79,7 @@ resource "aws_iam_policy" "terraform_state" {
           "dynamodb:PutItem",
           "dynamodb:DeleteItem"
         ]
-        Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/static-website-locks-${var.environment}"
+        Resource = "arn:aws:dynamodb:${var.state_bucket_region}:${var.state_bucket_account_id}:table/static-website-locks-${var.environment}"
       }
     ]
   })
