@@ -36,6 +36,19 @@ gh run view <run-id>
 gh run view <run-id> --log-failed
 ```
 
+### State Management
+
+```bash
+# Create state infrastructure for new environment
+./scripts/bootstrap-state.sh <environment> <account-id>
+
+# Apply S3 bucket policies for state access
+./scripts/apply-bucket-policy.sh <environment> <account-id>
+
+# Fix bucket region issues
+./scripts/fix-bucket-region.sh <environment>
+```
+
 ### Troubleshooting
 
 ```bash
@@ -53,6 +66,10 @@ yamllint -d relaxed .github/workflows/*.yml
 
 # Test authentication (when AWS credentials configured)
 aws sts get-caller-identity
+
+# Debug state access issues
+aws s3 ls s3://static-website-state-<env>/
+aws dynamodb describe-table --table-name static-website-locks-<env>
 ```
 
 ## Cost Analysis

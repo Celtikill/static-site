@@ -33,9 +33,41 @@ This directory contains Open Policy Agent (OPA) Rego policies for validating Ter
 ## Policy Files
 
 - `foundation-security.rego` - Security policies (deny rules)
-- `foundation-compliance.rego` - Compliance policies (warn rules)  
+- `foundation-compliance.rego` - Compliance policies (warn rules)
 - `conftest.yaml` - Configuration for Conftest policy runner
+- `s3-state-bucket-policy.json` - S3 bucket policy template for state bucket access
 - `README.md` - This documentation
+
+## S3 State Bucket Policy
+
+### Overview
+The `s3-state-bucket-policy.json` template provides the necessary permissions for the OrganizationAccountAccessRole to access Terraform state buckets across environments.
+
+### Required Permissions
+- `s3:ListBucket` - List objects in the state bucket
+- `s3:GetObject` - Read state files and lock information
+- `s3:PutObject` - Write state files and lock information
+- `s3:DeleteObject` - Remove old state versions and locks
+
+### Usage
+Apply the policy using the provided script:
+
+```bash
+# Apply policy for production environment
+./scripts/apply-bucket-policy.sh prod 546274483801
+
+# Apply policy for staging environment
+./scripts/apply-bucket-policy.sh staging 927588814642
+
+# Apply policy for dev environment
+./scripts/apply-bucket-policy.sh dev 822529998967
+```
+
+### Security Considerations
+- Policy restricts access to the specific state bucket only
+- Principal is limited to the OrganizationAccountAccessRole
+- No wildcard permissions granted
+- Follows principle of least privilege
 
 ## Testing Policies Locally
 
