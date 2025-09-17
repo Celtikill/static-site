@@ -206,8 +206,8 @@ jobs:
     name: "🏗️ Infrastructure Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [info, setup]
-    if: needs.info.outputs.deploy_infrastructure == 'true'
+    needs: [info, setup, debug]
+    if: always() && needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
     outputs:
       deployment_status: ${{ steps.deploy.outputs.deployment_status }}
     steps:
@@ -297,8 +297,8 @@ jobs:
     name: "🌐 Website Deployment"
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [info, setup, deploy_infrastructure]
-    if: needs.info.outputs.deploy_website == 'true' && (needs.deploy_infrastructure.result == 'success' || needs.deploy_infrastructure.result == 'skipped')
+    needs: [info, setup, debug, deploy_infrastructure]
+    if: always() && needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_website == 'true' && (needs.deploy_infrastructure.result == 'success' || needs.deploy_infrastructure.result == 'skipped')
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
       cloudfront_url: ${{ steps.deploy.outputs.cloudfront_url }}
