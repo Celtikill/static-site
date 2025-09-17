@@ -20,7 +20,6 @@ Welcome to the AWS Static Website Infrastructure documentation. All essential in
 - **[Deployment Guide](guides/deployment-guide.md)** ⭐⭐ - Complete deployment procedures
 - **[IAM Setup](guides/iam-setup.md)** ⭐⭐⭐ - AWS authentication and permissions
 - **[Security Guide](guides/security-guide.md)** ⭐⭐⭐ - Security implementation and compliance
-- **[Multi-Account IAM](guides/multi-account-iam-setup.md)** ⭐⭐⭐⭐ - Enterprise multi-account setup
 
 ### Architecture & Operations
 - **[Architecture Overview](architecture/)** ⭐⭐⭐ - Technical architecture and design decisions
@@ -36,7 +35,7 @@ Welcome to the AWS Static Website Infrastructure documentation. All essential in
 → [Architecture](architecture/) → [CI/CD Workflows](workflows.md) → [Policy Validation](policy-validation.md)
 
 **🔒 Security Teams**  
-→ [Security Guide](guides/security-guide.md) → [IAM Setup](guides/iam-setup.md) → [Multi-Account Setup](guides/multi-account-iam-setup.md)
+→ [Security Guide](guides/security-guide.md) → [IAM Setup](guides/iam-setup.md)
 
 **⚙️ DevOps Teams**  
 → [Quick Start](quickstart.md) → [Deployment Guide](guides/deployment-guide.md) → [Troubleshooting](troubleshooting.md)

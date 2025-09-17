@@ -34,24 +34,6 @@ aws iam create-role \
 
 ### 📝 Permission Policies
 
-#### `github-actions-multi-account-policy.json`
-- **Purpose**: Comprehensive permissions for multi-account deployments
-- **Usage**: For organizations managing multiple AWS accounts
-- **Scope**: Includes cross-account assume role permissions
-- **Environments**: Supports dev, staging, and production environments
-
-**Key Features:**
-- Cross-account role assumption
-- Environment-specific resource patterns
-- Comprehensive service permissions (S3, CloudFront, WAF, etc.)
-- Follows "middle way" security model
-
-**How to use:**
-```bash
-aws iam create-policy \
-  --policy-name github-actions-multi-account \
-  --policy-document file://docs/iam-policies/github-actions-multi-account-policy.json
-```
 
 #### `s3-replication-policy.json`
 - **Purpose**: Permissions for S3 cross-region replication
@@ -91,7 +73,7 @@ The script-based approach:
 
 The JSON files in this directory are used for:
 - **Reference**: Understanding policy structure
-- **Multi-account**: Complex organizational setups
+- **OIDC Trust**: GitHub Actions authentication
 - **Replication**: S3 cross-region replication feature
 - **Documentation**: Policy examples and templates
 
@@ -159,7 +141,6 @@ If you encounter permission errors:
 
 - [IAM Setup Guide](../guides/iam-setup.md)
 - [IAM Troubleshooting](../guides/iam-troubleshooting.md)
-- [Multi-Account Setup](../guides/multi-account-iam-setup.md)
 - [Security Policy](../../SECURITY.md)
 
 ## Version History
