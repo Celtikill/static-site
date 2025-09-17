@@ -99,8 +99,18 @@ jobs:
 
           echo "target_environment=$TARGET_ENV" >> $GITHUB_OUTPUT
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          echo "deploy_infrastructure=$DEPLOY_INFRA" >> $GITHUB_OUTPUT
-          echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
+          # Normalize boolean values to string 'true' or 'false'
+          if [[ "$DEPLOY_INFRA" == "true" || "$DEPLOY_INFRA" == true ]]; then
+            echo "deploy_infrastructure=true" >> $GITHUB_OUTPUT
+          else
+            echo "deploy_infrastructure=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [[ "$DEPLOY_WEBSITE" == "true" || "$DEPLOY_WEBSITE" == true ]]; then
+            echo "deploy_website=true" >> $GITHUB_OUTPUT
+          else
+            echo "deploy_website=false" >> $GITHUB_OUTPUT
+          fi
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
 
           echo "# 🚀 RUN Phase - Streamlined" >> $GITHUB_STEP_SUMMARY
