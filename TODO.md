@@ -1,16 +1,16 @@
 # Static Site Infrastructure - MVP Pipeline Completion Plan
 
-**Last Updated**: 2025-09-17
-**Status**: 🎯 MVP PIPELINE OPERATIONAL - COMPLETING REMAINING TASKS
+**Last Updated**: 2025-09-17 (Post Enhanced RUN Workflow Implementation)
+**Status**: ⚠️ MVP PIPELINE ENHANCED - INFRASTRUCTURE DEPLOYMENT BLOCKED
 
 ## Current MVP Pipeline Status ✅ OPERATIONAL
 
 ### Core Pipeline Health Check (September 17, 2025)
 ```
-🎯 BUILD → TEST → RUN Pipeline: ✅ FULLY OPERATIONAL
+🎯 BUILD → TEST → RUN Pipeline: ⚠️ ENHANCED BUT INFRASTRUCTURE BLOCKED
 ├── BUILD Workflow: ✅ SUCCESS (1m37s) - All security scans passing
 ├── TEST Workflow: ✅ SUCCESS (39s) - OPA policy validation working
-├── RUN Workflow: ✅ SUCCESS (11s) - Multi-account deployment working
+├── RUN Workflow: ⚠️ ENHANCED (18-29s) - URL display working, infrastructure blocked
 ├── Automatic Triggers: ✅ Working - TEST triggers RUN correctly
 └── 12-Factor Compliance: ✅ COMPLETE - Variables externalized
 ```
@@ -32,17 +32,44 @@
 - **Authentication**: AWS OIDC auth working ✅
 - **Policy Enforcement**: Development environment tested ✅
 
-#### ✅ RUN Workflow - OPERATIONAL
-- **Runtime**: 11s (target: <30s) ✅
+#### ⚠️ RUN Workflow - ENHANCED BUT INFRASTRUCTURE BLOCKED
+- **Runtime**: 18-29s (was 11s) - Increased due to infrastructure attempts ⚠️
+- **Enhanced URL Display**: Multi-URL capture with CloudFront feature flags ✅
+- **README Automation**: Dynamic deployment status updates ✅
+- **Job Conditions**: Fixed boolean input handling and dependencies ✅
 - **Automatic Triggers**: Triggered by TEST success ✅
 - **Environment Variables**: Using GitHub Variables ✅
 - **Authentication**: Environment-specific OIDC working ✅
-- **Multi-Account**: Dev account deployment tested ✅
+- **Infrastructure Deployment**: Blocked by module provider conflicts ❌
 
-#### ❌ EMERGENCY Workflow - NEEDS UPDATE
-- **Status**: FAILED - Using old terraform structure
-- **Issue**: Points to `terraform/` instead of `terraform/environments/{env}/`
+#### ❌ EMERGENCY Workflow - INFRASTRUCTURE CONFLICTS
+- **Status**: FAILED - Using old terraform root directory structure
+- **Root Cause**: Uses `cd terraform` instead of `terraform/environments/{env}/`
+- **Same Issue**: Affects both EMERGENCY and RUN infrastructure deployment
+- **Module Conflicts**: Terraform provider configurations conflict between root and modules
 - **Priority**: P2 - Emergency workflows are secondary to MVP
+
+### 🌐 Enhanced RUN Workflow Features ✅ COMPLETED
+
+#### ✅ Enhanced URL Display System - COMPLETE
+- **Multi-URL Capture**: Website URL, CloudFront URL, S3 endpoint, monitoring dashboard ✅
+- **Feature Flag Handling**: Conditional CloudFront URL display based on `enable_cloudfront` ✅
+- **Cost Optimization Indicators**: Shows "💰 Saved" when CloudFront disabled ✅
+- **Architecture Transparency**: S3-only (~$1-5/month) vs CloudFront+S3 (~$20-35/month) ✅
+- **Conditional Display Logic**: Graceful handling when resources not deployed ✅
+
+#### ✅ README Automation System - COMPLETE
+- **Dynamic Updates**: Automatically updates Live Deployments section ✅
+- **Environment-Specific**: Handles Dev/Staging/Prod environments separately ✅
+- **Conditional Information**: Architecture type, cost profile, monitoring URLs ✅
+- **Git Integration**: Automated commit and push with proper attribution ✅
+- **Template Structure**: Environment sections with timestamp tracking ✅
+
+#### ✅ Workflow Reliability Improvements - COMPLETE
+- **Boolean Input Handling**: Fixed workflow_dispatch parameter conversion ✅
+- **Job Condition Evaluation**: Resolved deployment job skipping issues ✅
+- **Explicit Dependencies**: Added `always()` and result checks for reliability ✅
+- **Error Handling**: Graceful display of deployment failures with status ✅
 
 ### Architecture Status ✅ COMPLETED
 
@@ -64,25 +91,33 @@
 
 ### 🔥 Critical Path - Complete MVP (P0)
 
-#### 1. Fix EMERGENCY Workflow (Hours 1-2)
-**Priority**: P2 - Emergency workflows secondary to core pipeline
+#### 1. Fix Infrastructure Deployment Conflicts (Hours 2-4)
+**Priority**: P1 - Blocks both RUN and EMERGENCY workflows
 
-**Issue**: EMERGENCY workflow uses old `terraform/` directory structure and hardcoded values.
+**Issue**: Terraform module provider configuration conflicts prevent infrastructure deployment
+
+**Root Causes**:
+- Module `static_website` has local AWS provider configuration conflicting with root override
+- Backend configuration warnings in module workload structure
+- Both RUN and EMERGENCY workflows affected by same infrastructure issues
 
 **Tasks**:
+- [ ] Analyze and resolve Terraform provider configuration conflicts in modules
+- [ ] Update module structure to allow provider configuration overrides
+- [ ] Test infrastructure deployment in dev environment first
 - [ ] Update EMERGENCY workflow to use `terraform/environments/{env}/` structure
-- [ ] Replace hard-coded account IDs with GitHub Variables
-- [ ] Test emergency hotfix and rollback operations
-- [ ] Validate staging and prod emergency operations
+- [ ] Replace EMERGENCY workflow hard-coded account IDs with GitHub Variables
+- [ ] Validate both RUN and EMERGENCY workflows deploy successfully
 
 #### 2. Complete Multi-Account Testing (Hours 2-3)
-**Priority**: P1 - Validate full multi-account deployment
+**Priority**: P1 - Validate full multi-account deployment (depends on infrastructure fix)
 
 **Tasks**:
-- [ ] Test staging environment deployment via RUN workflow
+- [ ] Test staging environment deployment via RUN workflow (after infrastructure fix)
 - [ ] Test production environment deployment (manual trigger only)
 - [ ] Validate environment isolation (no cross-account access)
 - [ ] Test rollback procedures for each environment
+- [ ] Verify enhanced URL display works with actual staging/prod deployments
 
 #### 3. Performance Optimization (Hours 3-4)
 **Priority**: P2 - Optimize for production readiness
@@ -90,7 +125,7 @@
 **Current Performance** vs **Targets**:
 - BUILD: 1m37s (Target: <2min) ✅
 - TEST: 39s (Target: <1min) ✅
-- RUN: 11s (Target: <30s) ✅
+- RUN: 18-29s (Target: <30s) ✅ (increased due to infrastructure attempts)
 
 **Tasks**:
 - [ ] Parallel job optimization in BUILD workflow
@@ -167,7 +202,7 @@
 ### Performance Targets ✅ ACHIEVED
 - [x] BUILD: <2 minutes (actual: 1m37s)
 - [x] TEST: <1 minute (actual: 39s)
-- [x] RUN: <30 seconds (actual: 11s)
+- [x] RUN: <30 seconds (actual: 18-29s, increased due to infrastructure attempts)
 - [x] End-to-end pipeline: <3 minutes total
 
 ## Immediate Action Plan
@@ -192,19 +227,24 @@
 ## Current Status Summary
 
 **✅ COMPLETE - MVP Core Functionality**:
-- Multi-account AWS infrastructure deployment
+- Multi-account AWS infrastructure deployment architecture
 - Secure OIDC authentication with GitHub Actions
 - 12-factor app configuration management
 - Automated security scanning and policy validation
 - Environment-specific deployment isolation
+- Enhanced RUN workflow with URL display and README automation
+- Workflow reliability improvements (job conditions, boolean handling)
+- Documentation architecture overhaul (71% reduction, flat structure)
 
 **🔄 IN PROGRESS - Remaining MVP Tasks**:
-- EMERGENCY workflow updates
+- Infrastructure deployment conflicts (blocks RUN and EMERGENCY)
 - Complete multi-account testing (staging/prod)
 - Production security hardening
 
-**🎯 NEXT PRIORITY**: Fix EMERGENCY workflow and complete multi-account deployment testing.
+**⚠️ CURRENT BLOCKER**: Terraform module provider configuration conflicts prevent actual infrastructure deployment in both RUN and EMERGENCY workflows.
 
-**Timeline**: MVP completion within 5 days, production-ready within 10 days.
+**🎯 NEXT PRIORITY**: Fix infrastructure deployment conflicts affecting both RUN and EMERGENCY workflows, then complete multi-account deployment testing.
 
-**Risk Assessment**: LOW - Core pipeline operational, remaining tasks are enhancements.
+**Timeline**: Infrastructure fix + MVP completion within 7 days, production-ready within 12 days.
+
+**Risk Assessment**: MEDIUM - Core pipeline operational for workflow automation, but infrastructure deployment blocked by module configuration conflicts.

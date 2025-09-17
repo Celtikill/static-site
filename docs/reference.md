@@ -15,13 +15,13 @@ yamllint -d relaxed .github/workflows/*.yml
 ### Workflow Execution
 
 ```bash
-# BUILD - Security scanning and artifact creation (21s)
+# BUILD - Security scanning and artifact creation (~1m37s)
 gh workflow run build.yml --field force_build=true --field environment=dev
 
-# TEST - Policy validation and backend overrides (35s)
+# TEST - Policy validation and backend overrides (~39s)
 gh workflow run test.yml --field skip_build_check=true --field environment=dev
 
-# RUN - Environment deployment coordination
+# RUN - Environment deployment coordination (~18-29s)
 gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
 gh workflow run run.yml --field environment=staging --field deploy_infrastructure=true
 gh workflow run run.yml --field environment=prod --field deploy_infrastructure=true

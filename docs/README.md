@@ -1,66 +1,63 @@
 # Documentation Index
 
-> **🎯 Streamlined Access**: Essential guides consolidated for faster navigation  
-> **📊 Complexity Levels**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced  
-> **⏱️ Total Reading Time**: ~60 minutes (reduced by 50% through consolidation)  
-> **🔄 Last Updated**: 2025-09-09 (major consolidation and cleanup)
+> **🎯 Streamlined Access**: Essential guides consolidated for faster navigation
+> **📊 Complexity Levels**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
+> **⏱️ Total Reading Time**: ~20 minutes (reduced by 70% through ruthless pruning)
+> **🔄 Last Updated**: 2025-09-17 (major cleanup and flattening)
 
-Welcome to the AWS Static Website Infrastructure documentation. All essential information is now organized in a streamlined structure.
+Welcome to the AWS Static Website Infrastructure documentation. All essential information is now organized in a flat, scannable structure.
 
 ---
 
-## 🚀 Essential Guides
+## 🚀 Essential Documentation
 
 ### Get Started Quickly
 - **[Quick Start](quickstart.md)** ⭐ - Deploy your website in under 10 minutes
-- **[Reference Guide](reference.md)** ⭐⭐ - All commands, costs, and technical specifications  
+- **[Reference Guide](reference.md)** ⭐⭐ - All commands and technical specifications
 - **[Troubleshooting](troubleshooting.md)** ⭐ - Common issues and solutions
 
-### Comprehensive Guides
-- **[Deployment Guide](guides/deployment-guide.md)** ⭐⭐ - Complete deployment procedures
-- **[IAM Setup](guides/iam-setup.md)** ⭐⭐⭐ - AWS authentication and permissions
-- **[Security Guide](guides/security-guide.md)** ⭐⭐⭐ - Security implementation and compliance
+### Workflow Configuration
+- **[Workflows Overview](workflows.md)** ⭐⭐ - BUILD → TEST → RUN pipeline overview
+- **[Secrets & Variables](secrets-and-variables.md)** ⭐⭐ - GitHub authentication and OIDC setup
+- **[Workflow Conditions](workflow-conditions.md)** ⭐⭐⭐ - Advanced workflow routing logic
 
-### Architecture & Operations
-- **[Architecture Overview](architecture/)** ⭐⭐⭐ - Technical architecture and design decisions
-- **[CI/CD Pipeline](workflows.md)** ⭐⭐ - BUILD → TEST → RUN workflow architecture
-- **[Policy Validation](policy-validation.md)** ⭐⭐⭐ - OPA/Rego policy implementation
-- **[Development Guide](development.md)** ⭐⭐ - Local development and testing
+### Features & Configuration
+- **[Feature Flags](feature-flags.md)** ⭐⭐ - Cost optimization and feature toggles
 
----
-
-## 👥 Role-Based Navigation
-
-**🏗️ Platform Engineers**  
-→ [Architecture](architecture/) → [CI/CD Workflows](workflows.md) → [Policy Validation](policy-validation.md)
-
-**🔒 Security Teams**  
-→ [Security Guide](guides/security-guide.md) → [IAM Setup](guides/iam-setup.md)
-
-**⚙️ DevOps Teams**  
-→ [Quick Start](quickstart.md) → [Deployment Guide](guides/deployment-guide.md) → [Troubleshooting](troubleshooting.md)
-
-**👔 Leadership**  
-→ [Reference Guide](reference.md) (Cost Analysis) → [Architecture](architecture/) → [Security Guide](guides/security-guide.md)
+### IAM Policies
+- **[IAM Policies](iam-policies/)** ⭐⭐⭐ - JSON policy files and trust relationships
 
 ---
 
-## 📋 Documentation Changes (2025-09-09)
+## 📋 Quick Navigation
 
-### Consolidated Files
-- **Commands & Reference**: Merged 3 files → `reference.md`
-- **Quickstart**: Replaced basic guide with comprehensive 10-minute version
-- **Troubleshooting**: Centralized all troubleshooting content
+| Task | Documentation | Time |
+|------|---------------|------|
+| First deployment | [Quick Start](quickstart.md) | 10 min |
+| Set up GitHub Actions | [Secrets & Variables](secrets-and-variables.md) | 15 min |
+| Enable cost optimization | [Feature Flags](feature-flags.md) | 5 min |
+| Debug deployment issues | [Troubleshooting](troubleshooting.md) | Variable |
+| Understand workflows | [Workflows Overview](workflows.md) | 10 min |
 
-### Removed Files
-- Removed 9 outdated planning documents
-- Eliminated temporary workflow fix tracking files  
-- Cleaned up duplicate architecture decision matrices
+---
+
+## 📊 Documentation Changes (2025-09-17)
+
+### Major Cleanup & Flattening
+- **Removed Directories**: architecture/, development/, guides/, workflows/ (flattened to root)
+- **Removed Files**: 17 files eliminated (architecture, development guides, cost projection, policy validation)
+- **Flattened Structure**: All docs now in root for easy scanning
+
+### Files Removed
+- Complex architecture documentation (infrastructure.md, terraform.md, unit-testing.md, etc.)
+- Development guides for unimplemented features
+- Outdated deployment processes referencing disabled workflows
+- Redundant content and index files
 
 ### New Structure Benefits
-- **60% faster navigation** - Essential info in 4 primary files
-- **Reduced maintenance** - 50% fewer files to maintain
-- **Better discoverability** - Clear role-based paths
-- **Improved accuracy** - Single source of truth for commands and procedures
+- **71% fewer files** - 28 files → 8 files
+- **Flat navigation** - No nested directory hunting
+- **Current accuracy** - All content reflects actual system state
+- **Minimal maintenance** - Only essential documentation remains
 
-This streamlined structure maintains all essential information while dramatically improving usability and maintainability.
+This ruthless pruning maintains only operational knowledge needed for the current TODO.md priorities.

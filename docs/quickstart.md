@@ -20,14 +20,16 @@ aws --version   # AWS CLI (optional for manual operations)
    git clone <repository-url>
    cd static-site
    
-   # Copy backend configuration template
+   # Copy backend configuration template (if needed)
    cp terraform/backend.hcl.example terraform/backend.hcl
-   # Edit terraform/backend.hcl with your S3 bucket details
+   # Note: Current workflow uses terraform/environments/{env}/ structure
    ```
 
 2. **Set GitHub repository variables** (in GitHub UI):
    - `PROJECT_NAME`: Your project name
-   - `TERRAFORM_WORKING_DIR`: `terraform/workloads/static-site`
+   - `AWS_ACCOUNT_ID_DEV`: Your dev AWS account ID
+   - `AWS_ACCOUNT_ID_STAGING`: Your staging AWS account ID
+   - `AWS_ACCOUNT_ID_PROD`: Your production AWS account ID
    - `ALERT_EMAIL_ADDRESSES`: Your email for alerts
 
 ## Step 3: IAM Setup (2 minutes)
