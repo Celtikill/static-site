@@ -1,167 +1,234 @@
-# Static Site Infrastructure - Next Steps
+# Static Site Infrastructure - Terraform-Native Refactor Plan
 
-**Last Updated**: 2025-09-16
-**Status**: ✅ STAGING OPERATIONAL - PR WORKFLOW ACTIVE
+**Last Updated**: 2025-09-17
+**Status**: 🔄 ARCHITECTURE REFACTOR - ELIMINATING AD-HOC FIXES
 
-## Current State
+## Current Assessment
 
 ```
-🎯 PHASE: PR-Based Development Workflow (September 16, 2025)
-├── BUILD: Working correctly ✅
-├── TEST: OPA policy validation operational ✅
-├── RUN: Staging deployment operational ✅
-├── Deploy-Composite: Cross-account authentication working ✅
-└── PR-Deploy: Automatic staging deployments on PRs ✅
-
-Deployment Status:
-├── Dev: Deployed & operational ✅
-├── Staging: Deployed & operational ✅
-├── Prod: Ready for deployment (S3 bucket region issues) ⚠️
-└── PR Workflow: Active staging deployments ✅
-
-Workflow Fixes Completed:
-├── TEST workflow parsing issues fixed ✅
-├── OPA policy integration working in CI ✅
-├── Cross-account role assumptions working ✅
-├── Management account OIDC configured ✅
-└── State infrastructure partially created ⚠️
-
-AWS Organization: o-0hh51yjgxw
-├── Management (223938610551): OIDC provider ✅
-├── Dev (822529998967): Deployed & operational ✅
-├── Staging (927588814642): State bucket issues ❌
-└── Prod (546274483801): Ready for deployment
+🎯 PHASE: Terraform-Native Environment Management Refactor (September 17, 2025)
+├── Current Issues Identified:
+│   ├── ❌ Dynamic backend configuration (violates Terraform principles)
+│   ├── ❌ Manual state infrastructure management (configuration drift risk)
+│   ├── ❌ Cross-account auth with hardcoded values (security vulnerability)
+│   ├── ❌ Over-privileged OrganizationAccountAccessRole usage
+│   └── ❌ Mixed environment configs in deployment logic
+├──
+├── Working Components to Preserve:
+│   ├── ✅ BUILD: Security scanning operational (16-22s)
+│   ├── ✅ TEST: OPA policy validation working
+│   ├── ✅ Terraform modules: Well-structured and secure
+│   └── ✅ Multi-account organization setup
+└──
 ```
 
-## Session Summary - September 16, 2025
+## Refactor Strategy Overview
 
-### 🔧 Current Debugging State (Session Pause Point)
+**Objective**: Replace all ad-hoc infrastructure fixes with Terraform-native, secure, best-practice implementations.
 
-**Issue**: Production S3 state bucket region mismatch
-- **Problem**: Production bucket and DynamoDB table exist in us-east-2, but terraform expects us-east-1
-- **Root Cause**: deploy-composite.yml line 172 uses `${{ env.AWS_DEFAULT_REGION }}` (us-east-1) for backend
-- **Solution in Progress**: Moving production resources from us-east-2 to us-east-1
-  - ✅ Deleted resources from us-east-2
-  - ⏸️ Creating resources in us-east-1 (AWS commands timing out, needs retry after restart)
+**Approach**: Zero-risk migration with import-first strategy and parallel deployment testing.
 
-**Next Steps After Restart**:
-1. Assume role in production account (546274483801)
-2. Create S3 bucket `static-website-state-prod` in us-east-1
-3. Create DynamoDB table `static-website-locks-prod` in us-east-1
-4. Retry production deployment with `gh workflow run run.yml --field environment=prod`
+## Phase 1: Foundation Infrastructure as Code (Week 1)
 
-**Working Environments**:
-- ✅ Dev: Fully operational (account 822529998967)
-- ✅ Staging: Fully operational (account 927588814642)
-- ⚠️ Production: Pending S3 bucket fix (account 546274483801)
+### 🏗️ State Backend Module Creation
+**Priority**: P0 - Foundation for all other work
 
-## Session Summary - September 16, 2025
+**Tasks**:
+- [ ] Create `terraform/modules/foundations/state-backend/` module
+  - [ ] S3 bucket with versioning, encryption, and proper policies
+  - [ ] DynamoDB table with encryption and proper IAM
+  - [ ] KMS keys for state encryption
+  - [ ] Least-privilege IAM policies for state access
+- [ ] Import existing state infrastructure before any changes
+- [ ] Validate state file integrity during import process
 
-### 🎉 Major Accomplishments
-1. **Complete Workflow Architecture Fixed**
-   - Fixed TEST workflow parsing issues (was failing with 0s runtime)
-   - Fixed deploy-composite workflow YAML parsing
-   - Implemented cross-account authentication via management account
-   - OPA policy validation fully operational in CI
+**Security Controls**:
+- ✅ KMS encryption for all state data
+- ✅ Bucket policies enforcing least-privilege access
+- ✅ No hardcoded account IDs or regions
+- ✅ Environment-specific resource naming
 
-2. **Authentication & Authorization**
-   - Management account OIDC provider configured
-   - Cross-account role assumption working (management → staging/prod)
-   - Added AWS_ASSUME_ROLE_MANAGEMENT secret
-   - Fixed trust policies and permissions
+### 🔐 Environment-Specific Backend Configurations
+**Priority**: P0 - Eliminates dynamic backend generation
 
-3. **Policy Integration Complete**
-   - OPA policies running successfully in TEST workflow
-   - Security and compliance policies validated
-   - Environment-specific enforcement (strict for prod)
-   - Conftest integration working with proper namespaces
+**Tasks**:
+- [ ] Create static backend configs: `terraform/accounts/{env}/backend.tf`
+- [ ] Remove dynamic `backend_override.tf` generation from workflows
+- [ ] Test backend migrations with state backup procedures
+- [ ] Validate environment isolation
 
-### ✅ Major Breakthroughs: PR-Based Workflow
-**Achieved**: Complete PR-based development workflow operational
-- Staging deployments working successfully from main branch
-- PR-Deploy workflow created for automatic staging previews
-- Cross-account authentication fully operational
-- S3 state bucket region issues resolved for staging
+**Security Controls**:
+- ✅ Static configurations (no runtime generation)
+- ✅ Environment-specific state isolation
+- ✅ Immutable backend configurations
 
-### 🚀 Technical Progress
-- **BUILD**: 100% operational (16-22s runtime) ✅
-- **TEST**: OPA validation working, all policies pass ✅
-- **Cross-Account Auth**: Management → Dev/Staging/Prod working ✅
-- **State Infrastructure**: Bootstrap scripts created ✅
-- **Staging Deployment**: Operational and deployments working ✅
-- **PR Workflow**: Automatic staging deployments on PR events ✅
+### 👤 Dedicated IAM Roles per Environment
+**Priority**: P1 - Replaces OrganizationAccountAccessRole
 
-## Next Steps (Main Branch Completion)
+**Tasks**:
+- [ ] Create `terraform/accounts/{env}/iam.tf` for each environment
+- [ ] Design least-privilege permissions per environment
+- [ ] Deploy alongside existing roles for testing
+- [ ] Update OIDC trust relationships per environment
+- [ ] Test role assumption and permissions
 
-### Priority 1: Fix Production S3 State Bucket Issue 🔧
-**Current Problem**: Terraform can't find production state bucket
-- Bucket region mismatch (created in us-east-2, expecting us-east-1)
-- AWS CLI defaulting to wrong region despite environment variables
-- Bootstrap script region enforcement needed
+**Security Controls**:
+- ✅ Least-privilege principle enforcement
+- ✅ Environment-scoped permissions only
+- ✅ No cross-environment access capabilities
+- ✅ Audit trail for all role assumptions
 
-**Solutions to Try**:
-1. Force delete and recreate bucket with explicit region constraints
-2. Update bootstrap script to use --region flag on all AWS commands
-3. Test bucket accessibility from management account credentials
+## Phase 2: Workflow Security Hardening (Week 2)
 
-### Priority 2: Complete Production Deployment 🚀
-**Status**: Ready for deployment once S3 bucket issues resolved
+### 🔄 Environment-Specific Deployment Workflows
+**Priority**: P1 - Eliminates environment switching in single workflow
+
+**Tasks**:
+- [ ] Create `.github/workflows/deploy-{env}.yml` per environment
+- [ ] Remove environment switching logic from shared workflows
+- [ ] Environment-specific secret management
+- [ ] Test parallel deployment capabilities
+
+**Security Controls**:
+- ✅ Environment-specific GitHub secrets
+- ✅ No cross-environment credential access
+- ✅ Isolated workflow permissions
+
+### 🆔 OIDC Provider Configuration as Code
+**Priority**: P2 - Manages trust relationships via Terraform
+
+**Tasks**:
+- [ ] Create `terraform/foundations/github-oidc/` module
+- [ ] Import existing OIDC providers
+- [ ] Automate trust relationship management
+- [ ] Validate OIDC token claims and restrictions
+
+**Security Controls**:
+- ✅ Automated trust policy management
+- ✅ Repository and environment restrictions
+- ✅ Complete audit trail for auth changes
+
+## Phase 3: State Migration (Week 3)
+
+### 📦 Import Existing Infrastructure
+**Priority**: P0 - Zero-risk migration foundation
+
+**Tasks**:
+- [ ] Create import scripts for existing state infrastructure
+- [ ] Validate imported resources match current state
+- [ ] Test state operations with imported infrastructure
+- [ ] Create rollback procedures for each import
+
+**Commands**:
 ```bash
-# Fix production bucket region:
-./scripts/fix-bucket-region.sh prod
-
-# Deploy to production:
-gh workflow run run.yml --field environment=prod --field deploy_infrastructure=true
+# For each environment
+terraform import module.state_backend.aws_s3_bucket.state static-website-state-{env}
+terraform import module.state_backend.aws_dynamodb_table.locks static-website-locks-{env}
+terraform import module.state_backend.aws_s3_bucket_policy.state_policy static-website-state-{env}
 ```
 
-### Priority 3: Optimize Production Workflow 📊
-**Status**: ✅ PR workflow operational
-1. ✅ Create feature branch for testing: `feature/pr-workflow-testing`
-2. ✅ Implement PR-based staging deployment workflow
-3. ✅ Add deployment status comments to PRs
-4. ✅ Test complete feature → staging → main → production flow
-5. Add manual approval gates for production deployments
+### 🔄 Backend Migration Execution
+**Priority**: P0 - Critical path for all environments
 
-### Priority 4: Production Optimization 📊
-- Add deployment verification and smoke tests
-- Implement rollback procedures
-- Add deployment notification system
-- Create deployment documentation
+**Tasks**:
+- [ ] Deploy new backend infrastructure alongside existing
+- [ ] Migrate state files using `terraform state mv`
+- [ ] Update backend configurations atomically
+- [ ] Cleanup old manual infrastructure
+- [ ] Validate state integrity post-migration
 
-## Completed Achievements ✅
+**Risk Controls**:
+- ✅ State backups before all operations
+- ✅ Rollback procedures documented and tested
+- ✅ Validation gates at each step
+- ✅ Parallel infrastructure during migration
 
-**OPA Policy Integration (September 13):**
-- Created foundation-security.rego with 6 security rules
-- Created foundation-compliance.rego with 5 compliance rules
-- Fixed conftest command usage (verify → test)
-- Added proper namespace configurations
-- Removed YAML trailing spaces from workflows
-- Tested policies locally - all working correctly
+## Phase 4: Environment Isolation Enforcement (Week 4)
 
-**Previous Workflow Fixes:**
-- Backend override solution for TEST workflows
-- OpenTofu dependency setup across all jobs
-- BUILD workflow: Consistently operational (16-22s)
+### 🏛️ Account-Specific Resource Deployment
+**Priority**: P2 - Complete environment separation
 
-## Essential Commands
+**Tasks**:
+- [ ] Restructure to `terraform/accounts/{env}/static-site/`
+- [ ] Move environment-specific configs to account directories
+- [ ] Test complete environment isolation
+- [ ] Validate no shared resources between environments
 
-```bash
-# Test operational workflows
-gh workflow run build.yml --field force_build=true --field environment=dev
-gh workflow run test.yml --field skip_build_check=true --field environment=dev
-gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
+**Security Controls**:
+- ✅ Complete account-level isolation
+- ✅ No shared infrastructure between environments
+- ✅ Environment-specific tagging enforcement
 
-# Multi-account deployment (requires credential configuration)
-gh workflow run run.yml --field environment=staging --field deploy_infrastructure=true
-gh workflow run run.yml --field environment=prod --field deploy_infrastructure=true
+### 🛡️ Security Policy Enforcement
+**Priority**: P1 - Hardening and compliance
 
-# Validation
-tofu validate && tofu fmt -check
-yamllint -d relaxed .github/workflows/*.yml
-```
+**Tasks**:
+- [ ] Create environment-specific OPA policies
+- [ ] Implement account-level SCPs for environment isolation
+- [ ] Enforce mandatory tagging and naming conventions
+- [ ] Test policy enforcement in dev environment first
 
-## Next Action
+**Security Controls**:
+- ✅ Prevent cross-environment resource access
+- ✅ Enforce security baselines per environment
+- ✅ Automated compliance validation
 
-🎯 **Configure AWS credentials in GitHub Secrets to enable multi-account deployment execution**
+## Migration Risk Controls
 
-The core workflow architecture is complete and operational. All infrastructure is ready for deployment with proper credential configuration.
+### Zero-Risk Migration Strategy
+- **Import Before Replace**: All existing infrastructure imported before changes
+- **Parallel Deployment**: New systems deployed alongside existing
+- **Validation Gates**: Comprehensive testing at each phase
+- **Rollback Procedures**: Documented rollback for each step
+- **State Backup**: Automated state backups before all migrations
+
+### Continuous Validation
+- **Daily**: State drift detection
+- **Pre-deployment**: OPA policy validation
+- **Post-deployment**: Infrastructure validation tests
+- **Weekly**: Security baseline compliance checks
+
+## Success Criteria
+
+### Zero Ad-Hoc Infrastructure
+- [ ] All S3 buckets managed via Terraform
+- [ ] All DynamoDB tables managed via Terraform
+- [ ] All IAM roles managed via Terraform
+- [ ] All OIDC providers managed via Terraform
+
+### Zero Hardcoded Values
+- [ ] No account IDs in workflows
+- [ ] No regions hardcoded in workflows
+- [ ] No resource names hardcoded in workflows
+- [ ] All environment-specific configs parameterized
+
+### Zero Cross-Environment Access
+- [ ] Complete account-level isolation validated
+- [ ] No shared IAM roles between environments
+- [ ] No shared state backends between environments
+- [ ] Environment-specific OIDC trust relationships only
+
+### Performance Targets
+- [ ] < 5 minutes: Full environment deployment
+- [ ] < 2 minutes: Infrastructure-only deployment
+- [ ] < 30 seconds: Validation and testing
+- [ ] 100% success rate: Deployment reliability
+
+## Current Focus
+
+🎯 **Phase 1 in Progress**: Creating Terraform state backend module to replace all manual state infrastructure management.
+
+**Next Immediate Actions**:
+1. Design and implement state backend Terraform module
+2. Create import procedures for existing infrastructure
+3. Test import process in development environment
+4. Validate state operations with imported resources
+
+**Blocked/Deprecated Items**:
+- ❌ Manual S3 bucket creation via AWS CLI
+- ❌ Manual DynamoDB table creation via AWS CLI
+- ❌ Dynamic backend configuration generation
+- ❌ OrganizationAccountAccessRole usage
+- ❌ Hardcoded account IDs in workflows
+
+All previous ad-hoc fixes have been replaced with this structured, Terraform-native approach that eliminates security risks and follows infrastructure-as-code best practices.
