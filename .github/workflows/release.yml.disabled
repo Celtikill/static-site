@@ -62,7 +62,7 @@ jobs:
             DEPLOY_INFRA="${{ inputs.deploy_infrastructure }}"
             DEPLOY_WEBSITE="${{ inputs.deploy_website }}"
             TRIGGER_SOURCE="manual dispatch"
-            
+
             # Validate version format for manual dispatch
             if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               IS_VALID_RELEASE="true"
@@ -78,7 +78,7 @@ jobs:
             DEPLOY_INFRA="true"
             DEPLOY_WEBSITE="true"
             TRIGGER_SOURCE="tag push"
-            
+
             # Validate this is a production release tag (no pre-release suffixes)
             if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               IS_VALID_RELEASE="true"
@@ -88,16 +88,16 @@ jobs:
               IS_VALID_RELEASE="false"
             fi
           fi
-          
+
           DEPLOYMENT_ID="release-$VERSION-$(date +%Y%m%d-%H%M%S)"
-          
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           echo "deploy_infrastructure=$DEPLOY_INFRA" >> $GITHUB_OUTPUT
           echo "deploy_website=$DEPLOY_WEBSITE" >> $GITHUB_OUTPUT
           echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
           echo "is_valid_release=$IS_VALID_RELEASE" >> $GITHUB_OUTPUT
-          
+
           echo "# 🚀 Production Release Deployment" >> $GITHUB_STEP_SUMMARY
           echo "- **Version**: $VERSION" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger**: $TRIGGER_SOURCE" >> $GITHUB_STEP_SUMMARY
@@ -122,13 +122,13 @@ jobs:
           echo "- **Version**: ${{ needs.info.outputs.version }}" >> \
             $GITHUB_STEP_SUMMARY
           echo "- **Environment**: Production" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check CODEOWNERS for authorization
           ACTOR="${{ github.actor }}"
           if [ -f ".github/CODEOWNERS" ]; then
             CODE_OWNERS=$(grep -E '^(\*|/)' .github/CODEOWNERS | \
               grep -oE '@[a-zA-Z0-9_-]+' | sort -u || echo "")
-            
+
             if echo "$CODE_OWNERS" | grep -q "@$ACTOR"; then
               echo "✅ **AUTHORIZED**: $ACTOR is a code owner" >> \
                 $GITHUB_STEP_SUMMARY
@@ -142,7 +142,7 @@ jobs:
             echo "⚠️ No CODEOWNERS file found - proceeding" >> \
               $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🎯 **PRODUCTION DEPLOYMENT AUTHORIZED**" >> \
             $GITHUB_STEP_SUMMARY
@@ -179,48 +179,48 @@ jobs:
             const version = '${{ needs.info.outputs.version }}';
             const deploymentUrl = '${{ needs.deploy.outputs.deployment_url }}';
             const deploymentStatus = '${{ needs.deploy.outputs.deployment_status }}';
-            
+
             // Get previous tag for changelog
             const { data: tags } = await github.rest.repos.listTags({
               owner: context.repo.owner,
               repo: context.repo.repo,
               per_page: 10
             });
-            
+
             const currentTagIndex = tags.findIndex(tag => tag.name === version);
-            const previousTag = currentTagIndex < tags.length - 1 ? 
+            const previousTag = currentTagIndex < tags.length - 1 ?
               tags[currentTagIndex + 1].name : null;
-            
+
             // Generate release notes
             let releaseBody = `## 🎯 Production Release ${version}
-            
+
             This release has been successfully deployed to production.
-            
+
             `;
-            
+
             if (deploymentUrl) {
               releaseBody += `🌐 **Live URL**: ${deploymentUrl}
-              
+
               `;
             }
-            
+
             if (previousTag) {
               const compareUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/compare/${previousTag}...${version}`;
               releaseBody += `📋 **Changes**: [View diff](${compareUrl})
-              
+
               `;
             }
-            
+
             releaseBody += `## Deployment Details
-            
+
             - **Environment**: Production
             - **Status**: ${deploymentStatus}
             - **Deployment ID**: \`${{ needs.info.outputs.deployment_id }}\`
             - **Workflow**: [View Run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
-            
+
             ---
             *Automated production release via GitHub Actions*`;
-            
+
             // Create or update release
             try {
               // Check if release already exists
@@ -231,7 +231,7 @@ jobs:
                   repo: context.repo.repo,
                   tag: version
                 });
-                
+
                 // Update existing release
                 await github.rest.repos.updateRelease({
                   owner: context.repo.owner,
@@ -239,7 +239,7 @@ jobs:
                   release_id: release.data.id,
                   body: releaseBody
                 });
-                
+
                 console.log('✅ Updated existing release');
               } catch (error) {
                 if (error.status === 404) {
@@ -253,7 +253,7 @@ jobs:
                     draft: false,
                     prerelease: false
                   });
-                  
+
                   console.log('✅ Created new release');
                 } else {
                   throw error;
@@ -280,7 +280,7 @@ jobs:
             $GITHUB_STEP_SUMMARY
           echo "| Valid Release | ${{ needs.info.outputs.is_valid_release }} |" >> \
             $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ needs.info.outputs.is_valid_release }}" = "true" ]; then
             DEPLOY_STATUS="${{ needs.deploy.result }}"
             if [ "$DEPLOY_STATUS" = "success" ]; then
@@ -293,7 +293,7 @@ jobs:
             else
               echo "| Deployment | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
             fi
-            
+
             NOTES_STATUS="${{ needs.release-notes.result }}"
             echo "| Release Notes | ${{ needs.release-notes.result == 'success' && '✅ Created' || '❌ Failed' }} |" >> \
               $GITHUB_STEP_SUMMARY
@@ -302,7 +302,7 @@ jobs:
               $GITHUB_STEP_SUMMARY
             echo "| Release Notes | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "${{ needs.deploy.result }}" = "success" ]; then
             echo "🎉 **PRODUCTION RELEASE SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
