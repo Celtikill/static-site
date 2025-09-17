@@ -199,14 +199,34 @@ jobs:
           SECURITY_VIOLATIONS=0
           set +e
           conftest test --policy foundation-security.rego plan.json \
-            --namespace terraform.foundation.security
+            --namespace terraform.foundation.security > security_output.txt 2>&1
           SECURITY_EXIT_CODE=$?
           set -e
 
           if [ $SECURITY_EXIT_CODE -eq 0 ]; then
             echo "✅ All security policies passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Security policy violations found" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Security Policy Violations Found**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Violation | Resource | Issue |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----------|----------|-------|" >> $GITHUB_STEP_SUMMARY
+
+            # Parse conftest output and format violations
+            if [ -f security_output.txt ]; then
+              grep -E "FAIL|Error:" security_output.txt | while IFS= read -r line; do
+                # Extract violation details and format for table
+                violation=$(echo "$line" | sed 's/^FAIL - //' | sed 's/Error: //')
+                echo "| Security | Infrastructure | $violation |" >> $GITHUB_STEP_SUMMARY
+              done
+
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<details><summary>📋 Full Security Policy Output</summary>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat security_output.txt >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+            fi
             SECURITY_VIOLATIONS=1
           fi
 
@@ -216,14 +236,33 @@ jobs:
 
           set +e
           conftest test --policy foundation-compliance.rego plan.json \
-            --namespace terraform.foundation.compliance
+            --namespace terraform.foundation.compliance > compliance_output.txt 2>&1
           COMPLIANCE_EXIT_CODE=$?
           set -e
 
           if [ $COMPLIANCE_EXIT_CODE -eq 0 ]; then
             echo "✅ All compliance policies passed" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Compliance policy warnings found" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Compliance Policy Warnings Found**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Warning | Resource | Recommendation |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|----------|----------------|" >> $GITHUB_STEP_SUMMARY
+
+            # Parse compliance output and format warnings
+            if [ -f compliance_output.txt ]; then
+              grep -E "WARN|Warning:" compliance_output.txt | while IFS= read -r line; do
+                warning=$(echo "$line" | sed 's/^WARN - //' | sed 's/Warning: //')
+                echo "| Compliance | Infrastructure | $warning |" >> $GITHUB_STEP_SUMMARY
+              done
+
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "<details><summary>📋 Full Compliance Policy Output</summary>" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat compliance_output.txt >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+            fi
           fi
 
           # Environment-specific enforcement
