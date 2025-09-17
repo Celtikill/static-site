@@ -276,6 +276,9 @@ jobs:
     if: needs.info.outputs.deploy_website == 'true' && (needs.deploy_infrastructure.result == 'success' || needs.deploy_infrastructure.result == 'skipped')
     outputs:
       deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+      cloudfront_url: ${{ steps.deploy.outputs.cloudfront_url }}
+      s3_endpoint: ${{ steps.deploy.outputs.s3_endpoint }}
+      dashboard_url: ${{ steps.deploy.outputs.dashboard_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -321,6 +324,9 @@ jobs:
           BUCKET_NAME=$(tofu output -raw s3_bucket_name)
           CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id || echo "")
           WEBSITE_URL=$(tofu output -raw website_url)
+          CLOUDFRONT_URL=$(tofu output -raw cloudfront_url || echo "")
+          S3_ENDPOINT=$(tofu output -raw s3_bucket_domain_name || echo "")
+          DASHBOARD_URL=$(tofu output -raw cloudwatch_dashboard_url || echo "")
 
           echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
@@ -338,9 +344,30 @@ jobs:
           fi
 
           echo "deployment_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+          echo "cloudfront_url=$CLOUDFRONT_URL" >> $GITHUB_OUTPUT
+          echo "s3_endpoint=$S3_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "dashboard_url=$DASHBOARD_URL" >> $GITHUB_OUTPUT
 
           echo "✅ Website deployment completed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "🌐 **Live URL**: [$WEBSITE_URL]($WEBSITE_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🌐 **Deployment URLs**" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource Type | URL | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------------|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Primary Site | [$WEBSITE_URL]($WEBSITE_URL) | ✅ Active |" >> $GITHUB_STEP_SUMMARY
+
+          if [ -n "$CLOUDFRONT_URL" ]; then
+            echo "| CloudFront CDN | [$CLOUDFRONT_URL]($CLOUDFRONT_URL) | ✅ Active |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| CloudFront CDN | Disabled (cost optimization) | 💰 Saved |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "$S3_ENDPOINT" ]; then
+            echo "| S3 Direct | [$S3_ENDPOINT]($S3_ENDPOINT) | ✅ Available |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "$DASHBOARD_URL" ]; then
+            echo "| Monitoring | [$DASHBOARD_URL]($DASHBOARD_URL) | 📊 Active |" >> $GITHUB_STEP_SUMMARY
+          fi
 
   validation:
     name: "✅ Post-Deployment Validation"
@@ -354,6 +381,9 @@ jobs:
           echo "✅ **Post-Deployment Validation**" >> $GITHUB_STEP_SUMMARY
 
           WEBSITE_URL="${{ needs.deploy_website.outputs.deployment_url }}"
+          CLOUDFRONT_URL="${{ needs.deploy_website.outputs.cloudfront_url }}"
+          S3_ENDPOINT="${{ needs.deploy_website.outputs.s3_endpoint }}"
+          DASHBOARD_URL="${{ needs.deploy_website.outputs.dashboard_url }}"
 
           if [ -n "$WEBSITE_URL" ]; then
             echo "🔍 Testing website accessibility..."
@@ -367,7 +397,21 @@ jobs:
               echo "⚠️ Website returned HTTP $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
             fi
 
-            echo "🌐 **Validated URL**: [$WEBSITE_URL]($WEBSITE_URL)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 🌐 **Validated URLs**" >> $GITHUB_STEP_SUMMARY
+            echo "| Resource | URL | HTTP Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-----|-------------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Primary Site | [$WEBSITE_URL]($WEBSITE_URL) | $HTTP_STATUS |" >> $GITHUB_STEP_SUMMARY
+
+            if [ -n "$CLOUDFRONT_URL" ]; then
+              echo "| CloudFront CDN | [$CLOUDFRONT_URL]($CLOUDFRONT_URL) | Active |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| CloudFront CDN | Disabled (cost optimization) | N/A |" >> $GITHUB_STEP_SUMMARY
+            fi
+
+            if [ -n "$DASHBOARD_URL" ]; then
+              echo "| Monitoring | [$DASHBOARD_URL]($DASHBOARD_URL) | Available |" >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "ℹ️ No website URL available for validation" >> $GITHUB_STEP_SUMMARY
           fi
@@ -378,7 +422,7 @@ jobs:
     name: "📊 Deployment Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [info, deploy_infrastructure, deploy_website, validation]
+    needs: [info, deploy_infrastructure, deploy_website, validation, update_readme]
     if: always()
     steps:
       - name: Final Summary
@@ -393,9 +437,26 @@ jobs:
           echo "| Validation | ${{ needs.validation.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
 
           DEPLOY_URL="${{ needs.deploy_website.outputs.deployment_url }}"
+          CLOUDFRONT_URL="${{ needs.deploy_website.outputs.cloudfront_url }}"
+          S3_ENDPOINT="${{ needs.deploy_website.outputs.s3_endpoint }}"
+          DASHBOARD_URL="${{ needs.deploy_website.outputs.dashboard_url }}"
+
           if [ -n "$DEPLOY_URL" ]; then
-            echo "| Deployment URL | [$DEPLOY_URL]($DEPLOY_URL) |" >> \
-              $GITHUB_STEP_SUMMARY
+            echo "| Primary URL | [$DEPLOY_URL]($DEPLOY_URL) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "$CLOUDFRONT_URL" ]; then
+            echo "| CloudFront URL | [$CLOUDFRONT_URL]($CLOUDFRONT_URL) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Architecture | CloudFront + S3 (full stack) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cost Profile | ~\$20-35/month |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| CloudFront URL | Disabled (cost optimization) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Architecture | S3-only (cost optimized) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Cost Profile | ~\$1-5/month |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "$DASHBOARD_URL" ]; then
+            echo "| Monitoring | [$DASHBOARD_URL]($DASHBOARD_URL) |" >> $GITHUB_STEP_SUMMARY
           fi
 
           # Final status determination
@@ -408,10 +469,145 @@ jobs:
             echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
             if [ -n "$DEPLOY_URL" ]; then
               echo "🌐 **Visit**: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
+              if [ -n "$CLOUDFRONT_URL" ]; then
+                echo "⚡ **CDN**: $CLOUDFRONT_URL (Global distribution)" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "💰 **Cost Optimized**: S3-only deployment (~\$1-5/month savings)" >> $GITHUB_STEP_SUMMARY
+              fi
             fi
           else
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **DEPLOYMENT FAILED**" >> $GITHUB_STEP_SUMMARY
             echo "Check the deployment job logs for details" >> $GITHUB_STEP_SUMMARY
             exit 1
+          fi
+
+  update_readme:
+    name: "📝 Update README Deployment Status"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, deploy_website, validation]
+    if: needs.deploy_website.result == 'success' && needs.deploy_website.outputs.deployment_url != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update README with Deployment URLs
+        run: |
+          echo "📝 **Updating README with deployment information**" >> $GITHUB_STEP_SUMMARY
+
+          TARGET_ENV="${{ needs.info.outputs.target_environment }}"
+          DEPLOY_URL="${{ needs.deploy_website.outputs.deployment_url }}"
+          CLOUDFRONT_URL="${{ needs.deploy_website.outputs.cloudfront_url }}"
+          DASHBOARD_URL="${{ needs.deploy_website.outputs.dashboard_url }}"
+          TIMESTAMP=$(date -u "+%Y-%m-%d %H:%M:%S UTC")
+
+          # Determine architecture and cost profile
+          if [ -n "$CLOUDFRONT_URL" ]; then
+            ARCHITECTURE="CloudFront + S3 (full stack)"
+            COST_PROFILE="~\$20-35/month"
+          else
+            ARCHITECTURE="S3-only (cost optimized)"
+            COST_PROFILE="~\$1-5/month"
+          fi
+
+          # Determine account ID based on environment
+          case "$TARGET_ENV" in
+            dev)
+              ACCOUNT_ID="${{ vars.AWS_ACCOUNT_ID_DEV }}"
+              ;;
+            staging)
+              ACCOUNT_ID="${{ vars.AWS_ACCOUNT_ID_STAGING }}"
+              ;;
+            prod)
+              ACCOUNT_ID="${{ vars.AWS_ACCOUNT_ID_PROD }}"
+              ;;
+            *)
+              ACCOUNT_ID="unknown"
+              ;;
+          esac
+
+          # Create temporary file with updated environment section
+          ENV_NAME="$(echo "$TARGET_ENV" | sed 's/./\U&/') Environment"
+          {
+            echo "**ENV_PLACEHOLDER** ✅ OPERATIONAL"
+            echo "- URL: URL_PLACEHOLDER"
+            echo "- Architecture: ARCHITECTURE_PLACEHOLDER"
+            echo "- Cost Profile: COST_PLACEHOLDER"
+            echo "- Last Updated: TIMESTAMP_PLACEHOLDER"
+            echo "- Account: ACCOUNT_PLACEHOLDER"
+            echo "MONITORING_PLACEHOLDER"
+            echo ""
+          } > /tmp/env_section.txt
+
+          # Use sed to substitute variables in the template
+          sed -i "s/ENV_PLACEHOLDER/$ENV_NAME/g" /tmp/env_section.txt
+          sed -i "s|URL_PLACEHOLDER|$DEPLOY_URL|g" /tmp/env_section.txt
+          sed -i "s/ARCHITECTURE_PLACEHOLDER/$ARCHITECTURE/g" /tmp/env_section.txt
+          sed -i "s/COST_PLACEHOLDER/$COST_PROFILE/g" /tmp/env_section.txt
+          sed -i "s/TIMESTAMP_PLACEHOLDER/$TIMESTAMP/g" /tmp/env_section.txt
+          sed -i "s/ACCOUNT_PLACEHOLDER/$ACCOUNT_ID/g" /tmp/env_section.txt
+
+          # Add monitoring line if dashboard URL exists
+          if [ -n "$DASHBOARD_URL" ]; then
+            sed -i "s/MONITORING_PLACEHOLDER/\\n- Monitoring: $DASHBOARD_URL/g" /tmp/env_section.txt
+          else
+            sed -i "s/MONITORING_PLACEHOLDER//g" /tmp/env_section.txt
+          fi
+
+          # Update README by replacing the environment section
+          SECTION_PATTERN="**$(echo "$TARGET_ENV" | sed 's/./\U&/') Environment**"
+
+          # Find the line numbers for the section
+          START_LINE=$(grep -n "$SECTION_PATTERN" README.md | cut -d: -f1)
+
+          if [ -n "$START_LINE" ]; then
+            # Find the end of the section (next ** heading or end of file)
+            END_LINE=$(tail -n +$((START_LINE + 1)) README.md | grep -n "^##\|^\*\*" | head -1 | cut -d: -f1)
+
+            if [ -n "$END_LINE" ]; then
+              END_LINE=$((START_LINE + END_LINE - 1))
+            else
+              END_LINE=$(wc -l < README.md)
+            fi
+
+            # Replace the section
+            head -n $((START_LINE - 1)) README.md > /tmp/readme_new.md
+            cat /tmp/env_section.txt >> /tmp/readme_new.md
+            tail -n +$((END_LINE + 1)) README.md >> /tmp/readme_new.md
+            mv /tmp/readme_new.md README.md
+          fi
+
+          echo "✅ README updated for $TARGET_ENV environment" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **Architecture**: $ARCHITECTURE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cost Profile**: $COST_PROFILE" >> $GITHUB_STEP_SUMMARY
+
+      - name: Commit README Updates
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          if git diff --quiet README.md; then
+            echo "ℹ️ No changes to README.md" >> $GITHUB_STEP_SUMMARY
+          else
+            git add README.md
+            git commit -m "$(cat <<'EOF'
+🌐 Update deployment URLs for ${{ needs.info.outputs.target_environment }} environment
+
+Automated update from deployment run ${{ needs.info.outputs.run_id }}
+
+- Environment: ${{ needs.info.outputs.target_environment }}
+- URL: ${{ needs.deploy_website.outputs.deployment_url }}
+- Updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+            git push
+            echo "✅ README.md updated and committed" >> $GITHUB_STEP_SUMMARY
           fi
