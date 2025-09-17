@@ -1,5 +1,24 @@
 # Development Account - GitHub Actions Deployment Role
-# Account ID: 822529998967
+# 12-factor compliant configuration
+
+# Environment-specific variables
+variable "aws_account_id_management" {
+  description = "Management account ID for central role"
+  type        = string
+  default     = "223938610551"
+}
+
+variable "aws_account_id_dev" {
+  description = "Development account ID"
+  type        = string
+  default     = "822529998967"
+}
+
+variable "default_region" {
+  description = "Default AWS region"
+  type        = string
+  default     = "us-east-1"
+}
 
 terraform {
   required_version = ">= 1.6.0"
@@ -17,12 +36,12 @@ module "deployment_role" {
   source = "../../modules/iam/deployment-role"
 
   environment      = "dev"
-  central_role_arn = "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+  central_role_arn = "arn:aws:iam::${var.aws_account_id_management}:role/GitHubActions-StaticSite-Central"
   external_id      = "github-actions-static-site"
 
   # State bucket configuration (management account)
-  state_bucket_account_id = "223938610551"
-  state_bucket_region     = "us-east-2"
+  state_bucket_account_id = var.aws_account_id_management
+  state_bucket_region     = var.default_region
 
   # Additional S3 bucket patterns for dev environment
   additional_s3_bucket_patterns = [

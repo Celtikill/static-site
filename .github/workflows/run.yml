@@ -72,17 +72,23 @@ jobs:
             fi
 
             # Environment routing based on branch
-            # Note: main branch no longer auto-deploys to staging
-            # Staging deployments now happen via PR previews only
             BRANCH="${{ github.event.workflow_run.head_branch }}"
             case "$BRANCH" in
               main)
-                # Skip main branch auto-deploy - staging via PR only
-                echo "⚠️ Main branch auto-deploy to staging disabled"
-                echo "Use PR-based staging deployments instead"
-                exit 0
+                # Main branch auto-deploys to dev environment
+                TARGET_ENV="dev"
+                echo "ℹ️ Main branch deployment to dev environment"
                 ;;
-              *) TARGET_ENV="dev" ;;
+              feature/*|bugfix/*|hotfix/*)
+                # Feature branches deploy to dev environment
+                TARGET_ENV="dev"
+                echo "ℹ️ Feature branch deployment to dev environment"
+                ;;
+              *)
+                # Default to dev for any other branch
+                TARGET_ENV="dev"
+                echo "ℹ️ Default deployment to dev environment"
+                ;;
             esac
 
             COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
@@ -146,16 +152,16 @@ jobs:
           # Environment-specific role mapping
           case "$TARGET_ENV" in
             dev)
-              TARGET_ROLE="arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role"
-              AWS_REGION="us-east-2"
+              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-StaticSite-Dev-Role"
+              AWS_REGION="us-east-1"
               ;;
             staging)
-              TARGET_ROLE="arn:aws:iam::927588814642:role/GitHubActions-StaticSite-Staging-Role"
-              AWS_REGION="us-east-2"
+              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_STAGING }}:role/GitHubActions-StaticSite-Staging-Role"
+              AWS_REGION="us-east-1"
               ;;
             prod)
-              TARGET_ROLE="arn:aws:iam::546274483801:role/GitHubActions-StaticSite-Prod-Role"
-              AWS_REGION="us-east-2"
+              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/GitHubActions-StaticSite-Prod-Role"
+              AWS_REGION="us-east-1"
               ;;
             *)
               echo "❌ Invalid environment: $TARGET_ENV"

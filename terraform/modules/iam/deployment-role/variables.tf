@@ -51,5 +51,5 @@ variable "state_bucket_account_id" {
 variable "state_bucket_region" {
   description = "AWS region where the Terraform state bucket is located"
   type        = string
-  default     = "us-east-2"
+  default     = "us-east-1"
 }

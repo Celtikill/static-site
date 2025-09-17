@@ -1,5 +1,24 @@
 # Variables for GitHub OIDC Provider and Central Role
 
+# AWS Account Variables (12-factor compliant)
+variable "aws_account_id_dev" {
+  description = "AWS Account ID for Development environment"
+  type        = string
+  default     = "822529998967"
+}
+
+variable "aws_account_id_staging" {
+  description = "AWS Account ID for Staging environment"
+  type        = string
+  default     = "927588814642"
+}
+
+variable "aws_account_id_prod" {
+  description = "AWS Account ID for Production environment"
+  type        = string
+  default     = "546274483801"
+}
+
 variable "allowed_repositories" {
   description = "List of GitHub repository patterns allowed to assume this role"
   type        = list(string)
@@ -14,9 +33,9 @@ variable "target_account_ids" {
   description = "AWS account IDs where deployment roles will be created"
   type        = list(string)
   default = [
-    "822529998967", # dev
-    "927588814642", # staging
-    "546274483801"  # prod
+    "822529998967", # dev - use aws_account_id_dev variable to override
+    "927588814642", # staging - use aws_account_id_staging variable to override
+    "546274483801"  # prod - use aws_account_id_prod variable to override
   ]
 }
 

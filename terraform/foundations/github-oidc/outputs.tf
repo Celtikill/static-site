@@ -28,9 +28,9 @@ output "external_id" {
 output "target_deployment_role_arns" {
   description = "ARNs of target deployment roles (for reference)"
   value = {
-    dev     = "arn:aws:iam::${var.target_account_ids[0]}:role/GitHubActions-StaticSite-Dev-Role"
-    staging = "arn:aws:iam::${var.target_account_ids[1]}:role/GitHubActions-StaticSite-Staging-Role"
-    prod    = "arn:aws:iam::${var.target_account_ids[2]}:role/GitHubActions-StaticSite-Prod-Role"
+    dev     = "arn:aws:iam::${var.aws_account_id_dev}:role/GitHubActions-StaticSite-Dev-Role"
+    staging = "arn:aws:iam::${var.aws_account_id_staging}:role/GitHubActions-StaticSite-Staging-Role"
+    prod    = "arn:aws:iam::${var.aws_account_id_prod}:role/GitHubActions-StaticSite-Prod-Role"
   }
 }
 

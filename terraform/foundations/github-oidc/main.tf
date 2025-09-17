@@ -15,6 +15,15 @@ terraform {
 # Data source for current AWS caller identity
 data "aws_caller_identity" "current" {}
 
+# Computed values for account configuration
+locals {
+  target_account_ids = [
+    var.aws_account_id_dev,
+    var.aws_account_id_staging,
+    var.aws_account_id_prod
+  ]
+}
+
 # GitHub OIDC Identity Provider
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
@@ -84,7 +93,7 @@ resource "aws_iam_policy" "cross_account_assume" {
         Effect = "Allow"
         Action = "sts:AssumeRole"
         Resource = [
-          for account_id in var.target_account_ids :
+          for account_id in local.target_account_ids :
           "arn:aws:iam::${account_id}:role/GitHubActions-StaticSite-*-Role"
         ]
         Condition = {
