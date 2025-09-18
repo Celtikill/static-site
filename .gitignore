@@ -22,6 +22,7 @@ tfplan
 terraform.tfvars
 *.tfvars
 !terraform.tfvars.example
+!terraform/bootstrap/*.tfvars
 *.auto.tfvars
 *.auto.tfvars.json
 terraform.tfvars.json
