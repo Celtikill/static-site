@@ -256,34 +256,8 @@ jobs:
           # Check for distributed backend configuration
           BACKEND_CONFIG="../backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
           if [ -f "$BACKEND_CONFIG" ]; then
-            echo "🔄 Using distributed backend configuration: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
+            echo "✅ Using distributed backend configuration: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
             BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
-
-            # Bootstrap distributed backend if it doesn't exist
-            # Parse HCL config file to extract bucket name and region
-            BUCKET=$(grep '^bucket' $BACKEND_CONFIG | sed 's/.*= *"\([^"]*\)".*/\1/')
-            REGION=$(grep '^region' $BACKEND_CONFIG | sed 's/.*= *"\([^"]*\)".*/\1/')
-            echo "📦 Checking if distributed S3 backend exists: $BUCKET"
-            if ! aws s3 ls "s3://$BUCKET" 2>/dev/null; then
-              echo "🚀 Creating distributed S3 backend: $BUCKET"
-              if [ "$REGION" = "us-east-1" ]; then
-                aws s3api create-bucket --bucket "$BUCKET" --region "$REGION"
-              else
-                aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION"
-              fi
-              aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
-              aws s3api put-bucket-encryption --bucket "$BUCKET" --server-side-encryption-configuration '{
-                "Rules": [{
-                  "ApplyServerSideEncryptionByDefault": {
-                    "SSEAlgorithm": "AES256"
-                  },
-                  "BucketKeyEnabled": true
-                }]
-              }'
-              echo "✅ Distributed backend created successfully"
-            else
-              echo "✅ Distributed backend already exists"
-            fi
           else
             echo "⚠️ Using legacy centralized backend (static backend.tf)" >> $GITHUB_STEP_SUMMARY
             BACKEND_ARGS=""
