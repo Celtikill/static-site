@@ -19,7 +19,7 @@ provider "aws" {
 
   # Bootstrap Role assumes environment role to create resources in target account
   assume_role {
-    role_arn = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
+    role_arn    = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
     external_id = "github-actions-static-site"
   }
 
@@ -130,9 +130,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
 
 # DynamoDB table for state locking
 resource "aws_dynamodb_table" "terraform_locks" {
-  name           = local.table_name
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "LockID"
+  name         = local.table_name
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
 
   attribute {
     name = "LockID"
@@ -162,7 +162,7 @@ output "backend_region" {
 
 output "backend_config_hcl" {
   description = "Backend configuration for use with -backend-config"
-  value = <<-EOT
+  value       = <<-EOT
 bucket         = "${aws_s3_bucket.terraform_state.id}"
 key            = "environments/${var.environment}/terraform.tfstate"
 region         = "${var.aws_region}"
@@ -174,9 +174,9 @@ EOT
 output "account_info" {
   description = "Account and environment information"
   value = {
-    environment    = var.environment
-    account_id     = var.aws_account_id
-    bucket_name    = aws_s3_bucket.terraform_state.id
-    table_name     = aws_dynamodb_table.terraform_locks.name
+    environment = var.environment
+    account_id  = var.aws_account_id
+    bucket_name = aws_s3_bucket.terraform_state.id
+    table_name  = aws_dynamodb_table.terraform_locks.name
   }
 }
