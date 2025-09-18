@@ -191,7 +191,7 @@ jobs:
   deploy_infrastructure:
     name: "🏗️ Infrastructure Deployment"
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     needs: [info, setup]
     if: always() && needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
     outputs:
@@ -269,7 +269,7 @@ jobs:
 
           # Plan deployment
           echo "📋 Creating deployment plan..."
-          timeout 120s tofu plan -out=deployment.tfplan
+          timeout 300s tofu plan -out=deployment.tfplan
 
           # Apply deployment
           echo "🚀 Applying infrastructure changes..."
