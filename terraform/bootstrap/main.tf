@@ -40,8 +40,8 @@ variable "aws_region" {
 
 # Local values for resource naming
 locals {
-  bucket_name = "static-website-state-${var.environment}-${var.aws_account_id}"
-  table_name  = "static-website-locks-${var.environment}"
+  bucket_name = "static-site-state-${var.environment}-${var.aws_account_id}"
+  table_name  = "static-site-locks-${var.environment}"
 
   common_tags = {
     Environment = var.environment

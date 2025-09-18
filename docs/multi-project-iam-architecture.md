@@ -115,6 +115,8 @@ Tier 3: Environment (Per Env)  → Low privilege, environment-specific deploymen
 **Purpose**: Cross-account role assumption and workflow coordination
 **Scope**: One role per project
 
+**⚠️ INTERIM IMPLEMENTATION NOTE**: Currently enhanced with bootstrap permissions (S3/DynamoDB creation, KMS) to support immediate bootstrap workflow needs. This deviates from the intended architecture where Tier 1 Bootstrap Role should handle infrastructure creation. Future enhancement should implement dedicated Tier 1 Bootstrap Role and remove elevated permissions from Central role.
+
 #### Example Roles
 - `GitHubActions-StaticSite-Central`
 - `GitHubActions-ECommerce-Central`
@@ -146,6 +148,50 @@ Tier 3: Environment (Per Env)  → Low privilege, environment-specific deploymen
         "arn:aws:s3:::{project-name}-state-*",
         "arn:aws:s3:::{project-name}-state-*/*"
       ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:PutBucketPolicy",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketEncryption",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutBucketLogging",
+        "s3:PutBucketNotification",
+        "s3:GetBucketLocation",
+        "s3:ListAllMyBuckets",
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:PutItem",
+        "dynamodb:GetItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:TagResource"
+      ],
+      "Resource": [
+        "arn:aws:s3:::{project-name}-state-*",
+        "arn:aws:s3:::{project-name}-state-*/*",
+        "arn:aws:dynamodb:*:*:table/{project-name}-locks-*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:CreateKey",
+        "kms:CreateAlias",
+        "kms:TagResource",
+        "kms:GetKeyPolicy",
+        "kms:PutKeyPolicy",
+        "kms:DescribeKey",
+        "kms:ListKeys",
+        "kms:ListAliases"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
     }
   ]
 }
@@ -169,7 +215,8 @@ Tier 3: Environment (Per Env)  → Low privilege, environment-specific deploymen
         "StringLike": {
           "token.actions.githubusercontent.com:sub": [
             "repo:org/{project-name}:ref:refs/heads/main",
-            "repo:org/{project-name}:environment:*"
+            "repo:org/{project-name}:environment:*",
+            "repo:org/{project-name}:ref:refs/heads/feature/*"
           ]
         }
       }

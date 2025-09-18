@@ -136,35 +136,16 @@ jobs:
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
 
-      - name: Assume Target Environment Role
+      - name: Bootstrap Resources Using Central Role
         run: |
-          TARGET_ROLE="${{ needs.setup.outputs.target_role_arn }}"
-          EXTERNAL_ID="github-actions-static-site"
-          SESSION_NAME="bootstrap-${{ inputs.environment }}-${{ github.run_id }}"
+          TARGET_ACCOUNT="${{ needs.setup.outputs.target_account_id }}"
+          echo "🔄 Using Central role with cross-account permissions to bootstrap in account: $TARGET_ACCOUNT"
+          echo "ℹ️ Bootstrap operations use elevated Central role permissions, not environment role"
 
-          echo "🔄 Assuming target account role: $TARGET_ROLE"
+          # Verify we're using the Central role
+          aws sts get-caller-identity
 
-          CREDS=$(aws sts assume-role \
-            --role-arn "$TARGET_ROLE" \
-            --role-session-name "$SESSION_NAME" \
-            --external-id "$EXTERNAL_ID" \
-            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-            --output text)
-
-          if [ $? -ne 0 ]; then
-            echo "❌ Failed to assume role: $TARGET_ROLE"
-            exit 1
-          fi
-
-          AWS_ACCESS_KEY_ID=$(echo $CREDS | cut -d' ' -f1)
-          AWS_SECRET_ACCESS_KEY=$(echo $CREDS | cut -d' ' -f2)
-          AWS_SESSION_TOKEN=$(echo $CREDS | cut -d' ' -f3)
-
-          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
-          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
-
-          echo "✅ Successfully assumed target account role"
+          echo "✅ Ready to bootstrap using Central role permissions"
 
       - name: Initialize Bootstrap Module
         working-directory: terraform/bootstrap
