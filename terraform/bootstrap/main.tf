@@ -13,6 +13,25 @@ terraform {
   # Uses local backend initially, then migrates to S3 after creation
 }
 
+# AWS Provider configuration for cross-account resource creation
+provider "aws" {
+  region = var.aws_region
+
+  # Use assume_role to target the specific account
+  assume_role {
+    role_arn = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
+    external_id = "github-actions-static-site"
+  }
+
+  default_tags {
+    tags = {
+      Environment = var.environment
+      ManagedBy   = "opentofu-bootstrap"
+      Project     = "static-site"
+    }
+  }
+}
+
 # Variables for environment-specific configuration
 variable "environment" {
   description = "Environment name (dev, staging, prod)"

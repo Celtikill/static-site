@@ -128,24 +128,27 @@ jobs:
         with:
           tofu_version: ${{ env.OPENTOFU_VERSION }}
 
-      - name: Configure AWS Credentials (Central Role)
+      - name: Configure AWS Credentials (Bootstrap Role)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
-          role-session-name: github-actions-bootstrap-central-${{ github.run_id }}
+          role-to-assume: arn:aws:iam::223938610551:role/GitHubActions-Bootstrap-Central
+          role-session-name: github-actions-bootstrap-${{ github.run_id }}
           aws-region: ${{ env.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
 
-      - name: Bootstrap Resources Using Central Role
+      - name: Configure Cross-Account Bootstrap
         run: |
           TARGET_ACCOUNT="${{ needs.setup.outputs.target_account_id }}"
-          echo "🔄 Using Central role with cross-account permissions to bootstrap in account: $TARGET_ACCOUNT"
-          echo "ℹ️ Bootstrap operations use elevated Central role permissions, not environment role"
+          TARGET_ROLE="${{ needs.setup.outputs.target_role_arn }}"
 
-          # Verify we're using the Central role
+          echo "🚀 Using dedicated Bootstrap Role for cross-account infrastructure creation"
+          echo "📋 Target Account: $TARGET_ACCOUNT"
+          echo "🎯 Will create resources using Bootstrap Role elevated permissions"
+
+          # Verify Bootstrap Role identity
           aws sts get-caller-identity
 
-          echo "✅ Ready to bootstrap using Central role permissions"
+          echo "✅ Bootstrap Role configured for cross-account resource creation"
 
       - name: Initialize Bootstrap Module
         working-directory: terraform/bootstrap
