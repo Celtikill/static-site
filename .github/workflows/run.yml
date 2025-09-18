@@ -253,8 +253,19 @@ jobs:
           echo "- **Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ needs.info.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize Terraform
-          tofu init
+          # Check for distributed backend configuration
+          BACKEND_CONFIG="../backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
+          if [ -f "$BACKEND_CONFIG" ]; then
+            echo "🔄 Using distributed backend configuration: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
+            BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
+          else
+            echo "⚠️ Using legacy centralized backend (static backend.tf)" >> $GITHUB_STEP_SUMMARY
+            BACKEND_ARGS=""
+          fi
+
+          # Initialize Terraform with dynamic backend configuration
+          echo "🔧 Initializing with backend configuration..."
+          tofu init $BACKEND_ARGS
 
           # Plan deployment
           echo "📋 Creating deployment plan..."
@@ -330,8 +341,20 @@ jobs:
         run: |
           echo "🌐 **Website Deployment**" >> $GITHUB_STEP_SUMMARY
 
-          # Get infrastructure outputs
+          # Get infrastructure outputs using dynamic backend configuration
           cd terraform/environments/${{ needs.info.outputs.target_environment }}
+
+          # Check for distributed backend configuration
+          BACKEND_CONFIG="../backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
+          if [ -f "$BACKEND_CONFIG" ]; then
+            BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
+          else
+            BACKEND_ARGS=""
+          fi
+
+          # Initialize to read outputs
+          tofu init $BACKEND_ARGS
+
           BUCKET_NAME=$(tofu output -raw s3_bucket_name)
           CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id || echo "")
           WEBSITE_URL=$(tofu output -raw website_url)
