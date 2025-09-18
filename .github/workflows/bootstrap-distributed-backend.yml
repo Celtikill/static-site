@@ -21,6 +21,11 @@ env:
   AWS_DEFAULT_REGION: us-east-1
   OPENTOFU_VERSION: 1.6.1
 
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
 jobs:
   validate:
     name: "🔍 Validate Bootstrap Request"
