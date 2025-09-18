@@ -193,6 +193,9 @@ jobs:
         working-directory: terraform/bootstrap
         run: |
           echo "📋 Planning bootstrap infrastructure..."
+          echo "🔍 Files in bootstrap directory:"
+          ls -la
+          echo "🔍 Looking for: ${{ inputs.environment }}.tfvars"
           tofu plan -var-file="${{ inputs.environment }}.tfvars" -out=bootstrap.tfplan
 
       - name: Apply Bootstrap Infrastructure
