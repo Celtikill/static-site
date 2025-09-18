@@ -65,28 +65,39 @@ jobs:
       - name: Set Environment Configuration
         id: config
         run: |
-          # Convert project name to consistent format (lowercase, hyphens)
+          # Convert project name for resources (lowercase, hyphens) but preserve existing role names
           PROJECT_NAME=$(echo "${{ inputs.project_name }}" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
+
+          # Map project names to existing role naming conventions
+          case "${PROJECT_NAME}" in
+            static-site)
+              ROLE_PROJECT_NAME="StaticSite"
+              ;;
+            *)
+              # For new projects, use PascalCase conversion
+              ROLE_PROJECT_NAME=$(echo "${{ inputs.project_name }}" | tr '[:lower:]' '[:upper:]' | sed 's/-\([a-z]\)/\U\1/g' | sed 's/^./\U&/')
+              ;;
+          esac
 
           case "${{ inputs.environment }}" in
             dev)
               TARGET_ACCOUNT_ID="822529998967"
               echo "target_account_id=${TARGET_ACCOUNT_ID}" >> $GITHUB_OUTPUT
-              echo "target_role_arn=arn:aws:iam::${TARGET_ACCOUNT_ID}:role/GitHubActions-${PROJECT_NAME}-Dev-Role" >> $GITHUB_OUTPUT
+              echo "target_role_arn=arn:aws:iam::${TARGET_ACCOUNT_ID}:role/GitHubActions-${ROLE_PROJECT_NAME}-Dev-Role" >> $GITHUB_OUTPUT
               echo "backend_bucket=${PROJECT_NAME}-state-dev-${TARGET_ACCOUNT_ID}" >> $GITHUB_OUTPUT
               echo "backend_table=${PROJECT_NAME}-locks-dev" >> $GITHUB_OUTPUT
               ;;
             staging)
               TARGET_ACCOUNT_ID="927588814642"
               echo "target_account_id=${TARGET_ACCOUNT_ID}" >> $GITHUB_OUTPUT
-              echo "target_role_arn=arn:aws:iam::${TARGET_ACCOUNT_ID}:role/GitHubActions-${PROJECT_NAME}-Staging-Role" >> $GITHUB_OUTPUT
+              echo "target_role_arn=arn:aws:iam::${TARGET_ACCOUNT_ID}:role/GitHubActions-${ROLE_PROJECT_NAME}-Staging-Role" >> $GITHUB_OUTPUT
               echo "backend_bucket=${PROJECT_NAME}-state-staging-${TARGET_ACCOUNT_ID}" >> $GITHUB_OUTPUT
               echo "backend_table=${PROJECT_NAME}-locks-staging" >> $GITHUB_OUTPUT
               ;;
             prod)
               TARGET_ACCOUNT_ID="546274483801"
               echo "target_account_id=${TARGET_ACCOUNT_ID}" >> $GITHUB_OUTPUT
-              echo "target_role_arn=arn:aws:iam::${TARGET_ACCOUNT_ID}:role/GitHubActions-${PROJECT_NAME}-Prod-Role" >> $GITHUB_OUTPUT
+              echo "target_role_arn=arn:aws:iam::${TARGET_ACCOUNT_ID}:role/GitHubActions-${ROLE_PROJECT_NAME}-Prod-Role" >> $GITHUB_OUTPUT
               echo "backend_bucket=${PROJECT_NAME}-state-prod-${TARGET_ACCOUNT_ID}" >> $GITHUB_OUTPUT
               echo "backend_table=${PROJECT_NAME}-locks-prod" >> $GITHUB_OUTPUT
               ;;
@@ -98,8 +109,10 @@ jobs:
 
           echo "🔧 **Bootstrap Configuration**" >> $GITHUB_STEP_SUMMARY
           echo "- **Project**: ${PROJECT_NAME}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Role Project**: ${ROLE_PROJECT_NAME}" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Target Account**: ${TARGET_ACCOUNT_ID}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Role**: GitHubActions-${ROLE_PROJECT_NAME}-${{ inputs.environment }}-Role" >> $GITHUB_STEP_SUMMARY
 
   bootstrap:
     name: "🚀 Bootstrap Distributed Backend"
