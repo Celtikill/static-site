@@ -266,7 +266,11 @@ jobs:
             echo "📦 Checking if distributed S3 backend exists: $BUCKET"
             if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
               echo "🚀 Creating distributed S3 backend: $BUCKET"
-              aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION"
+              if [ "$REGION" = "us-east-1" ]; then
+                aws s3api create-bucket --bucket "$BUCKET" --region "$REGION"
+              else
+                aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION"
+              fi
               aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
               aws s3api put-bucket-encryption --bucket "$BUCKET" --server-side-encryption-configuration '{
                 "Rules": [{
