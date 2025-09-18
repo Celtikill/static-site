@@ -247,14 +247,14 @@ jobs:
 
       - name: Deploy Infrastructure
         id: deploy
-        working-directory: terraform/environments/${{ needs.info.outputs.target_environment }}
+        working-directory: terraform/workloads/static-site
         run: |
           echo "🏗️ **Infrastructure Deployment**" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ needs.info.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
 
           # Check for distributed backend configuration
-          BACKEND_CONFIG="../backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
+          BACKEND_CONFIG="../../environments/backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
           if [ -f "$BACKEND_CONFIG" ]; then
             echo "✅ Using distributed backend configuration: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
             BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
@@ -342,10 +342,10 @@ jobs:
           echo "🌐 **Website Deployment**" >> $GITHUB_STEP_SUMMARY
 
           # Get infrastructure outputs using dynamic backend configuration
-          cd terraform/environments/${{ needs.info.outputs.target_environment }}
+          cd terraform/workloads/static-site
 
           # Check for distributed backend configuration
-          BACKEND_CONFIG="../backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
+          BACKEND_CONFIG="../../environments/backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
           if [ -f "$BACKEND_CONFIG" ]; then
             BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
           else
