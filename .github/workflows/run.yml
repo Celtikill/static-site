@@ -260,13 +260,15 @@ jobs:
             BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
 
             # Bootstrap distributed backend if it doesn't exist
-            source $BACKEND_CONFIG
-            echo "📦 Checking if distributed S3 backend exists: $bucket"
-            if ! aws s3api head-bucket --bucket "$bucket" 2>/dev/null; then
-              echo "🚀 Creating distributed S3 backend: $bucket"
-              aws s3api create-bucket --bucket "$bucket" --region "$region" --create-bucket-configuration LocationConstraint="$region"
-              aws s3api put-bucket-versioning --bucket "$bucket" --versioning-configuration Status=Enabled
-              aws s3api put-bucket-encryption --bucket "$bucket" --server-side-encryption-configuration '{
+            # Parse HCL config file to extract bucket name and region
+            BUCKET=$(grep '^bucket' $BACKEND_CONFIG | sed 's/.*= *"\([^"]*\)".*/\1/')
+            REGION=$(grep '^region' $BACKEND_CONFIG | sed 's/.*= *"\([^"]*\)".*/\1/')
+            echo "📦 Checking if distributed S3 backend exists: $BUCKET"
+            if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+              echo "🚀 Creating distributed S3 backend: $BUCKET"
+              aws s3api create-bucket --bucket "$BUCKET" --region "$REGION" --create-bucket-configuration LocationConstraint="$REGION"
+              aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
+              aws s3api put-bucket-encryption --bucket "$BUCKET" --server-side-encryption-configuration '{
                 "Rules": [{
                   "ApplyServerSideEncryptionByDefault": {
                     "SSEAlgorithm": "AES256"
