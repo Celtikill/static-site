@@ -334,7 +334,7 @@ jobs:
 
           **Build ID**: ${{ needs.info.outputs.build_id }}
           **Scan Date**: $(date -u)
-          **Status**: $([ $TRIVY_EXIT -eq 0 ] && echo "PASSED" || echo "FAILED")
+          **Status**: $([ $CRITICAL_COUNT -eq 0 ] && [ $HIGH_COUNT -eq 0 ] && echo "PASSED" || echo "FAILED")
 
           ## Summary
           - **Critical**: $CRITICAL_COUNT
@@ -407,7 +407,7 @@ jobs:
           echo "| Scanner | Status | Critical | High |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|----------|------|" >> $GITHUB_STEP_SUMMARY
           echo "| Checkov | $([ $CHECKOV_CRITICAL -eq 0 ] && [ $CHECKOV_HIGH -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $CHECKOV_CRITICAL | $CHECKOV_HIGH |" >> $GITHUB_STEP_SUMMARY
-          echo "| Trivy   | $([ $TRIVY_EXIT -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $TRIVY_CRITICAL | $TRIVY_HIGH |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy   | $([ $TRIVY_CRITICAL -eq 0 ] && [ $TRIVY_HIGH -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL") | $TRIVY_CRITICAL | $TRIVY_HIGH |" >> $GITHUB_STEP_SUMMARY
           echo "| **Total** | **$([ $SECURITY_ERRORS -eq 0 ] && echo "✅ PASS" || echo "❌ FAIL")** | **$TOTAL_CRITICAL** | **$TOTAL_HIGH** |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 

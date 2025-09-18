@@ -88,13 +88,63 @@ resource "aws_s3_bucket_versioning" "terraform_state" {
   }
 }
 
-# S3 bucket encryption
+# KMS key for S3 encryption
+resource "aws_kms_key" "terraform_state" {
+  description             = "KMS key for Terraform state bucket encryption in ${var.environment}"
+  deletion_window_in_days = 10
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${var.aws_account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow S3 Service"
+        Effect = "Allow"
+        Principal = {
+          Service = "s3.amazonaws.com"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "s3.${var.aws_region}.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = merge(local.common_tags, {
+    Name = local.bucket_name
+  })
+}
+
+# KMS key alias
+resource "aws_kms_alias" "terraform_state" {
+  name          = "alias/${local.bucket_name}"
+  target_key_id = aws_kms_key.terraform_state.key_id
+}
+
+# S3 bucket encryption with customer managed KMS key
 resource "aws_s3_bucket_server_side_encryption_configuration" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.terraform_state.arn
     }
     bucket_key_enabled = true
   }
