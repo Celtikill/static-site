@@ -17,7 +17,7 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-  # Use assume_role to target the specific account
+  # Bootstrap Role assumes environment role to create resources in target account
   assume_role {
     role_arn = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
     external_id = "github-actions-static-site"
@@ -28,6 +28,7 @@ provider "aws" {
       Environment = var.environment
       ManagedBy   = "opentofu-bootstrap"
       Project     = "static-site"
+      CreatedBy   = "bootstrap-role"
     }
   }
 }
