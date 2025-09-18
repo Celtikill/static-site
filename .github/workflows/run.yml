@@ -264,7 +264,7 @@ jobs:
             BUCKET=$(grep '^bucket' $BACKEND_CONFIG | sed 's/.*= *"\([^"]*\)".*/\1/')
             REGION=$(grep '^region' $BACKEND_CONFIG | sed 's/.*= *"\([^"]*\)".*/\1/')
             echo "📦 Checking if distributed S3 backend exists: $BUCKET"
-            if ! aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+            if ! aws s3 ls "s3://$BUCKET" 2>/dev/null; then
               echo "🚀 Creating distributed S3 backend: $BUCKET"
               if [ "$REGION" = "us-east-1" ]; then
                 aws s3api create-bucket --bucket "$BUCKET" --region "$REGION"
