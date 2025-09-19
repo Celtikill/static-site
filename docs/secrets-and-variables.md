@@ -52,19 +52,20 @@ gh secret list
 
 ## Required GitHub Variables
 
-### Infrastructure Configuration
+### Infrastructure Configuration (Current State - September 2025)
 
-| Variable Name | Description | Default Value | Required |
+| Variable Name | Description | Current Value | Required |
 |--------------|-------------|---------------|----------|
 | `AWS_DEFAULT_REGION` | AWS region for deployment | `us-east-1` | Yes |
 | `OPENTOFU_VERSION` | OpenTofu version to use | `1.6.1` | Yes |
-
-### Optional Variables
-
-| Variable Name | Description | Default Value | Required |
-|--------------|-------------|---------------|----------|
-| `CHECKOV_VERSION` | Checkov security scanner version | `latest` | No |
-| `TRIVY_VERSION` | Trivy vulnerability scanner version | `0.48.3` | No |
+| `AWS_ACCOUNT_ID_DEV` | Development account ID | `822529998967` | Yes |
+| `AWS_ACCOUNT_ID_STAGING` | Staging account ID | `927588814642` | Yes |
+| `AWS_ACCOUNT_ID_PROD` | Production account ID | `546274483801` | Yes |
+| `AWS_ACCOUNT_ID_MANAGEMENT` | Management account ID | `223938610551` | Yes |
+| `DEFAULT_ENVIRONMENT` | Default deployment environment | `dev` | Yes |
+| `MONTHLY_BUDGET_LIMIT` | Budget alert threshold | `40` | Yes |
+| `REPLICA_REGION` | Cross-region replication target | `us-west-2` | Yes |
+| `ALERT_EMAIL_ADDRESSES` | Budget alert email addresses | `["celtikill@celtikill.io"]` | Yes |
 
 ### Setting Variables via GitHub CLI
 
