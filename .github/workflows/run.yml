@@ -388,11 +388,13 @@ jobs:
           timeout 120s aws s3 sync ../../../src/ s3://$BUCKET_NAME --delete
 
           # Invalidate CloudFront cache if distribution exists
-          if [ -n "$CLOUDFRONT_ID" ]; then
+          if [ -n "$CLOUDFRONT_ID" ] && [ "$CLOUDFRONT_ID" != "null" ]; then
             echo "🔄 Invalidating CloudFront cache..."
             timeout 60s aws cloudfront create-invalidation \
               --distribution-id $CLOUDFRONT_ID \
               --paths "/*"
+          else
+            echo "ℹ️ No CloudFront distribution to invalidate (cost-optimized S3-only deployment)"
           fi
 
           echo "deployment_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
