@@ -35,6 +35,7 @@ env:
   AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
   OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
   TF_IN_AUTOMATION: true
+  NO_COLOR: 1
 
 concurrency:
   group: run-${{ inputs.environment || 'auto' }}-${{ github.ref }}
