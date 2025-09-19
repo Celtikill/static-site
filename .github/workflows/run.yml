@@ -360,14 +360,15 @@ jobs:
           fi
 
           # Initialize to read outputs
-          timeout 60s tofu init $BACKEND_ARGS
+          timeout 60s tofu init -no-color $BACKEND_ARGS
 
-          BUCKET_NAME=$(timeout 30s tofu output -raw s3_bucket_name)
-          CLOUDFRONT_ID=$(timeout 30s tofu output -raw cloudfront_distribution_id || echo "")
-          WEBSITE_URL=$(timeout 30s tofu output -raw website_url)
-          CLOUDFRONT_URL=$(timeout 30s tofu output -raw cloudfront_url || echo "")
-          S3_ENDPOINT=$(timeout 30s tofu output -raw s3_bucket_domain_name || echo "")
-          DASHBOARD_URL=$(timeout 30s tofu output -raw cloudwatch_dashboard_url || echo "")
+          # Get outputs (filter out warnings)
+          BUCKET_NAME=$(tofu output -raw s3_bucket_name 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          WEBSITE_URL=$(tofu output -raw website_url 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          CLOUDFRONT_URL=$(tofu output -raw cloudfront_url 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          S3_ENDPOINT=$(tofu output -raw s3_bucket_domain_name 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          DASHBOARD_URL=$(tofu output -raw cloudwatch_dashboard_url 2>&1 | grep -v "Warning:" | head -n1 || echo "")
 
           echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
