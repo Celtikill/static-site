@@ -366,20 +366,19 @@ jobs:
           echo "🔄 Refreshing state to sync with infrastructure deployment..."
           timeout 60s tofu refresh -no-color
 
-          # Get outputs (filter out warnings) - with debug
-          echo "🔍 Debug: Testing output commands..."
-          tofu output -no-color -raw s3_bucket_id || echo "⚠️ s3_bucket_id output failed"
+          # Get outputs using JSON format for reliable parsing
+          # JSON format handles null values properly and avoids GitHub Actions wrapper issues
+          OUTPUT_JSON=$(tofu output -no-color -json)
 
-          BUCKET_NAME=$(tofu output -no-color -raw s3_bucket_id 2>/dev/null || echo "")
-          CLOUDFRONT_ID=$(tofu output -no-color -raw cloudfront_distribution_id 2>/dev/null | grep -v "^null$" || echo "")
-          WEBSITE_URL=$(tofu output -no-color -raw website_url 2>/dev/null || echo "")
-          CLOUDFRONT_URL=$(tofu output -no-color -raw cloudfront_url 2>/dev/null || echo "")
-          S3_ENDPOINT=$(tofu output -no-color -raw s3_bucket_domain_name 2>/dev/null || echo "")
-          DASHBOARD_URL=$(tofu output -no-color -raw cloudwatch_dashboard_url 2>/dev/null || echo "")
+          # Parse individual outputs from JSON, handling null values properly
+          BUCKET_NAME=$(echo "$OUTPUT_JSON" | jq -r '.s3_bucket_id.value // empty')
+          WEBSITE_URL=$(echo "$OUTPUT_JSON" | jq -r '.website_url.value // empty')
+          S3_ENDPOINT=$(echo "$OUTPUT_JSON" | jq -r '.s3_bucket_domain_name.value // empty')
+          DASHBOARD_URL=$(echo "$OUTPUT_JSON" | jq -r '.cloudwatch_dashboard_url.value // empty')
 
-          echo "🔍 Debug: BUCKET_NAME='$BUCKET_NAME'"
-          echo "🔍 Debug: WEBSITE_URL='$WEBSITE_URL'"
-          echo "🔍 Debug: CLOUDFRONT_ID='$CLOUDFRONT_ID'"
+          # CloudFront outputs may be null in cost-optimized deployments
+          CLOUDFRONT_ID=$(echo "$OUTPUT_JSON" | jq -r '.cloudfront_distribution_id.value // empty' | grep -v "^null$" || echo "")
+          CLOUDFRONT_URL=$(echo "$OUTPUT_JSON" | jq -r '.cloudfront_url.value // empty' | grep -v "^null$" || echo "")
 
           echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
@@ -390,7 +389,7 @@ jobs:
 
           # Invalidate CloudFront cache if distribution exists
           if [ -n "$CLOUDFRONT_ID" ]; then
-            echo "🔄 Invalidating CloudFront cache for distribution: $CLOUDFRONT_ID"
+            echo "🔄 Invalidating CloudFront cache..."
             timeout 60s aws cloudfront create-invalidation \
               --distribution-id $CLOUDFRONT_ID \
               --paths "/*"
