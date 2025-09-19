@@ -25,22 +25,10 @@ terraform {
   }
 }
 
-# Provider configurations
-provider "aws" {
-  region = var.aws_region
-}
-
-# Provider for CloudFront (us-east-1 required)
-provider "aws" {
-  alias  = "cloudfront"
-  region = "us-east-1"
-}
-
-# Provider for replica region (cross-region replication)
-provider "aws" {
-  alias  = "replica"
-  region = var.replica_region
-}
+# Provider configurations removed - following 2025 Terraform best practices
+# Per HashiCorp documentation: "A module intended to be called by one or more
+# other modules must not contain any provider blocks"
+# Providers are configured in root modules and passed via providers = {} block
 
 # Data sources for AWS account information
 data "aws_caller_identity" "current" {}

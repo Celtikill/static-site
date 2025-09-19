@@ -91,7 +91,7 @@ module "static_website" {
   github_repository = var.github_repository
   replica_region    = "us-west-2"
 
-  # Pass all required providers to child module
+  # Pass provider configurations to child module (2025 best practice)
   providers = {
     aws            = aws
     aws.replica    = aws.replica
