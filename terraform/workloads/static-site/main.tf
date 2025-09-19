@@ -25,6 +25,23 @@ terraform {
   }
 }
 
+# Provider configurations
+provider "aws" {
+  region = var.aws_region
+}
+
+# Provider for CloudFront (us-east-1 required)
+provider "aws" {
+  alias  = "cloudfront"
+  region = "us-east-1"
+}
+
+# Provider for replica region (cross-region replication)
+provider "aws" {
+  alias  = "replica"
+  region = var.replica_region
+}
+
 # Data sources for AWS account information
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
