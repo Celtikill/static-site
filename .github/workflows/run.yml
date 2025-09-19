@@ -368,9 +368,9 @@ jobs:
 
           # Get outputs (filter out warnings) - with debug
           echo "🔍 Debug: Testing output commands..."
-          tofu output -no-color -raw s3_bucket_name || echo "⚠️ s3_bucket_name output failed"
+          tofu output -no-color -raw s3_bucket_id || echo "⚠️ s3_bucket_id output failed"
 
-          BUCKET_NAME=$(tofu output -no-color -raw s3_bucket_name 2>/dev/null || echo "")
+          BUCKET_NAME=$(tofu output -no-color -raw s3_bucket_id 2>/dev/null || echo "")
           CLOUDFRONT_ID=$(tofu output -no-color -raw cloudfront_distribution_id 2>/dev/null || echo "")
           WEBSITE_URL=$(tofu output -no-color -raw website_url 2>/dev/null || echo "")
           CLOUDFRONT_URL=$(tofu output -no-color -raw cloudfront_url 2>/dev/null || echo "")
