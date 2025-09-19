@@ -73,22 +73,22 @@ This project implements a simplified 3-phase deployment strategy with comprehens
 #### Branch-to-Environment Mapping
 | Branch Pattern | Environment | Deployment Type | Approval Required |
 |---------------|-------------|-----------------|-------------------|
-| `feature/*`, `bugfix/*` | Development | Automatic | No |
-| `main` (via PR) | Staging | Manual trigger | No |
-| `main` (via Release) | Production | Tag-based | Code owners only |
-| `hotfix/*` | Staging → Production | Emergency path | Code owners only |
+| `feature/*`, `bugfix/*`, `hotfix/*` | Development | Automatic | No |
+| `main` | Development | Automatic | No |
+| **All environments** | Manual dispatch only | Manual trigger | Environment-specific |
+| **Production** | Manual dispatch only | Manual approval | Code owners only |
 
-#### Automatic Deployment Patterns
-1. **Feature Development**: `feature/*` → BUILD → TEST → RUN (development)
-2. **Staging Deployment**: PR to `main` → BUILD → TEST → manual RUN (staging)
-3. **Production Deployment**: RELEASE workflow → BUILD → TEST → RUN (production)
-4. **Emergency Operations**: EMERGENCY workflow → expedited pipeline execution
+#### Actual Deployment Patterns
+1. **Automatic Development**: All branches → BUILD → TEST → RUN (development)
+2. **Manual Staging**: Manual dispatch RUN workflow → staging environment
+3. **Manual Production**: Manual dispatch RUN workflow → production (code owner approval required)
+4. **Emergency Operations**: EMERGENCY workflow → staging/production (manual only)
 
 - **Security Scanning**: Checkov and Trivy analysis in BUILD phase (blocks on HIGH/CRITICAL)
 - **Policy Validation**: OPA/Rego policy compliance in TEST phase (environment-aware enforcement)
 - **Usability Testing**: Two-phase HTTP/SSL/performance validation (pre and post-deployment)
 - **Code Owner Approval**: Production deployments restricted to code owners
-- **Environment Health**: Staging validates development, production validates staging
+- **Multi-Account Deployment**: Development fully operational, staging/production ready for manual deployment
 
 ## 📊 Status Overview
 
