@@ -364,7 +364,7 @@ jobs:
 
           # Refresh state to ensure latest infrastructure outputs are available
           echo "🔄 Refreshing state to sync with infrastructure deployment..."
-          timeout 60s tofu refresh -no-color -auto-approve
+          timeout 60s tofu refresh -no-color
 
           # Get outputs (filter out warnings) - with debug
           echo "🔍 Debug: Testing output commands..."
