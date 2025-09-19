@@ -1,7 +1,7 @@
 # AWS Static Website Infrastructure
 
 ### Pipeline Status
-[![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml) [![Run](https://github.com/celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/run.yml) [![Release](https://github.com/celtikill/static-site/actions/workflows/release.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/release.yml)
+[![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml) [![Run](https://github.com/celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/run.yml)
 
 ---
 
