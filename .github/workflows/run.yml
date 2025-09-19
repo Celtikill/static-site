@@ -277,10 +277,10 @@ jobs:
           echo "🚀 Applying infrastructure changes..."
           timeout 180s tofu apply -no-color -auto-approve deployment.tfplan
 
-          # Get outputs (clean output without ANSI codes)
-          BUCKET_NAME=$(tofu output -raw s3_bucket_name 2>/dev/null || echo "")
-          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
-          WEBSITE_URL=$(tofu output -raw website_url 2>/dev/null || echo "")
+          # Get outputs (filter out warnings)
+          BUCKET_NAME=$(tofu output -raw s3_bucket_name 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          WEBSITE_URL=$(tofu output -raw website_url 2>&1 | grep -v "Warning:" | head -n1 || echo "")
 
           echo "deployment_status=success" >> $GITHUB_OUTPUT
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
