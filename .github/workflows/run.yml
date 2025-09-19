@@ -35,6 +35,7 @@ env:
   AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
   OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
   TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
   NO_COLOR: 1
 
 concurrency:
@@ -266,20 +267,20 @@ jobs:
 
           # Initialize Terraform with dynamic backend configuration
           echo "🔧 Initializing with backend configuration..."
-          timeout 90s tofu init $BACKEND_ARGS
+          timeout 90s tofu init -no-color $BACKEND_ARGS
 
           # Plan deployment
           echo "📋 Creating deployment plan..."
-          timeout 300s tofu plan -out=deployment.tfplan
+          timeout 300s tofu plan -no-color -out=deployment.tfplan
 
           # Apply deployment
           echo "🚀 Applying infrastructure changes..."
-          timeout 180s tofu apply -auto-approve deployment.tfplan
+          timeout 180s tofu apply -no-color -auto-approve deployment.tfplan
 
-          # Get outputs (silence completely to avoid ANSI color issues)
-          BUCKET_NAME=$(tofu output -raw s3_bucket_name >/dev/null 2>&1 && tofu output -raw s3_bucket_name 2>/dev/null || echo "")
-          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id >/dev/null 2>&1 && tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
-          WEBSITE_URL=$(tofu output -raw website_url >/dev/null 2>&1 && tofu output -raw website_url 2>/dev/null || echo "")
+          # Get outputs (clean output without ANSI codes)
+          BUCKET_NAME=$(tofu output -raw s3_bucket_name 2>/dev/null || echo "")
+          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id 2>/dev/null || echo "")
+          WEBSITE_URL=$(tofu output -raw website_url 2>/dev/null || echo "")
 
           echo "deployment_status=success" >> $GITHUB_OUTPUT
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
