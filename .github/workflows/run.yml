@@ -371,7 +371,7 @@ jobs:
           tofu output -no-color -raw s3_bucket_id || echo "⚠️ s3_bucket_id output failed"
 
           BUCKET_NAME=$(tofu output -no-color -raw s3_bucket_id 2>/dev/null || echo "")
-          CLOUDFRONT_ID=$(tofu output -no-color -raw cloudfront_distribution_id 2>/dev/null || echo "")
+          CLOUDFRONT_ID=$(tofu output -no-color -raw cloudfront_distribution_id 2>/dev/null | grep -v "^null$" || echo "")
           WEBSITE_URL=$(tofu output -no-color -raw website_url 2>/dev/null || echo "")
           CLOUDFRONT_URL=$(tofu output -no-color -raw cloudfront_url 2>/dev/null || echo "")
           S3_ENDPOINT=$(tofu output -no-color -raw s3_bucket_domain_name 2>/dev/null || echo "")
@@ -379,6 +379,7 @@ jobs:
 
           echo "🔍 Debug: BUCKET_NAME='$BUCKET_NAME'"
           echo "🔍 Debug: WEBSITE_URL='$WEBSITE_URL'"
+          echo "🔍 Debug: CLOUDFRONT_ID='$CLOUDFRONT_ID'"
 
           echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
@@ -388,8 +389,8 @@ jobs:
           timeout 120s aws s3 sync ../../../src/ s3://$BUCKET_NAME --delete
 
           # Invalidate CloudFront cache if distribution exists
-          if [ -n "$CLOUDFRONT_ID" ] && [ "$CLOUDFRONT_ID" != "null" ]; then
-            echo "🔄 Invalidating CloudFront cache..."
+          if [ -n "$CLOUDFRONT_ID" ]; then
+            echo "🔄 Invalidating CloudFront cache for distribution: $CLOUDFRONT_ID"
             timeout 60s aws cloudfront create-invalidation \
               --distribution-id $CLOUDFRONT_ID \
               --paths "/*"
