@@ -362,6 +362,10 @@ jobs:
           # Initialize to read outputs
           timeout 60s tofu init -no-color $BACKEND_ARGS
 
+          # Refresh state to ensure latest infrastructure outputs are available
+          echo "🔄 Refreshing state to sync with infrastructure deployment..."
+          timeout 60s tofu refresh -no-color -auto-approve
+
           # Get outputs (filter out warnings) - with debug
           echo "🔍 Debug: Testing output commands..."
           tofu output -no-color -raw s3_bucket_name || echo "⚠️ s3_bucket_name output failed"
