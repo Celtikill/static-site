@@ -66,13 +66,7 @@ graph LR
     A --> C["🚀 Staging<br/>Cost: $15-25/month<br/>Features: CloudFront + S3"]
     A --> D["🏭 Production<br/>Cost: $25-50/month<br/>Features: Full Stack"]
 
-    classDef devStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef stagingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef prodStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
 
-    class B devStyle
-    class C stagingStyle
-    class D prodStyle
 ```
 
 ### Step 3: Deploy Infrastructure
@@ -156,13 +150,7 @@ graph TD
     C --> TestDetails
     D --> RunDetails
 
-    classDef buildStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef testStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef runStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
 
-    class B,BuildDetails buildStyle
-    class C,TestDetails testStyle
-    class D,RunDetails runStyle
 ```
 
 ---

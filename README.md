@@ -88,16 +88,6 @@ graph TB
     DevRole --> DevInfra
     StagingRole --> StagingInfra
     ProdRole --> ProdInfra
-
-    classDef mgmtStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef devStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef stagingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef prodStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
-
-    class Management mgmtStyle
-    class Dev devStyle
-    class Staging stagingStyle
-    class Prod prodStyle
 ```
 
 ### CI/CD Pipeline
@@ -113,16 +103,6 @@ graph LR
     D1["🏗️ Infrastructure<br/>OpenTofu"] --> D
     D2["🌐 Website<br/>S3 + CloudFront"] --> D
     D3["✅ Validation<br/>Health Checks"] --> D
-
-    classDef buildStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef testStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef runStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    classDef toolStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-
-    class A,B buildStyle
-    class C testStyle
-    class D runStyle
-    class B1,B2,C1,D1,D2,D3 toolStyle
 ```
 
 ### Infrastructure Components
@@ -158,16 +138,6 @@ graph TD
     CF --> CW
     CW --> SNS
     CW --> Budget
-
-    classDef githubStyle fill:#f6f8fa,stroke:#24292e,stroke-width:2px
-    classDef storageStyle fill:#e8f4fd,stroke:#0969da,stroke-width:2px
-    classDef cdnStyle fill:#fff8e1,stroke:#d29922,stroke-width:2px
-    classDef monitorStyle fill:#f0f9ff,stroke:#0284c7,stroke-width:2px
-
-    class GitHub githubStyle
-    class Storage storageStyle
-    class CDN cdnStyle
-    class Monitoring monitorStyle
 ```
 
 ## 🔒 Security Architecture

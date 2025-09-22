@@ -49,16 +49,6 @@ graph TB
     StagingRole --> StagingInfra
     ProdRole --> ProdState
     ProdRole --> ProdInfra
-
-    classDef mgmtStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef devStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef stagingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef prodStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
-
-    class Management mgmtStyle
-    class Dev devStyle
-    class Staging stagingStyle
-    class Prod prodStyle
 ```
 
 ### Authentication Flow
@@ -113,15 +103,7 @@ graph TD
     SNS --> Budget
     Route53 --> CF
 
-    classDef storageStyle fill:#e8f4fd,stroke:#0969da,stroke-width:2px
-    classDef cdnStyle fill:#fff8e1,stroke:#d29922,stroke-width:2px
-    classDef securityStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
-    classDef monitorStyle fill:#f0f9ff,stroke:#0284c7,stroke-width:2px
 
-    class Storage storageStyle
-    class CDN cdnStyle
-    class Security securityStyle
-    class Monitoring monitorStyle
 ```
 
 ## CI/CD Pipeline Architecture
@@ -157,13 +139,7 @@ graph TD
     C --> TestPhase
     D --> RunPhase
 
-    classDef buildStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef testStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef runStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
 
-    class B,BuildPhase buildStyle
-    class C,TestPhase testStyle
-    class D,RunPhase runStyle
 ```
 
 ### Security Scanning Integration
@@ -192,13 +168,7 @@ graph LR
     Block --> Fix["🔧 Remediation Required<br/>Developer Action Needed"]
     Allow --> Deploy["🚀 Proceed to Deployment<br/>Secure Release"]
 
-    classDef scanStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef blockStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
-    classDef allowStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
 
-    class SecurityGates scanStyle
-    class Block,Fix blockStyle
-    class Allow,Deploy allowStyle
 ```
 
 ## Network Architecture
@@ -234,13 +204,7 @@ graph LR
 
     WAF --> S3
 
-    classDef userStyle fill:#f0f9ff,stroke:#0284c7,stroke-width:2px
-    classDef edgeStyle fill:#ecfdf5,stroke:#059669,stroke-width:2px
-    classDef originStyle fill:#fef3c7,stroke:#d97706,stroke-width:2px
 
-    class Users userStyle
-    class Edge edgeStyle
-    class Origin originStyle
 ```
 
 ## Security Architecture
@@ -282,17 +246,7 @@ graph TD
     S3Encrypt --> CW
     CW --> Alerts
 
-    classDef threatStyle fill:#fef2f2,stroke:#dc2626,stroke-width:2px
-    classDef edgeStyle fill:#fef3c7,stroke:#d97706,stroke-width:2px
-    classDef accessStyle fill:#eff6ff,stroke:#2563eb,stroke-width:2px
-    classDef dataStyle fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
-    classDef monitorStyle fill:#fafafa,stroke:#525252,stroke-width:2px
 
-    class External threatStyle
-    class Layer1 edgeStyle
-    class Layer2 accessStyle
-    class Layer3 dataStyle
-    class Layer4 monitorStyle
 ```
 
 ## Cost Optimization Strategy
@@ -336,13 +290,7 @@ graph TD
     Tagging --> Policies
     Alerts --> FeatureFlags
 
-    classDef monitorStyle fill:#fff7ed,stroke:#ea580c,stroke-width:2px
-    classDef optimizeStyle fill:#ecfdf5,stroke:#059669,stroke-width:2px
-    classDef governStyle fill:#f8fafc,stroke:#475569,stroke-width:2px
 
-    class Monitoring monitorStyle
-    class Optimization optimizeStyle
-    class Governance governStyle
 ```
 
 ## Disaster Recovery & Business Continuity
@@ -374,13 +322,7 @@ graph LR
     Failover --> RTO
     Failover --> RPO
 
-    classDef primaryStyle fill:#dbeafe,stroke:#2563eb,stroke-width:2px
-    classDef backupStyle fill:#dcfce7,stroke:#16a34a,stroke-width:2px
-    classDef recoveryStyle fill:#fef3c7,stroke:#d97706,stroke-width:2px
 
-    class Primary primaryStyle
-    class Backup backupStyle
-    class Recovery recoveryStyle
 ```
 
 ## Monitoring & Observability

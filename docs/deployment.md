@@ -15,13 +15,7 @@ graph LR
     B1["💰 ~$15-25/month"] --> B
     C1["💰 ~$25-50/month"] --> C
 
-    classDef devStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef stagingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef prodStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
 
-    class A devStyle
-    class B stagingStyle
-    class C prodStyle
 ```
 
 ## Environment Configuration
@@ -57,13 +51,7 @@ graph TD
         ProdBudget["💰 $200 Budget Limit<br/>Full Features"]
     end
 
-    classDef devStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
-    classDef stagingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef prodStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
 
-    class Dev devStyle
-    class Staging stagingStyle
-    class Prod prodStyle
 ```
 
 ## Deployment Strategies
@@ -169,13 +157,7 @@ graph TD
     H --> D
     H --> F
 
-    classDef deployStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef validateStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    classDef rollbackStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
 
-    class A,B,D,F deployStyle
-    class C,E,G validateStyle
-    class H rollbackStyle
 ```
 
 ### Automated Deployment Triggers
@@ -228,11 +210,7 @@ graph LR
     D --> G
     E --> G
 
-    classDef successStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    classDef failStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
 
-    class A,B,C,D,E,F successStyle
-    class G,H,I failStyle
 ```
 
 ### Manual Validation Steps
@@ -320,13 +298,7 @@ graph TD
     D --> H
     E --> H
 
-    classDef securityStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
-    classDef approvalStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef successStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
 
-    class A,B,C,D,E securityStyle
-    class F,G successStyle
-    class H,I approvalStyle
 ```
 
 ### Security Controls by Environment
@@ -444,11 +416,7 @@ graph TD
     B --> E
     C --> F
 
-    classDef costStyle fill:#fff7ed,stroke:#ea580c,stroke-width:2px
-    classDef controlStyle fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
 
-    class Costs costStyle
-    class Controls controlStyle
 ```
 
 ### Budget Monitoring
