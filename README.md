@@ -59,60 +59,115 @@ gh workflow run bootstrap-distributed-backend.yml \
 
 ### Multi-Account Architecture
 ```mermaid
-architecture-beta
-    group mgmt(cloud)[Management Account]
-    group dev(cloud)[Dev Account]
-    group staging(cloud)[Staging Account]
-    group prod(cloud)[Production Account]
+graph TB
+    subgraph Management["🏢 Management Account<br/>223938610551"]
+        OIDC["🔐 OIDC Provider<br/>GitHub Actions"]
+        Bootstrap["⚙️ Bootstrap Role<br/>Infrastructure Creation"]
+        Central["🌐 Central Role<br/>Cross-Account Access"]
+    end
 
-    service oidc(server)[OIDC Provider] in mgmt
-    service bootstrap(server)[Bootstrap Role] in mgmt
-    service central(server)[Central Role] in mgmt
+    subgraph Dev["🧪 Dev Account<br/>822529998967"]
+        DevRole["🔧 Dev Role<br/>Deployment + Bootstrap"]
+        DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
+    end
 
-    service dev_role(server)[Dev Role] in dev
-    service staging_role(server)[Staging Role] in staging
-    service prod_role(server)[Prod Role] in prod
+    subgraph Staging["🚀 Staging Account<br/>927588814642"]
+        StagingRole["🔧 Staging Role<br/>Deployment + Bootstrap"]
+        StagingInfra["☁️ Staging Infrastructure<br/>⏳ Ready"]
+    end
 
-    oidc --> central
-    central --> dev_role
-    central --> staging_role
-    central --> prod_role
+    subgraph Prod["🏭 Production Account<br/>546274483801"]
+        ProdRole["🔧 Prod Role<br/>Deployment + Bootstrap"]
+        ProdInfra["☁️ Production Infrastructure<br/>⏳ Ready"]
+    end
+
+    OIDC --> Central
+    Central --> DevRole
+    Central --> StagingRole
+    Central --> ProdRole
+    DevRole --> DevInfra
+    StagingRole --> StagingInfra
+    ProdRole --> ProdInfra
+
+    classDef mgmtStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef devStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef stagingStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef prodStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
+
+    class Management mgmtStyle
+    class Dev devStyle
+    class Staging stagingStyle
+    class Prod prodStyle
 ```
 
 ### CI/CD Pipeline
 ```mermaid
-flowchart LR
-    A[Git Push] --> B[BUILD<br/>Security Scan<br/>~20s]
-    B --> C[TEST<br/>Policy Validation<br/>~35s]
-    C --> D[RUN<br/>Deployment<br/>~1m49s]
+graph LR
+    A["📝 Git Push<br/>Code Changes"] --> B["🔨 BUILD Phase<br/>🔒 Security Scan<br/>⏱️ ~20s"]
+    B --> C["🧪 TEST Phase<br/>📋 Policy Validation<br/>⏱️ ~35s"]
+    C --> D["🚀 RUN Phase<br/>☁️ Deployment<br/>⏱️ ~1m49s"]
 
-    B1[Checkov] --> B
-    B2[Trivy] --> B
-    C1[OPA Policies] --> C
-    D1[Infrastructure] --> D
-    D2[Website] --> D
-    D3[Validation] --> D
+    B1["🛡️ Checkov<br/>IaC Security"] --> B
+    B2["🔍 Trivy<br/>Vulnerabilities"] --> B
+    C1["📜 OPA Policies<br/>Compliance"] --> C
+    D1["🏗️ Infrastructure<br/>OpenTofu"] --> D
+    D2["🌐 Website<br/>S3 + CloudFront"] --> D
+    D3["✅ Validation<br/>Health Checks"] --> D
+
+    classDef buildStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef testStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef runStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
+    classDef toolStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+
+    class A,B buildStyle
+    class C testStyle
+    class D runStyle
+    class B1,B2,C1,D1,D2,D3 toolStyle
 ```
 
 ### Infrastructure Components
 ```mermaid
-architecture-beta
-    group aws(cloud)[AWS Infrastructure]
+graph TD
+    subgraph GitHub["🐙 GitHub Actions"]
+        GHA["🔄 Workflows<br/>BUILD → TEST → RUN"]
+    end
 
-    service s3(database)[S3 Bucket] in aws
-    service cf(server)[CloudFront] in aws
-    service waf(server)[WAF] in aws
-    service cw(server)[CloudWatch] in aws
-    service kms(server)[KMS] in aws
+    subgraph AWS["☁️ AWS Infrastructure"]
+        subgraph Storage["💾 Storage Layer"]
+            S3["🪣 S3 Bucket<br/>Static Website<br/>KMS Encrypted"]
+            KMS["🔐 KMS Key<br/>Encryption"]
+        end
 
-    service github(server)[GitHub Actions]
+        subgraph CDN["🌐 Content Delivery"]
+            CF["⚡ CloudFront<br/>Global CDN<br/>Origin Access Control"]
+            WAF["🛡️ WAF v2<br/>OWASP Top 10<br/>Rate Limiting"]
+        end
 
-    github --> s3
-    s3 --> cf
-    waf --> cf
-    cw --> s3
-    cw --> cf
-    kms --> s3
+        subgraph Monitoring["📊 Observability"]
+            CW["📈 CloudWatch<br/>Logs & Metrics"]
+            SNS["📧 SNS<br/>Alerts"]
+            Budget["💰 Budget<br/>Cost Control"]
+        end
+    end
+
+    GHA --> S3
+    KMS --> S3
+    S3 --> CF
+    WAF --> CF
+    S3 --> CW
+    CF --> CW
+    CW --> SNS
+    CW --> Budget
+
+    classDef githubStyle fill:#f6f8fa,stroke:#24292e,stroke-width:2px
+    classDef storageStyle fill:#e8f4fd,stroke:#0969da,stroke-width:2px
+    classDef cdnStyle fill:#fff8e1,stroke:#d29922,stroke-width:2px
+    classDef monitorStyle fill:#f0f9ff,stroke:#0284c7,stroke-width:2px
+
+    class GitHub githubStyle
+    class Storage storageStyle
+    class CDN cdnStyle
+    class Monitoring monitorStyle
 ```
 
 ## 🔒 Security Architecture

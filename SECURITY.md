@@ -48,14 +48,22 @@ Our infrastructure implements multiple layers of security:
 #### Infrastructure Security
 ```mermaid
 graph TD
-    A[GitHub OIDC] --> B[Central Role]
-    B --> C[Environment Roles]
-    C --> D[AWS Resources]
+    A["🔐 GitHub OIDC<br/>No Stored Credentials"] --> B["🌐 Central Role<br/>Cross-Account Access"]
+    B --> C["🔧 Environment Roles<br/>Least Privilege"]
+    C --> D["☁️ AWS Resources<br/>Protected Infrastructure"]
 
-    E[Multi-Account Isolation] --> D
-    F[KMS Encryption] --> D
-    G[WAF Protection] --> D
-    H[CloudWatch Monitoring] --> D
+    E["🏢 Multi-Account Isolation<br/>Blast Radius Containment"] --> D
+    F["🔐 KMS Encryption<br/>Data at Rest"] --> D
+    G["🛡️ WAF Protection<br/>Application Security"] --> D
+    H["📊 CloudWatch Monitoring<br/>Real-time Visibility"] --> D
+
+    classDef authStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef securityStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef resourceStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+
+    class A,B,C authStyle
+    class E,F,G,H securityStyle
+    class D resourceStyle
 ```
 
 #### Security Controls
@@ -99,14 +107,24 @@ Our CI/CD pipeline includes automated security scanning:
 
 #### Scan Results
 ```mermaid
-flowchart LR
-    A[Security Scan] --> B{Critical/High Issues?}
-    B -->|Yes| C[Block Deployment]
-    B -->|No| D[Allow Deployment]
+graph LR
+    A["🔍 Security Scan<br/>Checkov + Trivy"] --> B{"❓ Critical/High Issues?<br/>Risk Assessment"}
+    B -->|"❌ Yes"| C["🚫 Block Deployment<br/>Security Gate"]
+    B -->|"✅ No"| D["🟢 Allow Deployment<br/>Security Approved"]
 
-    C --> E[Fix Issues]
+    C --> E["🔧 Fix Issues<br/>Remediate Risks"]
     E --> A
-    D --> F[Deploy Infrastructure]
+    D --> F["🚀 Deploy Infrastructure<br/>Secure Release"]
+
+    classDef scanStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef blockStyle fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef allowStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef fixStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+
+    class A scanStyle
+    class B,C blockStyle
+    class D,F allowStyle
+    class E fixStyle
 ```
 
 ### Vulnerability Disclosure Policy
