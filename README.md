@@ -1,138 +1,229 @@
 # AWS Static Website Infrastructure
 
-[![Build](https://github.com/celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/build.yml) [![Test](https://github.com/celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/test.yml) [![Run](https://github.com/celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/celtikill/static-site/actions/workflows/run.yml)
+Enterprise-grade AWS static website infrastructure using OpenTofu with multi-account architecture. Implements secure, scalable static website deployment with CloudFront CDN, S3 storage, WAF protection, and comprehensive monitoring.
 
-Enterprise-grade infrastructure as code for deploying secure, scalable static websites on AWS using OpenTofu (Terraform-compatible).
+[![Deploy Status](https://img.shields.io/badge/Deploy-Operational-brightgreen)](#deployment-status)
+[![Security](https://img.shields.io/badge/Security-Enhanced-blue)](#security-architecture)
+[![Cost](https://img.shields.io/badge/Cost-Optimized-orange)](#cost-optimization)
+
+## 🌐 Live Deployments
+
+**Dev Environment** ✅ OPERATIONAL
+- URL: http://static-website-dev-a259f4bd.s3-website-us-east-1.amazonaws.com
+- Architecture: S3-only (cost optimized)
+- Cost Profile: ~$1-5/month
+- Last Updated: 2025-09-22 14:08:29 UTC
+- Account: 822529998967
+
+**Staging Environment** ⏳ Ready for bootstrap
+**Production Environment** ⏳ Ready for bootstrap
 
 ## 🚀 Quick Start
 
+Get your static website deployed in under 10 minutes:
+
+### Prerequisites
+- AWS Account with appropriate permissions
+- GitHub repository access
+- OpenTofu/Terraform installed locally
+
+### Deploy to Development
 ```bash
-# Clone repository
-git clone https://github.com/celtikill/static-site.git
+# 1. Clone the repository
+git clone https://github.com/Celtikill/static-site.git
 cd static-site
 
-# Deploy via GitHub Actions
-gh workflow run build.yml --field environment=dev
+# 2. Trigger development deployment
+gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true --field deploy_website=true
+
+# 3. Monitor deployment
+gh run list --limit 5
 ```
 
-**[📖 Full Documentation](docs/index.md)** | **[⚡ 10-Minute Quickstart](docs/quickstart.md)** | **[🔧 Command Reference](docs/reference.md)**
+### Bootstrap Additional Environments
+```bash
+# Bootstrap staging environment
+gh workflow run bootstrap-distributed-backend.yml \
+  --field project_name=static-site \
+  --field environment=staging \
+  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
 
-## ✨ Key Features
-
-- **🔒 Security First** - OWASP Top 10 protection, WAF, encryption at rest/transit
-- **💰 Cost Optimized** - Feature flags for CloudFront/WAF (~$1-5/month minimum)
-- **🔄 CI/CD Pipeline** - Automated BUILD → TEST → RUN with < 3 minute deployment
-- **🌍 Multi-Account Ready** - Distributed backends with OIDC authentication
-- **📊 Full Observability** - CloudWatch dashboards, alerts, and budget tracking
+# Bootstrap production environment
+gh workflow run bootstrap-distributed-backend.yml \
+  --field project_name=static-site \
+  --field environment=prod \
+  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+```
 
 ## 🏗️ Architecture Overview
 
+### Multi-Account Architecture
+```mermaid
+architecture-beta
+    group mgmt(cloud)[Management Account]
+    group dev(cloud)[Dev Account]
+    group staging(cloud)[Staging Account]
+    group prod(cloud)[Production Account]
+
+    service oidc(server)[OIDC Provider] in mgmt
+    service bootstrap(server)[Bootstrap Role] in mgmt
+    service central(server)[Central Role] in mgmt
+
+    service dev_role(server)[Dev Role] in dev
+    service staging_role(server)[Staging Role] in staging
+    service prod_role(server)[Prod Role] in prod
+
+    oidc --> central
+    central --> dev_role
+    central --> staging_role
+    central --> prod_role
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   GitHub Actions                          │
-│                  (OIDC Authentication)                    │
-└────────────────────────┬─────────────────────────────────┘
-                         │
-         ┌───────────────┴────────────────┐
-         │                                │
-    ┌────▼─────┐                   ┌─────▼──────┐
-    │   S3     │                   │ CloudFront │
-    │ Storage  │◄──────────────────│    CDN     │
-    └──────────┘                   └─────┬──────┘
-                                         │
-                                   ┌─────▼──────┐
-                                   │    WAF     │
-                                   │ Protection │
-                                   └────────────┘
+
+### CI/CD Pipeline
+```mermaid
+flowchart LR
+    A[Git Push] --> B[BUILD<br/>Security Scan<br/>~20s]
+    B --> C[TEST<br/>Policy Validation<br/>~35s]
+    C --> D[RUN<br/>Deployment<br/>~1m49s]
+
+    B1[Checkov] --> B
+    B2[Trivy] --> B
+    C1[OPA Policies] --> C
+    D1[Infrastructure] --> D
+    D2[Website] --> D
+    D3[Validation] --> D
 ```
 
-## 🎯 Deployment Options
+### Infrastructure Components
+```mermaid
+architecture-beta
+    group aws(cloud)[AWS Infrastructure]
 
-| Environment | Infrastructure | Cost/Month | Use Case |
-|-------------|---------------|------------|----------|
-| **Dev** | S3 only | ~$1-5 | Development & testing |
-| **Staging** | S3 + CloudFront | ~$15-25 | Pre-production validation |
-| **Production** | Full stack with WAF | ~$20-35 | Production workloads |
+    service s3(database)[S3 Bucket] in aws
+    service cf(server)[CloudFront] in aws
+    service waf(server)[WAF] in aws
+    service cw(server)[CloudWatch] in aws
+    service kms(server)[KMS] in aws
 
-## 📋 Prerequisites
+    service github(server)[GitHub Actions]
 
-- AWS Account with appropriate permissions
-- GitHub repository with Actions enabled
-- OpenTofu 1.6+ or Terraform 1.6+
-- GitHub CLI (`gh`) for workflow management
+    github --> s3
+    s3 --> cf
+    waf --> cf
+    cw --> s3
+    cw --> cf
+    kms --> s3
+```
 
-## 🚦 Getting Started
+## 🔒 Security Architecture
 
-### 1. Configure GitHub Secrets
+- **Multi-Account Isolation**: Separate AWS accounts for each environment
+- **OIDC Authentication**: No stored AWS credentials in GitHub
+- **3-Tier Security Model**: Bootstrap → Central → Environment roles
+- **Encryption**: KMS encryption for all data at rest
+- **Policy Validation**: OPA/Rego policies with 100% compliance
+- **Security Scanning**: Checkov + Trivy with fail-fast on critical issues
+- **WAF Protection**: OWASP Top 10 protection and rate limiting
 
-Set these in your GitHub repository settings:
+## 📊 Deployment Status
 
-- `AWS_ASSUME_ROLE_CENTRAL` - Central IAM role ARN
+### Pipeline Health ✅ FULLY OPERATIONAL
+- **BUILD**: ✅ Security scanning and artifact creation (~20s)
+- **TEST**: ✅ OPA policy validation with enhanced reporting (~35s)
+- **RUN**: ✅ Complete deployment workflow (~1m49s)
+- **BOOTSTRAP**: ✅ Distributed backend creation working
 
-### 2. Deploy Infrastructure
+### Account Status
+- **Management (223938610551)**: OIDC provider ✅, Bootstrap Role ✅
+- **Dev (822529998967)**: **FULLY DEPLOYED** ✅
+- **Staging (927588814642)**: Ready for bootstrap ⏳
+- **Prod (546274483801)**: Ready for bootstrap ⏳
 
+## 💰 Cost Optimization
+
+### Environment-Specific Profiles
+- **Development**: ~$1-5/month (S3-only, cost optimized)
+- **Staging**: ~$15-25/month (CloudFront + S3, moderate features)
+- **Production**: ~$25-50/month (Full stack, all features enabled)
+
+### Cost Controls
+- Conditional CloudFront deployment based on environment
+- Environment-specific budget limits and alerts
+- Cross-region replication only where needed
+- Free tier optimization for development
+
+## 📚 Documentation
+
+- **[Quick Start Guide](docs/quickstart.md)** - Get started in 10 minutes
+- **[Architecture Guide](docs/architecture.md)** - Detailed technical architecture
+- **[Security Policy](SECURITY.md)** - Security practices and vulnerability reporting
+- **[Deployment Guide](docs/deployment.md)** - Step-by-step deployment procedures
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Reference Guide](docs/reference.md)** - Command reference and specifications
+
+## 🛠️ Development
+
+### Essential Commands
 ```bash
-# Development environment (automatic on push)
-git push origin feature/your-feature
+# Validate infrastructure changes
+tofu validate && tofu fmt -check
 
-# Staging environment
-gh workflow run run.yml --field environment=staging
+# Validate workflow changes
+yamllint -d relaxed .github/workflows/*.yml
 
-# Production environment
-gh workflow run run.yml --field environment=prod
-```
+# Test workflows
+gh workflow run build.yml --field force_build=true --field environment=dev
+gh workflow run test.yml --field skip_build_check=true --field environment=dev
 
-### 3. Monitor Deployment
-
-```bash
-# Check pipeline status
+# View workflow status
 gh run list --limit 5
-
-# View detailed logs
-gh run view --log
 ```
 
-## 📁 Project Structure
-
+### Development Workflow
 ```
-.
-├── .github/workflows/    # CI/CD pipelines
-├── docs/                 # Documentation hub
-├── src/                  # Website content
-├── terraform/            # Infrastructure as code
-│   ├── workloads/       # Main configurations
-│   └── modules/         # Reusable components
-└── test/                # Testing suites
+feature/* → BUILD → TEST → RUN (dev)
+main push → BUILD → TEST (requires credentials for staging/prod)
+workflow_dispatch → Direct deployment testing
 ```
 
-## 🔐 Security
+## 🤝 Contributing
 
-- **OIDC Authentication** - No stored AWS credentials
-- **Encryption** - KMS encryption for all data
-- **WAF Protection** - OWASP Top 10 coverage
-- **Least Privilege** - Environment-specific IAM roles
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
 
-[Full Security Documentation](SECURITY.md)
+Please read our [Security Policy](SECURITY.md) for reporting security vulnerabilities.
 
-## 📊 Performance
+## 📋 Roadmap
 
-| Phase | Target | Actual | Status |
-|-------|--------|--------|--------|
-| BUILD | < 2 min | ~20-23s | ✅ Exceeds |
-| TEST | < 1 min | ~35-50s | ✅ Exceeds |
-| RUN | < 2 min | ~1m49s | ✅ Meets |
-| **Total** | **< 5 min** | **< 3 min** | **✅ Exceeds** |
+### Immediate (This Week)
+- [ ] Bootstrap staging and production environments
+- [ ] Complete multi-account deployment validation
 
-## 🆘 Support
+### Short-term (This Month)
+- [ ] Enhanced monitoring and alerting
+- [ ] Infrastructure unit testing re-integration
+- [ ] Advanced cost optimization features
 
-- **[Documentation Hub](docs/index.md)** - Complete documentation
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues & solutions
-- **[GitHub Issues](https://github.com/celtikill/static-site/issues)** - Report bugs or request features
+### Long-term (This Quarter)
+- [ ] Multi-project platform support
+- [ ] Advanced security features
+- [ ] Performance optimization
+
+See [TODO.md](TODO.md) for detailed implementation plan and [WISHLIST.md](WISHLIST.md) for future enhancements.
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/Celtikill/static-site/issues)
+- **Security**: See [SECURITY.md](SECURITY.md) for vulnerability reporting
+- **Documentation**: [docs/](docs/) directory for detailed guides
 
 ## 📄 License
 
-MIT License - See [LICENSE](LICENSE) for details
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-Built with ❤️ using [OpenTofu](https://opentofu.org/) | [AWS Well-Architected](https://aws.amazon.com/architecture/well-architected/) | [GitHub Actions](https://github.com/features/actions)
+**🎯 Current Status**: Infrastructure complete, dev environment operational, ready for multi-account expansion

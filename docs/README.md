@@ -2,10 +2,10 @@
 
 > **🎯 Streamlined Access**: Essential guides consolidated for faster navigation
 > **📊 Complexity Levels**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
-> **⏱️ Total Reading Time**: ~20 minutes (reduced by 70% through ruthless pruning)
-> **🔄 Last Updated**: 2025-09-17 (major cleanup and flattening)
+> **⏱️ Total Reading Time**: ~15 minutes (streamlined for 2025)
+> **🔄 Last Updated**: 2025-09-22 (aligned with main README.md)
 
-Welcome to the AWS Static Website Infrastructure documentation. All essential information is now organized in a flat, scannable structure.
+Welcome to the AWS Static Website Infrastructure documentation. Start with the [main README.md](../README.md) for quick start and architecture overview, then dive into specific guides below.
 
 ---
 
@@ -33,31 +33,30 @@ Welcome to the AWS Static Website Infrastructure documentation. All essential in
 
 | Task | Documentation | Time |
 |------|---------------|------|
+| **Get started quickly** | [**Main README.md**](../README.md) | **5 min** |
 | First deployment | [Quick Start](quickstart.md) | 10 min |
 | Set up GitHub Actions | [Secrets & Variables](secrets-and-variables.md) | 15 min |
+| Report security issues | [**Security Policy**](../SECURITY.md) | **2 min** |
 | Enable cost optimization | [Feature Flags](feature-flags.md) | 5 min |
 | Debug deployment issues | [Troubleshooting](troubleshooting.md) | Variable |
 | Understand workflows | [Workflows Overview](workflows.md) | 10 min |
 
 ---
 
-## 📊 Documentation Changes (2025-09-17)
+## 📊 Documentation Updates (2025-09-22)
 
-### Major Cleanup & Flattening
-- **Removed Directories**: architecture/, development/, guides/, workflows/ (flattened to root)
-- **Removed Files**: 17 files eliminated (architecture, development guides, cost projection, policy validation)
-- **Flattened Structure**: All docs now in root for easy scanning
+### Enhanced Documentation Structure
+- **✅ Main README.md**: Comprehensive entry point with architecture diagrams
+- **✅ SECURITY.md**: Professional security policy and vulnerability reporting
+- **✅ Enhanced Navigation**: Clear pathways from main README to specific guides
+- **✅ Mermaid Diagrams**: Visual architecture and workflow representations
+- **✅ Consistency**: Aligned with 2025 documentation best practices
 
-### Files Removed
-- Complex architecture documentation (infrastructure.md, terraform.md, unit-testing.md, etc.)
-- Development guides for unimplemented features
-- Outdated deployment processes referencing disabled workflows
-- Redundant content and index files
+### Key Improvements
+- **Visual Architecture**: Mermaid diagrams for multi-account and CI/CD architecture
+- **Security Focus**: Dedicated security documentation following GitHub standards
+- **User Experience**: Clear entry points and quick navigation
+- **Professional Standards**: Industry-standard documentation structure
+- **Maintenance**: Streamlined for minimal overhead while maximizing value
 
-### New Structure Benefits
-- **71% fewer files** - 28 files → 8 files
-- **Flat navigation** - No nested directory hunting
-- **Current accuracy** - All content reflects actual system state
-- **Minimal maintenance** - Only essential documentation remains
-
-This ruthless pruning maintains only operational knowledge needed for the current TODO.md priorities.
+This update transforms the documentation from operational notes to professional, user-friendly guides suitable for enterprise use.
