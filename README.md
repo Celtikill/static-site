@@ -4,9 +4,9 @@ Enterprise-grade AWS static website infrastructure using OpenTofu with multi-acc
 
 ## 🔄 Pipeline Status
 
-[![Build](https://github.com/<your-org>/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/<your-org>/static-site/actions/workflows/build.yml)
-[![Test](https://github.com/<your-org>/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/<your-org>/static-site/actions/workflows/test.yml)
-[![Run](https://github.com/<your-org>/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/<your-org>/static-site/actions/workflows/run.yml)
+[![Build](https://github.com/Celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/build.yml)
+[![Test](https://github.com/Celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/test.yml)
+[![Run](https://github.com/Celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/run.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6%2B-blue)](https://opentofu.org)
 [![AWS](https://img.shields.io/badge/AWS-Multi--Account-orange)](https://aws.amazon.com)

@@ -11,54 +11,26 @@ Before you begin, ensure you have:
 - ✅ **GitHub CLI** installed (`gh` command)
 - ✅ **OpenTofu/Terraform** installed locally (for validation)
 
-## 🚀 Option 1: Deploy to Existing Dev Environment (Fastest)
+## 🏗️ Infrastructure Deployment
 
-The dev environment is already operational and ready for immediate use.
+Deploy complete infrastructure and website to your AWS environment.
 
-### Step 1: Access the Live Environment
+### Step 1: Fork and Clone the Repository
+
 ```bash
-# Visit the operational dev website
-open http://static-website-dev-a259f4bd.s3-website-us-east-1.amazonaws.com
-```
-
-### Step 2: Deploy Your Content (Optional)
-```bash
-# Clone the repository
-git clone https://github.com/Celtikill/static-site.git
+# Fork this repository on GitHub first, then:
+git clone https://github.com/<your-username>/static-site.git
 cd static-site
 
-# Modify content in src/ directory
-# Edit src/index.html with your content
-
-# Trigger website deployment only
-gh workflow run run.yml \
-  --field environment=dev \
-  --field deploy_infrastructure=false \
-  --field deploy_website=true
+# Update your content in the src/ directory
+# Edit src/index.html, add CSS/JS files as needed
 ```
 
-### Step 3: Monitor Deployment
-```bash
-# Check deployment status
-gh run list --limit 3
-
-# Watch deployment in real-time
-gh run watch
-```
-
-**⏱️ Time to Deployment**: ~30 seconds for website content updates
-
----
-
-## 🏗️ Option 2: Full Infrastructure Deployment
-
-Deploy complete infrastructure and website to any environment.
-
-### Step 1: Set Up Authentication
+### Step 2: Set Up Authentication
 
 Ensure GitHub Actions has proper AWS credentials configured. The repository uses OIDC authentication - no AWS keys needed in GitHub secrets.
 
-### Step 2: Choose Your Environment
+### Step 3: Choose Your Environment
 
 ```mermaid
 graph LR
@@ -69,7 +41,7 @@ graph LR
 
 ```
 
-### Step 3: Deploy Infrastructure
+### Step 4: Deploy Infrastructure
 
 ```bash
 # For Development Environment
