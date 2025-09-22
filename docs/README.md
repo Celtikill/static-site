@@ -16,6 +16,10 @@ Welcome to the AWS Static Website Infrastructure documentation. Start with the [
 - **[Reference Guide](reference.md)** ⭐⭐ - All commands and technical specifications
 - **[Troubleshooting](troubleshooting.md)** ⭐ - Common issues and solutions
 
+### Security & Architecture
+- **[3-Tier Permissions Architecture](permissions-architecture.md)** ⭐⭐⭐ - IAM roles, compromises, and migration roadmap
+- **[Architecture Guide](architecture.md)** ⭐⭐⭐ - Detailed technical architecture
+
 ### Workflow Configuration
 - **[Workflows Overview](workflows.md)** ⭐⭐ - BUILD → TEST → RUN pipeline overview
 - **[Secrets & Variables](secrets-and-variables.md)** ⭐⭐ - GitHub authentication and OIDC setup
@@ -36,6 +40,7 @@ Welcome to the AWS Static Website Infrastructure documentation. Start with the [
 | **Get started quickly** | [**Main README.md**](../README.md) | **5 min** |
 | First deployment | [Quick Start](quickstart.md) | 10 min |
 | Set up GitHub Actions | [Secrets & Variables](secrets-and-variables.md) | 15 min |
+| **Understand IAM permissions** | [**3-Tier Permissions Architecture**](permissions-architecture.md) | **15 min** |
 | Report security issues | [**Security Policy**](../SECURITY.md) | **2 min** |
 | Enable cost optimization | [Feature Flags](feature-flags.md) | 5 min |
 | Debug deployment issues | [Troubleshooting](troubleshooting.md) | Variable |

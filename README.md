@@ -144,7 +144,7 @@ graph TD
 
 - **Multi-Account Isolation**: Separate AWS accounts for each environment
 - **OIDC Authentication**: No stored AWS credentials in GitHub
-- **3-Tier Security Model**: Bootstrap → Central → Environment roles
+- **3-Tier Security Model**: Bootstrap → Central → Environment roles ([detailed architecture](docs/permissions-architecture.md))
 - **Encryption**: KMS encryption for all data at rest
 - **Policy Validation**: OPA/Rego policies with 100% compliance
 - **Security Scanning**: Checkov + Trivy with fail-fast on critical issues
@@ -181,6 +181,7 @@ graph TD
 
 - **[Quick Start Guide](docs/quickstart.md)** - Get started in 10 minutes
 - **[Architecture Guide](docs/architecture.md)** - Detailed technical architecture
+- **[3-Tier Permissions Architecture](docs/permissions-architecture.md)** - IAM roles and security model
 - **[Security Policy](SECURITY.md)** - Security practices and vulnerability reporting
 - **[Deployment Guide](docs/deployment.md)** - Step-by-step deployment procedures
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions

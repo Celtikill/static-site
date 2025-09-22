@@ -62,7 +62,7 @@ graph TD
 
 **Authentication & Authorization**
 - ✅ **OIDC Authentication**: No stored AWS credentials in GitHub
-- ✅ **3-Tier Role Model**: Bootstrap → Central → Environment roles
+- ✅ **3-Tier Role Model**: Bootstrap → Central → Environment roles ([detailed architecture](docs/permissions-architecture.md))
 - ✅ **Multi-Account Isolation**: Separate AWS accounts per environment
 - ✅ **Least Privilege Access**: Environment-specific IAM policies
 

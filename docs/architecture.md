@@ -59,6 +59,8 @@ The system uses a 3-tier security model with OIDC authentication:
 2. **Tier 2**: Assumes Central Role in Management Account for cross-account orchestration
 3. **Tier 3**: Assumes Environment-specific roles in target accounts for resource deployment
 
+For comprehensive details including current MVP compromises and migration roadmap, see [3-Tier Permissions Architecture](permissions-architecture.md).
+
 ## Infrastructure Components
 
 ### Core AWS Services
