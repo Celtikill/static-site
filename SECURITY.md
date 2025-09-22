@@ -125,11 +125,18 @@ We follow a **90-day coordinated disclosure policy**:
 |---------|-------------|---------|------------|
 | OIDC Authentication | ✅ | ✅ | ✅ |
 | KMS Encryption | ✅ | ✅ | ✅ |
-| WAF Protection | ⚠️ Limited | ✅ | ✅ |
-| CloudFront CDN | 💰 Disabled | ✅ | ✅ |
-| Cross-Region Replication | ⚠️ Limited | ✅ | ✅ |
+| WAF Protection | ❌ Disabled¹ | ✅ | ✅ |
+| CloudFront CDN | ❌ Disabled² | ✅ | ✅ |
+| Cross-Region Replication | ❌ Disabled³ | ✅ | ✅ |
 | Enhanced Monitoring | ✅ | ✅ | ✅ |
 | Policy Enforcement | INFORMATIONAL | WARNING | STRICT |
+
+**Cost Optimization Notes:**
+1. **WAF Protection**: Disabled in development for cost savings (~$5-10/month). WAF requires CloudFront to be enabled.
+2. **CloudFront CDN**: Disabled in development for cost optimization (~$15-25/month savings). Uses direct S3 website hosting.
+3. **Cross-Region Replication**: Disabled in development to minimize storage costs. Single-region deployment only.
+
+These features are controlled by feature flags in the Terraform configuration. See [Feature Flags Documentation](docs/feature-flags.md) for detailed cost analysis and configuration options.
 
 ### Security Best Practices for Contributors
 
