@@ -4,45 +4,64 @@ Enterprise-grade AWS static website infrastructure using OpenTofu with multi-acc
 
 ## 🔄 Pipeline Status
 
-[![Build](https://github.com/Celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/build.yml)
-[![Test](https://github.com/Celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/test.yml)
-[![Run](https://github.com/Celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/run.yml)
+[![Build](https://github.com/<your-org>/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/<your-org>/static-site/actions/workflows/build.yml)
+[![Test](https://github.com/<your-org>/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/<your-org>/static-site/actions/workflows/test.yml)
+[![Run](https://github.com/<your-org>/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/<your-org>/static-site/actions/workflows/run.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6%2B-blue)](https://opentofu.org)
+[![AWS](https://img.shields.io/badge/AWS-Multi--Account-orange)](https://aws.amazon.com)
 
-## 🌐 Live Deployments
+## 🎯 Features
 
-**Dev Environment** ✅ OPERATIONAL
-- URL: http://static-website-dev-a259f4bd.s3-website-us-east-1.amazonaws.com
-- Architecture: S3-only (cost optimized)
-- Cost Profile: ~$1-5/month
-- Last Updated: 2025-09-22 14:08:29 UTC
-- Account: <DEV-ACCOUNT-ID>
+- **🏗️ Multi-Account Architecture**: Secure AWS account isolation per environment
+- **🔐 Zero-Trust Security**: OIDC authentication with no stored credentials
+- **💰 Cost Optimized**: Environment-specific configurations (Dev: $1-5, Prod: $25-50/month)
+- **🚀 CI/CD Pipeline**: Automated BUILD → TEST → RUN workflow (~3 minutes)
+- **🛡️ Security Scanning**: Integrated Checkov, Trivy, and OPA policy validation
+- **📊 Comprehensive Monitoring**: CloudWatch dashboards, alerts, and budget controls
+- **🌍 Global CDN Ready**: CloudFront with WAF protection for production
+- **♻️ Infrastructure as Code**: OpenTofu/Terraform with reusable modules
 
-**Staging Environment** ⏳ Ready for bootstrap
-**Production Environment** ⏳ Ready for bootstrap
+## 📋 Prerequisites
+
+- **AWS Account(s)**: Multi-account setup recommended (dev/staging/prod)
+- **GitHub Repository**: For CI/CD pipeline integration
+- **Local Tools**:
+  - [OpenTofu](https://opentofu.org) >= 1.6.0 or [Terraform](https://terraform.io) >= 1.0
+  - [AWS CLI](https://aws.amazon.com/cli/) configured
+  - [GitHub CLI](https://cli.github.com/) for workflow management
+  - [yamllint](https://yamllint.readthedocs.io/) for YAML validation
+  - [Checkov](https://www.checkov.io/) for security scanning (optional)
 
 ## 🚀 Quick Start
 
 Get your static website deployed in under 10 minutes:
 
-### Prerequisites
-- AWS Account with appropriate permissions
-- GitHub repository access
-- OpenTofu/Terraform installed locally
-
-### Deploy to Development
+### 1. Setup Repository
 ```bash
-# 1. Clone the repository
-git clone https://github.com/Celtikill/static-site.git
+# Fork the repository on GitHub, then clone your fork
+git clone https://github.com/<your-username>/static-site.git
 cd static-site
+```
 
-# 2. Trigger development deployment
+### 2. Configure AWS Credentials
+```bash
+# Configure your AWS profiles for each environment
+aws configure --profile dev-deploy
+aws configure --profile staging-deploy  # Optional
+aws configure --profile prod-deploy     # Optional
+```
+
+### 3. Deploy to Development
+```bash
+# Trigger development deployment
 gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true --field deploy_website=true
 
-# 3. Monitor deployment
+# Monitor deployment progress
 gh run list --limit 5
 ```
 
-### Bootstrap Additional Environments
+### 4. Bootstrap Additional Environments (Optional)
 ```bash
 # Bootstrap staging environment
 gh workflow run bootstrap-distributed-backend.yml \
@@ -191,27 +210,20 @@ graph TD
 
 ## 🛠️ Development
 
-### Essential Commands
-```bash
-# Validate infrastructure changes
-tofu validate && tofu fmt -check
+For detailed development instructions, see our [Development Guide](.github/DEVELOPMENT.md).
 
-# Validate workflow changes
+### Quick Development Commands
+```bash
+# Validate changes
+tofu validate && tofu fmt -check
 yamllint -d relaxed .github/workflows/*.yml
 
-# Test workflows
-gh workflow run build.yml --field force_build=true --field environment=dev
-gh workflow run test.yml --field skip_build_check=true --field environment=dev
+# Run security scans
+checkov -d terraform/
+trivy config terraform/
 
-# View workflow status
-gh run list --limit 5
-```
-
-### Development Workflow
-```
-feature/* → BUILD → TEST → RUN (dev)
-main push → BUILD → TEST (requires credentials for staging/prod)
-workflow_dispatch → Direct deployment testing
+# Deploy to dev
+gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
 ```
 
 ## 🤝 Contributing
@@ -224,27 +236,19 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 For security vulnerabilities, please read our [Security Policy](SECURITY.md).
 
-## 📋 Roadmap
+## 📋 Project Roadmap
 
-### Immediate (This Week)
-- [ ] Bootstrap staging and production environments
-- [ ] Complete multi-account deployment validation
+See [ROADMAP.md](ROADMAP.md) for detailed project plans including:
+- ✅ Immediate deployment steps
+- 📈 Short-term enhancements
+- 🚀 Long-term strategic vision
 
-### Short-term (This Month)
-- [ ] Enhanced monitoring and alerting
-- [ ] Infrastructure unit testing re-integration
-- [ ] Advanced cost optimization features
-
-### Long-term (This Quarter)
-- [ ] Multi-project platform support
-- [ ] Advanced security features
-- [ ] Performance optimization
-
-See [TODO.md](TODO.md) for detailed implementation plan and [WISHLIST.md](WISHLIST.md) for future enhancements.
+See [ROADMAP.md](ROADMAP.md) for the complete project roadmap and planned enhancements.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/Celtikill/static-site/issues)
+- **Issues**: [GitHub Issues](https://github.com/<your-org>/static-site/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/<your-org>/static-site/discussions)
 - **Security**: See [SECURITY.md](SECURITY.md) for vulnerability reporting
 - **Documentation**: [docs/](docs/) directory for detailed guides
 
@@ -254,4 +258,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**🎯 Current Status**: Infrastructure complete, dev environment operational, ready for multi-account expansion
+## 🌟 Why Use This Project?
+
+- **Production Ready**: Battle-tested infrastructure patterns
+- **Cost Effective**: Start at $1/month, scale as needed
+- **Security First**: Enterprise-grade security controls built-in
+- **Fully Automated**: Complete CI/CD pipeline with GitOps workflow
+- **Well Documented**: Comprehensive guides and examples
+- **Open Source**: MIT licensed, community-driven
+
+---
+
+**Built with** ❤️ **by the open source community**
