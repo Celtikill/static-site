@@ -8,6 +8,19 @@
 
 This wishlist captures significant feature improvements and architectural enhancements that would add substantial value to the static website infrastructure project. Items here represent medium to large-scale changes requiring dedicated planning and implementation effort.
 
+## ⭐ STRATEGIC HIGH PRIORITIES
+
+### 1. Pure 3-Tier Security Architecture Implementation
+**Current State**: MVP compromise with blended permissions
+**Target State**: Enterprise-grade security architecture with proper separation
+**Strategic Value**: Foundation for scaling, compliance, and security posture
+**Reference**: [docs/permissions-architecture.md](docs/permissions-architecture.md)
+
+### 2. Multi-Account Backend Bootstrap Completion
+**Current State**: Dev operational, staging/prod ready for bootstrap
+**Target State**: Full multi-account deployment capability across all environments
+**Strategic Value**: Complete platform readiness for production workloads
+
 ---
 
 ## 🧪 Testing & Quality Assurance
@@ -191,21 +204,39 @@ gh workflow run bootstrap-distributed-backend.yml \
 
 ## 🏛️ Architecture Improvements
 
-### Pure 3-Tier Security Architecture
-**Priority**: Medium
+### Pure 3-Tier Security Architecture (Move from MVP Compromise)
+**Priority**: HIGH ⭐ STRATEGIC PRIORITY
 **Effort**: Medium (4-6 hours)
-**Impact**: Medium - Architectural cleanliness
+**Impact**: HIGH - Security architecture integrity & compliance
 
-**Description**: Remove MVP compromises and implement pure 3-tier architecture.
+**Description**: Remove MVP compromises and implement pure 3-tier IAM architecture as designed.
 
-**Current**: MVP 3-tier with temporary bootstrap permissions
-**Target**: Pure Tier 1 → Tier 2 → Tier 3 access pattern
+**Current MVP Compromise State**:
+- Environment roles have temporary bootstrap permissions
+- Direct bootstrap capability bypasses intended hierarchy
+- Security model deviates from enterprise design principles
 
-**Tasks**:
-- Create dedicated bootstrap roles in target accounts
-- Remove bootstrap permissions from environment roles
-- Update trust policies for proper role hierarchy
-- Validate pure role assumption chain
+**Target Pure 3-Tier Architecture**:
+- **Tier 1**: Bootstrap Role (Infrastructure creation only)
+- **Tier 2**: Central Role (Cross-account orchestration only)
+- **Tier 3**: Environment Roles (Deployment only, no bootstrap)
+
+**Implementation Tasks**:
+1. Create dedicated bootstrap roles in staging/prod accounts
+2. Remove bootstrap permissions from environment deployment roles
+3. Update trust policies for proper role assumption hierarchy
+4. Implement separate bootstrap workflow for new accounts
+5. Validate pure Tier 1 → Tier 2 → Tier 3 access chain
+6. Update documentation to reflect pure architecture
+
+**Strategic Value**:
+- ✅ Eliminates security architecture compromises
+- ✅ Aligns with enterprise IAM best practices
+- ✅ Improves audit compliance and security posture
+- ✅ Creates foundation for multi-project platform scaling
+- ✅ Reduces blast radius of deployment role permissions
+
+**Migration Path**: See [docs/permissions-architecture.md](docs/permissions-architecture.md) for detailed 4-phase implementation plan.
 
 ### Infrastructure as Code Best Practices
 **Priority**: Low
