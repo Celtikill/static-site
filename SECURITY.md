@@ -8,7 +8,7 @@ We take the security of our AWS static website infrastructure seriously. If you 
 
 **Please do NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to: **security@[your-domain].com**
+Instead, please report them via email to: **security@example.com**
 
 Include the following information in your report:
 - Type of issue (e.g., buffer overflow, SQL injection, cross-site scripting, etc.)
@@ -164,8 +164,8 @@ In case of a security incident:
 
 ### Security Contacts
 
-- **Security Issues**: security@[your-domain].com
-- **General Issues**: [GitHub Issues](https://github.com/Celtikill/static-site/issues)
+- **Security Issues**: security@example.com
+- **General Issues**: [GitHub Issues](https://github.com/<your-org>/static-site/issues)
 - **Emergency**: For critical security issues requiring immediate attention
 
 ### Acknowledgments

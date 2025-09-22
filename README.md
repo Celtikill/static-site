@@ -15,7 +15,7 @@ Enterprise-grade AWS static website infrastructure using OpenTofu with multi-acc
 - Architecture: S3-only (cost optimized)
 - Cost Profile: ~$1-5/month
 - Last Updated: 2025-09-22 14:08:29 UTC
-- Account: 822529998967
+- Account: <DEV-ACCOUNT-ID>
 
 **Staging Environment** ⏳ Ready for bootstrap
 **Production Environment** ⏳ Ready for bootstrap
@@ -62,23 +62,23 @@ gh workflow run bootstrap-distributed-backend.yml \
 ### Multi-Account Architecture
 ```mermaid
 graph TB
-    subgraph Management["🏢 Management Account<br/>223938610551"]
+    subgraph Management["🏢 Management Account<br/><MGMT-ACCOUNT-ID>"]
         OIDC["🔐 OIDC Provider<br/>GitHub Actions"]
         Bootstrap["⚙️ Bootstrap Role<br/>Infrastructure Creation"]
         Central["🌐 Central Role<br/>Cross-Account Access"]
     end
 
-    subgraph Dev["🧪 Dev Account<br/>822529998967"]
+    subgraph Dev["🧪 Dev Account<br/><DEV-ACCOUNT-ID>"]
         DevRole["🔧 Dev Role<br/>Deployment + Bootstrap"]
         DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
     end
 
-    subgraph Staging["🚀 Staging Account<br/>927588814642"]
+    subgraph Staging["🚀 Staging Account<br/><STAGING-ACCOUNT-ID>"]
         StagingRole["🔧 Staging Role<br/>Deployment + Bootstrap"]
         StagingInfra["☁️ Staging Infrastructure<br/>⏳ Ready"]
     end
 
-    subgraph Prod["🏭 Production Account<br/>546274483801"]
+    subgraph Prod["🏭 Production Account<br/><PROD-ACCOUNT-ID>"]
         ProdRole["🔧 Prod Role<br/>Deployment + Bootstrap"]
         ProdInfra["☁️ Production Infrastructure<br/>⏳ Ready"]
     end
@@ -161,10 +161,10 @@ graph TD
 - **BOOTSTRAP**: ✅ Distributed backend creation working
 
 ### Account Status
-- **Management (223938610551)**: OIDC provider ✅, Bootstrap Role ✅
-- **Dev (822529998967)**: **FULLY DEPLOYED** ✅
-- **Staging (927588814642)**: Ready for bootstrap ⏳
-- **Prod (546274483801)**: Ready for bootstrap ⏳
+- **Management (<MGMT-ACCOUNT-ID>)**: OIDC provider ✅, Bootstrap Role ✅
+- **Dev (<DEV-ACCOUNT-ID>)**: **FULLY DEPLOYED** ✅
+- **Staging (<STAGING-ACCOUNT-ID>)**: Ready for bootstrap ⏳
+- **Prod (<PROD-ACCOUNT-ID>)**: Ready for bootstrap ⏳
 
 ## 💰 Cost Optimization
 
@@ -216,13 +216,13 @@ workflow_dispatch → Direct deployment testing
 
 ## 🤝 Contributing
 
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+- Code of conduct
+- Development setup
+- Contribution guidelines
+- Pull request process
 
-Please read our [Security Policy](SECURITY.md) for reporting security vulnerabilities.
+For security vulnerabilities, please read our [Security Policy](SECURITY.md).
 
 ## 📋 Roadmap
 
