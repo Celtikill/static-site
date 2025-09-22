@@ -1,102 +1,109 @@
-# 10-Minute Quickstart Guide
+# 10-Minute Quickstart
 
-> **🎯 Goal**: Deploy a secure static website to AWS in under 10 minutes  
-> **👥 Prerequisites**: AWS account, GitHub account, basic terminal knowledge  
-> **⏱️ Time**: 8-12 minutes
+Deploy a secure static website to AWS in under 10 minutes.
 
-## Step 1: Prerequisites Check (2 minutes)
+## Prerequisites (2 min)
+
+Ensure you have:
+- ✅ AWS account with admin access
+- ✅ GitHub account
+- ✅ GitHub CLI installed (`gh --version`)
+
+## Step 1: Fork & Clone (1 min)
 
 ```bash
-# Verify tools are installed
-gh --version    # GitHub CLI
-tofu --version  # OpenTofu
-aws --version   # AWS CLI (optional for manual operations)
+# Fork the repository on GitHub, then:
+git clone https://github.com/YOUR_USERNAME/static-site.git
+cd static-site
 ```
 
-## Step 2: Initial Setup (3 minutes)
+## Step 2: Configure AWS Access (3 min)
 
-1. **Clone and configure**:
-   ```bash
-   git clone <repository-url>
-   cd static-site
-   
-   # Copy backend configuration template (if needed)
-   cp terraform/backend.hcl.example terraform/backend.hcl
-   # Note: Current workflow uses terraform/environments/{env}/ structure
-   ```
-
-2. **Set GitHub repository variables** (in GitHub UI):
-   - `PROJECT_NAME`: Your project name
-   - `AWS_ACCOUNT_ID_DEV`: Your dev AWS account ID
-   - `AWS_ACCOUNT_ID_STAGING`: Your staging AWS account ID
-   - `AWS_ACCOUNT_ID_PROD`: Your production AWS account ID
-   - `ALERT_EMAIL_ADDRESSES`: Your email for alerts
-
-## Step 3: IAM Setup (2 minutes)
-
-**Critical**: Create AWS IAM roles manually before deployment:
+### Option A: Quick Setup (Recommended)
+Use the provided CloudFormation template:
 
 ```bash
-# Option 1: Use provided CloudFormation (recommended)
+# Deploy IAM roles to your AWS account
 aws cloudformation create-stack \
-  --stack-name static-site-oidc-roles \
-  --template-body file://iam/oidc-stack.yaml \
-  --capabilities CAPABILITY_NAMED_IAM
+  --stack-name static-site-roles \
+  --template-body file://iam/cloudformation/oidc-roles.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameters ParameterKey=GitHubOrg,ParameterValue=YOUR_GITHUB_ORG
 
-# Option 2: Manual setup - see docs/guides/iam-setup.md
+# Wait for completion (2-3 minutes)
+aws cloudformation wait stack-create-complete \
+  --stack-name static-site-roles
 ```
 
-## Step 4: Deploy to Development (3 minutes)
+### Option B: Manual Setup
+Create the central role manually in AWS Console:
+1. Go to IAM → Roles → Create Role
+2. Choose "Web identity" → GitHub as provider
+3. Add your repository to the trust policy
+4. Attach necessary permissions
+
+## Step 3: Set GitHub Secret (1 min)
 
 ```bash
-# Create feature branch and push
-git checkout -b feature/initial-deployment
-git push origin feature/initial-deployment
+# Get the role ARN from CloudFormation
+ROLE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name static-site-roles \
+  --query 'Stacks[0].Outputs[?OutputKey==`CentralRoleArn`].OutputValue' \
+  --output text)
+
+# Set the GitHub secret
+gh secret set AWS_ASSUME_ROLE_CENTRAL --body "$ROLE_ARN"
 ```
 
-This automatically triggers:
-1. **BUILD** workflow (5-8 min): Security scanning + cost projection
-2. **TEST** workflow (8-15 min): Policy validation + compliance checks  
-3. **RUN** workflow (10-15 min): Deployment to development environment
-
-## Step 5: Verification (1 minute)
+## Step 4: Deploy! (3 min)
 
 ```bash
-# Check deployment status
-gh run list --limit=3
-
-# View workflow logs
-gh run view --log
-
-# Monitor costs (after deployment)
-# Cost projections and actual costs available in workflow step summaries
+# Push to trigger automatic deployment
+git checkout -b feature/first-deploy
+git commit --allow-empty -m "Initial deployment"
+git push origin feature/first-deploy
 ```
 
-## 🎉 Success!
+This triggers the automated pipeline:
+- **BUILD** (20s): Security scanning
+- **TEST** (40s): Policy validation
+- **RUN** (2min): Infrastructure deployment
 
-Your static website is now deployed with:
-- ✅ **Security**: WAF protection, HTTPS, Origin Access Control
-- ✅ **Performance**: CloudFront CDN, optimized caching
-- ✅ **Monitoring**: Cost tracking, security alerts
-- ✅ **Compliance**: OWASP Top 10 protection, encryption
+## Step 5: View Your Site (instant)
+
+```bash
+# Get the website URL
+gh run view --log | grep "Website URL"
+
+# Or check the GitHub Actions summary
+gh run view --web
+```
+
+Your site is now live! 🎉
+
+## What You Just Deployed
+
+✅ S3 bucket for website hosting
+✅ CloudFront CDN (optional)
+✅ WAF protection (optional)
+✅ Automated CI/CD pipeline
+✅ Security scanning
+✅ Cost monitoring
 
 ## Next Steps
 
-- **Staging deployment**: Create PR to `main` → manually trigger RUN workflow for staging
-- **Production deployment**: Use RELEASE workflow for tagged production deployments
-- **Monitoring**: View cost projections and security reports in workflow summaries
+- **[Enable CloudFront](feature-flags.md)** - Add CDN for better performance
+- **[Configure Custom Domain](../terraform/README.md)** - Use your own domain
+- **[Set Up Monitoring](workflows.md#monitoring)** - Track costs and performance
 
-## Quick Troubleshooting
+## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| Build fails with "OIDC role not found" | Complete Step 3 IAM setup |
-| HCL validation errors | Run `tofu validate && tofu fmt` |
-| Workflow YAML errors | Run `yamllint -d relaxed .github/workflows/*.yml` |
-| High cost projection | Review resource sizing in terraform variables |
+| Issue | Fix |
+|-------|-----|
+| "Role not found" | Check CloudFormation stack completed |
+| "Access denied" | Verify GitHub secret is set correctly |
+| "Build failed" | Check [troubleshooting guide](troubleshooting.md) |
 
-## 📚 Full Documentation
+---
 
-- [COMMANDS.md](COMMANDS.md) - All essential commands
-- [docs/](docs/) - Complete architecture and deployment guides
-- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Detailed troubleshooting
+**Need help?** [Open an issue](https://github.com/celtikill/static-site/issues) | [Full Documentation](index.md)

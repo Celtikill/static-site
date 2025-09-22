@@ -2,7 +2,26 @@
 
 This guide covers common issues and their solutions for the AWS Static Website Infrastructure CI/CD pipeline.
 
+## 🔍 Quick Diagnosis
+
+```
+Pipeline Failed?
+├─> Build Phase Issue?
+│   ├─> Security Scan Failed? → [Security Scanning Issues](#security-scanning-issues)
+│   ├─> Validation Error? → [OpenTofu/Terraform Issues](#opentofu-terraform-initialization-failures)
+│   └─> Artifact Creation Failed? → [Check disk space/permissions](#debug-commands)
+├─> Test Phase Issue?
+│   ├─> Policy Validation Failed? → [OPA/Rego Issues](#testing-issues)
+│   ├─> Unit Tests Failed? → [Unit Test Failures](#unit-test-failures)
+│   └─> Usability Tests Failed? → [Usability Tests Failing](#usability-tests-failing)
+└─> Run Phase Issue?
+    ├─> Authentication Failed? → [GitHub Actions Authentication](#github-actions-authentication-issues)
+    ├─> CloudFront Timeout? → [CloudFront Issues](#cloudfront-distribution-creation-timeout)
+    └─> S3 Bucket Conflict? → [S3 Bucket Issues](#s3-bucket-already-exists-error)
+```
+
 ## Table of Contents
+- [Quick Diagnosis](#-quick-diagnosis)
 - [CI/CD Pipeline Issues](#cicd-pipeline-issues)
 - [Infrastructure Deployment Issues](#infrastructure-deployment-issues)
 - [Security Scanning Issues](#security-scanning-issues)
@@ -41,10 +60,21 @@ tofu init -migrate-state
 
 **Symptom:** `Error: Could not assume role` or `AccessDenied` errors
 
-**Common Causes:**
-- OIDC provider not configured in AWS
-- Trust policy incorrect or missing GitHub repository
-- Role ARN secrets not set in GitHub
+```
+Authentication Failed?
+├─> Check OIDC Provider
+│   ├─> Does provider exist? → aws iam list-open-id-connect-providers
+│   ├─> Correct thumbprint? → Update OIDC provider configuration
+│   └─> Right account? → Verify management account ID (223938610551)
+├─> Check Trust Policy
+│   ├─> Repository included? → Add repo:YOUR_ORG/YOUR_REPO:* to trust policy
+│   ├─> Environment specified? → Add environment condition if needed
+│   └─> Audience correct? → Must be "sts.amazonaws.com"
+└─> Check GitHub Secrets
+    ├─> AWS_ASSUME_ROLE_CENTRAL set? → gh secret list
+    ├─> Correct role ARN? → Verify format arn:aws:iam::ACCOUNT:role/NAME
+    └─> Permission to assume? → Test with aws sts assume-role
+```
 
 **Solutions:**
 1. Verify OIDC provider exists in AWS:

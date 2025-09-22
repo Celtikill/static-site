@@ -9,7 +9,7 @@ This repository implements enterprise-grade security for AWS static website infr
 If you discover a security vulnerability in this project, please:
 
 1. **DO NOT** open a public issue
-2. Email security details to: [security@example.com] *(Update with your security contact)*
+2. Email security details to: **[PLACEHOLDER: your-security-email@company.com]**
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce
@@ -58,30 +58,38 @@ All service wildcards are combined with resource ARN patterns or condition block
 - Monitoring operations constrained to specific regions
 - No broad IAM manipulation permissions (`iam:CreateRole`, `iam:AttachRolePolicy`, etc.)
 
-## Placeholder Values
+## ⚠️ Placeholder Values - MUST UPDATE BEFORE DEPLOYMENT
 
-This repository contains example configurations with placeholder values:
+This repository contains example configurations with placeholder values that **MUST** be replaced before deployment:
 
 ### AWS Account IDs
-- `123456789012` - Example AWS account ID used in documentation
-- Replace with your actual AWS account ID when deploying
+- `123456789012` - **[PLACEHOLDER]** Example AWS account ID
+- `223938610551` - **[PLACEHOLDER]** Example management account ID
+- `822529998967` - **[PLACEHOLDER]** Example dev account ID
+- `927588814642` - **[PLACEHOLDER]** Example staging account ID
+- `546274483801` - **[PLACEHOLDER]** Example prod account ID
+- **Action Required**: Replace ALL account IDs with your actual AWS account IDs
 
 ### Email Addresses
-- `admin@example.com` - Example admin email
-- `devops@example.com` - Example DevOps email
-- `security@yourcompany.com` - Example security email
-- Replace with actual email addresses for alerts
+- `admin@example.com` - **[PLACEHOLDER]** Admin contact
+- `devops@example.com` - **[PLACEHOLDER]** DevOps team
+- `security@yourcompany.com` - **[PLACEHOLDER]** Security team
+- `[security@example.com]` - **[PLACEHOLDER]** Security reporting
+- **Action Required**: Replace with actual email addresses for alerts and notifications
 
 ### Domain Names
-- `example.com` - Example domain in configurations
-- `yourdomain.com` - Example domain in documentation
-- Replace with your actual domain names
+- `example.com` - **[PLACEHOLDER]** Example domain
+- `yourdomain.com` - **[PLACEHOLDER]** Documentation example
+- `your-cloudfront-url.cloudfront.net` - **[PLACEHOLDER]** CDN domain
+- **Action Required**: Replace with your actual domain names and CloudFront distributions
 
 ### AWS Resources
-- `your-terraform-state-bucket-name` - Example S3 bucket name
-- `your-kms-key-alias` - Example KMS key alias
-- `your-aws-profile` - Example AWS profile name
-- Replace with your actual resource names
+- `your-terraform-state-bucket-name` - **[PLACEHOLDER]** S3 state bucket
+- `your-kms-key-alias` - **[PLACEHOLDER]** KMS encryption key
+- `your-aws-profile` - **[PLACEHOLDER]** AWS CLI profile
+- `static-site-*` - **[PLACEHOLDER]** Resource name pattern
+- `GitHubActions-StaticSite-Central` - **[PLACEHOLDER]** IAM role name
+- **Action Required**: Replace with your actual resource names and patterns
 
 ## Sensitive File Protection
 

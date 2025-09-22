@@ -1,6 +1,6 @@
 # Static Site Infrastructure - Multi-Account Deployment Plan
 
-**Last Updated**: 2025-09-19 (RUN WORKFLOW DEBUGGING COMPLETE ✅)
+**Last Updated**: 2025-09-22 (Documentation improvements)
 **Status**: ✅ PIPELINE FULLY OPERATIONAL - CloudFront invalidation logic fixed
 
 ## Current MVP Pipeline Status ✅ INFRASTRUCTURE COMPLETE
@@ -27,7 +27,7 @@
 1. ✅ **Global OpenTofu No-Color**: `TF_CLI_ARGS: "-no-color"` + `NO_COLOR: 1`
 2. ✅ **Explicit Command Flags**: `-no-color` on all `tofu init`, `tofu plan`, `tofu apply`
 3. ✅ **Warning Text Filtering**: `grep -v "Warning:"` with `head -n1` for clean variables
-4. ✅ **Industry Best Practices**: Following 2025 CI/CD patterns for OpenTofu
+4. ✅ **Industry Best Practices**: Following current CI/CD patterns for OpenTofu
 
 **Result**: Infrastructure Deployment job ✅ **COMPLETED IN 30 SECONDS** with zero errors!
 
@@ -176,7 +176,7 @@ gh workflow run run.yml --field environment=prod --field deploy_infrastructure=t
 - ⏳ **Multi-account bootstrap**: Ready to execute for staging/prod environments
 
 ### 🎯 ACTUAL STATUS
-**Design Quality**: Excellent (follows 2025 best practices)
+**Design Quality**: Excellent (follows current best practices)
 **Implementation**: ✅ Infrastructure deployment **100% operational**
 **GitHub Actions**: ✅ Formatting errors **completely resolved**
 **Pipeline Health**: ✅ **Perfect 30-second infrastructure deployment**
