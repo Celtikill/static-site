@@ -8,10 +8,6 @@ Enterprise-grade AWS static website infrastructure using OpenTofu with multi-acc
 [![Test](https://github.com/Celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/test.yml)
 [![Run](https://github.com/Celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/run.yml)
 
-[![Deploy Status](https://img.shields.io/badge/Deploy-Operational-brightgreen)](#deployment-status)
-[![Security](https://img.shields.io/badge/Security-Enhanced-blue)](#security-architecture)
-[![Cost](https://img.shields.io/badge/Cost-Optimized-orange)](#cost-optimization)
-
 ## 🌐 Live Deployments
 
 **Dev Environment** ✅ OPERATIONAL
