@@ -57,13 +57,13 @@ trivy config terraform/
 ### Types of Contributions
 
 #### 🐛 Bug Reports
-- Use the bug report issue template
+- Use the [bug report issue template](.github/ISSUE_TEMPLATE/bug_report.md)
 - Include reproduction steps
 - Provide environment details
 - Attach relevant logs
 
 #### ✨ Feature Requests
-- Use the feature request template
+- Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md)
 - Describe the use case
 - Explain the expected behavior
 - Consider implementation approach
@@ -202,6 +202,8 @@ We especially welcome contributions in these areas:
 ## 💬 Communication
 
 - **GitHub Issues**: For bugs and feature requests
+  - [Submit a bug report](.github/ISSUE_TEMPLATE/bug_report.md)
+  - [Request a feature](.github/ISSUE_TEMPLATE/feature_request.md)
 - **GitHub Discussions**: For questions and ideas
 - **Pull Requests**: For code contributions
 
