@@ -107,6 +107,29 @@ gh workflow run bootstrap-distributed-backend.yml \
 - Create workflow usage documentation and templates
 - Enable organization-wide workflow sharing and enforcement
 
+### 6. Extract Inline Scripts to External Files
+**Priority**: HIGH ⭐
+**Effort**: 6-8 hours
+**Value**: Improve maintainability by 60%, enable unit testing of CI logic
+
+**Objective**: Refactor complex inline scripts (>20 lines) to external, testable files
+- Implement script extraction architecture per [CI Script Architecture](docs/ci-script-architecture.md)
+- Create `.github/scripts/` directory structure with organized subdirectories:
+  - `security/` - Checkov, Trivy, OPA validation scripts
+  - `terraform/` - Infrastructure validation and deployment scripts
+  - `common/` - Shared utilities and authentication helpers
+  - `test/` - Script testing framework and fixtures
+- Extract priority scripts (largest impact first):
+  - OPA Policy Validation (~145 lines) → `opa-validate.sh`
+  - Checkov Security Scan (~83 lines) → `checkov-scan.sh`
+  - Trivy Security Scan (~93 lines) → `trivy-scan.sh`
+  - Terraform Operations (~30-50 lines each) → multiple scripts
+- Add comprehensive script documentation and error handling
+- Implement unit testing framework for extracted scripts
+- Update workflows to call external scripts with proper parameter passing
+- Add CODEOWNERS rules for script governance
+- Validate local testing capability for all extracted scripts
+
 ---
 
 ## 🎨 Medium-Term Enhancements (3-6 Months)
