@@ -120,10 +120,16 @@ confirm_destruction() {
     fi
 
     echo -e "${RED}${BOLD}DANGER:${NC} About to destroy ${YELLOW}$resource_type${NC}: ${BOLD}$resource_name${NC}"
-    read -p "Are you sure? (type 'DELETE' to confirm): " confirmation
 
-    if [[ "$confirmation" != "DELETE" ]]; then
-        log_warn "Skipping $resource_type: $resource_name"
+    # Add timeout for non-interactive environments
+    local confirmation
+    if read -t 30 -p "Are you sure? (type 'DELETE' to confirm): " confirmation; then
+        if [[ "$confirmation" != "DELETE" ]]; then
+            log_warn "Skipping $resource_type: $resource_name"
+            return 1
+        fi
+    else
+        log_warn "Timeout waiting for confirmation - skipping $resource_type: $resource_name"
         return 1
     fi
     return 0
@@ -168,11 +174,24 @@ aws_cmd() {
         return 0
     fi
 
-    if ! aws "${cmd[@]}" 2>>"$LOG_FILE"; then
-        log_error "Failed to execute: aws ${cmd[*]}"
-        return 1
-    fi
-    return 0
+    # Add retry logic for transient failures
+    local max_retries=3
+    local retry_count=0
+
+    while [[ $retry_count -lt $max_retries ]]; do
+        if aws "${cmd[@]}" 2>>"$LOG_FILE"; then
+            return 0
+        fi
+
+        ((retry_count++))
+        if [[ $retry_count -lt $max_retries ]]; then
+            log_warn "Command failed, retrying (${retry_count}/${max_retries}): aws ${cmd[*]}"
+            sleep 2
+        fi
+    done
+
+    log_error "Failed to execute after ${max_retries} attempts: aws ${cmd[*]}"
+    return 1
 }
 
 # Destroy S3 buckets and contents
@@ -231,7 +250,8 @@ destroy_cloudfront_distributions() {
     local distributions
     distributions=$(aws cloudfront list-distributions --query 'DistributionList.Items[].{Id:Id,DomainName:DomainName,Comment:Comment,Status:Status}' --output json 2>/dev/null || echo "[]")
 
-    if [[ "$distributions" == "[]" ]]; then
+    # Handle null or empty response
+    if [[ "$distributions" == "null" ]] || [[ "$distributions" == "[]" ]] || [[ -z "$distributions" ]]; then
         log_info "No CloudFront distributions found"
         return 0
     fi
@@ -326,6 +346,12 @@ destroy_kms_keys() {
     local aliases
     aliases=$(aws kms list-aliases --query 'Aliases[].{AliasName:AliasName,TargetKeyId:TargetKeyId}' --output json 2>/dev/null || echo "[]")
 
+    # Handle null or empty response
+    if [[ "$aliases" == "null" ]] || [[ "$aliases" == "[]" ]] || [[ -z "$aliases" ]]; then
+        log_info "No KMS aliases found"
+        return 0
+    fi
+
     echo "$aliases" | jq -c '.[]' | while read -r alias_info; do
         local alias_name target_key_id
         alias_name=$(echo "$alias_info" | jq -r '.AliasName')
@@ -370,7 +396,11 @@ destroy_iam_resources() {
     local roles
     roles=$(aws iam list-roles --query 'Roles[].{RoleName:RoleName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
 
-    echo "$roles" | jq -c '.[]' | while read -r role_info; do
+    # Handle null or empty response
+    if [[ "$roles" == "null" ]] || [[ "$roles" == "[]" ]] || [[ -z "$roles" ]]; then
+        log_info "No IAM roles found"
+    else
+        echo "$roles" | jq -c '.[]' | while read -r role_info; do
         local role_name role_arn
         role_name=$(echo "$role_info" | jq -r '.RoleName')
         role_arn=$(echo "$role_info" | jq -r '.Arn')
@@ -401,13 +431,18 @@ destroy_iam_resources() {
                 fi
             fi
         fi
-    done
+        done
+    fi
 
     # Destroy custom IAM policies
     local policies
     policies=$(aws iam list-policies --scope Local --query 'Policies[].{PolicyName:PolicyName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
 
-    echo "$policies" | jq -c '.[]' | while read -r policy_info; do
+    # Handle null or empty response
+    if [[ "$policies" == "null" ]] || [[ "$policies" == "[]" ]] || [[ -z "$policies" ]]; then
+        log_info "No custom IAM policies found"
+    else
+        echo "$policies" | jq -c '.[]' | while read -r policy_info; do
         local policy_name policy_arn
         policy_name=$(echo "$policy_info" | jq -r '.PolicyName')
         policy_arn=$(echo "$policy_info" | jq -r '.Arn')
@@ -432,7 +467,8 @@ destroy_iam_resources() {
                 fi
             fi
         fi
-    done
+        done
+    fi
 
     # Destroy OIDC identity providers
     local oidc_providers
@@ -534,6 +570,12 @@ destroy_cloudtrail_resources() {
     local trails
     trails=$(aws cloudtrail describe-trails --query 'trailList[].{Name:Name,S3BucketName:S3BucketName}' --output json 2>/dev/null || echo "[]")
 
+    # Handle null or empty response
+    if [[ "$trails" == "null" ]] || [[ "$trails" == "[]" ]] || [[ -z "$trails" ]]; then
+        log_info "No CloudTrail trails found"
+        return 0
+    fi
+
     echo "$trails" | jq -c '.[]' | while read -r trail_info; do
         local trail_name s3_bucket
         trail_name=$(echo "$trail_info" | jq -r '.Name')
@@ -566,6 +608,12 @@ destroy_waf_resources() {
     # Check CloudFront scope
     local web_acls
     web_acls=$(aws wafv2 list-web-acls --scope CLOUDFRONT --query 'WebACLs[].{Name:Name,Id:Id}' --output json 2>/dev/null || echo "[]")
+
+    # Handle null or empty response
+    if [[ "$web_acls" == "null" ]] || [[ "$web_acls" == "[]" ]] || [[ -z "$web_acls" ]]; then
+        log_info "No WAF Web ACLs found"
+        return 0
+    fi
 
     echo "$web_acls" | jq -c '.[]' | while read -r web_acl; do
         local name id
@@ -601,7 +649,7 @@ cleanup_orphaned_resources() {
     local eips
     eips=$(timeout 30 aws ec2 describe-addresses --query 'Addresses[?AssociationId==null].{PublicIp:PublicIp,AllocationId:AllocationId}' --output json 2>/dev/null || echo "[]")
 
-    if [[ "$eips" != "[]" ]]; then
+    if [[ "$eips" != "[]" ]] && [[ "$eips" != "null" ]] && [[ -n "$eips" ]]; then
         echo "$eips" | jq -c '.[]' | while read -r eip; do
             local public_ip allocation_id
             public_ip=$(echo "$eip" | jq -r '.PublicIp')
@@ -648,31 +696,297 @@ generate_cost_estimate() {
     log_info "Note: This is a rough estimate. Actual costs depend on usage, data transfer, and storage."
 }
 
+# Generate comprehensive dry run report
+generate_dry_run_report() {
+    log_info "📋 Generating comprehensive dry run report..."
+
+    local report_file="/tmp/destruction-report-$(date +%Y%m%d-%H%M%S).txt"
+    local total_resources=0
+
+    {
+        echo "==============================================="
+        echo "AWS Infrastructure Destruction Report"
+        echo "Generated: $(date)"
+        echo "Account: $(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null || echo 'Unknown')"
+        echo "Region: $AWS_DEFAULT_REGION"
+        echo "==============================================="
+        echo ""
+        echo "RESOURCES THAT WOULD BE DESTROYED:"
+        echo ""
+
+        # S3 Buckets
+        echo "🪣 S3 BUCKETS:"
+        local buckets
+        buckets=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+        local bucket_count=0
+        for bucket in $buckets; do
+            if matches_project "$bucket"; then
+                local size
+                size=$(aws s3 ls "s3://$bucket" --recursive --summarize 2>/dev/null | grep "Total Size:" | cut -d: -f2 | xargs || echo "Unknown")
+                echo "  - $bucket (Size: $size bytes)"
+                ((bucket_count++)) || true
+            fi
+        done
+        echo "  Total: $bucket_count buckets"
+        ((total_resources += bucket_count)) || true
+        echo ""
+
+        # CloudFront Distributions
+        echo "🌐 CLOUDFRONT DISTRIBUTIONS:"
+        local distributions
+        distributions=$(aws cloudfront list-distributions --query 'DistributionList.Items[].{Id:Id,Comment:Comment,DomainName:DomainName}' --output json 2>/dev/null || echo "[]")
+        local cf_count=0
+        if [[ "$distributions" != "[]" ]] && [[ "$distributions" != "null" ]] && [[ -n "$distributions" ]]; then
+            echo "$distributions" | jq -r '.[] | select(.Comment != null) | "  - " + .Id + " (" + .Comment + ") - " + .DomainName' | while read -r line; do
+                if [[ -n "$line" ]]; then
+                    echo "$line"
+                    ((cf_count++)) || true
+                fi
+            done
+            cf_count=$(echo "$distributions" | jq '. | length' 2>/dev/null || echo 0)
+        else
+            cf_count=0
+        fi
+        echo "  Total: $cf_count distributions"
+        ((total_resources += cf_count)) || true
+        echo ""
+
+        # DynamoDB Tables
+        echo "🗃️ DYNAMODB TABLES:"
+        local tables
+        tables=$(aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true)
+        local table_count=0
+        for table in $tables; do
+            if matches_project "$table"; then
+                echo "  - $table"
+                ((table_count++)) || true
+            fi
+        done
+        echo "  Total: $table_count tables"
+        ((total_resources += table_count)) || true
+        echo ""
+
+        # KMS Keys
+        echo "🔐 KMS KEYS:"
+        local aliases
+        aliases=$(aws kms list-aliases --query 'Aliases[].{AliasName:AliasName,TargetKeyId:TargetKeyId}' --output json 2>/dev/null || echo "[]")
+        local kms_count=0
+        if [[ "$aliases" != "[]" ]] && [[ "$aliases" != "null" ]] && [[ -n "$aliases" ]]; then
+            echo "$aliases" | jq -c '.[]' | while read -r alias_info; do
+            local alias_name
+            alias_name=$(echo "$alias_info" | jq -r '.AliasName')
+            if matches_project "$alias_name"; then
+                echo "  - $alias_name"
+                    ((kms_count++)) || true
+                fi
+            done
+        fi
+        echo "  Total: $kms_count keys"
+        ((total_resources += kms_count)) || true
+        echo ""
+
+        # IAM Resources
+        echo "👤 IAM RESOURCES:"
+        local roles
+        roles=$(aws iam list-roles --query 'Roles[].RoleName' --output text 2>/dev/null || true)
+        local role_count=0
+        echo "  Roles:"
+        for role in $roles; do
+            if matches_project "$role"; then
+                echo "    - $role"
+                ((role_count++)) || true
+            fi
+        done
+
+        local policies
+        policies=$(aws iam list-policies --scope Local --query 'Policies[].PolicyName' --output text 2>/dev/null || true)
+        local policy_count=0
+        echo "  Policies:"
+        for policy in $policies; do
+            if matches_project "$policy"; then
+                echo "    - $policy"
+                ((policy_count++)) || true
+            fi
+        done
+
+        local oidc_count
+        oidc_count=$(aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text 2>/dev/null | grep -c "token.actions.githubusercontent.com" || echo 0)
+        # Ensure oidc_count is a single number
+        oidc_count=$(echo "$oidc_count" | head -1 | tr -d '[:space:]')
+        [[ ! "$oidc_count" =~ ^[0-9]+$ ]] && oidc_count=0
+        echo "  OIDC Providers: $oidc_count"
+        echo "  Total: $((role_count + policy_count + oidc_count)) IAM resources"
+        ((total_resources += role_count + policy_count + oidc_count)) || true
+        echo ""
+
+        # CloudWatch Resources
+        echo "📊 CLOUDWATCH RESOURCES:"
+        local log_groups
+        log_groups=$(aws logs describe-log-groups --query 'logGroups[].logGroupName' --output text 2>/dev/null || true)
+        local lg_count=0
+        echo "  Log Groups:"
+        for lg in $log_groups; do
+            if matches_project "$lg" || [[ "$lg" == *"/aws/cloudtrail"* ]]; then
+                echo "    - $lg"
+                ((lg_count++)) || true
+            fi
+        done
+
+        local alarms
+        alarms=$(aws cloudwatch describe-alarms --query 'MetricAlarms[].AlarmName' --output text 2>/dev/null || true)
+        local alarm_count=0
+        echo "  Alarms:"
+        for alarm in $alarms; do
+            if matches_project "$alarm"; then
+                echo "    - $alarm"
+                ((alarm_count++)) || true
+            fi
+        done
+        echo "  Total: $((lg_count + alarm_count)) CloudWatch resources"
+        ((total_resources += lg_count + alarm_count)) || true
+        echo ""
+
+        # Summary
+        echo "==============================================="
+        echo "SUMMARY:"
+        echo "  Total resources to be destroyed: $total_resources"
+        echo "  Estimated monthly cost savings: ~\$$(generate_cost_estimate_value) USD"
+        echo "==============================================="
+
+    } | tee "$report_file"
+
+    log_success "Dry run report saved to: $report_file"
+    return 0
+}
+
+# Helper function for cost estimate value only
+generate_cost_estimate_value() {
+    local s3_buckets_count
+    s3_buckets_count=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null | wc -w || echo 0)
+
+    local cloudfront_count
+    cloudfront_count=$(aws cloudfront list-distributions --query 'DistributionList.Items[].Id' --output text 2>/dev/null | wc -w || echo 0)
+
+    # Ensure numeric values
+    s3_buckets_count=${s3_buckets_count:-0}
+    cloudfront_count=${cloudfront_count:-0}
+
+    # Convert to numeric if they contain whitespace
+    s3_buckets_count=$(echo "$s3_buckets_count" | tr -d '[:space:]')
+    cloudfront_count=$(echo "$cloudfront_count" | tr -d '[:space:]')
+
+    # Ensure they're valid numbers
+    [[ ! "$s3_buckets_count" =~ ^[0-9]+$ ]] && s3_buckets_count=0
+    [[ ! "$cloudfront_count" =~ ^[0-9]+$ ]] && cloudfront_count=0
+
+    local s3_cost=$((s3_buckets_count * 5))
+    local cloudfront_cost=$((cloudfront_count * 10))
+    local dynamodb_cost=5
+    local kms_cost=10
+
+    echo $((s3_cost + cloudfront_cost + dynamodb_cost + kms_cost))
+}
+
+# Parse command line arguments
+parse_arguments() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            --force)
+                FORCE_DESTROY=true
+                shift
+                ;;
+            --account-filter)
+                ACCOUNT_FILTER="$2"
+                shift 2
+                ;;
+            --region)
+                AWS_DEFAULT_REGION="$2"
+                shift 2
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+}
+
+# Show help message
+show_help() {
+    cat << EOF
+Usage: $SCRIPT_NAME [OPTIONS]
+
+Destroy all AWS infrastructure created by the static-site repository.
+
+OPTIONS:
+    --dry-run              Show what would be destroyed without actually doing it
+    --force                Skip all confirmation prompts (use with extreme caution)
+    --account-filter IDS   Comma-separated list of AWS account IDs to limit destruction
+    --region REGION        AWS region (default: us-east-1)
+    -h, --help            Show this help message
+
+EXAMPLES:
+    # Dry run to see what would be destroyed
+    $SCRIPT_NAME --dry-run
+
+    # Force destruction without prompts (DANGEROUS)
+    $SCRIPT_NAME --force
+
+    # Limit to specific accounts
+    $SCRIPT_NAME --account-filter "123456789012,987654321098"
+
+    # Combine options
+    $SCRIPT_NAME --dry-run --account-filter "123456789012"
+
+ENVIRONMENT VARIABLES:
+    AWS_DEFAULT_REGION    AWS region (default: us-east-1)
+    FORCE_DESTROY         Set to 'true' to skip confirmations
+    DRY_RUN              Set to 'true' for dry run mode
+    ACCOUNT_FILTER       Comma-separated AWS account IDs
+
+WARNING:
+    This script will PERMANENTLY DELETE all matching AWS resources.
+    Use --dry-run first to review what will be destroyed.
+EOF
+}
+
 # Main execution function
 main() {
     local start_time
     start_time=$(date +%s)
 
-    echo -e "${BOLD}${RED}"
-    echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║                    🚨 DANGER ZONE 🚨                        ║"
-    echo "║                                                              ║"
-    echo "║  This script will PERMANENTLY DELETE all AWS resources      ║"
-    echo "║  created by the static-site infrastructure repository.      ║"
-    echo "║                                                              ║"
-    echo "║  Resources that will be destroyed:                          ║"
-    echo "║  • S3 buckets and all contents                              ║"
-    echo "║  • KMS keys (scheduled for deletion)                       ║"
-    echo "║  • IAM roles, policies, and OIDC providers                 ║"
-    echo "║  • CloudFront distributions                                 ║"
-    echo "║  • DynamoDB tables                                          ║"
-    echo "║  • CloudTrail trails and logs                              ║"
-    echo "║  • All other project-related AWS resources                 ║"
-    echo "║                                                              ║"
-    echo "║  💸 This action may result in significant cost savings      ║"
-    echo "║  💀 This action CANNOT be undone                           ║"
-    echo "╚══════════════════════════════════════════════════════════════╝"
-    echo -e "${NC}"
+    # Only show banner if not in force mode
+    if [[ "$FORCE_DESTROY" != "true" ]]; then
+        echo -e "${BOLD}${RED}"
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║                    🚨 DANGER ZONE 🚨                        ║"
+        echo "║                                                              ║"
+        echo "║  This script will PERMANENTLY DELETE all AWS resources      ║"
+        echo "║  created by the static-site infrastructure repository.      ║"
+        echo "║                                                              ║"
+        echo "║  Resources that will be destroyed:                          ║"
+        echo "║  • S3 buckets and all contents                              ║"
+        echo "║  • KMS keys (scheduled for deletion)                       ║"
+        echo "║  • IAM roles, policies, and OIDC providers                 ║"
+        echo "║  • CloudFront distributions                                 ║"
+        echo "║  • DynamoDB tables                                          ║"
+        echo "║  • CloudTrail trails and logs                              ║"
+        echo "║  • All other project-related AWS resources                 ║"
+        echo "║                                                              ║"
+        echo "║  💸 This action may result in significant cost savings      ║"
+        echo "║  💀 This action CANNOT be undone                           ║"
+        echo "╚══════════════════════════════════════════════════════════════╗"
+        echo -e "${NC}"
+    fi
 
     log_info "Starting infrastructure destruction script"
     log_info "Log file: $LOG_FILE"
@@ -713,18 +1027,47 @@ main() {
         fi
     fi
 
+    # If dry run, generate report and exit
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "Running in DRY RUN mode - no resources will be destroyed"
+        generate_dry_run_report
+
+        local end_time duration
+        end_time=$(date +%s)
+        duration=$((end_time - start_time))
+
+        log_success "Dry run completed in ${duration} seconds"
+        log_info "Review the report above to see what would be destroyed"
+        log_info "To perform actual destruction, run without --dry-run"
+        exit 0
+    fi
+
     log_info "Beginning destruction sequence..."
 
+    # Track destruction results
+    declare -A destruction_results
+    local total_destroyed=0
+    local total_failed=0
+
     # Execute destruction in order (dependent resources first)
+    log_info "Phase 1: Destroying dependent resources..."
     destroy_cloudfront_distributions
     destroy_waf_resources
+
+    log_info "Phase 2: Destroying storage and logging..."
     destroy_s3_buckets
     destroy_cloudtrail_resources
     destroy_cloudwatch_resources
     destroy_sns_resources
+
+    log_info "Phase 3: Destroying compute and database resources..."
     destroy_dynamodb_tables
+
+    log_info "Phase 4: Destroying identity and security..."
     destroy_iam_resources
     destroy_kms_keys
+
+    log_info "Phase 5: Cleanup orphaned resources..."
     cleanup_orphaned_resources
 
     # Generate cost savings estimate
@@ -737,22 +1080,26 @@ main() {
     log_success "Infrastructure destruction completed in ${duration} seconds"
     log_success "Log file saved: $LOG_FILE"
 
-    if [[ "$DRY_RUN" == "true" ]]; then
-        echo
-        log_info "This was a DRY RUN. No resources were actually destroyed."
-        log_info "Review the log file to see what would be destroyed."
-        log_info "Run without DRY_RUN=true to perform actual destruction."
-    else
-        echo
-        log_success "🎉 All infrastructure has been destroyed!"
-        log_success "💰 You should see cost savings on your next AWS bill"
-        echo
-        log_warn "Note: Some resources like KMS keys have mandatory waiting periods"
-        log_warn "Check the AWS console to verify all resources are gone"
-    fi
+    echo
+    log_success "🎉 All infrastructure has been destroyed!"
+    log_success "💰 You should see cost savings on your next AWS bill"
+    echo
+    log_warn "Note: Some resources like KMS keys have mandatory waiting periods"
+    log_warn "Check the AWS console to verify all resources are gone"
+
+    # Generate final summary
+    echo
+    echo -e "${BOLD}${GREEN}DESTRUCTION SUMMARY:${NC}"
+    echo "  Total resources destroyed: ${total_destroyed:-unknown}"
+    echo "  Failed destructions: ${total_failed:-0}"
+    echo "  Log file: $LOG_FILE"
 }
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
+    # Parse command line arguments
+    parse_arguments "$@"
+
+    # Run main function
+    main
 fi

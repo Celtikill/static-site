@@ -1,15 +1,29 @@
 # AWS Static Website Infrastructure
 
-Enterprise-grade AWS static website infrastructure using OpenTofu with multi-account architecture. Implements secure, scalable static website deployment with CloudFront CDN, S3 storage, WAF protection, and comprehensive monitoring.
+This is my take on an enterprise-grade AWS static website infrastructure using OpenTofu with multi-account architecture. My goal here is to implements secure, scalable static website deployment to demonstrate a few things I've learned over my years in the industry.
+
+## Lessons Reflected
+
+If you pay any attention to my commit history, you'll see this thing evolved quite a bit over the course of development. I set out to demonstrate [AWS Well-Architected](https://aws.amazon.com/architecture/well-architected/) patterns, but due to cost and customer demand, focused here:
+
+1. BUILD-TEST-RUN pipeline fidelity.  In my mind, passing builds in that order yeilds cleaner, faster delivery.
+2. Multi-account, multi-environment architecture.  Limit the blast radius of compromise by segregating environments at the highest order (in cloud services, at the account layer).
+3. Cascading access control.  Enable automation even as you segregate, by carefully assigning tiered roles.
+4. Sound security practice (see notes below)
+
+> :warning: Security Warning :warning:
+> Do not use this for anyting you care about.  Do not host sensitive data with what I provide, or use this in production, without careful (and very simple) modification.
+
+It's wise to not run anything you don't personally review and understand.  Of special note here:
+
+- This is a demo pipeline, aimed at deploying a web presence via multi-account architecture, CloudFront and WAF (key security AWS Well Architected features) are managed with feature flags I generally leave off.
+- Since I'm not using CloudFront, TLS encryption (https) is not easily available, and not deployed.
 
 ## 🔄 Pipeline Status
 
 [![Build](https://github.com/Celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/build.yml)
 [![Test](https://github.com/Celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/test.yml)
 [![Run](https://github.com/Celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/run.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6%2B-blue)](https://opentofu.org)
-[![AWS](https://img.shields.io/badge/AWS-Multi--Account-orange)](https://aws.amazon.com)
 
 ## 🎯 Features
 
