@@ -14,9 +14,9 @@ If you pay any attention to my commit history, you'll see this thing evolved qui
 > :warning: Security Warning :warning:
 > Do not use this for anyting you care about.  Do not host sensitive data with what I provide, or use this in production, without careful (and very simple) modification.
 
-It's wise to not run anything you don't personally review and understand.  Of special note here:
+**It's wise to not run anything you don't personally review and understand.**  Of special note here:
 
-- This is a demo pipeline, aimed at deploying a web presence via multi-account architecture, CloudFront and WAF (key security AWS Well Architected features) are managed with feature flags I generally leave off.
+- This is a demo pipeline, aimed at deploying a web presence via multi-account architecture.  CloudFront and WAF (key security AWS Well Architected features) are managed with feature flags I generally leave off.
 - Since I'm not using CloudFront, TLS encryption (https) is not easily available, and not deployed.
 
 ## 🔄 Pipeline Status
