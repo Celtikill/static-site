@@ -140,6 +140,11 @@ matches_project() {
     local resource_name="$1"
     local pattern
 
+    # Handle null or empty resource names
+    if [[ -z "$resource_name" ]] || [[ "$resource_name" == "null" ]]; then
+        return 1
+    fi
+
     for pattern in "${PROJECT_PATTERNS[@]}"; do
         if [[ "$resource_name" == *"$pattern"* ]]; then
             return 0
@@ -199,7 +204,8 @@ destroy_s3_buckets() {
     log_info "🪣 Scanning for S3 buckets..."
 
     local buckets
-    buckets=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+    # S3 buckets are global, no need for region-specific calls
+    buckets=$(AWS_DEFAULT_REGION=us-east-1 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
 
     if [[ -z "$buckets" ]]; then
         log_info "No S3 buckets found"
@@ -342,9 +348,9 @@ destroy_dynamodb_tables() {
 destroy_kms_keys() {
     log_info "🔐 Scanning for KMS keys..."
 
-    # Get all aliases first
+    # Get all aliases first (with timeout to prevent hanging)
     local aliases
-    aliases=$(aws kms list-aliases --query 'Aliases[].{AliasName:AliasName,TargetKeyId:TargetKeyId}' --output json 2>/dev/null || echo "[]")
+    aliases=$(timeout 10 aws kms list-aliases --query 'Aliases[].{AliasName:AliasName,TargetKeyId:TargetKeyId}' --output json 2>/dev/null || echo "[]")
 
     # Handle null or empty response
     if [[ "$aliases" == "null" ]] || [[ "$aliases" == "[]" ]] || [[ -z "$aliases" ]]; then
@@ -392,9 +398,9 @@ destroy_iam_resources() {
         return 0
     fi
 
-    # Destroy IAM roles
+    # Destroy IAM roles (with timeout to prevent hanging)
     local roles
-    roles=$(aws iam list-roles --query 'Roles[].{RoleName:RoleName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
+    roles=$(timeout 15 aws iam list-roles --query 'Roles[].{RoleName:RoleName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
 
     # Handle null or empty response
     if [[ "$roles" == "null" ]] || [[ "$roles" == "[]" ]] || [[ -z "$roles" ]]; then
@@ -434,9 +440,9 @@ destroy_iam_resources() {
         done
     fi
 
-    # Destroy custom IAM policies
+    # Destroy custom IAM policies (with timeout)
     local policies
-    policies=$(aws iam list-policies --scope Local --query 'Policies[].{PolicyName:PolicyName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
+    policies=$(timeout 15 aws iam list-policies --scope Local --query 'Policies[].{PolicyName:PolicyName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
 
     # Handle null or empty response
     if [[ "$policies" == "null" ]] || [[ "$policies" == "[]" ]] || [[ -z "$policies" ]]; then
@@ -703,6 +709,9 @@ generate_dry_run_report() {
     local report_file="/tmp/destruction-report-$(date +%Y%m%d-%H%M%S).txt"
     local total_resources=0
 
+    # Set timeout for long-running operations
+    local AWS_CLI_TIMEOUT="timeout 10"
+
     {
         echo "==============================================="
         echo "AWS Infrastructure Destruction Report"
@@ -717,7 +726,7 @@ generate_dry_run_report() {
         # S3 Buckets
         echo "🪣 S3 BUCKETS:"
         local buckets
-        buckets=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+        buckets=$($AWS_CLI_TIMEOUT AWS_DEFAULT_REGION=us-east-1 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
         local bucket_count=0
         for bucket in $buckets; do
             if matches_project "$bucket"; then
@@ -734,7 +743,7 @@ generate_dry_run_report() {
         # CloudFront Distributions
         echo "🌐 CLOUDFRONT DISTRIBUTIONS:"
         local distributions
-        distributions=$(aws cloudfront list-distributions --query 'DistributionList.Items[].{Id:Id,Comment:Comment,DomainName:DomainName}' --output json 2>/dev/null || echo "[]")
+        distributions=$($AWS_CLI_TIMEOUT aws cloudfront list-distributions --query 'DistributionList.Items[].{Id:Id,Comment:Comment,DomainName:DomainName}' --output json 2>/dev/null || echo "[]")
         local cf_count=0
         if [[ "$distributions" != "[]" ]] && [[ "$distributions" != "null" ]] && [[ -n "$distributions" ]]; then
             echo "$distributions" | jq -r '.[] | select(.Comment != null) | "  - " + .Id + " (" + .Comment + ") - " + .DomainName' | while read -r line; do
