@@ -6,17 +6,18 @@ This is my take on an enterprise-grade AWS static website infrastructure using O
 
 If you pay any attention to my commit history, you'll see this thing evolved quite a bit over the course of development. I set out to demonstrate [AWS Well-Architected](https://aws.amazon.com/architecture/well-architected/) patterns, but due to cost and customer demand, focused here:
 
-1. BUILD-TEST-RUN pipeline fidelity.  In my mind, passing builds in that order yeilds cleaner, faster delivery.
-2. Multi-account, multi-environment architecture.  Limit the blast radius of compromise by segregating environments at the highest order (in cloud services, at the account layer).
-3. Cascading access control.  Enable automation even as you segregate, by carefully assigning tiered roles.
-4. Sound security practice (see notes below)
+1. **BUILD-TEST-RUN pipeline fidelity.**  In my mind, passing builds in that order yeilds cleaner, faster delivery.
+2. **Multi-account, multi-environment architecture.**  Limit the blast radius of compromise by segregating environments at the highest order (in cloud services, at the account layer).
+3. **Cascading access control.**  Enable automation even as you segregate, by carefully assigning tiered roles.
+4. **Generally sound security practice** (see notes below)
 
 > :warning: Security Warning :warning:
 > Do not use this for anyting you care about.  Do not host sensitive data with what I provide, or use this in production, without careful (and very simple) modification.
 
 **It's wise to not run anything you don't personally review and understand.**  Of special note here:
 
-- This is a demo pipeline, aimed at deploying a web presence via multi-account architecture.  CloudFront and WAF (key security AWS Well Architected features) are managed with feature flags I generally leave off.
+- This is a demonstration pipeline, deploying demonstration infrastructure.
+- CloudFront and WAF (key security AWS Well Architected features) are managed with feature flags I generally leave off.
 - Since I'm not using CloudFront, TLS encryption (https) is not easily available, and not deployed.
 - Yes, I realize this is a security concern.  Given the use case and threat model of this demo site, this is acceptable to me as an architect in cybersecurity.
 
