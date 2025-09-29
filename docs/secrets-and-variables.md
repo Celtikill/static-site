@@ -2,6 +2,8 @@
 
 This guide documents the required GitHub Secrets and Variables for the AWS Static Website Infrastructure CI/CD pipeline using the current central OIDC authentication pattern.
 
+> **For complete deployment setup including GitHub configuration**, see Phase 1 of the [Complete Deployment Guide](../DEPLOYMENT_GUIDE.md#phase-1-manual-setup).
+
 ## Table of Contents
 - [Current Architecture](#current-architecture)
 - [Required GitHub Secrets](#required-github-secrets)

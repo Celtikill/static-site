@@ -213,7 +213,7 @@ module "waf" {
 aws cloudwatch get-metric-statistics --namespace AWS/WAFV2 --metric-name AllowedRequests
 
 # View sampled requests
-aws wafv2 get-sampled-requests --web-acl-arn <web-acl-arn> --rule-metric-name <rule-name> --scope CLOUDFRONT --time-window StartTime=2023-01-01T00:00:00Z,EndTime=2023-01-01T23:59:59Z --max-items 100
+aws wafv2 get-sampled-requests --web-acl-arn <web-acl-arn> --rule-metric-name <rule-name> --scope CLOUDFRONT --time-window StartTime=2025-01-01T00:00:00Z,EndTime=2025-01-01T23:59:59Z --max-items 100
 
 # Test IP blocking
 curl -H "X-Forwarded-For: 192.0.2.1" https://example.com

@@ -1,6 +1,8 @@
-# Deployment Guide
+# Advanced Deployment Guide
 
-Comprehensive guide for deploying the AWS Static Website Infrastructure across multiple environments with advanced deployment strategies.
+> **Note**: For step-by-step deployment instructions from scratch, see the [Complete Deployment Guide](../DEPLOYMENT_GUIDE.md).
+
+This guide covers advanced deployment strategies, patterns, and optimizations for the AWS Static Website Infrastructure.
 
 ## Deployment Overview
 
@@ -58,24 +60,21 @@ graph TD
 
 ### 1. Bootstrap New Environment
 
-Required for staging and production environments that haven't been initialized.
+> **📘 Detailed Bootstrap Instructions**: See [Phase 2: Bootstrap Infrastructure](../DEPLOYMENT_GUIDE.md#phase-2-bootstrap-infrastructure) in the Complete Deployment Guide for step-by-step bootstrap procedures including OIDC setup, state storage, and IAM roles.
 
+**Quick Bootstrap Command**:
 ```bash
-# Bootstrap Staging Environment
+# Bootstrap staging environment
 gh workflow run bootstrap-distributed-backend.yml \
   --field project_name=static-site \
   --field environment=staging \
   --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
 
-# Bootstrap Production Environment
+# Bootstrap production environment
 gh workflow run bootstrap-distributed-backend.yml \
   --field project_name=static-site \
   --field environment=prod \
   --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
-
-# Monitor bootstrap progress
-gh run list --limit 3
-gh run watch [BOOTSTRAP_RUN_ID]
 ```
 
 **⏱️ Bootstrap Time**: ~2-3 minutes per environment
@@ -85,15 +84,21 @@ gh run watch [BOOTSTRAP_RUN_ID]
 Deploy or update infrastructure without website content changes.
 
 ```bash
-# Infrastructure deployment to any environment
+# Deploy infrastructure to development
 gh workflow run run.yml \
-  --field environment=[dev|staging|prod] \
+  --field environment=dev \
   --field deploy_infrastructure=true \
   --field deploy_website=false
 
-# Example: Update staging infrastructure
+# Deploy infrastructure to staging
 gh workflow run run.yml \
   --field environment=staging \
+  --field deploy_infrastructure=true \
+  --field deploy_website=false
+
+# Deploy infrastructure to production
+gh workflow run run.yml \
+  --field environment=prod \
   --field deploy_infrastructure=true \
   --field deploy_website=false
 ```
@@ -105,13 +110,19 @@ gh workflow run run.yml \
 Deploy website content changes without infrastructure modifications.
 
 ```bash
-# Website content deployment
+# Deploy website to development
 gh workflow run run.yml \
-  --field environment=[dev|staging|prod] \
+  --field environment=dev \
   --field deploy_infrastructure=false \
   --field deploy_website=true
 
-# Example: Update production website content
+# Deploy website to staging
+gh workflow run run.yml \
+  --field environment=staging \
+  --field deploy_infrastructure=false \
+  --field deploy_website=true
+
+# Deploy website to production
 gh workflow run run.yml \
   --field environment=prod \
   --field deploy_infrastructure=false \
@@ -125,13 +136,19 @@ gh workflow run run.yml \
 Deploy both infrastructure and website content together.
 
 ```bash
-# Complete deployment
+# Full deployment to development
 gh workflow run run.yml \
-  --field environment=[dev|staging|prod] \
+  --field environment=dev \
   --field deploy_infrastructure=true \
   --field deploy_website=true
 
-# Example: Full production deployment
+# Full deployment to staging
+gh workflow run run.yml \
+  --field environment=staging \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+
+# Full deployment to production
 gh workflow run run.yml \
   --field environment=prod \
   --field deploy_infrastructure=true \

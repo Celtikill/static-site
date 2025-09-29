@@ -12,7 +12,9 @@ Command reference and technical specifications for AWS Static Website Infrastruc
 gh workflow run build.yml --field force_build=true --field environment=dev
 
 # Build for specific environment
-gh workflow run build.yml --field environment=[dev|staging|prod]
+gh workflow run build.yml --field environment=dev
+gh workflow run build.yml --field environment=staging
+gh workflow run build.yml --field environment=prod
 ```
 
 #### Test Workflow
@@ -21,44 +23,62 @@ gh workflow run build.yml --field environment=[dev|staging|prod]
 gh workflow run test.yml --field skip_build_check=true --field environment=dev
 
 # Test specific environment configuration
-gh workflow run test.yml --field environment=[dev|staging|prod]
+gh workflow run test.yml --field environment=dev
+gh workflow run test.yml --field environment=staging
+gh workflow run test.yml --field environment=prod
 ```
 
 #### Run Workflow (Deployment)
 ```bash
-# Full deployment (infrastructure + website)
+# Full deployment - Development
 gh workflow run run.yml \
-  --field environment=[dev|staging|prod] \
+  --field environment=dev \
   --field deploy_infrastructure=true \
   --field deploy_website=true
 
-# Infrastructure only
+# Infrastructure only - Development
 gh workflow run run.yml \
-  --field environment=[dev|staging|prod] \
+  --field environment=dev \
   --field deploy_infrastructure=true \
   --field deploy_website=false
 
-# Website content only
+# Website content only - Development
 gh workflow run run.yml \
-  --field environment=[dev|staging|prod] \
+  --field environment=dev \
   --field deploy_infrastructure=false \
   --field deploy_website=true
 ```
 
 #### Bootstrap Workflow
 ```bash
-# Bootstrap new environment distributed backend
+# Bootstrap staging distributed backend
 gh workflow run bootstrap-distributed-backend.yml \
   --field project_name=static-site \
-  --field environment=[staging|prod] \
+  --field environment=staging \
+  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+
+# Bootstrap production distributed backend
+gh workflow run bootstrap-distributed-backend.yml \
+  --field project_name=static-site \
+  --field environment=prod \
   --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
 ```
 
 #### Emergency Workflow
 ```bash
-# Emergency rollback
+# Emergency rollback - Development
 gh workflow run emergency.yml \
-  --field environment=[dev|staging|prod] \
+  --field environment=dev \
+  --field rollback_to_previous=true
+
+# Emergency rollback - Staging
+gh workflow run emergency.yml \
+  --field environment=staging \
+  --field rollback_to_previous=true
+
+# Emergency rollback - Production
+gh workflow run emergency.yml \
+  --field environment=prod \
   --field rollback_to_previous=true
 ```
 
@@ -88,7 +108,9 @@ gh workflow list
 #### Validation and Formatting
 ```bash
 # Validate configuration
-cd terraform/environments/[environment]
+cd terraform/environments/dev    # For development
+cd terraform/environments/staging # For staging
+cd terraform/environments/prod   # For production
 tofu validate
 
 # Format check
@@ -107,7 +129,9 @@ tofu fmt -recursive
 tofu init
 
 # Initialize with backend configuration
-tofu init -backend-config="../backend-configs/[environment].hcl"
+tofu init -backend-config="../backend-configs/dev.hcl"     # Development
+tofu init -backend-config="../backend-configs/staging.hcl" # Staging
+tofu init -backend-config="../backend-configs/prod.hcl"    # Production
 
 # Refresh state
 tofu refresh

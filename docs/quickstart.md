@@ -1,269 +1,88 @@
 # Quick Start Guide
 
-Get your AWS static website deployed in under 10 minutes with this step-by-step guide.
+**For experienced users** - Deploy in under 5 minutes. For detailed instructions, see the [Complete Deployment Guide](../DEPLOYMENT_GUIDE.md).
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+- AWS Account with configured profiles
+- GitHub repository fork with OIDC configured
+- GitHub CLI (`gh` command) installed
 
-- ✅ **AWS Account** with appropriate permissions
-- ✅ **GitHub Account** with repository access
-- ✅ **GitHub CLI** installed (`gh` command)
-- ✅ **OpenTofu/Terraform** installed locally (for validation)
+## 🚀 Rapid Deployment Commands
 
-## 🏗️ Infrastructure Deployment
-
-Deploy complete infrastructure and website to your AWS environment.
-
-### Step 1: Fork and Clone the Repository
-
+### Development (Immediate)
 ```bash
-# Fork this repository on GitHub first, then:
+# Clone and deploy to dev
 git clone https://github.com/<your-username>/static-site.git
 cd static-site
-
-# Update your content in the src/ directory
-# Edit src/index.html, add CSS/JS files as needed
+gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true --field deploy_website=true
 ```
 
-### Step 2: Set Up Authentication
-
-Ensure GitHub Actions has proper AWS credentials configured. The repository uses OIDC authentication - no AWS keys needed in GitHub secrets.
-
-### Step 3: Choose Your Environment
-
-```mermaid
-graph LR
-    A["🎯 Choose Environment"] --> B["🧪 Development<br/>Cost: $1-5/month<br/>Features: S3-only"]
-    A --> C["🚀 Staging<br/>Cost: $15-25/month<br/>Features: CloudFront + S3"]
-    A --> D["🏭 Production<br/>Cost: $25-50/month<br/>Features: Full Stack"]
-
-
-```
-
-### Step 4: Deploy Infrastructure
-
+### Staging (With Bootstrap)
 ```bash
-# For Development Environment
-gh workflow run run.yml \
-  --field environment=dev \
-  --field deploy_infrastructure=true \
-  --field deploy_website=true
-
-# For Staging Environment (requires bootstrap first)
+# Bootstrap staging (one-time)
 gh workflow run bootstrap-distributed-backend.yml \
   --field project_name=static-site \
   --field environment=staging \
   --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
 
-# Then deploy to staging
+# Deploy to staging
 gh workflow run run.yml \
   --field environment=staging \
   --field deploy_infrastructure=true \
   --field deploy_website=true
+```
 
-# For Production Environment (requires bootstrap first)
+### Production (With Bootstrap)
+```bash
+# Bootstrap production (one-time)
 gh workflow run bootstrap-distributed-backend.yml \
   --field project_name=static-site \
   --field environment=prod \
   --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
 
-# Then deploy to production
+# Deploy to production
 gh workflow run run.yml \
   --field environment=prod \
   --field deploy_infrastructure=true \
   --field deploy_website=true
 ```
 
-### Step 4: Monitor Deployment
+### Monitor
+```bash
+gh run watch  # Watch latest run
+gh run list --limit 5  # Check status
+```
+
+**⏱️ Deployment Time**: Dev ~2min | Staging/Prod ~3-5min
+
+
+## ✅ Quick Validation
 
 ```bash
-# Check all recent runs
-gh run list --limit 5
+# Verify deployment
+gh run list --limit 1 --json conclusion,status | grep success
 
-# Get detailed view of specific run
-gh run view [RUN_ID]
-
-# Watch deployment progress
-gh run watch [RUN_ID]
+# Test website
+curl -I $(gh run view --json jobs --jq '.jobs[].steps[].name' | grep -A1 "Website URL" | tail -1)
 ```
 
-**⏱️ Time to Full Deployment**: ~3-5 minutes (including infrastructure + website)
-
----
-
-## 📋 Deployment Pipeline Flow
-
-```mermaid
-graph TD
-    A["📝 Trigger Deployment<br/>GitHub CLI or UI"] --> B["🔨 BUILD Phase<br/>⏱️ ~20 seconds"]
-    B --> C["🧪 TEST Phase<br/>⏱️ ~35 seconds"]
-    C --> D["🚀 RUN Phase<br/>⏱️ ~1m49s"]
-
-    subgraph BuildDetails["🔨 BUILD Phase"]
-        B1["🛡️ Security Scanning<br/>Checkov + Trivy"]
-        B2["📦 Artifact Creation<br/>Website + Infrastructure"]
-        B3["💰 Cost Estimation<br/>Budget Validation"]
-    end
-
-    subgraph TestDetails["🧪 TEST Phase"]
-        C1["📜 Policy Validation<br/>OPA Security Rules"]
-        C2["🔍 Configuration Check<br/>Terraform Syntax"]
-        C3["📊 Compliance Review<br/>Best Practices"]
-    end
-
-    subgraph RunDetails["🚀 RUN Phase"]
-        D1["🏗️ Infrastructure Deploy<br/>OpenTofu Apply"]
-        D2["🌐 Website Deploy<br/>S3 Sync + CloudFront"]
-        D3["✅ Health Validation<br/>HTTP Checks"]
-    end
-
-    B --> BuildDetails
-    C --> TestDetails
-    D --> RunDetails
-
-
-```
-
----
-
-## 🎯 Validation Steps
-
-### 1. Verify Deployment Success
+## 🔧 Common Operations
 
 ```bash
-# Check deployment status
-gh run list --limit 1 --json conclusion,status,workflowName
+# Update website only
+gh workflow run run.yml --field environment=dev --field deploy_website=true
 
-# Expected output: conclusion: "success", status: "completed"
+# Update infrastructure only
+gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
+
+# Rollback
+gh workflow run emergency.yml --field environment=dev --field rollback_to_previous=true
 ```
 
-### 2. Test Website Accessibility
+## 📚 Resources
 
-```bash
-# Get website URL from GitHub Actions summary
-# Or check README.md for current URLs
-
-# Test HTTP response
-curl -I [WEBSITE_URL]
-# Expected: HTTP/1.1 200 OK
-```
-
-### 3. Verify Security Controls
-
-```bash
-# Check security scan results in GitHub Actions
-gh run view [RUN_ID] --log
-
-# Look for:
-# ✅ Checkov: No critical/high issues
-# ✅ Trivy: No vulnerabilities
-# ✅ OPA: All policies passed
-```
-
----
-
-## 🔧 Customization
-
-### Modify Website Content
-
-1. **Edit Source Files**:
-   ```bash
-   # Modify website content
-   vi src/index.html
-   vi src/css/style.css
-   ```
-
-2. **Deploy Changes**:
-   ```bash
-   # Website-only deployment (faster)
-   gh workflow run run.yml \
-     --field environment=dev \
-     --field deploy_infrastructure=false \
-     --field deploy_website=true
-   ```
-
-### Infrastructure Configuration
-
-1. **Environment Variables**: Located in `.github/workflows/` files
-2. **Terraform Variables**: Located in `terraform/environments/[env]/`
-3. **Feature Flags**: Cost optimization toggles in terraform modules
-
-### Cost Optimization
-
-- **Development**: CloudFront disabled, minimal features (~$1-5/month)
-- **Staging**: Balanced features for testing (~$15-25/month)
-- **Production**: Full features for live traffic (~$25-50/month)
-
----
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-**Deployment Fails in BUILD Phase**
-```bash
-# Check security scan results
-gh run view [RUN_ID] --log | grep -A 10 "Security"
-
-# Common fixes:
-# - Update Terraform configuration for security compliance
-# - Check for infrastructure misconfigurations
-```
-
-**Deployment Fails in TEST Phase**
-```bash
-# Check policy validation
-gh run view [RUN_ID] --log | grep -A 10 "Policy"
-
-# Common fixes:
-# - Review OPA policy violations
-# - Update infrastructure to meet compliance requirements
-```
-
-**Website Not Accessible**
-```bash
-# Check CloudFront invalidation
-gh run view [RUN_ID] --log | grep -A 5 "CloudFront"
-
-# Common fixes:
-# - Wait 2-3 minutes for CloudFront propagation
-# - Check S3 bucket permissions
-# - Verify WAF rules aren't blocking traffic
-```
-
-### Getting Help
-
-- 📖 **Documentation**: [Architecture Guide](architecture.md)
-- 🔧 **Deployment Issues**: [Deployment Guide](deployment.md)
-- 🔍 **Detailed Troubleshooting**: [Troubleshooting Guide](troubleshooting.md)
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Celtikill/static-site/issues)
-- 🔒 **Security Issues**: [Security Policy](../SECURITY.md)
-
----
-
-## ✅ Success Checklist
-
-After deployment, verify:
-
-- [ ] **Build Phase**: ✅ All security scans passed
-- [ ] **Test Phase**: ✅ All policies compliant
-- [ ] **Run Phase**: ✅ Infrastructure deployed successfully
-- [ ] **Website**: ✅ Accessible via provided URL
-- [ ] **Monitoring**: ✅ CloudWatch dashboards active
-- [ ] **Security**: ✅ No critical vulnerabilities
-- [ ] **Cost**: ✅ Within expected budget range
-
-**🎉 Congratulations!** Your secure, scalable static website is now live on AWS.
-
----
-
-## 🚀 Next Steps
-
-1. **Customize Content**: Update `src/` files with your website content
-2. **Set Up Monitoring**: Configure alerts and dashboards
-3. **Scale Up**: Deploy to staging and production environments
-4. **Optimize Costs**: Review and adjust feature flags
-5. **Enhance Security**: Review security policies and compliance
-
-Ready to deploy to additional environments? See the [Deployment Guide](deployment.md) for advanced deployment strategies.
+- **Detailed Setup**: [Complete Deployment Guide](../DEPLOYMENT_GUIDE.md)
+- **Advanced Patterns**: [Advanced Deployment](deployment.md)
+- **Troubleshooting**: [Troubleshooting Guide](troubleshooting.md)
+- **Architecture**: [Architecture Guide](architecture.md)

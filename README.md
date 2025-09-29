@@ -216,11 +216,12 @@ graph TD
 
 ## 📚 Documentation
 
+- **[Complete Deployment Guide](DEPLOYMENT_GUIDE.md)** - Comprehensive step-by-step deployment from zero to production
 - **[Quick Start Guide](docs/quickstart.md)** - Get started in 10 minutes
 - **[Architecture Guide](docs/architecture.md)** - Detailed technical architecture
 - **[3-Tier Permissions Architecture](docs/permissions-architecture.md)** - IAM roles and security model
 - **[Security Policy](SECURITY.md)** - Security practices and vulnerability reporting
-- **[Deployment Guide](docs/deployment.md)** - Step-by-step deployment procedures
+- **[Advanced Deployment](docs/deployment.md)** - Advanced deployment strategies and patterns
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 - **[Reference Guide](docs/reference.md)** - Command reference and specifications
 

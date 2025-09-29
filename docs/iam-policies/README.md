@@ -145,8 +145,8 @@ If you encounter permission errors:
 
 ## Version History
 
-- **2024-08**: Initial policy structure
-- **2024-09**: Consolidated to 4 essential policies
+- **2025-08**: Initial policy structure
+- **2025-09**: Consolidated to 4 essential policies
 - **Current**: Script-based management with file-based references
 
 ## Notes

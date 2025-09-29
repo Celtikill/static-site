@@ -2,6 +2,8 @@
 
 Common issues and solutions for AWS Static Website Infrastructure deployment and operation.
 
+> **For comprehensive deployment troubleshooting**, see the troubleshooting section in the [Complete Deployment Guide](../DEPLOYMENT_GUIDE.md#troubleshooting).
+
 ## Quick Diagnostics
 
 ### Check Deployment Status
@@ -449,17 +451,13 @@ tofu force-unlock [LOCK_ID]
 
 ### Emergency Rollback
 
+> **See also**: [Rollback Procedures](../DEPLOYMENT_GUIDE.md#rollback-procedures) in the Complete Deployment Guide for detailed rollback strategies.
+
 ```bash
-# 1. Identify last known good deployment
-gh run list --limit 10 --json conclusion,status,createdAt
-
-# 2. Trigger emergency rollback
+# Quick emergency rollback
 gh workflow run emergency.yml \
-  --field environment=[env] \
+  --field environment=dev \
   --field rollback_to_previous=true
-
-# 3. Monitor rollback progress
-gh run watch [ROLLBACK_RUN_ID]
 ```
 
 ### State File Recovery

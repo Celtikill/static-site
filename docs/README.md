@@ -12,6 +12,7 @@ Welcome to the AWS Static Website Infrastructure documentation. Start with the [
 ## 🚀 Essential Documentation
 
 ### Get Started Quickly
+- **[Complete Deployment Guide](../DEPLOYMENT_GUIDE.md)** ⭐⭐ - Comprehensive step-by-step guide from zero to production
 - **[Quick Start](quickstart.md)** ⭐ - Deploy your website in under 10 minutes
 - **[Reference Guide](reference.md)** ⭐⭐ - All commands and technical specifications
 - **[Troubleshooting](troubleshooting.md)** ⭐ - Common issues and solutions
