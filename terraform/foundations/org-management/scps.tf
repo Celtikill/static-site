@@ -140,7 +140,7 @@ resource "aws_organizations_policy" "sandbox_restrictions" {
         ]
         Resource = "*"
         Condition = {
-          ForAllValues:StringNotLike = {
+          "ForAllValues:StringNotLike" = {
             "ec2:InstanceType" = [
               "t2.micro",
               "t2.small",

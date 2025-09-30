@@ -50,21 +50,7 @@ resource "aws_organizations_organization" "main" {
   ]
 }
 
-# Create Organizational Units
-resource "aws_organizations_organizational_unit" "security" {
-  name      = "Security"
-  parent_id = aws_organizations_organization.main.roots[0].id
-}
-
-resource "aws_organizations_organizational_unit" "workloads" {
-  name      = "Workloads"
-  parent_id = aws_organizations_organization.main.roots[0].id
-}
-
-resource "aws_organizations_organizational_unit" "sandbox" {
-  name      = "Sandbox"
-  parent_id = aws_organizations_organization.main.roots[0].id
-}
+# Organizational Units are defined in ous.tf
 
 # Enable AWS CloudTrail for organization
 resource "aws_cloudtrail" "organization_trail" {
@@ -388,54 +374,7 @@ resource "aws_iam_role_policy_attachment" "github_actions_org_management" {
   policy_arn = aws_iam_policy.github_actions_org_management.arn
 }
 
-# Create Service Control Policy for workload accounts
-resource "aws_organizations_policy" "workload_guardrails" {
-  name        = "WorkloadGuardrails"
-  description = "Security guardrails for workload accounts"
-  type        = "SERVICE_CONTROL_POLICY"
-
-  content = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid      = "DenyRootAccount"
-        Effect   = "Deny"
-        Action   = "*"
-        Resource = "*"
-        Condition = {
-          StringLike = {
-            "aws:PrincipalArn" = "arn:aws:iam::*:root"
-          }
-        }
-      },
-      {
-        Sid      = "RequireIMDSv2"
-        Effect   = "Deny"
-        Action   = "ec2:RunInstances"
-        Resource = "arn:aws:ec2:*:*:instance/*"
-        Condition = {
-          StringNotEquals = {
-            "ec2:MetadataHttpTokens" = "required"
-          }
-        }
-      },
-      {
-        Sid    = "DenyS3PublicAccess"
-        Effect = "Deny"
-        Action = [
-          "s3:PutBucketPublicAccessBlock",
-          "s3:DeletePublicAccessBlock"
-        ]
-        Resource = "*"
-        Condition = {
-          Bool = {
-            "s3:PublicAccessBlockConfiguration.BlockPublicAcls" = "false"
-          }
-        }
-      }
-    ]
-  })
-}
+# Service Control Policies are defined in scps.tf
 
 # Outputs
 output "organization_id" {

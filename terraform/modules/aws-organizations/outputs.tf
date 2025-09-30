@@ -33,12 +33,13 @@ output "accounts" {
       arn   = v.arn
     }
   } : {
-    for k, v in data.aws_organizations_account.existing : k => {
-      id    = v.id
-      name  = v.name
-      email = v.email
-      arn   = v.arn
-    }
+    # When importing existing accounts, use the organization data source
+    for account in local.organization.accounts : account.name => {
+      id    = account.id
+      name  = account.name
+      email = account.email
+      arn   = account.arn
+    } if contains(values(var.existing_account_ids), account.id)
   }
 }
 

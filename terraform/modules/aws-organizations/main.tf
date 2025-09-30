@@ -18,8 +18,6 @@ resource "aws_organizations_organization" "this" {
   aws_service_access_principals = var.aws_service_access_principals
   enabled_policy_types         = var.enabled_policy_types
   feature_set                  = var.feature_set
-
-  tags = var.tags
 }
 
 # Data source for existing organization
@@ -67,12 +65,8 @@ resource "aws_organizations_account" "this" {
   })
 }
 
-# Data source for existing accounts (import mode)
-data "aws_organizations_account" "existing" {
-  for_each = var.create_accounts ? {} : var.existing_account_ids
-
-  account_id = each.value
-}
+# Note: AWS provider doesn't have aws_organizations_account data source
+# Account information comes from aws_organizations_organization data source
 
 # Service Control Policies
 resource "aws_organizations_policy" "this" {
@@ -152,19 +146,17 @@ resource "aws_s3_bucket_versioning" "cloudtrail" {
   }
 }
 
-resource "aws_s3_bucket_encryption" "cloudtrail" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail" {
   count = var.enable_cloudtrail ? 1 : 0
 
   bucket = aws_s3_bucket.cloudtrail[0].id
 
-  server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        kms_master_key_id = var.enable_cloudtrail_encryption ? aws_kms_key.cloudtrail[0].arn : null
-        sse_algorithm     = var.enable_cloudtrail_encryption ? "aws:kms" : "AES256"
-      }
-      bucket_key_enabled = var.enable_cloudtrail_encryption
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = var.enable_cloudtrail_encryption ? aws_kms_key.cloudtrail[0].arn : null
+      sse_algorithm     = var.enable_cloudtrail_encryption ? "aws:kms" : "AES256"
     }
+    bucket_key_enabled = var.enable_cloudtrail_encryption
   }
 }
 

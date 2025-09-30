@@ -22,11 +22,9 @@ locals {
   }
 }
 
-# Data sources for existing accounts (when importing)
-data "aws_organizations_account" "existing_accounts" {
-  for_each = var.import_existing_accounts ? var.existing_account_ids : {}
-
-  account_id = each.value
+# Data source for existing organization (when importing)
+data "aws_organizations_organization" "existing" {
+  count = var.import_existing_accounts ? 1 : 0
 }
 
 # Managed account resources (for new accounts or after import)
@@ -54,6 +52,8 @@ resource "aws_organizations_account" "workload_accounts" {
 
 # Output account IDs for use by other modules
 locals {
+  # When importing, use the provided account IDs
+  # When creating, use the created account IDs
   account_ids = var.import_existing_accounts ? var.existing_account_ids : {
     for k, v in aws_organizations_account.workload_accounts : k => v.id
   }
