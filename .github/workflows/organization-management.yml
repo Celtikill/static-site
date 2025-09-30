@@ -88,28 +88,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Debug OIDC Token Claims
-        uses: github/actions-oidc-debugger@v1
-        with:
-          audience: sts.amazonaws.com
-
-      - name: Manual JWT Token Debug
-        run: |
-          echo "🔍 Debugging OIDC JWT Token Claims..."
-          ID_TOKEN=$(curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-
-          echo "📋 JWT Header:"
-          echo $ID_TOKEN | cut -d. -f1 | base64 -d | jq
-
-          echo "📋 JWT Payload (Claims):"
-          echo $ID_TOKEN | cut -d. -f2 | base64 -d | jq
-
-          echo "🔑 Key Claims for Trust Policy:"
-          echo "Subject (sub): $(echo $ID_TOKEN | cut -d. -f2 | base64 -d | jq -r '.sub')"
-          echo "Audience (aud): $(echo $ID_TOKEN | cut -d. -f2 | base64 -d | jq -r '.aud')"
-          echo "Repository: $(echo $ID_TOKEN | cut -d. -f2 | base64 -d | jq -r '.repository')"
-          echo "Event: $(echo $ID_TOKEN | cut -d. -f2 | base64 -d | jq -r '.event_name')"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
