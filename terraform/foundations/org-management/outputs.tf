@@ -59,7 +59,25 @@ output "service_control_policies" {
       id          = aws_organizations_policy.workload_guardrails.id
       name        = aws_organizations_policy.workload_guardrails.name
       description = aws_organizations_policy.workload_guardrails.description
+      target_ou   = aws_organizations_organizational_unit.workloads.name
     }
+    sandbox_restrictions = {
+      id          = aws_organizations_policy.sandbox_restrictions.id
+      name        = aws_organizations_policy.sandbox_restrictions.name
+      description = aws_organizations_policy.sandbox_restrictions.description
+      target_ou   = aws_organizations_organizational_unit.sandbox.name
+    }
+  }
+}
+
+# Account information output
+output "account_information" {
+  description = "Account IDs and management information"
+  value = {
+    management_account_id = data.aws_caller_identity.current.account_id
+    workload_account_ids  = local.account_ids
+    import_mode          = var.import_existing_accounts
+    create_mode          = var.create_new_accounts
   }
 }
 

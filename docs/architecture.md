@@ -13,25 +13,25 @@ This system implements enterprise-grade static website hosting using AWS service
 ```mermaid
 graph TB
     subgraph Org["🏛️ AWS Organization<br/>o-0hh51yjgxw"]
-        subgraph Management["🏢 Management Account<br/>223938610551"]
+        subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
             OIDC["🔐 OIDC Provider<br/>github.com/Celtikill/static-site"]
             Bootstrap["⚙️ Bootstrap Role<br/>GitHubActions-Bootstrap-Central"]
             Central["🌐 Central Role<br/>GitHubActions-StaticSite-Central"]
         end
 
-        subgraph Dev["🧪 Dev Account<br/>822529998967"]
+        subgraph Dev["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
             DevRole["🔧 Dev Role<br/>GitHubActions-StaticSite-Dev-Role"]
-            DevState["💾 Dev State Backend<br/>static-site-state-dev-822529998967"]
+            DevState["💾 Dev State Backend<br/>static-site-state-dev-DEVELOPMENT_ACCOUNT_ID"]
             DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
         end
 
-        subgraph Staging["🚀 Staging Account<br/>927588814642"]
+        subgraph Staging["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
             StagingRole["🔧 Staging Role<br/>GitHubActions-StaticSite-Staging-Role"]
             StagingState["💾 Staging State Backend<br/>⏳ Ready for Bootstrap"]
             StagingInfra["☁️ Staging Infrastructure<br/>⏳ Ready for Deployment"]
         end
 
-        subgraph Prod["🏭 Production Account<br/>546274483801"]
+        subgraph Prod["🏭 Production Account<br/>PRODUCTION_ACCOUNT_ID"]
             ProdRole["🔧 Prod Role<br/>GitHubActions-StaticSite-Prod-Role"]
             ProdState["💾 Production State Backend<br/>⏳ Ready for Bootstrap"]
             ProdInfra["☁️ Production Infrastructure<br/>⏳ Ready for Deployment"]

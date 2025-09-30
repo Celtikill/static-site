@@ -35,17 +35,17 @@ graph TB
         OIDC["🔐 OIDC Authentication<br/>No Stored Credentials"]
     end
 
-    subgraph Management["🏢 Management Account<br/>223938610551"]
+    subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
         Bootstrap["🎯 Tier 1: Bootstrap Role<br/>GitHubActions-Bootstrap-Central<br/>Infrastructure Creation"]
         Central["🌐 Tier 2: Central Role<br/>GitHubActions-StaticSite-Central<br/>Cross-Account Orchestration"]
     end
 
-    subgraph DevAccount["🧪 Dev Account<br/>822529998967"]
+    subgraph DevAccount["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
         DevBootstrap["🎯 Dev Bootstrap Role<br/>GitHubActions-Bootstrap-Dev<br/>Account-Specific Infrastructure"]
         DevDeploy["🔧 Tier 3: Dev Deploy Role<br/>GitHubActions-StaticSite-Dev<br/>Application Deployment Only"]
     end
 
-    subgraph StagingAccount["🚀 Staging Account<br/>927588814642"]
+    subgraph StagingAccount["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
         StagingBootstrap["🎯 Staging Bootstrap Role<br/>GitHubActions-Bootstrap-Staging<br/>Account-Specific Infrastructure"]
         StagingDeploy["🔧 Tier 3: Staging Deploy Role<br/>GitHubActions-StaticSite-Staging<br/>Application Deployment Only"]
     end
@@ -61,7 +61,7 @@ graph TB
 #### Tier 1: Bootstrap Role (Infrastructure Creation)
 ```yaml
 Role: GitHubActions-Bootstrap-Central
-Account: Management (223938610551)
+Account: Management (MANAGEMENT_ACCOUNT_ID)
 Purpose: Create foundational infrastructure (S3 backends, DynamoDB tables, KMS keys)
 Trust: GitHub OIDC (main branch only)
 Permissions:
@@ -76,7 +76,7 @@ Usage: Rare, typically during environment setup
 #### Tier 2: Central Role (Cross-Account Orchestration)
 ```yaml
 Role: GitHubActions-StaticSite-Central
-Account: Management (223938610551)
+Account: Management (MANAGEMENT_ACCOUNT_ID)
 Purpose: Coordinate deployments across multiple accounts
 Trust: GitHub OIDC (all branches)
 Permissions:
@@ -186,8 +186,8 @@ The following compromises were made to achieve MVP functionality:
 {
   "Principal": {
     "AWS": [
-      "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central",
-      "arn:aws:iam::223938610551:role/GitHubActions-Bootstrap-Central"
+      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central",
+      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Central"
     ]
   }
 }
@@ -198,7 +198,7 @@ The following compromises were made to achieve MVP functionality:
 {
   "Principal": {
     "AWS": [
-      "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central"
     ]
   }
 }
@@ -214,7 +214,7 @@ The following compromises were made to achieve MVP functionality:
 # CURRENT (Compromised)
 # Bootstrap role assumes environment role to create resources
 aws sts assume-role \
-  --role-arn "arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role" \
+  --role-arn "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role" \
   --external-id "github-actions-static-site"
 ```
 
@@ -222,7 +222,7 @@ aws sts assume-role \
 # INTENDED (Pure Architecture)
 # Bootstrap role assumes dedicated bootstrap role in target account
 aws sts assume-role \
-  --role-arn "arn:aws:iam::822529998967:role/GitHubActions-Bootstrap-Dev" \
+  --role-arn "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Dev" \
   --external-id "github-actions-bootstrap"
 ```
 
@@ -276,9 +276,9 @@ aws sts assume-role \
 **Objective**: Establish dedicated bootstrap roles in each target account
 
 **Tasks**:
-1. Create `GitHubActions-Bootstrap-Dev` in dev account (822529998967)
-2. Create `GitHubActions-Bootstrap-Staging` in staging account (927588814642)
-3. Create `GitHubActions-Bootstrap-Prod` in prod account (546274483801)
+1. Create `GitHubActions-Bootstrap-Dev` in dev account (DEVELOPMENT_ACCOUNT_ID)
+2. Create `GitHubActions-Bootstrap-Staging` in staging account (STAGING_ACCOUNT_ID)
+3. Create `GitHubActions-Bootstrap-Prod` in prod account (PRODUCTION_ACCOUNT_ID)
 4. Configure trust policies to allow assumption from `GitHubActions-Bootstrap-Central`
 5. Grant minimal permissions required for backend creation
 
@@ -361,12 +361,12 @@ aws sts assume-role \
 
 ```yaml
 Role Name: GitHubActions-Bootstrap-Central
-Account: 223938610551 (Management)
+Account: MANAGEMENT_ACCOUNT_ID (Management)
 Description: Cross-account infrastructure bootstrap coordinator
 
 Trust Policy:
   Principal:
-    Federated: arn:aws:iam::223938610551:oidc-provider/token.actions.githubusercontent.com
+    Federated: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
   Condition:
     StringEquals:
       token.actions.githubusercontent.com:sub: repo:Celtikill/static-site:ref:refs/heads/main
@@ -377,9 +377,9 @@ Permission Policy:
     - Effect: Allow
       Action: sts:AssumeRole
       Resource:
-        - arn:aws:iam::822529998967:role/GitHubActions-Bootstrap-Dev
-        - arn:aws:iam::927588814642:role/GitHubActions-Bootstrap-Staging
-        - arn:aws:iam::546274483801:role/GitHubActions-Bootstrap-Prod
+        - arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Dev
+        - arn:aws:iam::STAGING_ACCOUNT_ID:role/GitHubActions-Bootstrap-Staging
+        - arn:aws:iam::PRODUCTION_ACCOUNT_ID:role/GitHubActions-Bootstrap-Prod
       Condition:
         StringEquals:
           sts:ExternalId: github-actions-bootstrap
@@ -394,7 +394,7 @@ Description: Account-specific infrastructure creation
 
 Trust Policy:
   Principal:
-    AWS: arn:aws:iam::223938610551:role/GitHubActions-Bootstrap-Central
+    AWS: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Central
   Condition:
     StringEquals:
       sts:ExternalId: github-actions-bootstrap
@@ -425,12 +425,12 @@ Permission Policy:
 
 ```yaml
 Role Name: GitHubActions-StaticSite-Central
-Account: 223938610551 (Management)
+Account: MANAGEMENT_ACCOUNT_ID (Management)
 Description: Cross-account deployment coordinator
 
 Trust Policy:
   Principal:
-    Federated: arn:aws:iam::223938610551:oidc-provider/token.actions.githubusercontent.com
+    Federated: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
   Condition:
     StringLike:
       token.actions.githubusercontent.com:sub: repo:Celtikill/static-site:*
@@ -442,9 +442,9 @@ Permission Policy:
     - Effect: Allow
       Action: sts:AssumeRole
       Resource:
-        - arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role
-        - arn:aws:iam::927588814642:role/GitHubActions-StaticSite-Staging-Role
-        - arn:aws:iam::546274483801:role/GitHubActions-StaticSite-Prod-Role
+        - arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role
+        - arn:aws:iam::STAGING_ACCOUNT_ID:role/GitHubActions-StaticSite-Staging-Role
+        - arn:aws:iam::PRODUCTION_ACCOUNT_ID:role/GitHubActions-StaticSite-Prod-Role
       Condition:
         StringEquals:
           sts:ExternalId: github-actions-static-site
@@ -459,7 +459,7 @@ Description: Application deployment and management
 
 Trust Policy:
   Principal:
-    AWS: arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central
+    AWS: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central
   Condition:
     StringEquals:
       sts:ExternalId: github-actions-static-site
@@ -607,7 +607,7 @@ aws iam get-role --role-name GitHubActions-Bootstrap-Dev
 ```bash
 # Check Central role can assume environment role
 aws sts assume-role \
-  --role-arn arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role \
+  --role-arn arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role \
   --role-session-name test \
   --external-id github-actions-static-site
 
@@ -658,11 +658,11 @@ aws iam get-role-policy \
   "sourceIPAddress": "github-actions-runner",
   "userIdentity": {
     "type": "AssumedRole",
-    "arn": "arn:aws:sts::223938610551:assumed-role/GitHubActions-Bootstrap-Central/bootstrap-session",
+    "arn": "arn:aws:sts::MANAGEMENT_ACCOUNT_ID:assumed-role/GitHubActions-Bootstrap-Central/bootstrap-session",
     "principalId": "...:bootstrap-session"
   },
   "resources": [{
-    "ARN": "arn:aws:iam::822529998967:role/GitHubActions-Bootstrap-Dev"
+    "ARN": "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Dev"
   }]
 }
 ```
@@ -673,7 +673,7 @@ aws iam get-role-policy \
   "eventName": "CreateBucket",
   "userIdentity": {
     "type": "AssumedRole",
-    "arn": "arn:aws:sts::822529998967:assumed-role/GitHubActions-StaticSite-Dev-Role/deploy-session"
+    "arn": "arn:aws:sts::DEVELOPMENT_ACCOUNT_ID:assumed-role/GitHubActions-StaticSite-Dev-Role/deploy-session"
   }
 }
 ```
@@ -687,10 +687,10 @@ aws iam get-role-policy \
   "eventName": "AssumeRole",
   "userIdentity": {
     "type": "AssumedRole",
-    "arn": "arn:aws:sts::223938610551:assumed-role/GitHubActions-StaticSite-Central/deployment-session"
+    "arn": "arn:aws:sts::MANAGEMENT_ACCOUNT_ID:assumed-role/GitHubActions-StaticSite-Central/deployment-session"
   },
   "resources": [{
-    "ARN": "arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role"
+    "ARN": "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role"
   }]
 }
 ```

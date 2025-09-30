@@ -66,10 +66,10 @@ You need access to four AWS accounts:
 
 | Account Type | Account ID | Purpose |
 |-------------|------------|---------|
-| Management | 223938610551 | Hosts OIDC provider and central IAM role |
-| Development | 822529998967 | Dev environment resources |
-| Staging | 927588814642 | Staging environment resources |
-| Production | 546274483801 | Production environment resources |
+| Management | MANAGEMENT_ACCOUNT_ID | Hosts OIDC provider and central IAM role |
+| Development | DEVELOPMENT_ACCOUNT_ID | Dev environment resources |
+| Staging | STAGING_ACCOUNT_ID | Staging environment resources |
+| Production | PRODUCTION_ACCOUNT_ID | Production environment resources |
 
 ### Configure AWS Profiles
 
@@ -79,19 +79,19 @@ Set up your AWS CLI profiles for easier account switching:
 # Edit ~/.aws/config
 [profile management]
 region = us-east-1
-account_id = 223938610551
+account_id = MANAGEMENT_ACCOUNT_ID
 
 [profile dev]
 region = us-east-1
-account_id = 822529998967
+account_id = DEVELOPMENT_ACCOUNT_ID
 
 [profile staging]
 region = us-east-1
-account_id = 927588814642
+account_id = STAGING_ACCOUNT_ID
 
 [profile prod]
 region = us-east-1
-account_id = 546274483801
+account_id = PRODUCTION_ACCOUNT_ID
 ```
 
 ---
@@ -114,7 +114,7 @@ These steps must be done manually through web interfaces.
 3. **Add Repository Secret:**
    - Click "New repository secret"
    - Name: `AWS_ASSUME_ROLE_CENTRAL`
-   - Value: `arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central`
+   - Value: `arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central`
    - Click "Add secret"
 
 4. **Add Repository Variables:**
@@ -123,9 +123,9 @@ These steps must be done manually through web interfaces.
 
    | Name | Value |
    |------|-------|
-   | AWS_ACCOUNT_ID_DEV | 822529998967 |
-   | AWS_ACCOUNT_ID_STAGING | 927588814642 |
-   | AWS_ACCOUNT_ID_PROD | 546274483801 |
+   | AWS_ACCOUNT_ID_DEV | DEVELOPMENT_ACCOUNT_ID |
+   | AWS_ACCOUNT_ID_STAGING | STAGING_ACCOUNT_ID |
+   | AWS_ACCOUNT_ID_PROD | PRODUCTION_ACCOUNT_ID |
    | AWS_DEFAULT_REGION | us-east-1 |
    | OPENTOFU_VERSION | 1.6.0 |
 
@@ -198,11 +198,11 @@ cd terraform/bootstrap
 tofu init
 
 # Create state infrastructure for dev
-tofu apply -var="environment=dev" -var="aws_account_id=822529998967"
+tofu apply -var="environment=dev" -var="aws_account_id=DEVELOPMENT_ACCOUNT_ID"
 
 # Type 'yes' when prompted
 # What to expect:
-# - Creates S3 bucket: static-site-state-dev-822529998967
+# - Creates S3 bucket: static-site-state-dev-DEVELOPMENT_ACCOUNT_ID
 # - Creates DynamoDB table: static-site-locks-dev
 # - Creates KMS key for encryption
 # - "Apply complete! Resources: 7 added, 0 changed, 0 destroyed."
@@ -215,7 +215,7 @@ tofu apply -var="environment=dev" -var="aws_account_id=822529998967"
 export AWS_PROFILE=staging
 
 # Apply for staging (still in terraform/bootstrap directory)
-tofu apply -var="environment=staging" -var="aws_account_id=927588814642"
+tofu apply -var="environment=staging" -var="aws_account_id=STAGING_ACCOUNT_ID"
 
 # Type 'yes' when prompted
 # What to expect: Similar to dev, but with staging-specific names
@@ -228,7 +228,7 @@ tofu apply -var="environment=staging" -var="aws_account_id=927588814642"
 export AWS_PROFILE=prod
 
 # Apply for production
-tofu apply -var="environment=prod" -var="aws_account_id=546274483801"
+tofu apply -var="environment=prod" -var="aws_account_id=PRODUCTION_ACCOUNT_ID"
 
 # Type 'yes' when prompted
 # What to expect: Similar to dev, but with prod-specific names
@@ -253,9 +253,9 @@ tofu init
 # Apply for dev
 tofu apply \
   -var="environment=dev" \
-  -var="central_role_arn=arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central" \
+  -var="central_role_arn=arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central" \
   -var="external_id=github-actions-static-site" \
-  -var="state_bucket_account_id=223938610551" \
+  -var="state_bucket_account_id=MANAGEMENT_ACCOUNT_ID" \
   -var="state_bucket_region=us-east-1"
 
 # Type 'yes' when prompted
@@ -273,9 +273,9 @@ export AWS_PROFILE=staging
 # Apply for staging (same directory)
 tofu apply \
   -var="environment=staging" \
-  -var="central_role_arn=arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central" \
+  -var="central_role_arn=arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central" \
   -var="external_id=github-actions-static-site" \
-  -var="state_bucket_account_id=223938610551" \
+  -var="state_bucket_account_id=MANAGEMENT_ACCOUNT_ID" \
   -var="state_bucket_region=us-east-1"
 ```
 
@@ -288,9 +288,9 @@ export AWS_PROFILE=prod
 # Apply for production
 tofu apply \
   -var="environment=prod" \
-  -var="central_role_arn=arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central" \
+  -var="central_role_arn=arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central" \
   -var="external_id=github-actions-static-site" \
-  -var="state_bucket_account_id=223938610551" \
+  -var="state_bucket_account_id=MANAGEMENT_ACCOUNT_ID" \
   -var="state_bucket_region=us-east-1"
 ```
 
@@ -301,9 +301,9 @@ tofu apply \
 aws s3 ls | grep static-site-state
 
 # Expected output:
-# 2025-01-15 10:00:00 static-site-state-dev-822529998967
-# 2025-01-15 10:05:00 static-site-state-staging-927588814642
-# 2025-01-15 10:10:00 static-site-state-prod-546274483801
+# 2025-01-15 10:00:00 static-site-state-dev-DEVELOPMENT_ACCOUNT_ID
+# 2025-01-15 10:05:00 static-site-state-staging-STAGING_ACCOUNT_ID
+# 2025-01-15 10:10:00 static-site-state-prod-PRODUCTION_ACCOUNT_ID
 
 # Check that IAM roles were created (in management account)
 export AWS_PROFILE=management
@@ -467,7 +467,7 @@ aws iam get-role --role-name GitHubActions-StaticSite-Central --profile manageme
 
 **Solution:** Ensure state bucket exists:
 ```bash
-aws s3 ls s3://static-site-state-dev-822529998967 --profile dev
+aws s3 ls s3://static-site-state-dev-DEVELOPMENT_ACCOUNT_ID --profile dev
 # If bucket doesn't exist, run bootstrap again
 ```
 

@@ -9,7 +9,7 @@ This directory contains AWS IAM policy documents used for configuring access con
 #### `github-oidc-trust-policy.json`
 - **Purpose**: Allows GitHub Actions to assume IAM role via OIDC
 - **Usage**: Attach to the `github-actions-management` role
-- **Account**: Configured for account `<MGMT-ACCOUNT-ID>`
+- **Account**: Configured for account `MANAGEMENT_ACCOUNT_ID`
 - **Repository**: Configured for `<your-org>/static-site`
 - **Branches**: Supports main, feature/*, bugfix/*, hotfix/*, and pull requests
 
@@ -96,7 +96,7 @@ All policies follow the project's security principles:
 
 ### Adapting for Your Organization
 
-1. **Update Account ID**: Replace `<MGMT-ACCOUNT-ID>` with your AWS account ID
+1. **Update Account ID**: Replace `MANAGEMENT_ACCOUNT_ID` with your AWS account ID
 2. **Update Repository**: Replace `<your-org>/static-site` with your GitHub repository
 3. **Update Resource Patterns**: Modify bucket naming patterns to match your conventions
 4. **Add Regions**: Include additional regions if deploying globally

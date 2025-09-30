@@ -97,23 +97,23 @@ gh workflow run bootstrap-distributed-backend.yml \
 ### Multi-Account Architecture
 ```mermaid
 graph TB
-    subgraph Management["🏢 Management Account<br/><MGMT-ACCOUNT-ID>"]
+    subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
         OIDC["🔐 OIDC Provider<br/>GitHub Actions"]
         Bootstrap["⚙️ Bootstrap Role<br/>Infrastructure Creation"]
         Central["🌐 Central Role<br/>Cross-Account Access"]
     end
 
-    subgraph Dev["🧪 Dev Account<br/><DEV-ACCOUNT-ID>"]
+    subgraph Dev["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
         DevRole["🔧 Dev Role<br/>Deployment + Bootstrap"]
         DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
     end
 
-    subgraph Staging["🚀 Staging Account<br/><STAGING-ACCOUNT-ID>"]
+    subgraph Staging["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
         StagingRole["🔧 Staging Role<br/>Deployment + Bootstrap"]
         StagingInfra["☁️ Staging Infrastructure<br/>⏳ Ready"]
     end
 
-    subgraph Prod["🏭 Production Account<br/><PROD-ACCOUNT-ID>"]
+    subgraph Prod["🏭 Production Account<br/>PRODUCTION_ACCOUNT_ID"]
         ProdRole["🔧 Prod Role<br/>Deployment + Bootstrap"]
         ProdInfra["☁️ Production Infrastructure<br/>⏳ Ready"]
     end
@@ -196,10 +196,10 @@ graph TD
 - **BOOTSTRAP**: ✅ Distributed backend creation working
 
 ### Account Status
-- **Management (<MGMT-ACCOUNT-ID>)**: OIDC provider ✅, Bootstrap Role ✅
-- **Dev (<DEV-ACCOUNT-ID>)**: **FULLY DEPLOYED** ✅
-- **Staging (<STAGING-ACCOUNT-ID>)**: Ready for bootstrap ⏳
-- **Prod (<PROD-ACCOUNT-ID>)**: Ready for bootstrap ⏳
+- **Management (MANAGEMENT_ACCOUNT_ID)**: OIDC provider ✅, Bootstrap Role ✅
+- **Dev (DEVELOPMENT_ACCOUNT_ID)**: **FULLY DEPLOYED** ✅
+- **Staging (STAGING_ACCOUNT_ID)**: Ready for bootstrap ⏳
+- **Prod (PRODUCTION_ACCOUNT_ID)**: Ready for bootstrap ⏳
 
 ## 💰 Cost Optimization
 
