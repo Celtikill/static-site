@@ -2,6 +2,48 @@
 
 This guide walks you through deploying the static website infrastructure from scratch, with detailed explanations for beginners.
 
+## 🍴 Fork Setup (IMPORTANT)
+
+**If you're deploying this in a forked repository or fresh AWS account**, you MUST update these configuration files before proceeding:
+
+### Required Updates for Forked Repository
+
+1. **Update GitHub Repository Reference in Terraform Variables**
+
+   In `terraform/foundations/org-management/terraform.tfvars` (create if it doesn't exist):
+   ```hcl
+   github_repo = "YOUR_USERNAME/static-site"  # Change from "Celtikill/static-site"
+   ```
+
+2. **Update IAM Trust Policy Repository Reference**
+
+   The GitHub Actions OIDC trust policy must match your forked repository name. This is automatically handled by the `github_repo` variable above, but ensure it matches exactly (case-sensitive).
+
+3. **Update Documentation References**
+
+   Search and replace repository URLs throughout documentation files:
+   ```bash
+   # Find all references to the original repository
+   grep -r "Celtikill/static-site" docs/ README.md DEPLOYMENT_GUIDE.md
+
+   # Update to your fork
+   sed -i '' 's/Celtikill\/static-site/YOUR_USERNAME\/static-site/g' docs/*.md README.md DEPLOYMENT_GUIDE.md
+   ```
+
+4. **Verify GitHub Repository Name Case**
+
+   GitHub repository names are case-sensitive for OIDC authentication. Ensure the `github_repo` variable exactly matches your repository name including capitalization.
+
+### Why This Matters
+
+- **OIDC Authentication**: GitHub Actions uses repository-specific JWT tokens. The IAM trust policy must match your exact repository name.
+- **Resource Naming**: Some resources include the repository name in their naming conventions.
+- **Documentation Accuracy**: Links and references should point to your fork, not the original repository.
+
+⚠️ **Critical**: Failure to update the `github_repo` variable will result in GitHub Actions authentication failures with "Not authorized to perform sts:AssumeRoleWithWebIdentity" errors.
+
+---
+
 ## 📋 Table of Contents
 
 1. [Prerequisites](#prerequisites)
@@ -462,6 +504,31 @@ aws iam get-role --role-name GitHubActions-StaticSite-Central --profile manageme
 
 # Check trust policy includes your repository
 ```
+
+#### Issue: GitHub Actions "Not authorized to perform sts:AssumeRoleWithWebIdentity"
+
+**Symptom:** GitHub Actions workflows fail with OIDC authentication errors
+
+**Solution:** Repository name mismatch in trust policy:
+```bash
+# 1. Check your actual repository name (case-sensitive)
+git remote get-url origin
+# Example output: git@github.com:YourUsername/static-site.git
+
+# 2. Update terraform variables to match exactly
+# In terraform/foundations/org-management/terraform.tfvars:
+github_repo = "YourUsername/static-site"  # Must match exactly including case
+
+# 3. Apply the updated trust policy
+cd terraform/foundations/org-management
+tofu plan -target=aws_iam_role.github_actions_management
+tofu apply -target=aws_iam_role.github_actions_management
+```
+
+**Common causes:**
+- Repository name case mismatch (`celtikill` vs `Celtikill`)
+- Forked repository not updated in terraform variables
+- Trust policy references old repository name
 
 #### Issue: GitHub Actions workflow fails with "Error: Terraform backend initialization failed"
 
