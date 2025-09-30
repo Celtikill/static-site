@@ -365,6 +365,7 @@ resource "aws_iam_policy" "github_actions_org_management" {
         ]
         Resource = [
           "arn:aws:iam::*:role/OrganizationAccountAccessRole",
+          "arn:aws:iam::*:role/GitHubActions-*",
           "arn:aws:iam::*:role/github-actions-*"
         ]
       }
