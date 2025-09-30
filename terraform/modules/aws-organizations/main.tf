@@ -1,0 +1,272 @@
+# AWS Organizations Module
+# Reusable module for creating and managing AWS Organizations structure
+
+terraform {
+  required_version = ">= 1.6"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+# Create or manage the AWS Organization
+resource "aws_organizations_organization" "this" {
+  count = var.create_organization ? 1 : 0
+
+  aws_service_access_principals = var.aws_service_access_principals
+  enabled_policy_types         = var.enabled_policy_types
+  feature_set                  = var.feature_set
+
+  tags = var.tags
+}
+
+# Data source for existing organization
+data "aws_organizations_organization" "existing" {
+  count = var.create_organization ? 0 : 1
+}
+
+# Local values for organization reference
+locals {
+  organization = var.create_organization ? aws_organizations_organization.this[0] : data.aws_organizations_organization.existing[0]
+  root_id      = local.organization.roots[0].id
+}
+
+# Create Organizational Units
+resource "aws_organizations_organizational_unit" "this" {
+  for_each = var.organizational_units
+
+  name      = each.value.name
+  parent_id = each.value.parent_id != null ? each.value.parent_id : local.root_id
+
+  tags = merge(var.tags, each.value.tags, {
+    Purpose = each.value.purpose
+    Type    = "organizational-unit"
+  })
+}
+
+# Create or import accounts
+resource "aws_organizations_account" "this" {
+  for_each = var.create_accounts ? var.accounts : {}
+
+  name      = each.value.name
+  email     = each.value.email
+  parent_id = each.value.parent_id != null ? each.value.parent_id : aws_organizations_organizational_unit.this[each.value.ou].id
+
+  iam_user_access_to_billing = each.value.iam_user_access_to_billing
+  role_name                  = each.value.role_name
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  tags = merge(var.tags, each.value.tags, {
+    Environment = each.value.environment
+    AccountType = each.value.account_type
+  })
+}
+
+# Data source for existing accounts (import mode)
+data "aws_organizations_account" "existing" {
+  for_each = var.create_accounts ? {} : var.existing_account_ids
+
+  account_id = each.value
+}
+
+# Service Control Policies
+resource "aws_organizations_policy" "this" {
+  for_each = var.service_control_policies
+
+  name        = each.value.name
+  description = each.value.description
+  type        = "SERVICE_CONTROL_POLICY"
+  content     = each.value.content
+
+  tags = merge(var.tags, each.value.tags, {
+    PolicyType = each.value.policy_type
+  })
+}
+
+# Policy Attachments
+resource "aws_organizations_policy_attachment" "this" {
+  for_each = var.policy_attachments
+
+  policy_id = aws_organizations_policy.this[each.value.policy_key].id
+  target_id = each.value.target_type == "ou" ? aws_organizations_organizational_unit.this[each.value.target_key].id : each.value.target_id
+}
+
+# CloudTrail (optional)
+resource "aws_cloudtrail" "organization" {
+  count = var.enable_cloudtrail ? 1 : 0
+
+  name           = var.cloudtrail_name
+  s3_bucket_name = aws_s3_bucket.cloudtrail[0].id
+  s3_key_prefix  = var.cloudtrail_s3_key_prefix
+
+  is_organization_trail         = true
+  is_multi_region_trail        = true
+  include_global_service_events = true
+  enable_log_file_validation   = true
+
+  kms_key_id = var.enable_cloudtrail_encryption ? aws_kms_key.cloudtrail[0].arn : null
+
+  event_selector {
+    read_write_type                 = "All"
+    include_management_events       = true
+    exclude_management_event_sources = []
+
+    data_resource {
+      type   = "AWS::S3::Object"
+      values = ["arn:aws:s3:::*/*"]
+    }
+  }
+
+  tags = merge(var.tags, {
+    Service = "cloudtrail"
+    Scope   = "organization"
+  })
+
+  depends_on = [aws_s3_bucket_policy.cloudtrail]
+}
+
+# CloudTrail S3 bucket
+resource "aws_s3_bucket" "cloudtrail" {
+  count = var.enable_cloudtrail ? 1 : 0
+
+  bucket        = var.cloudtrail_bucket_name
+  force_destroy = var.cloudtrail_bucket_force_destroy
+
+  tags = merge(var.tags, {
+    Service = "cloudtrail"
+    Purpose = "audit-logs"
+  })
+}
+
+resource "aws_s3_bucket_versioning" "cloudtrail" {
+  count = var.enable_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_encryption" "cloudtrail" {
+  count = var.enable_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        kms_master_key_id = var.enable_cloudtrail_encryption ? aws_kms_key.cloudtrail[0].arn : null
+        sse_algorithm     = var.enable_cloudtrail_encryption ? "aws:kms" : "AES256"
+      }
+      bucket_key_enabled = var.enable_cloudtrail_encryption
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "cloudtrail" {
+  count = var.enable_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_policy" "cloudtrail" {
+  count = var.enable_cloudtrail ? 1 : 0
+
+  bucket = aws_s3_bucket.cloudtrail[0].id
+  policy = data.aws_iam_policy_document.cloudtrail_bucket[0].json
+}
+
+data "aws_iam_policy_document" "cloudtrail_bucket" {
+  count = var.enable_cloudtrail ? 1 : 0
+
+  statement {
+    sid    = "AWSCloudTrailAclCheck"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+    actions   = ["s3:GetBucketAcl"]
+    resources = [aws_s3_bucket.cloudtrail[0].arn]
+  }
+
+  statement {
+    sid    = "AWSCloudTrailWrite"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.cloudtrail[0].arn}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values   = ["bucket-owner-full-control"]
+    }
+  }
+}
+
+# CloudTrail KMS key
+resource "aws_kms_key" "cloudtrail" {
+  count = var.enable_cloudtrail && var.enable_cloudtrail_encryption ? 1 : 0
+
+  description             = "KMS key for CloudTrail encryption"
+  deletion_window_in_days = var.kms_deletion_window
+  enable_key_rotation     = true
+
+  policy = data.aws_iam_policy_document.cloudtrail_kms[0].json
+
+  tags = merge(var.tags, {
+    Service = "cloudtrail"
+    Purpose = "encryption"
+  })
+}
+
+resource "aws_kms_alias" "cloudtrail" {
+  count = var.enable_cloudtrail && var.enable_cloudtrail_encryption ? 1 : 0
+
+  name          = "alias/${var.cloudtrail_name}-encryption"
+  target_key_id = aws_kms_key.cloudtrail[0].key_id
+}
+
+data "aws_iam_policy_document" "cloudtrail_kms" {
+  count = var.enable_cloudtrail && var.enable_cloudtrail_encryption ? 1 : 0
+
+  statement {
+    sid    = "Enable IAM User Permissions"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "Allow CloudTrail to encrypt logs"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+    actions = [
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
+    resources = ["*"]
+  }
+}
+
+data "aws_caller_identity" "current" {}

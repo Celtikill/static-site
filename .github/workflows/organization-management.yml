@@ -1,0 +1,231 @@
+name: ORG - Organization Management (Isolated)
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options: [plan, apply, destroy]
+        default: plan
+      import_mode:
+        description: 'Import existing accounts instead of creating new'
+        required: false
+        type: boolean
+        default: true
+      create_mode:
+        description: 'Create new accounts (for fresh demo setup)'
+        required: false
+        type: boolean
+        default: false
+      confirm_destruction:
+        description: 'Type "CONFIRM" to allow destructive operations'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+env:
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
+  NO_COLOR: 1
+
+concurrency:
+  group: org-management-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validation:
+    name: "🔍 Pre-flight Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_proceed: ${{ steps.validate.outputs.should_proceed }}
+      action: ${{ steps.validate.outputs.action }}
+
+    steps:
+      - name: Validate inputs
+        id: validate
+        run: |
+          echo "Validating organization management workflow inputs..."
+
+          # Validate action
+          if [[ "${{ inputs.action }}" == "destroy" && "${{ inputs.confirm_destruction }}" != "CONFIRM" ]]; then
+            echo "❌ Destructive action requires confirmation"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Validate mode consistency
+          if [[ "${{ inputs.import_mode }}" == "true" && "${{ inputs.create_mode }}" == "true" ]]; then
+            echo "❌ Cannot enable both import_mode and create_mode"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          echo "✅ Validation passed"
+          echo "should_proceed=true" >> $GITHUB_OUTPUT
+          echo "action=${{ inputs.action }}" >> $GITHUB_OUTPUT
+
+  organization-management:
+    name: "🏢 Organization Management - ${{ inputs.action }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: validation
+    if: needs.validation.outputs.should_proceed == 'true'
+    environment:
+      name: management
+      url: https://console.aws.amazon.com/organizations/v2/home
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN_MANAGEMENT }}
+          role-session-name: GitHubActions-OrgManagement-${{ github.run_id }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+
+      - name: Verify AWS access
+        run: |
+          echo "🔐 Verifying AWS access..."
+          aws sts get-caller-identity
+          aws organizations describe-organization --output table || echo "⚠️  Organization may not exist yet"
+
+      - name: Initialize Terraform
+        working-directory: terraform/foundations/org-management
+        run: |
+          echo "🚀 Initializing Terraform for organization management..."
+          tofu init -upgrade
+
+      - name: Configure Terraform variables
+        working-directory: terraform/foundations/org-management
+        run: |
+          echo "⚙️  Configuring Terraform variables..."
+          cat > terraform.tfvars <<EOF
+          import_existing_accounts = ${{ inputs.import_mode }}
+          create_new_accounts = ${{ inputs.create_mode }}
+          aws_region = "${{ env.AWS_DEFAULT_REGION }}"
+          github_repo = "${{ github.repository }}"
+          organization_name = "static-site-org"
+          EOF
+
+          echo "📄 Generated terraform.tfvars:"
+          cat terraform.tfvars
+
+      - name: Terraform Plan
+        working-directory: terraform/foundations/org-management
+        run: |
+          echo "📋 Running Terraform plan..."
+          tofu plan -detailed-exitcode -out=tfplan
+
+          # Store plan result
+          echo "PLAN_RESULT=$?" >> $GITHUB_ENV
+
+      - name: Display Plan Summary
+        working-directory: terraform/foundations/org-management
+        if: always()
+        run: |
+          if [[ "$PLAN_RESULT" == "0" ]]; then
+            echo "✅ No changes required"
+          elif [[ "$PLAN_RESULT" == "2" ]]; then
+            echo "📝 Changes detected - plan saved to tfplan"
+            echo ""
+            echo "### Plan Summary"
+            tofu show -no-color tfplan | head -50
+          else
+            echo "❌ Plan failed"
+            exit 1
+          fi
+
+      - name: Terraform Apply
+        working-directory: terraform/foundations/org-management
+        if: inputs.action == 'apply' && env.PLAN_RESULT == '2'
+        run: |
+          echo "🚀 Applying Terraform changes..."
+          tofu apply -auto-approve tfplan
+
+          echo ""
+          echo "### Applied Changes Summary"
+          tofu output -json | jq .
+
+      - name: Terraform Destroy
+        working-directory: terraform/foundations/org-management
+        if: inputs.action == 'destroy'
+        run: |
+          echo "🗑️  Destroying organization management infrastructure..."
+          echo "⚠️  This will remove organization structure, accounts, and policies"
+          tofu destroy -auto-approve
+
+      - name: Organization Status
+        if: always() && (inputs.action == 'plan' || inputs.action == 'apply')
+        run: |
+          echo "🏢 Current Organization Status:"
+          echo ""
+
+          # Organization overview
+          aws organizations describe-organization --output table 2>/dev/null || echo "No organization found"
+
+          echo ""
+          echo "📊 Organizational Units:"
+          aws organizations list-organizational-units-for-parent \
+            --parent-id $(aws organizations list-roots --query 'Roots[0].Id' --output text 2>/dev/null) \
+            --output table 2>/dev/null || echo "No OUs found"
+
+          echo ""
+          echo "👥 Accounts:"
+          aws organizations list-accounts --output table 2>/dev/null || echo "No accounts found"
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        if: inputs.action == 'plan' && env.PLAN_RESULT == '2'
+        with:
+          name: org-management-plan-${{ github.run_id }}
+          path: terraform/foundations/org-management/tfplan
+          retention-days: 7
+
+  summary:
+    name: "📊 Workflow Summary"
+    runs-on: ubuntu-latest
+    needs: [validation, organization-management]
+    if: always()
+
+    steps:
+      - name: Workflow Summary
+        run: |
+          echo "## Organization Management Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action:** ${{ inputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Import Mode:** ${{ inputs.import_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Create Mode:** ${{ inputs.create_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.validation.result }}" == "failure" ]]; then
+            echo "❌ **Validation Failed** - Check input parameters" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.organization-management.result }}" == "success" ]]; then
+            echo "✅ **Operation Completed Successfully**" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.organization-management.result }}" == "failure" ]]; then
+            echo "❌ **Operation Failed** - Check logs for details" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏭️ **Operation Skipped**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Review organization structure in AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify Service Control Policies are applied correctly" >> $GITHUB_STEP_SUMMARY
+          echo "- Test account access and permissions" >> $GITHUB_STEP_SUMMARY

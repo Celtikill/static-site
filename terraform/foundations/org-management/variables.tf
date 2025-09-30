@@ -17,10 +17,40 @@ variable "organization_name" {
   default     = "static-site-org"
 }
 
-variable "email_domain" {
-  description = "Email domain for workload accounts (using + addressing)"
+# Account management configuration
+variable "import_existing_accounts" {
+  description = "Import existing accounts instead of creating new"
+  type        = bool
+  default     = true  # Start with import for existing setup
+}
+
+variable "create_new_accounts" {
+  description = "Create new accounts (for fresh demo setup)"
+  type        = bool
+  default     = false  # Set to true for ground-up demo
+}
+
+variable "existing_account_ids" {
+  description = "Map of existing account IDs to import"
+  type        = map(string)
+  default = {
+    dev     = "822529998967"
+    staging = "927588814642"
+    prod    = "546274483801"
+  }
+}
+
+# Email configuration for account creation
+variable "email_prefix" {
+  description = "Email prefix for account creation"
   type        = string
-  default     = "signin.aws.amazon.co.headstone731@simplelogin.com"
+  default     = "signin.aws.amazon.co.headstone731"
+}
+
+variable "domain_suffix" {
+  description = "Domain suffix for account emails"
+  type        = string
+  default     = "simplelogin.com"
 }
 
 variable "workload_accounts" {
