@@ -54,13 +54,13 @@ Apply the policy using the provided script:
 
 ```bash
 # Apply policy for production environment
-./scripts/apply-bucket-policy.sh prod 546274483801
+./scripts/apply-bucket-policy.sh prod PRODUCTION_ACCOUNT_ID
 
 # Apply policy for staging environment
-./scripts/apply-bucket-policy.sh staging 927588814642
+./scripts/apply-bucket-policy.sh staging STAGING_ACCOUNT_ID
 
 # Apply policy for dev environment
-./scripts/apply-bucket-policy.sh dev 822529998967
+./scripts/apply-bucket-policy.sh dev DEVELOPMENT_ACCOUNT_ID
 ```
 
 ### Security Considerations

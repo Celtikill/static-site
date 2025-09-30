@@ -81,7 +81,7 @@ module "s3" {
   environment  = "prod"
   
   # Security settings
-  kms_key_id = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+  kms_key_id = "arn:aws:kms:us-east-1:YOUR_ACCOUNT_ID:key/<KMS-KEY-ID>"
   enable_versioning = true
   
   # Replication settings
@@ -156,7 +156,7 @@ module "s3" {
 | `replication_bucket_arn` | Replication bucket ARN | `string` | `"arn:aws:s3:::my-website-prod-replication"` |
 | `access_logs_bucket_id` | Access logs bucket ID | `string` | `"my-website-prod-access-logs"` |
 | `access_logs_bucket_arn` | Access logs bucket ARN | `string` | `"arn:aws:s3:::my-website-prod-access-logs"` |
-| `kms_key_id` | KMS key ID used for encryption | `string` | `"arn:aws:kms:us-east-1:123456789012:key/..."` |
+| `kms_key_id` | KMS key ID used for encryption | `string` | `"arn:aws:kms:us-east-1:YOUR_ACCOUNT_ID:key/..."` |
 | `replication_configuration` | Replication configuration | `object` | `{status: "Enabled", ...}` |
 
 ## 🔐 Security Features
@@ -288,7 +288,7 @@ aws iam get-role --role-name s3-replication-role
 aws s3api get-bucket-encryption --bucket my-website-prod-content
 
 # Verify KMS key permissions
-aws kms describe-key --key-id arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012
+aws kms describe-key --key-id arn:aws:kms:us-east-1:YOUR_ACCOUNT_ID:key/<KMS-KEY-ID>
 ```
 
 ### Debug Commands

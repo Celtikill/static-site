@@ -14,7 +14,7 @@ This configuration will:
 ## Prerequisites
 
 1. **AWS Organizations**: Already created (ID: o-0hh51yjgxw)
-2. **Management Account**: 223938610551
+2. **Management Account**: MANAGEMENT_ACCOUNT_ID
 3. **Domain**: Update `domain_suffix` in `terraform.tfvars`
 4. **AWS CLI**: Configured with Management Account credentials
 
@@ -59,7 +59,7 @@ After initial deployment with `create_state_backend = true`:
 2. Uncomment the S3 backend in `main.tf`:
    ```hcl
    backend "s3" {
-     bucket       = "aws-terraform-state-management-223938610551"
+     bucket       = "aws-terraform-state-management-MANAGEMENT_ACCOUNT_ID"
      key          = "management-account/terraform.tfstate"
      region       = "us-east-1"
      encrypt      = true

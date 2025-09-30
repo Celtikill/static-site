@@ -296,10 +296,10 @@ conftest test --policy policies/foundation-security.rego plan.json
 
 | Environment | Account ID | Region | Backend Type |
 |-------------|------------|--------|--------------|
-| **Management** | 223938610551 | us-east-1 | Central OIDC |
-| **Development** | 822529998967 | us-east-1 | Distributed |
-| **Staging** | 927588814642 | us-east-1 | Distributed |
-| **Production** | 546274483801 | us-east-1 | Distributed |
+| **Management** | MANAGEMENT_ACCOUNT_ID | us-east-1 | Central OIDC |
+| **Development** | DEVELOPMENT_ACCOUNT_ID | us-east-1 | Distributed |
+| **Staging** | STAGING_ACCOUNT_ID | us-east-1 | Distributed |
+| **Production** | PRODUCTION_ACCOUNT_ID | us-east-1 | Distributed |
 
 ### Feature Matrix
 
@@ -346,22 +346,22 @@ conftest test --policy policies/foundation-security.rego plan.json
 ### GitHub Variables Required
 ```yaml
 AWS_DEFAULT_REGION: "us-east-1"
-AWS_ACCOUNT_ID_MANAGEMENT: "223938610551"
-AWS_ACCOUNT_ID_DEV: "822529998967"
-AWS_ACCOUNT_ID_STAGING: "927588814642"
-AWS_ACCOUNT_ID_PROD: "546274483801"
+AWS_ACCOUNT_ID_MANAGEMENT: "MANAGEMENT_ACCOUNT_ID"
+AWS_ACCOUNT_ID_DEV: "DEVELOPMENT_ACCOUNT_ID"
+AWS_ACCOUNT_ID_STAGING: "STAGING_ACCOUNT_ID"
+AWS_ACCOUNT_ID_PROD: "PRODUCTION_ACCOUNT_ID"
 OPENTOFU_VERSION: "1.8.4"
 ```
 
 ### GitHub Secrets Required
 ```yaml
-AWS_ASSUME_ROLE_CENTRAL: "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+AWS_ASSUME_ROLE_CENTRAL: "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central"
 ```
 
 ### Backend Configuration
 ```hcl
 # terraform/environments/backend-configs/dev.hcl
-bucket = "static-site-state-dev-822529998967"
+bucket = "static-site-state-dev-DEVELOPMENT_ACCOUNT_ID"
 key    = "terraform.tfstate"
 region = "us-east-1"
 ```

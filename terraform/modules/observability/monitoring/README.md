@@ -153,7 +153,7 @@ aws cloudwatch describe-alarms --alarm-names "website-health-composite"
 aws cloudwatch get-metric-statistics --namespace AWS/CloudFront --metric-name Requests --start-time 2025-01-01T00:00:00Z --end-time 2025-01-01T23:59:59Z --period 3600 --statistics Sum
 
 # Test SNS notifications
-aws sns publish --topic-arn arn:aws:sns:us-east-1:123456789012:monitoring-alerts --message "Test alert"
+aws sns publish --topic-arn arn:aws:sns:us-east-1:YOUR_ACCOUNT_ID:monitoring-alerts --message "Test alert"
 ```
 
 ## Requirements

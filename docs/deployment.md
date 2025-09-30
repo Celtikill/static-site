@@ -26,9 +26,9 @@ graph LR
 
 | Environment | Status | Account ID | Backend | Features |
 |-------------|--------|------------|---------|----------|
-| **Development** | ✅ **OPERATIONAL** | 822529998967 | Distributed | S3-only (cost optimized) |
-| **Staging** | ⏳ Ready for Bootstrap | 927588814642 | Ready | CloudFront + S3 + WAF |
-| **Production** | ⏳ Ready for Bootstrap | 546274483801 | Ready | Full stack + monitoring |
+| **Development** | ✅ **OPERATIONAL** | DEVELOPMENT_ACCOUNT_ID | Distributed | S3-only (cost optimized) |
+| **Staging** | ⏳ Ready for Bootstrap | STAGING_ACCOUNT_ID | Ready | CloudFront + S3 + WAF |
+| **Production** | ⏳ Ready for Bootstrap | PRODUCTION_ACCOUNT_ID | Ready | Full stack + monitoring |
 
 ### Environment-Specific Features
 
@@ -440,7 +440,7 @@ graph TD
 
 ```bash
 # Check current costs via AWS CLI
-aws budgets describe-budgets --account-id [ACCOUNT_ID]
+aws budgets describe-budgets --account-id YOUR_ACCOUNT_ID
 
 # View cost and usage reports
 aws ce get-cost-and-usage \

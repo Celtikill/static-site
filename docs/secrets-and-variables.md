@@ -15,15 +15,15 @@ This guide documents the required GitHub Secrets and Variables for the AWS Stati
 
 **Central OIDC Authentication Pattern** (Operational):
 ```
-Management Account (223938610551)
+Management Account (MANAGEMENT_ACCOUNT_ID)
 ├── OIDC Provider (github.com) ✅
 ├── GitHubActions-StaticSite-Central ✅
 └── Cross-Account Assume Role Capability ✅
 
 Target Accounts
-├── Dev (822529998967): GitHubActions-StaticSite-Dev-Role ✅
-├── Staging (927588814642): GitHubActions-StaticSite-Staging-Role ✅
-└── Prod (546274483801): GitHubActions-StaticSite-Prod-Role ✅
+├── Dev (DEVELOPMENT_ACCOUNT_ID): GitHubActions-StaticSite-Dev-Role ✅
+├── Staging (STAGING_ACCOUNT_ID): GitHubActions-StaticSite-Staging-Role ✅
+└── Prod (PRODUCTION_ACCOUNT_ID): GitHubActions-StaticSite-Prod-Role ✅
 ```
 
 **Authentication Flow**:
@@ -40,13 +40,13 @@ Target Accounts
 
 | Secret Name | Description | Example Value |
 |------------|-------------|---------------|
-| `AWS_ASSUME_ROLE_CENTRAL` | Central role ARN for all environment access | `arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central` |
+| `AWS_ASSUME_ROLE_CENTRAL` | Central role ARN for all environment access | `arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central` |
 
 ### Setting Secrets via GitHub CLI
 
 ```bash
 # Set the central role ARN
-gh secret set AWS_ASSUME_ROLE_CENTRAL --body "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+gh secret set AWS_ASSUME_ROLE_CENTRAL --body "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central"
 
 # Verify secret is set
 gh secret list
@@ -60,10 +60,10 @@ gh secret list
 |--------------|-------------|---------------|----------|
 | `AWS_DEFAULT_REGION` | AWS region for deployment | `us-east-1` | Yes |
 | `OPENTOFU_VERSION` | OpenTofu version to use | `1.6.1` | Yes |
-| `AWS_ACCOUNT_ID_DEV` | Development account ID | `822529998967` | Yes |
-| `AWS_ACCOUNT_ID_STAGING` | Staging account ID | `927588814642` | Yes |
-| `AWS_ACCOUNT_ID_PROD` | Production account ID | `546274483801` | Yes |
-| `AWS_ACCOUNT_ID_MANAGEMENT` | Management account ID | `223938610551` | Yes |
+| `AWS_ACCOUNT_ID_DEV` | Development account ID | `DEVELOPMENT_ACCOUNT_ID` | Yes |
+| `AWS_ACCOUNT_ID_STAGING` | Staging account ID | `STAGING_ACCOUNT_ID` | Yes |
+| `AWS_ACCOUNT_ID_PROD` | Production account ID | `PRODUCTION_ACCOUNT_ID` | Yes |
+| `AWS_ACCOUNT_ID_MANAGEMENT` | Management account ID | `MANAGEMENT_ACCOUNT_ID` | Yes |
 | `DEFAULT_ENVIRONMENT` | Default deployment environment | `dev` | Yes |
 | `MONTHLY_BUDGET_LIMIT` | Budget alert threshold | `40` | Yes |
 | `REPLICA_REGION` | Cross-region replication target | `us-west-2` | Yes |
@@ -86,7 +86,7 @@ gh variable list
 
 The OIDC infrastructure is already deployed and operational:
 
-1. **OIDC Provider**: Created in management account (223938610551)
+1. **OIDC Provider**: Created in management account (MANAGEMENT_ACCOUNT_ID)
 2. **Central Role**: `GitHubActions-StaticSite-Central` with cross-account capabilities
 3. **Environment Roles**: Deployment-specific roles in target accounts
 4. **Trust Relationships**: Repository and environment-specific conditions
@@ -101,7 +101,7 @@ The OIDC infrastructure is already deployed and operational:
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::223938610551:oidc-provider/token.actions.githubusercontent.com"
+        "Federated": "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -125,7 +125,7 @@ The OIDC infrastructure is already deployed and operational:
     {
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+        "AWS": "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central"
       },
       "Action": "sts:AssumeRole"
     }
@@ -230,7 +230,7 @@ aws iam get-role --role-name GitHubActions-StaticSite-Dev-Role \
 
 # Test manual role assumption
 aws sts assume-role \
-    --role-arn arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role \
+    --role-arn arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role \
     --role-session-name test-session
 ```
 
@@ -244,7 +244,7 @@ aws sts assume-role \
 gh secret list
 
 # Set the secret if missing
-gh secret set AWS_ASSUME_ROLE_CENTRAL --body "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+gh secret set AWS_ASSUME_ROLE_CENTRAL --body "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central"
 ```
 
 ## Testing Authentication
@@ -266,7 +266,7 @@ gh workflow run run.yml --field environment=dev --field deploy_infrastructure=tr
 
 ```bash
 # Test OIDC authentication locally (requires AWS CLI and GitHub CLI)
-export AWS_ROLE_ARN="arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central"
+export AWS_ROLE_ARN="arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central"
 export AWS_WEB_IDENTITY_TOKEN_FILE=<path-to-token>
 
 # Should show central role identity

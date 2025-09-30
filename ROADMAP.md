@@ -47,7 +47,7 @@ gh workflow run bootstrap-distributed-backend.yml \
 **Value**: Essential for template repository release and multi-organization support
 
 **Objective**: Remove hardcoded AWS account IDs and make infrastructure portable
-- Replace hardcoded account IDs (546274483801, 927588814642, 822529998967) with variables
+- Replace hardcoded account IDs (PRODUCTION_ACCOUNT_ID, STAGING_ACCOUNT_ID, DEVELOPMENT_ACCOUNT_ID) with variables
 - Create environment-specific configuration files
 - Update Terraform modules to use account ID variables
 - Modify GitHub Actions workflows to accept account IDs as inputs

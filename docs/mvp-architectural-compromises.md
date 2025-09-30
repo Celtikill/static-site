@@ -85,8 +85,8 @@ Tier 3: Environment Role ❌ COMPROMISED
 {
   "Principal": {
     "AWS": [
-      "arn:aws:iam::223938610551:role/GitHubActions-StaticSite-Central",
-      "arn:aws:iam::223938610551:role/GitHubActions-Bootstrap-Central"
+      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central",
+      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Central"
     ]
   }
 }
@@ -120,14 +120,14 @@ provider "aws" {
 **Solution**: Create dedicated bootstrap roles in each target account
 
 ```
-Management Account (223938610551):
+Management Account (MANAGEMENT_ACCOUNT_ID):
 ├── GitHubActions-Bootstrap-Central (orchestrator)
 
-Dev Account (822529998967):
+Dev Account (DEVELOPMENT_ACCOUNT_ID):
 ├── GitHubActions-Bootstrap-Dev (infrastructure creation)
 ├── GitHubActions-StaticSite-Dev-Role (deployment only)
 
-Staging Account (927588814642):
+Staging Account (STAGING_ACCOUNT_ID):
 ├── GitHubActions-Bootstrap-Staging (infrastructure creation)
 ├── GitHubActions-StaticSite-Staging-Role (deployment only)
 ```
@@ -175,9 +175,9 @@ Workflows:
 ## Migration Path to Proper Architecture
 
 ### Phase 1: Create Target Account Bootstrap Roles
-1. Create `GitHubActions-Bootstrap-Dev` in dev account (822529998967)
-2. Create `GitHubActions-Bootstrap-Staging` in staging account (927588814642)
-3. Create `GitHubActions-Bootstrap-Prod` in prod account (546274483801)
+1. Create `GitHubActions-Bootstrap-Dev` in dev account (DEVELOPMENT_ACCOUNT_ID)
+2. Create `GitHubActions-Bootstrap-Staging` in staging account (STAGING_ACCOUNT_ID)
+3. Create `GitHubActions-Bootstrap-Prod` in prod account (PRODUCTION_ACCOUNT_ID)
 
 ### Phase 2: Update Bootstrap Workflow
 1. Modify Terraform provider to assume account-specific bootstrap roles
