@@ -152,13 +152,14 @@ jobs:
         run: |
           echo "⚙️ Generating terraform variables..."
 
-          # Create terraform.tfvars - account_mapping needs to be a JSON string
-          cat > terraform.tfvars <<EOF
-          account_mapping = '${{ needs.validation.outputs.parsed_accounts }}'
+          # Create terraform.tfvars - account_mapping needs to be a properly escaped JSON string
+          # Use heredoc to avoid escaping issues
+          cat > terraform.tfvars <<'TFVARS'
+          account_mapping = "${{ needs.validation.outputs.parsed_accounts }}"
           external_id = "${{ inputs.external_id }}"
           management_account_id = "${{ inputs.management_account_id }}"
           aws_region = "${{ env.AWS_DEFAULT_REGION }}"
-          EOF
+          TFVARS
 
           echo "📄 Generated terraform.tfvars:"
           cat terraform.tfvars
