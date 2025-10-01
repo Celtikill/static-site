@@ -385,7 +385,7 @@ jobs:
 
           # Sync website content
           echo "📤 Syncing website content to S3..."
-          timeout 120s aws s3 sync ../../../src/ s3://$BUCKET_NAME --delete
+          timeout 120s aws s3 sync ../../../src/ s3://$BUCKET_NAME --delete --sse AES256
 
           # Invalidate CloudFront cache if distribution exists
           if [ -n "$CLOUDFRONT_ID" ]; then

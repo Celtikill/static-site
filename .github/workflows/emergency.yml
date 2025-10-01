@@ -293,7 +293,7 @@ jobs:
             fi
 
             # Deploy website content
-            if aws s3 sync src/ s3://$BUCKET_NAME/ --delete; then
+            if aws s3 sync src/ s3://$BUCKET_NAME/ --delete --sse AES256; then
               echo "✅ Website content deployed" >> $GITHUB_STEP_SUMMARY
 
               # Invalidate CloudFront cache
