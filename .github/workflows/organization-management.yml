@@ -278,11 +278,118 @@ jobs:
 
           echo "✅ Management backend verification completed"
 
+  iam-management:
+    name: "👥 IAM Management Foundation - ${{ inputs.action }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [validation, bootstrap-management-backend]
+    if: needs.validation.outputs.should_proceed == 'true' && (inputs.action == 'apply' || inputs.action == 'plan')
+    environment:
+      name: management
+      url: https://console.aws.amazon.com/iam/home#/groups
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
+          role-session-name: GitHubActions-IAMManagement-${{ github.run_id }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+
+      - name: Verify AWS access
+        run: |
+          echo "🔐 Verifying AWS access for IAM management..."
+          aws sts get-caller-identity
+          aws iam get-account-summary --output table || echo "⚠️  Limited IAM permissions"
+
+      - name: Initialize Terraform
+        working-directory: terraform/foundations/iam-management
+        run: |
+          echo "🚀 Initializing Terraform for IAM management..."
+          tofu init
+
+      - name: Terraform Plan
+        working-directory: terraform/foundations/iam-management
+        run: |
+          echo "📋 Running Terraform plan for IAM management..."
+          tofu plan -out=iam-mgmt.tfplan
+
+      - name: Display Plan Summary
+        working-directory: terraform/foundations/iam-management
+        run: |
+          echo "📊 IAM Management Plan Summary:"
+          echo ""
+
+          if [ -f iam-mgmt.tfplan ]; then
+            echo "📝 Changes detected - plan saved to iam-mgmt.tfplan"
+            echo ""
+            echo "### Plan Summary"
+            tofu show -no-color iam-mgmt.tfplan | head -30
+          else
+            echo "❌ Plan failed"
+            exit 1
+          fi
+
+      - name: Terraform Apply
+        if: inputs.action == 'apply'
+        working-directory: terraform/foundations/iam-management
+        run: |
+          echo "🚀 Applying IAM management foundation..."
+          tofu apply -auto-approve iam-mgmt.tfplan
+
+      - name: Extract Outputs
+        if: inputs.action == 'apply'
+        working-directory: terraform/foundations/iam-management
+        run: |
+          echo "📋 IAM Management Foundation Outputs:"
+          echo ""
+
+          echo "### Admin Group Information"
+          echo "Admin Group Name: $(tofu output -raw admin_group_name)"
+          echo "Admin Group ARN: $(tofu output -raw admin_group_arn)"
+          echo ""
+
+          echo "### Deployment Status"
+          tofu output -json deployment_status | jq -r '
+            "Account Source: " + .account_source,
+            "Using Fallback Values: " + (.using_fallback_values | tostring),
+            "Organization State Available: " + (.org_state_available | tostring)
+          '
+          echo ""
+
+          echo "### Role Switching URLs"
+          tofu output -json role_switching_urls | jq -r 'to_entries[] | "🔗 \(.key | ascii_upcase): \(.value)"'
+
+      - name: Verify IAM Group Creation
+        if: inputs.action == 'apply'
+        run: |
+          echo "🔍 Verifying IAM group creation..."
+
+          GROUP_NAME=$(cd terraform/foundations/iam-management && tofu output -raw admin_group_name)
+
+          if aws iam get-group --group-name "$GROUP_NAME" >/dev/null 2>&1; then
+            echo "✅ IAM group '$GROUP_NAME' created successfully"
+            echo ""
+            echo "📊 Group Details:"
+            aws iam get-group --group-name "$GROUP_NAME" --output table
+          else
+            echo "❌ IAM group '$GROUP_NAME' not found"
+            exit 1
+          fi
+
   organization-management:
     name: "🏢 Organization Management - ${{ inputs.action }}"
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [validation, bootstrap-management-backend]
+    needs: [validation, bootstrap-management-backend, iam-management]
     if: needs.validation.outputs.should_proceed == 'true'
     environment:
       name: management

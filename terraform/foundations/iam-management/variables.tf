@@ -44,6 +44,19 @@ variable "create_console_access" {
   default     = false
 }
 
+variable "fallback_account_ids" {
+  description = "Fallback workload account IDs to use when organization state is not available"
+  type        = map(string)
+  default     = null
+
+  validation {
+    condition = var.fallback_account_ids == null || alltrue([
+      for env, account_id in var.fallback_account_ids : can(regex("^[0-9]{12}$", account_id))
+    ])
+    error_message = "Account IDs must be exactly 12 digits."
+  }
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)

@@ -39,7 +39,8 @@ data "aws_caller_identity" "current" {}
 # Data source for organization accounts
 data "aws_organizations_organization" "main" {}
 
-# Import workload account IDs from organization management
+# Import workload account IDs from organization management (optional)
+# This handles the circular dependency between IAM and Organization management
 data "terraform_remote_state" "org_management" {
   backend = "s3"
   config = {
@@ -50,8 +51,21 @@ data "terraform_remote_state" "org_management" {
 }
 
 locals {
-  # Get workload account IDs from organization management state
-  workload_accounts = data.terraform_remote_state.org_management.outputs.account_ids
+  # Get workload account IDs from organization management state with fallbacks
+  # This allows IAM management to be deployed before organization management
+  org_state_exists = try(data.terraform_remote_state.org_management.outputs.account_ids, null) != null
+
+  # Fallback account IDs for initial deployment (these will be updated when org state exists)
+  fallback_workload_accounts = var.fallback_account_ids != null ? var.fallback_account_ids : {
+    dev     = "822529998967"
+    staging = "927588814642"
+    prod    = "546274483801"
+  }
+
+  # Use organization state if available, otherwise fallback values
+  workload_accounts = local.org_state_exists ?
+    data.terraform_remote_state.org_management.outputs.account_ids :
+    local.fallback_workload_accounts
 
   # Generate role ARNs for each workload account
   cross_account_role_arns = {

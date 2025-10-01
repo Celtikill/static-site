@@ -38,6 +38,21 @@ output "workload_accounts" {
   value       = local.workload_accounts
 }
 
+output "using_fallback_accounts" {
+  description = "Whether this deployment is using fallback account IDs (true) or organization state (false)"
+  value       = !local.org_state_exists
+}
+
+output "deployment_status" {
+  description = "Status information about the IAM management deployment"
+  value = {
+    org_state_available   = local.org_state_exists
+    using_fallback_values = !local.org_state_exists
+    account_source        = local.org_state_exists ? "organization-state" : "fallback-values"
+    workload_accounts     = local.workload_accounts
+  }
+}
+
 # Sensitive output for initial passwords (if console access is enabled)
 output "initial_passwords" {
   description = "Initial passwords for admin users (only available if create_console_access is true)"
