@@ -2,18 +2,18 @@
 
 output "role_arns" {
   value = {
-    dev     = module.github_role_dev.role_arn
-    staging = module.github_role_staging.role_arn
-    prod    = module.github_role_prod.role_arn
+    dev     = module.github_role_dev.deployment_role_arn
+    staging = module.github_role_staging.deployment_role_arn
+    prod    = module.github_role_prod.deployment_role_arn
   }
   description = "ARNs of created GitHub Actions roles in each environment"
 }
 
 output "role_names" {
   value = {
-    dev     = module.github_role_dev.role_name
-    staging = module.github_role_staging.role_name
-    prod    = module.github_role_prod.role_name
+    dev     = module.github_role_dev.deployment_role_name
+    staging = module.github_role_staging.deployment_role_name
+    prod    = module.github_role_prod.deployment_role_name
   }
   description = "Names of created GitHub Actions roles in each environment"
 }
@@ -53,9 +53,9 @@ output "prod_account_id" {
 # Role assumption test commands
 output "role_assumption_test_commands" {
   value = {
-    dev     = "aws sts assume-role --role-arn ${module.github_role_dev.role_arn} --role-session-name test-session --external-id ${var.external_id}"
-    staging = "aws sts assume-role --role-arn ${module.github_role_staging.role_arn} --role-session-name test-session --external-id ${var.external_id}"
-    prod    = "aws sts assume-role --role-arn ${module.github_role_prod.role_arn} --role-session-name test-session --external-id ${var.external_id}"
+    dev     = "aws sts assume-role --role-arn ${module.github_role_dev.deployment_role_arn} --role-session-name test-session --external-id ${var.external_id}"
+    staging = "aws sts assume-role --role-arn ${module.github_role_staging.deployment_role_arn} --role-session-name test-session --external-id ${var.external_id}"
+    prod    = "aws sts assume-role --role-arn ${module.github_role_prod.deployment_role_arn} --role-session-name test-session --external-id ${var.external_id}"
   }
   description = "AWS CLI commands to test role assumption"
 }

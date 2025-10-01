@@ -316,6 +316,31 @@ jobs:
           echo "🚀 Initializing Terraform for IAM management..."
           tofu init
 
+      - name: Generate Terraform Variables
+        working-directory: terraform/foundations/iam-management
+        run: |
+          echo "⚙️ Generating terraform.tfvars with fallback values..."
+
+          # Create terraform.tfvars with fallback account IDs
+          cat > terraform.tfvars <<EOF
+          aws_region = "us-east-1"
+          admin_group_name = "CrossAccountAdmins"
+          cross_account_admin_role_name = "CrossAccountAdminRole"
+          assume_role_external_id = "cross-account-admin-access"
+
+          # Fallback account IDs for initial deployment
+          fallback_account_ids = {
+            dev     = "822529998967"
+            staging = "927588814642"
+            prod    = "546274483801"
+          }
+
+          initial_admin_users = []
+          create_console_access = false
+          EOF
+
+          echo "📄 Generated terraform.tfvars for IAM management"
+
       - name: Terraform Plan
         working-directory: terraform/foundations/iam-management
         run: |
