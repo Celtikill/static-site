@@ -9,6 +9,12 @@ on:
         type: choice
         options: [plan, apply, destroy]
         default: plan
+      scope:
+        description: 'Scope of management operations'
+        required: false
+        type: choice
+        options: [all, organization, roles]
+        default: all
       import_mode:
         description: 'Import existing accounts instead of creating new'
         required: false
@@ -19,6 +25,11 @@ on:
         required: false
         type: boolean
         default: false
+      target_environments:
+        description: 'Target environments for role operations (comma-separated or "all")'
+        required: false
+        type: string
+        default: 'all'
       confirm_destruction:
         description: 'Type "CONFIRM" to allow destructive operations'
         required: false
@@ -199,10 +210,28 @@ jobs:
           path: terraform/foundations/org-management/tfplan
           retention-days: 7
 
+  cross-account-roles:
+    name: "🔐 Cross-Account Role Management"
+    if: inputs.scope == 'all' || inputs.scope == 'roles'
+    uses: ./.github/workflows/reusable-cross-account-roles.yml
+    with:
+      account_mapping: |
+        {
+          "dev": "822529998967",
+          "staging": "927588814642",
+          "prod": "546274483801"
+        }
+      external_id: "github-actions-static-site"
+      management_account_id: "223938610551"
+      action: ${{ inputs.action }}
+      target_environments: ${{ inputs.target_environments }}
+    secrets:
+      aws_role_arn: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
+
   summary:
     name: "📊 Workflow Summary"
     runs-on: ubuntu-latest
-    needs: [validation, organization-management]
+    needs: [validation, organization-management, cross-account-roles]
     if: always()
 
     steps:
@@ -211,22 +240,52 @@ jobs:
           echo "## Organization Management Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Action:** ${{ inputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Scope:** ${{ inputs.scope }}" >> $GITHUB_STEP_SUMMARY
           echo "**Import Mode:** ${{ inputs.import_mode }}" >> $GITHUB_STEP_SUMMARY
           echo "**Create Mode:** ${{ inputs.create_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Environments:** ${{ inputs.target_environments }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Organization Management Status
+          if [[ "${{ inputs.scope }}" == "all" || "${{ inputs.scope }}" == "organization" ]]; then
+            echo "### 🏛️ Organization Management" >> $GITHUB_STEP_SUMMARY
+            if [[ "${{ needs.organization-management.result }}" == "success" ]]; then
+              echo "✅ **Organization setup completed successfully**" >> $GITHUB_STEP_SUMMARY
+            elif [[ "${{ needs.organization-management.result }}" == "failure" ]]; then
+              echo "❌ **Organization setup failed** - Check logs for details" >> $GITHUB_STEP_SUMMARY
+            elif [[ "${{ needs.organization-management.result }}" == "skipped" ]]; then
+              echo "⏭️ **Organization setup skipped**" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Cross-Account Roles Status
+          if [[ "${{ inputs.scope }}" == "all" || "${{ inputs.scope }}" == "roles" ]]; then
+            echo "### 🔐 Cross-Account Roles" >> $GITHUB_STEP_SUMMARY
+            if [[ "${{ needs.cross-account-roles.result }}" == "success" ]]; then
+              echo "✅ **Cross-account roles managed successfully**" >> $GITHUB_STEP_SUMMARY
+            elif [[ "${{ needs.cross-account-roles.result }}" == "failure" ]]; then
+              echo "❌ **Cross-account roles failed** - Check logs for details" >> $GITHUB_STEP_SUMMARY
+            elif [[ "${{ needs.cross-account-roles.result }}" == "skipped" ]]; then
+              echo "⏭️ **Cross-account roles skipped**" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Overall Status
           if [[ "${{ needs.validation.result }}" == "failure" ]]; then
-            echo "❌ **Validation Failed** - Check input parameters" >> $GITHUB_STEP_SUMMARY
-          elif [[ "${{ needs.organization-management.result }}" == "success" ]]; then
-            echo "✅ **Operation Completed Successfully**" >> $GITHUB_STEP_SUMMARY
-          elif [[ "${{ needs.organization-management.result }}" == "failure" ]]; then
-            echo "❌ **Operation Failed** - Check logs for details" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Overall Status: Validation Failed** - Check input parameters" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.organization-management.result }}" == "success" && "${{ needs.cross-account-roles.result }}" == "success" ]]; then
+            echo "✅ **Overall Status: All Operations Completed Successfully**" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.organization-management.result }}" == "failure" || "${{ needs.cross-account-roles.result }}" == "failure" ]]; then
+            echo "❌ **Overall Status: Some Operations Failed** - Check individual job logs" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⏭️ **Operation Skipped**" >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ **Overall Status: Operations Completed** - Some jobs may have been skipped" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "- Review organization structure in AWS Console" >> $GITHUB_STEP_SUMMARY
-          echo "- Verify Service Control Policies are applied correctly" >> $GITHUB_STEP_SUMMARY
-          echo "- Test account access and permissions" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify cross-account roles can be assumed" >> $GITHUB_STEP_SUMMARY
+          echo "- Test GitHub Actions deployment workflows" >> $GITHUB_STEP_SUMMARY
+          echo "- Update GitHub secrets if needed" >> $GITHUB_STEP_SUMMARY

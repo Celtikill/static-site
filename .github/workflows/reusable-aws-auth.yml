@@ -1,0 +1,121 @@
+name: AWS OIDC Authentication
+
+on:
+  workflow_call:
+    inputs:
+      aws_region:
+        description: 'AWS region for operations'
+        required: false
+        type: string
+        default: 'us-east-1'
+      session_name:
+        description: 'AWS session name for role assumption'
+        required: false
+        type: string
+        default: 'github-actions'
+    secrets:
+      aws_role_arn:
+        description: 'AWS role ARN for OIDC authentication'
+        required: true
+    outputs:
+      caller_identity:
+        description: 'AWS caller identity information (JSON)'
+        value: ${{ jobs.authenticate.outputs.caller_identity }}
+      account_id:
+        description: 'AWS account ID'
+        value: ${{ jobs.authenticate.outputs.account_id }}
+      role_arn:
+        description: 'Assumed role ARN'
+        value: ${{ jobs.authenticate.outputs.role_arn }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  authenticate:
+    name: "🔐 AWS Authentication"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      caller_identity: ${{ steps.identity.outputs.caller_identity }}
+      account_id: ${{ steps.identity.outputs.account_id }}
+      role_arn: ${{ steps.identity.outputs.role_arn }}
+
+    steps:
+      - name: Validate Inputs
+        run: |
+          echo "🔍 Validating AWS authentication inputs..."
+
+          # Validate region format
+          if [[ ! "${{ inputs.aws_region }}" =~ ^[a-z]{2}-[a-z]+-[0-9]$ ]]; then
+            echo "❌ Invalid AWS region format: ${{ inputs.aws_region }}"
+            exit 1
+          fi
+
+          # Validate role ARN format
+          if [[ ! "${{ secrets.aws_role_arn }}" =~ ^arn:aws:iam::[0-9]{12}:role/.+ ]]; then
+            echo "❌ Invalid role ARN format"
+            exit 1
+          fi
+
+          echo "✅ Input validation passed"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.aws_role_arn }}
+          role-session-name: ${{ inputs.session_name }}-${{ github.run_id }}
+          aws-region: ${{ inputs.aws_region }}
+          audience: sts.amazonaws.com
+
+      - name: Verify AWS Identity
+        id: identity
+        run: |
+          echo "🔐 Verifying AWS authentication..."
+
+          # Get caller identity
+          IDENTITY=$(aws sts get-caller-identity --output json)
+          ACCOUNT_ID=$(echo "$IDENTITY" | jq -r '.Account')
+          ROLE_ARN=$(echo "$IDENTITY" | jq -r '.Arn')
+
+          # Validate response
+          if [[ -z "$ACCOUNT_ID" || "$ACCOUNT_ID" == "null" ]]; then
+            echo "❌ Failed to retrieve AWS account ID"
+            exit 1
+          fi
+
+          if [[ -z "$ROLE_ARN" || "$ROLE_ARN" == "null" ]]; then
+            echo "❌ Failed to retrieve role ARN"
+            exit 1
+          fi
+
+          # Set outputs
+          echo "caller_identity=$IDENTITY" >> $GITHUB_OUTPUT
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "role_arn=$ROLE_ARN" >> $GITHUB_OUTPUT
+
+          # Display authentication info
+          echo "✅ **AWS Authentication Successful**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Account ID | \`$ACCOUNT_ID\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | \`${{ inputs.aws_region }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Role ARN | \`$ROLE_ARN\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Session | \`${{ inputs.session_name }}-${{ github.run_id }}\` |" >> $GITHUB_STEP_SUMMARY
+
+          echo "✅ Authenticated as: $ROLE_ARN"
+
+      - name: Test AWS Permissions
+        run: |
+          echo "🧪 Testing basic AWS permissions..."
+
+          # Test basic permissions
+          echo "Testing sts:GetCallerIdentity..."
+          aws sts get-caller-identity >/dev/null && echo "✅ STS access confirmed"
+
+          echo "Testing ec2:DescribeRegions..."
+          aws ec2 describe-regions --region ${{ inputs.aws_region }} >/dev/null && echo "✅ EC2 read access confirmed"
+
+          echo "✅ Basic AWS permissions verified"

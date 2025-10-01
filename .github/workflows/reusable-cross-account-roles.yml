@@ -1,0 +1,290 @@
+name: Cross-Account Role Management
+
+on:
+  workflow_call:
+    inputs:
+      account_mapping:
+        description: 'JSON object mapping environments to account IDs'
+        required: true
+        type: string
+      external_id:
+        description: 'External ID for role assumption'
+        required: true
+        type: string
+      management_account_id:
+        description: 'Management account ID'
+        required: true
+        type: string
+      action:
+        description: 'Terraform action (plan, apply, destroy)'
+        required: false
+        type: string
+        default: 'plan'
+      target_environments:
+        description: 'Environments to target (comma-separated or "all")'
+        required: false
+        type: string
+        default: 'all'
+    secrets:
+      aws_role_arn:
+        description: 'AWS role ARN for OIDC authentication'
+        required: true
+    outputs:
+      role_arns:
+        description: 'JSON object of created role ARNs by environment'
+        value: ${{ jobs.terraform.outputs.role_arns }}
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+  OPENTOFU_VERSION: "1.8.1"
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
+  NO_COLOR: 1
+
+concurrency:
+  group: cross-account-roles-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validation:
+    name: "🔍 Input Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_proceed: ${{ steps.validate.outputs.should_proceed }}
+      parsed_accounts: ${{ steps.validate.outputs.parsed_accounts }}
+
+    steps:
+      - name: Validate Inputs
+        id: validate
+        run: |
+          echo "🔍 Validating cross-account role management inputs..."
+
+          # Validate account mapping JSON
+          if ! echo '${{ inputs.account_mapping }}' | jq . >/dev/null 2>&1; then
+            echo "❌ Invalid account_mapping JSON format"
+            echo "should_proceed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Validate action
+          case "${{ inputs.action }}" in
+            plan|apply|destroy)
+              echo "✅ Valid action: ${{ inputs.action }}"
+              ;;
+            *)
+              echo "❌ Invalid action: ${{ inputs.action }}"
+              echo "should_proceed=false" >> $GITHUB_OUTPUT
+              exit 1
+              ;;
+          esac
+
+          # Parse and validate account mapping
+          ACCOUNTS=$(echo '${{ inputs.account_mapping }}' | jq -c .)
+          echo "parsed_accounts=$ACCOUNTS" >> $GITHUB_OUTPUT
+
+          # Validate account IDs format
+          echo '${{ inputs.account_mapping }}' | jq -r 'to_entries[] | .value' | while read account_id; do
+            if [[ ! $account_id =~ ^[0-9]{12}$ ]]; then
+              echo "❌ Invalid account ID format: $account_id"
+              echo "should_proceed=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          done
+
+          echo "✅ All inputs validated successfully"
+          echo "should_proceed=true" >> $GITHUB_OUTPUT
+
+  terraform:
+    name: "🔐 Cross-Account Role ${{ inputs.action }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: validation
+    if: needs.validation.outputs.should_proceed == 'true'
+    outputs:
+      role_arns: ${{ steps.outputs.outputs.role_arns }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.aws_role_arn }}
+          role-session-name: cross-account-roles-${{ github.run_id }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Verify AWS Access
+        run: |
+          echo "🔐 Verifying AWS access..."
+          aws sts get-caller-identity
+          echo "✅ AWS credentials configured successfully"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+
+      - name: Initialize Terraform Module
+        working-directory: terraform/modules/cross-account-roles
+        run: |
+          echo "🚀 Initializing cross-account roles module..."
+
+          # Create backend configuration for this module
+          cat > backend.tf <<EOF
+          terraform {
+            backend "s3" {
+              bucket = "static-site-terraform-state-us-east-1"
+              key    = "cross-account-roles/terraform.tfstate"
+              region = "us-east-1"
+              encrypt = true
+            }
+          }
+          EOF
+
+          tofu init -upgrade
+          echo "✅ Terraform module initialized"
+
+      - name: Generate Terraform Variables
+        working-directory: terraform/modules/cross-account-roles
+        run: |
+          echo "⚙️ Generating terraform variables..."
+
+          # Create terraform.tfvars
+          cat > terraform.tfvars <<EOF
+          account_mapping = ${{ needs.validation.outputs.parsed_accounts }}
+          external_id = "${{ inputs.external_id }}"
+          management_account_id = "${{ inputs.management_account_id }}"
+          aws_region = "${{ env.AWS_DEFAULT_REGION }}"
+          EOF
+
+          echo "📄 Generated terraform.tfvars:"
+          cat terraform.tfvars
+
+      - name: Terraform Plan
+        working-directory: terraform/modules/cross-account-roles
+        run: |
+          echo "📋 Running Terraform plan for cross-account roles..."
+
+          # Generate targets based on target_environments
+          TARGETS=""
+          if [[ "${{ inputs.target_environments }}" != "all" ]]; then
+            echo "🎯 Targeting specific environments: ${{ inputs.target_environments }}"
+            IFS=',' read -ra ENVS <<< "${{ inputs.target_environments }}"
+            for env in "${ENVS[@]}"; do
+              env=$(echo "$env" | xargs)  # trim whitespace
+              TARGETS="$TARGETS -target=module.github_role_${env}"
+            done
+            echo "Generated targets: $TARGETS"
+          fi
+
+          # Run plan
+          tofu plan -detailed-exitcode -out=tfplan $TARGETS
+
+          # Store plan result
+          echo "PLAN_RESULT=$?" >> $GITHUB_ENV
+
+      - name: Display Plan Summary
+        working-directory: terraform/modules/cross-account-roles
+        if: always()
+        run: |
+          echo "## 📋 Cross-Account Roles Plan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "$PLAN_RESULT" == "0" ]]; then
+            echo "✅ **No changes required** - Infrastructure is up to date" >> $GITHUB_STEP_SUMMARY
+          elif [[ "$PLAN_RESULT" == "2" ]]; then
+            echo "📝 **Changes detected** - Plan saved for apply" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Plan Details" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tofu show -no-color tfplan | head -50 >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Plan failed** - Check logs for details" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Terraform Apply
+        working-directory: terraform/modules/cross-account-roles
+        if: inputs.action == 'apply' && env.PLAN_RESULT == '2'
+        run: |
+          echo "🚀 Applying Terraform changes for cross-account roles..."
+          tofu apply -auto-approve tfplan
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Apply Completed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Terraform Destroy
+        working-directory: terraform/modules/cross-account-roles
+        if: inputs.action == 'destroy'
+        run: |
+          echo "🗑️ Destroying cross-account roles..."
+          echo "⚠️ This will remove GitHub Actions roles from workload accounts"
+
+          # Generate targets for destroy if specified
+          TARGETS=""
+          if [[ "${{ inputs.target_environments }}" != "all" ]]; then
+            IFS=',' read -ra ENVS <<< "${{ inputs.target_environments }}"
+            for env in "${ENVS[@]}"; do
+              env=$(echo "$env" | xargs)
+              TARGETS="$TARGETS -target=module.github_role_${env}"
+            done
+          fi
+
+          tofu destroy -auto-approve $TARGETS
+
+      - name: Extract Outputs
+        id: outputs
+        if: inputs.action != 'destroy' && (inputs.action != 'apply' || env.PLAN_RESULT == '2')
+        working-directory: terraform/modules/cross-account-roles
+        run: |
+          if tofu output role_arns >/dev/null 2>&1; then
+            ROLE_ARNS=$(tofu output -json role_arns)
+            echo "role_arns=$ROLE_ARNS" >> $GITHUB_OUTPUT
+
+            echo "## 🔐 Created Role ARNs" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Environment | Role ARN |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------------|----------|" >> $GITHUB_STEP_SUMMARY
+
+            echo "$ROLE_ARNS" | jq -r 'to_entries[] | "| \(.key) | `\(.value)` |"' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No role ARNs output available (plan-only mode)"
+            echo "role_arns={}" >> $GITHUB_OUTPUT
+          fi
+
+  summary:
+    name: "📊 Workflow Summary"
+    runs-on: ubuntu-latest
+    needs: [validation, terraform]
+    if: always()
+
+    steps:
+      - name: Workflow Summary
+        run: |
+          echo "## 🔐 Cross-Account Role Management Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Action**: ${{ inputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Target Environments**: ${{ inputs.target_environments }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Management Account**: ${{ inputs.management_account_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.validation.result }}" == "failure" ]]; then
+            echo "❌ **Validation Failed** - Check input parameters" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.terraform.result }}" == "success" ]]; then
+            echo "✅ **Operation Completed Successfully**" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.terraform.result }}" == "failure" ]]; then
+            echo "❌ **Operation Failed** - Check terraform logs" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⏭️ **Operation Skipped**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Verify role creation in AWS Console" >> $GITHUB_STEP_SUMMARY
+          echo "- Test role assumption from RUN workflow" >> $GITHUB_STEP_SUMMARY
+          echo "- Update GitHub secrets if needed" >> $GITHUB_STEP_SUMMARY

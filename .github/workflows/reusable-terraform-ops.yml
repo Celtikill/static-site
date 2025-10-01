@@ -1,0 +1,300 @@
+name: Terraform Operations
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        description: 'Terraform working directory (relative to repository root)'
+        required: true
+        type: string
+      action:
+        description: 'Terraform action (validate, plan, apply, destroy)'
+        required: true
+        type: string
+      terraform_vars:
+        description: 'JSON object of Terraform variables'
+        required: false
+        type: string
+        default: '{}'
+      targets:
+        description: 'Terraform targets (space-separated)'
+        required: false
+        type: string
+      backend_config:
+        description: 'JSON object of backend configuration'
+        required: false
+        type: string
+        default: '{}'
+      plan_file:
+        description: 'Plan file name for apply operations'
+        required: false
+        type: string
+        default: 'tfplan'
+      aws_region:
+        description: 'AWS region for operations'
+        required: false
+        type: string
+        default: 'us-east-1'
+    secrets:
+      aws_role_arn:
+        description: 'AWS role ARN for authentication'
+        required: true
+    outputs:
+      plan_result:
+        description: 'Terraform plan exit code (0=no changes, 2=changes)'
+        value: ${{ jobs.terraform.outputs.plan_result }}
+      outputs:
+        description: 'Terraform outputs (JSON)'
+        value: ${{ jobs.terraform.outputs.tf_outputs }}
+
+env:
+  OPENTOFU_VERSION: "1.8.1"
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
+  NO_COLOR: 1
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    name: "🏗️ Terraform ${{ inputs.action }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      plan_result: ${{ steps.plan.outputs.plan_result }}
+      tf_outputs: ${{ steps.outputs.outputs.tf_outputs }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Inputs
+        run: |
+          echo "🔍 Validating Terraform operation inputs..."
+
+          # Validate action
+          case "${{ inputs.action }}" in
+            validate|plan|apply|destroy)
+              echo "✅ Valid action: ${{ inputs.action }}"
+              ;;
+            *)
+              echo "❌ Invalid action: ${{ inputs.action }}"
+              echo "Valid actions: validate, plan, apply, destroy"
+              exit 1
+              ;;
+          esac
+
+          # Validate working directory exists
+          if [[ ! -d "${{ inputs.working_directory }}" ]]; then
+            echo "❌ Working directory does not exist: ${{ inputs.working_directory }}"
+            exit 1
+          fi
+
+          # Validate terraform configuration exists
+          if [[ ! -f "${{ inputs.working_directory }}/main.tf" && ! -f "${{ inputs.working_directory }}/*.tf" ]]; then
+            echo "❌ No Terraform configuration files found in: ${{ inputs.working_directory }}"
+            exit 1
+          fi
+
+          # Validate terraform_vars JSON if provided
+          if [[ "${{ inputs.terraform_vars }}" != "{}" ]]; then
+            if ! echo '${{ inputs.terraform_vars }}' | jq . >/dev/null 2>&1; then
+              echo "❌ Invalid terraform_vars JSON format"
+              exit 1
+            fi
+          fi
+
+          # Validate backend_config JSON if provided
+          if [[ "${{ inputs.backend_config }}" != "{}" ]]; then
+            if ! echo '${{ inputs.backend_config }}' | jq . >/dev/null 2>&1; then
+              echo "❌ Invalid backend_config JSON format"
+              exit 1
+            fi
+          fi
+
+          echo "✅ Input validation passed"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.aws_role_arn }}
+          role-session-name: terraform-ops-${{ github.run_id }}
+          aws-region: ${{ inputs.aws_region }}
+          audience: sts.amazonaws.com
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+
+      - name: Generate Backend Configuration
+        working-directory: ${{ inputs.working_directory }}
+        if: inputs.backend_config != '{}'
+        run: |
+          echo "⚙️ Generating backend configuration..."
+
+          # Create backend configuration from JSON input
+          echo '${{ inputs.backend_config }}' | jq -r '
+            "terraform {",
+            "  backend \"" + .type + "\" {",
+            (to_entries[] | select(.key != "type") | "    " + .key + " = \"" + (.value | tostring) + "\""),
+            "  }",
+            "}"
+          ' > backend_override.tf
+
+          echo "📄 Generated backend configuration:"
+          cat backend_override.tf
+
+      - name: Generate Terraform Variables
+        working-directory: ${{ inputs.working_directory }}
+        if: inputs.terraform_vars != '{}'
+        run: |
+          echo "⚙️ Generating Terraform variables..."
+
+          # Create terraform.tfvars from JSON input
+          echo '${{ inputs.terraform_vars }}' | jq -r 'to_entries[] | "\(.key) = \(.value | @json)"' > terraform.tfvars
+
+          echo "📄 Generated terraform.tfvars:"
+          cat terraform.tfvars
+
+      - name: Terraform Init
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          echo "🚀 Initializing Terraform..."
+          tofu init -upgrade
+          echo "✅ Terraform initialized successfully"
+
+      - name: Terraform Validate
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          echo "✅ Validating Terraform configuration..."
+          tofu validate
+          echo "✅ Terraform configuration is valid"
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ inputs.working_directory }}
+        if: inputs.action == 'plan' || inputs.action == 'apply'
+        run: |
+          echo "📋 Running Terraform plan..."
+
+          # Prepare target arguments
+          TARGET_ARGS=""
+          if [[ -n "${{ inputs.targets }}" ]]; then
+            echo "🎯 Targeting specific resources: ${{ inputs.targets }}"
+            for target in ${{ inputs.targets }}; do
+              TARGET_ARGS="$TARGET_ARGS -target=$target"
+            done
+          fi
+
+          # Run plan with detailed exit code
+          set +e
+          tofu plan -detailed-exitcode -out=${{ inputs.plan_file }} $TARGET_ARGS
+          PLAN_EXIT_CODE=$?
+          set -e
+
+          echo "plan_result=$PLAN_EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # Interpret plan results
+          case $PLAN_EXIT_CODE in
+            0)
+              echo "✅ No changes required - infrastructure is up to date"
+              echo "## 📋 Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
+              echo "✅ **No changes required** - Infrastructure is up to date" >> $GITHUB_STEP_SUMMARY
+              ;;
+            1)
+              echo "❌ Plan failed"
+              echo "## 📋 Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
+              echo "❌ **Plan failed** - Check configuration and permissions" >> $GITHUB_STEP_SUMMARY
+              exit 1
+              ;;
+            2)
+              echo "📝 Changes detected - plan saved to ${{ inputs.plan_file }}"
+              echo "## 📋 Terraform Plan Results" >> $GITHUB_STEP_SUMMARY
+              echo "📝 **Changes detected** - Plan saved for apply" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Plan Summary" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              tofu show -no-color ${{ inputs.plan_file }} | head -50 >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac
+
+      - name: Terraform Apply
+        working-directory: ${{ inputs.working_directory }}
+        if: inputs.action == 'apply'
+        run: |
+          # Check if we have a plan file to apply
+          if [[ "${{ steps.plan.outputs.plan_result }}" == "2" ]]; then
+            echo "🚀 Applying Terraform changes..."
+            tofu apply -auto-approve ${{ inputs.plan_file }}
+            echo "✅ Terraform apply completed successfully"
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ Terraform Apply Results" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Apply completed successfully** - Infrastructure updated" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ steps.plan.outputs.plan_result }}" == "0" ]]; then
+            echo "ℹ️ No changes to apply - infrastructure is up to date"
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## ℹ️ Terraform Apply Results" >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ **No changes to apply** - Infrastructure is up to date" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Cannot apply - plan was not successful"
+            exit 1
+          fi
+
+      - name: Terraform Destroy
+        working-directory: ${{ inputs.working_directory }}
+        if: inputs.action == 'destroy'
+        run: |
+          echo "🗑️ Destroying Terraform-managed infrastructure..."
+          echo "⚠️ This will permanently delete resources"
+
+          # Prepare target arguments
+          TARGET_ARGS=""
+          if [[ -n "${{ inputs.targets }}" ]]; then
+            echo "🎯 Targeting specific resources for destruction: ${{ inputs.targets }}"
+            for target in ${{ inputs.targets }}; do
+              TARGET_ARGS="$TARGET_ARGS -target=$target"
+            done
+          fi
+
+          tofu destroy -auto-approve $TARGET_ARGS
+          echo "✅ Terraform destroy completed"
+
+          echo "## 🗑️ Terraform Destroy Results" >> $GITHUB_STEP_SUMMARY
+          echo "🗑️ **Destroy completed** - Resources have been removed" >> $GITHUB_STEP_SUMMARY
+
+      - name: Extract Terraform Outputs
+        id: outputs
+        working-directory: ${{ inputs.working_directory }}
+        if: inputs.action != 'destroy' && (inputs.action != 'apply' || steps.plan.outputs.plan_result == '2' || steps.plan.outputs.plan_result == '0')
+        run: |
+          echo "📤 Extracting Terraform outputs..."
+
+          # Check if there are any outputs defined
+          if tofu output >/dev/null 2>&1; then
+            TF_OUTPUTS=$(tofu output -json)
+            echo "tf_outputs=$TF_OUTPUTS" >> $GITHUB_OUTPUT
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 📤 Terraform Outputs" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Output | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+
+            echo "$TF_OUTPUTS" | jq -r 'to_entries[] | "| `\(.key)` | `\(.value.value)` |"' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No Terraform outputs defined"
+            echo "tf_outputs={}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        if: inputs.action == 'plan' && steps.plan.outputs.plan_result == '2'
+        with:
+          name: terraform-plan-${{ github.run_id }}
+          path: ${{ inputs.working_directory }}/${{ inputs.plan_file }}
+          retention-days: 7
