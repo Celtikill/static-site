@@ -24,7 +24,7 @@ module "organization" {
   source = "../../"
 
   create_organization = true
-  feature_set        = "ALL"
+  feature_set         = "ALL"
 
   aws_service_access_principals = [
     "cloudtrail.amazonaws.com",
@@ -84,9 +84,9 @@ module "organization" {
         Version = "2012-10-17"
         Statement = [
           {
-            Sid    = "DenyRootAccountUsage"
-            Effect = "Deny"
-            Action = "*"
+            Sid      = "DenyRootAccountUsage"
+            Effect   = "Deny"
+            Action   = "*"
             Resource = "*"
             Condition = {
               StringLike = {
@@ -95,9 +95,9 @@ module "organization" {
             }
           },
           {
-            Sid    = "RequireIMDSv2"
-            Effect = "Deny"
-            Action = "ec2:RunInstances"
+            Sid      = "RequireIMDSv2"
+            Effect   = "Deny"
+            Action   = "ec2:RunInstances"
             Resource = "*"
             Condition = {
               StringNotEquals = {
@@ -106,9 +106,9 @@ module "organization" {
             }
           },
           {
-            Sid    = "EnforceS3Encryption"
-            Effect = "Deny"
-            Action = "s3:PutObject"
+            Sid      = "EnforceS3Encryption"
+            Effect   = "Deny"
+            Action   = "s3:PutObject"
             Resource = "*"
             Condition = {
               StringNotEquals = {
@@ -164,9 +164,9 @@ module "organization" {
         Version = "2012-10-17"
         Statement = [
           {
-            Sid    = "DenyRootAccountUsage"
-            Effect = "Deny"
-            Action = "*"
+            Sid      = "DenyRootAccountUsage"
+            Effect   = "Deny"
+            Action   = "*"
             Resource = "*"
             Condition = {
               StringLike = {
@@ -213,9 +213,9 @@ module "organization" {
     }
   }
 
-  enable_cloudtrail           = var.enable_cloudtrail
-  cloudtrail_name            = "${var.project_name}-organization-trail"
-  cloudtrail_bucket_name     = "${var.project_name}-cloudtrail-${random_id.bucket_suffix.hex}"
+  enable_cloudtrail            = var.enable_cloudtrail
+  cloudtrail_name              = "${var.project_name}-organization-trail"
+  cloudtrail_bucket_name       = "${var.project_name}-cloudtrail-${random_id.bucket_suffix.hex}"
   enable_cloudtrail_encryption = true
 
   tags = {

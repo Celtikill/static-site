@@ -16,8 +16,8 @@ resource "aws_organizations_organization" "this" {
   count = var.create_organization ? 1 : 0
 
   aws_service_access_principals = var.aws_service_access_principals
-  enabled_policy_types         = var.enabled_policy_types
-  feature_set                  = var.feature_set
+  enabled_policy_types          = var.enabled_policy_types
+  feature_set                   = var.feature_set
 }
 
 # Data source for existing organization
@@ -99,15 +99,15 @@ resource "aws_cloudtrail" "organization" {
   s3_key_prefix  = var.cloudtrail_s3_key_prefix
 
   is_organization_trail         = true
-  is_multi_region_trail        = true
+  is_multi_region_trail         = true
   include_global_service_events = true
-  enable_log_file_validation   = true
+  enable_log_file_validation    = true
 
   kms_key_id = var.enable_cloudtrail_encryption ? aws_kms_key.cloudtrail[0].arn : null
 
   event_selector {
-    read_write_type                 = "All"
-    include_management_events       = true
+    read_write_type                  = "All"
+    include_management_events        = true
     exclude_management_event_sources = []
 
     data_resource {

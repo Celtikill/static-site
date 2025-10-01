@@ -58,11 +58,11 @@ module "github_role_dev" {
     aws = aws.dev
   }
 
-  environment              = "dev"
-  central_role_arn         = "arn:aws:iam::${var.management_account_id}:root"
-  external_id              = var.external_id
-  state_bucket_account_id  = var.management_account_id
-  state_bucket_region      = var.aws_region
+  environment             = "dev"
+  central_role_arn        = "arn:aws:iam::${var.management_account_id}:root"
+  external_id             = var.external_id
+  state_bucket_account_id = var.management_account_id
+  state_bucket_region     = var.aws_region
 
   # Additional S3 bucket patterns for environment-specific resources
   additional_s3_bucket_patterns = [
@@ -77,11 +77,11 @@ module "github_role_staging" {
     aws = aws.staging
   }
 
-  environment              = "staging"
-  central_role_arn         = "arn:aws:iam::${var.management_account_id}:root"
-  external_id              = var.external_id
-  state_bucket_account_id  = var.management_account_id
-  state_bucket_region      = var.aws_region
+  environment             = "staging"
+  central_role_arn        = "arn:aws:iam::${var.management_account_id}:root"
+  external_id             = var.external_id
+  state_bucket_account_id = var.management_account_id
+  state_bucket_region     = var.aws_region
 
   additional_s3_bucket_patterns = [
     "static-website-staging-*",
@@ -95,11 +95,11 @@ module "github_role_prod" {
     aws = aws.prod
   }
 
-  environment              = "prod"
-  central_role_arn         = "arn:aws:iam::${var.management_account_id}:root"
-  external_id              = var.external_id
-  state_bucket_account_id  = var.management_account_id
-  state_bucket_region      = var.aws_region
+  environment             = "prod"
+  central_role_arn        = "arn:aws:iam::${var.management_account_id}:root"
+  external_id             = var.external_id
+  state_bucket_account_id = var.management_account_id
+  state_bucket_region     = var.aws_region
 
   additional_s3_bucket_patterns = [
     "static-website-prod-*",

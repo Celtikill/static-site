@@ -22,7 +22,7 @@ module "organization" {
   create_organization = false
 
   # Import existing accounts instead of creating new ones
-  create_accounts = false
+  create_accounts      = false
   existing_account_ids = var.existing_account_ids
 
   # Define the organizational structure you want to manage
@@ -51,9 +51,9 @@ module "organization" {
         Version = "2012-10-17"
         Statement = [
           {
-            Sid    = "DenyRootAccountUsage"
-            Effect = "Deny"
-            Action = "*"
+            Sid      = "DenyRootAccountUsage"
+            Effect   = "Deny"
+            Action   = "*"
             Resource = "*"
             Condition = {
               StringLike = {
@@ -62,9 +62,9 @@ module "organization" {
             }
           },
           {
-            Sid    = "RequireIMDSv2"
-            Effect = "Deny"
-            Action = "ec2:RunInstances"
+            Sid      = "RequireIMDSv2"
+            Effect   = "Deny"
+            Action   = "ec2:RunInstances"
             Resource = "*"
             Condition = {
               StringNotEquals = {
@@ -87,7 +87,7 @@ module "organization" {
 
   # Optionally enable CloudTrail for existing organization
   enable_cloudtrail      = var.enable_cloudtrail
-  cloudtrail_name       = "${var.project_name}-imported-trail"
+  cloudtrail_name        = "${var.project_name}-imported-trail"
   cloudtrail_bucket_name = var.cloudtrail_bucket_name
 
   tags = {

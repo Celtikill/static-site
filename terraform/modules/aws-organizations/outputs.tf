@@ -32,7 +32,7 @@ output "accounts" {
       email = v.email
       arn   = v.arn
     }
-  } : {
+    } : {
     # When importing existing accounts, use the organization data source
     for account in local.organization.accounts : account.name => {
       id    = account.id

@@ -53,9 +53,9 @@ output "prod_account_id" {
 # Role assumption test commands
 output "role_assumption_test_commands" {
   value = {
-    dev = "aws sts assume-role --role-arn ${module.github_role_dev.role_arn} --role-session-name test-session --external-id ${var.external_id}"
+    dev     = "aws sts assume-role --role-arn ${module.github_role_dev.role_arn} --role-session-name test-session --external-id ${var.external_id}"
     staging = "aws sts assume-role --role-arn ${module.github_role_staging.role_arn} --role-session-name test-session --external-id ${var.external_id}"
-    prod = "aws sts assume-role --role-arn ${module.github_role_prod.role_arn} --role-session-name test-session --external-id ${var.external_id}"
+    prod    = "aws sts assume-role --role-arn ${module.github_role_prod.role_arn} --role-session-name test-session --external-id ${var.external_id}"
   }
   description = "AWS CLI commands to test role assumption"
 }

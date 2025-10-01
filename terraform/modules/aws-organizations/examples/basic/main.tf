@@ -19,7 +19,7 @@ module "organization" {
   source = "../../"
 
   create_organization = true
-  feature_set        = "ALL"
+  feature_set         = "ALL"
 
   organizational_units = {
     security = {
