@@ -63,9 +63,7 @@ locals {
   }
 
   # Use organization state if available, otherwise fallback values
-  workload_accounts = local.org_state_exists ?
-    data.terraform_remote_state.org_management.outputs.account_ids :
-    local.fallback_workload_accounts
+  workload_accounts = local.org_state_exists ? data.terraform_remote_state.org_management.outputs.account_ids : local.fallback_workload_accounts
 
   # Generate role ARNs for each workload account
   cross_account_role_arns = {
