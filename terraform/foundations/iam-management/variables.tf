@@ -50,9 +50,12 @@ variable "fallback_account_ids" {
   default     = null
 
   validation {
-    condition = var.fallback_account_ids == null || alltrue([
-      for env, account_id in var.fallback_account_ids : can(regex("^[0-9]{12}$", account_id))
-    ])
+    condition = (
+      var.fallback_account_ids == null ||
+      alltrue([
+        for env, account_id in coalesce(var.fallback_account_ids, {}) : can(regex("^[0-9]{12}$", account_id))
+      ])
+    )
     error_message = "Account IDs must be exactly 12 digits."
   }
 }

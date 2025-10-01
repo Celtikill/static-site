@@ -1,16 +1,6 @@
 # Cross-Account GitHub Actions Roles Module
 # Creates GitHub Actions deployment roles in multiple AWS accounts
 
-terraform {
-  required_version = ">= 1.6.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
 # Parse account mapping from JSON input
 locals {
   accounts = jsondecode(var.account_mapping)

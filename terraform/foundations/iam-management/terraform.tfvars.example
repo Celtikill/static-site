@@ -1,0 +1,25 @@
+# IAM Management Foundation Configuration Example
+
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Group Configuration
+admin_group_name               = "CrossAccountAdmins"
+cross_account_admin_role_name  = "CrossAccountAdminRole"
+
+# Security Configuration
+assume_role_external_id = "cross-account-admin-access"
+
+# Fallback account IDs when organization state is not available
+# These will be automatically replaced when organization management deploys
+fallback_account_ids = {
+  dev     = "822529998967"
+  staging = "927588814642"
+  prod    = "546274483801"
+}
+
+# Initial admin users (empty by default)
+initial_admin_users = []
+
+# Console access for new users
+create_console_access = false
