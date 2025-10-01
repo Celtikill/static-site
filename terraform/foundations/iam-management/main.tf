@@ -41,19 +41,21 @@ data "aws_organizations_organization" "main" {}
 
 # Import workload account IDs from organization management (optional)
 # This handles the circular dependency between IAM and Organization management
-data "terraform_remote_state" "org_management" {
-  backend = "s3"
-  config = {
-    bucket = "static-site-terraform-state-us-east-1"
-    key    = "org-management/terraform.tfstate"
-    region = "us-east-1"
-  }
-}
+# Commented out for initial deployment - uncomment after organization management is deployed
+# data "terraform_remote_state" "org_management" {
+#   backend = "s3"
+#   config = {
+#     bucket = "static-site-terraform-state-us-east-1"
+#     key    = "org-management/terraform.tfstate"
+#     region = "us-east-1"
+#   }
+# }
 
 locals {
   # Get workload account IDs from organization management state with fallbacks
   # This allows IAM management to be deployed before organization management
-  org_state_exists = try(data.terraform_remote_state.org_management.outputs.account_ids, null) != null
+  # For initial deployment, org_state_exists is always false
+  org_state_exists = false # Set to: try(data.terraform_remote_state.org_management.outputs.account_ids, null) != null after uncommenting above
 
   # Fallback account IDs for initial deployment (these will be updated when org state exists)
   fallback_workload_accounts = var.fallback_account_ids != null ? var.fallback_account_ids : {
@@ -63,7 +65,8 @@ locals {
   }
 
   # Use organization state if available, otherwise fallback values
-  workload_accounts = local.org_state_exists ? data.terraform_remote_state.org_management.outputs.account_ids : local.fallback_workload_accounts
+  # For initial deployment, this will always use fallback_workload_accounts
+  workload_accounts = local.org_state_exists ? {} : local.fallback_workload_accounts # Change to: local.org_state_exists ? data.terraform_remote_state.org_management.outputs.account_ids : local.fallback_workload_accounts
 
   # Generate role ARNs for each workload account
   cross_account_role_arns = {
