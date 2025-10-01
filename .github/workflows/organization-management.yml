@@ -491,9 +491,15 @@ jobs:
 
       - name: Terraform Apply
         working-directory: terraform/foundations/org-management
-        if: inputs.action == 'apply' && env.PLAN_RESULT == '2'
+        if: inputs.action == 'apply' && (env.PLAN_RESULT == '2' || env.PLAN_RESULT == '0')
         run: |
-          echo "🚀 Applying Terraform changes..."
+          if [[ "$PLAN_RESULT" == "0" ]]; then
+            echo "🔄 No changes required, but running apply to ensure state is properly initialized..."
+            echo "This is common when importing existing infrastructure."
+          else
+            echo "🚀 Applying Terraform changes..."
+          fi
+
           tofu apply -auto-approve tfplan
 
           echo ""
