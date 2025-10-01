@@ -18,37 +18,88 @@ locals {
 }
 
 # Cross-account admin roles in all workload accounts
-module "cross_account_admin_roles" {
-  source = "../../modules/iam/cross-account-admin-role"
+# Note: Due to Terraform provider limitations, we define separate modules for each environment
 
-  for_each = local.account_ids
+module "cross_account_admin_role_dev" {
+  source = "../../modules/iam/cross-account-admin-role"
+  count  = contains(keys(local.account_ids), "dev") ? 1 : 0
 
   providers = {
-    aws = aws.workload_account[each.key]
+    aws = aws.workload_account_dev
   }
 
-  management_account_id = local.management_account_id
-  admin_group_name     = local.admin_group_name
-  account_environment  = each.key
-  role_name           = "CrossAccountAdminRole"
-
-  # Security configuration
-  require_mfa              = true
-  max_session_duration     = 3600  # 1 hour
+  management_account_id    = local.management_account_id
+  admin_group_name        = local.admin_group_name
+  account_environment     = "dev"
+  role_name              = "CrossAccountAdminRole"
+  require_mfa            = true
+  max_session_duration   = 3600
   use_administrator_access = true
-  external_id             = "cross-account-admin-${each.key}"
+  external_id            = "cross-account-admin-dev"
+  create_readonly_role   = try(var.create_readonly_admin_roles, false)
 
-  # Optional: Create read-only roles for junior admins
-  create_readonly_role = var.create_readonly_admin_roles
-
-  tags = merge(var.tags, {
-    Environment           = each.key
-    ProvisionedBy        = "org-management"
-    CrossAccountAccess   = "true"
-    SourceAccount        = local.management_account_id
+  tags = merge(try(var.tags, {}), {
+    Environment        = "dev"
+    ProvisionedBy     = "org-management"
+    CrossAccountAccess = "true"
+    SourceAccount     = local.management_account_id
   })
 
-  depends_on = [
-    aws_organizations_account.workload_accounts
-  ]
+  depends_on = [aws_organizations_account.workload_accounts]
+}
+
+module "cross_account_admin_role_staging" {
+  source = "../../modules/iam/cross-account-admin-role"
+  count  = contains(keys(local.account_ids), "staging") ? 1 : 0
+
+  providers = {
+    aws = aws.workload_account_staging
+  }
+
+  management_account_id    = local.management_account_id
+  admin_group_name        = local.admin_group_name
+  account_environment     = "staging"
+  role_name              = "CrossAccountAdminRole"
+  require_mfa            = true
+  max_session_duration   = 3600
+  use_administrator_access = true
+  external_id            = "cross-account-admin-staging"
+  create_readonly_role   = try(var.create_readonly_admin_roles, false)
+
+  tags = merge(try(var.tags, {}), {
+    Environment        = "staging"
+    ProvisionedBy     = "org-management"
+    CrossAccountAccess = "true"
+    SourceAccount     = local.management_account_id
+  })
+
+  depends_on = [aws_organizations_account.workload_accounts]
+}
+
+module "cross_account_admin_role_prod" {
+  source = "../../modules/iam/cross-account-admin-role"
+  count  = contains(keys(local.account_ids), "prod") ? 1 : 0
+
+  providers = {
+    aws = aws.workload_account_prod
+  }
+
+  management_account_id    = local.management_account_id
+  admin_group_name        = local.admin_group_name
+  account_environment     = "prod"
+  role_name              = "CrossAccountAdminRole"
+  require_mfa            = true
+  max_session_duration   = 3600
+  use_administrator_access = true
+  external_id            = "cross-account-admin-prod"
+  create_readonly_role   = try(var.create_readonly_admin_roles, false)
+
+  tags = merge(try(var.tags, {}), {
+    Environment        = "prod"
+    ProvisionedBy     = "org-management"
+    CrossAccountAccess = "true"
+    SourceAccount     = local.management_account_id
+  })
+
+  depends_on = [aws_organizations_account.workload_accounts]
 }

@@ -60,9 +60,9 @@ data "aws_iam_policy_document" "admin_role_trust" {
 
 # Create the cross-account admin role
 resource "aws_iam_role" "cross_account_admin" {
-  name               = var.role_name
-  path               = var.role_path
-  description        = var.role_description
+  name                 = var.role_name
+  path                 = var.role_path
+  description          = var.role_description
   max_session_duration = var.max_session_duration
 
   assume_role_policy = data.aws_iam_policy_document.admin_role_trust.json
@@ -105,9 +105,9 @@ resource "aws_iam_role_policy_attachment" "additional_policies" {
 resource "aws_iam_role" "cross_account_readonly" {
   count = var.create_readonly_role ? 1 : 0
 
-  name               = "${var.role_name}ReadOnly"
-  path               = var.role_path
-  description        = "Read-only cross-account access for ${var.account_environment} environment"
+  name                 = "${var.role_name}ReadOnly"
+  path                 = var.role_path
+  description          = "Read-only cross-account access for ${var.account_environment} environment"
   max_session_duration = var.max_session_duration
 
   assume_role_policy = data.aws_iam_policy_document.admin_role_trust.json

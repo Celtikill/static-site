@@ -21,13 +21,13 @@ variable "organization_name" {
 variable "import_existing_accounts" {
   description = "Import existing accounts instead of creating new"
   type        = bool
-  default     = true  # Start with import for existing setup
+  default     = true # Start with import for existing setup
 }
 
 variable "create_new_accounts" {
   description = "Create new accounts (for fresh demo setup)"
   type        = bool
-  default     = false  # Set to true for ground-up demo
+  default     = false # Set to true for ground-up demo
 }
 
 variable "existing_account_ids" {
@@ -111,4 +111,18 @@ variable "tags" {
     Component = "organization"
     ManagedBy = "terraform"
   }
+}
+
+# Cross-account access configuration
+variable "cross_account_external_id" {
+  description = "External ID for cross-account role assumption"
+  type        = string
+  default     = "github-actions-static-site"
+  sensitive   = true
+}
+
+variable "create_readonly_admin_roles" {
+  description = "Whether to create read-only admin roles in addition to full admin roles"
+  type        = bool
+  default     = false
 }

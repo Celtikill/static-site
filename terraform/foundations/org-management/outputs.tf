@@ -76,8 +76,8 @@ output "account_information" {
   value = {
     management_account_id = data.aws_caller_identity.current.account_id
     workload_account_ids  = local.account_ids
-    import_mode          = var.import_existing_accounts
-    create_mode          = var.create_new_accounts
+    import_mode           = var.import_existing_accounts
+    create_mode           = var.create_new_accounts
   }
 }
 

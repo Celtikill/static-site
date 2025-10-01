@@ -11,9 +11,9 @@ resource "aws_organizations_policy" "workload_guardrails" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DenyRootAccountUsage"
-        Effect = "Deny"
-        Action = "*"
+        Sid      = "DenyRootAccountUsage"
+        Effect   = "Deny"
+        Action   = "*"
         Resource = "*"
         Condition = {
           StringLike = {
@@ -22,9 +22,9 @@ resource "aws_organizations_policy" "workload_guardrails" {
         }
       },
       {
-        Sid    = "RequireIMDSv2"
-        Effect = "Deny"
-        Action = "ec2:RunInstances"
+        Sid      = "RequireIMDSv2"
+        Effect   = "Deny"
+        Action   = "ec2:RunInstances"
         Resource = "*"
         Condition = {
           StringNotEquals = {
@@ -33,9 +33,9 @@ resource "aws_organizations_policy" "workload_guardrails" {
         }
       },
       {
-        Sid    = "EnforceS3Encryption"
-        Effect = "Deny"
-        Action = "s3:PutObject"
+        Sid      = "EnforceS3Encryption"
+        Effect   = "Deny"
+        Action   = "s3:PutObject"
         Resource = "*"
         Condition = {
           StringNotEquals = {
@@ -119,9 +119,9 @@ resource "aws_organizations_policy" "sandbox_restrictions" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "DenyRootAccountUsage"
-        Effect = "Deny"
-        Action = "*"
+        Sid      = "DenyRootAccountUsage"
+        Effect   = "Deny"
+        Action   = "*"
         Resource = "*"
         Condition = {
           StringLike = {
