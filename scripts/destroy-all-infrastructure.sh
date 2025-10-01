@@ -445,6 +445,9 @@ destroy_cross_account_roles() {
 
         local env_name="${account_env_map[$account_id]}"
         local role_name="GitHubActions-StaticSite-${env_name}-Role"
+
+        # Also check for alternative role naming patterns
+        local alt_role_name="github-actions-workload-deployment"
         local org_role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
 
         log_info "Processing account $account_id ($env_name environment)"
@@ -467,46 +470,55 @@ destroy_cross_account_roles() {
                     secret_key=$(echo "$assume_output" | jq -r '.SecretAccessKey')
                     session_token=$(echo "$assume_output" | jq -r '.SessionToken')
 
-                    # Use temporary credentials to destroy role in target account
+                    # Check for both role naming patterns
+                    local found_role=""
                     if AWS_ACCESS_KEY_ID="$access_key" \
                        AWS_SECRET_ACCESS_KEY="$secret_key" \
                        AWS_SESSION_TOKEN="$session_token" \
                        aws iam get-role --role-name "$role_name" >/dev/null 2>&1; then
+                        found_role="$role_name"
+                    elif AWS_ACCESS_KEY_ID="$access_key" \
+                         AWS_SECRET_ACCESS_KEY="$secret_key" \
+                         AWS_SESSION_TOKEN="$session_token" \
+                         aws iam get-role --role-name "$alt_role_name" >/dev/null 2>&1; then
+                        found_role="$alt_role_name"
+                    fi
 
-                        log_info "Found role $role_name in account $account_id - proceeding with destruction"
+                    if [[ -n "$found_role" ]]; then
+                        log_info "Found role $found_role in account $account_id - proceeding with destruction"
 
                         # Detach managed policies
                         AWS_ACCESS_KEY_ID="$access_key" \
                         AWS_SECRET_ACCESS_KEY="$secret_key" \
                         AWS_SESSION_TOKEN="$session_token" \
-                        aws iam list-attached-role-policies --role-name "$role_name" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null | \
+                        aws iam list-attached-role-policies --role-name "$found_role" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null | \
                             while read -r policy_arn; do
                                 [[ -n "$policy_arn" ]] && AWS_ACCESS_KEY_ID="$access_key" \
                                 AWS_SECRET_ACCESS_KEY="$secret_key" \
                                 AWS_SESSION_TOKEN="$session_token" \
-                                aws iam detach-role-policy --role-name "$role_name" --policy-arn "$policy_arn" 2>/dev/null || true
+                                aws iam detach-role-policy --role-name "$found_role" --policy-arn "$policy_arn" 2>/dev/null || true
                             done
 
                         # Delete inline policies
                         AWS_ACCESS_KEY_ID="$access_key" \
                         AWS_SECRET_ACCESS_KEY="$secret_key" \
                         AWS_SESSION_TOKEN="$session_token" \
-                        aws iam list-role-policies --role-name "$role_name" --query 'PolicyNames[]' --output text 2>/dev/null | \
+                        aws iam list-role-policies --role-name "$found_role" --query 'PolicyNames[]' --output text 2>/dev/null | \
                             while read -r policy_name; do
                                 [[ -n "$policy_name" ]] && AWS_ACCESS_KEY_ID="$access_key" \
                                 AWS_SECRET_ACCESS_KEY="$secret_key" \
                                 AWS_SESSION_TOKEN="$session_token" \
-                                aws iam delete-role-policy --role-name "$role_name" --policy-name "$policy_name" 2>/dev/null || true
+                                aws iam delete-role-policy --role-name "$found_role" --policy-name "$policy_name" 2>/dev/null || true
                             done
 
                         # Delete the role
                         if AWS_ACCESS_KEY_ID="$access_key" \
                            AWS_SECRET_ACCESS_KEY="$secret_key" \
                            AWS_SESSION_TOKEN="$session_token" \
-                           aws iam delete-role --role-name "$role_name" 2>/dev/null; then
-                            log_success "Deleted cross-account role: $role_name in account $account_id"
+                           aws iam delete-role --role-name "$found_role" 2>/dev/null; then
+                            log_success "Deleted cross-account role: $found_role in account $account_id"
                         else
-                            log_error "Failed to delete cross-account role: $role_name in account $account_id"
+                            log_error "Failed to delete cross-account role: $found_role in account $account_id"
                         fi
                     else
                         log_info "Role $role_name not found in account $account_id - skipping"
@@ -1003,10 +1015,14 @@ generate_cost_estimate() {
 
     # Estimate savings (very rough)
     local s3_buckets_count
-    s3_buckets_count=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null | wc -w || echo 0)
+    s3_buckets_count=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null | wc -w 2>/dev/null || echo 0)
+    s3_buckets_count=$(echo "$s3_buckets_count" | tr -d '[:space:]')
+    [[ ! "$s3_buckets_count" =~ ^[0-9]+$ ]] && s3_buckets_count=0
 
     local cloudfront_count
-    cloudfront_count=$(aws cloudfront list-distributions --query 'DistributionList.Items[].Id' --output text 2>/dev/null | wc -w || echo 0)
+    cloudfront_count=$(aws cloudfront list-distributions --query 'DistributionList.Items[].Id' --output text 2>/dev/null | wc -w 2>/dev/null || echo 0)
+    cloudfront_count=$(echo "$cloudfront_count" | tr -d '[:space:]')
+    [[ ! "$cloudfront_count" =~ ^[0-9]+$ ]] && cloudfront_count=0
 
     # Rough monthly cost estimates (in USD)
     local s3_cost=$((s3_buckets_count * 5))      # ~$5/month per bucket (very rough)
