@@ -136,6 +136,7 @@ resource "aws_iam_policy" "static_website" {
           "s3:GetBucketTagging",
           "s3:PutBucketTagging",
           "s3:GetBucketAcl",
+          "s3:GetAccelerateConfiguration",
           "s3:GetObject",
           "s3:PutObject",
           "s3:DeleteObject",
@@ -215,6 +216,7 @@ resource "aws_iam_policy" "static_website" {
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
           "logs:DescribeLogGroups",
+          "logs:DescribeMetricFilters",
           "logs:PutRetentionPolicy",
           "logs:TagLogGroup",
           "logs:UntagLogGroup",
@@ -230,7 +232,8 @@ resource "aws_iam_policy" "static_website" {
           "kms:Decrypt",
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
-          "kms:DescribeKey"
+          "kms:DescribeKey",
+          "kms:GetKeyPolicy"
         ]
         Resource = [
           "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/*"
@@ -245,7 +248,9 @@ resource "aws_iam_policy" "static_website" {
           "ec2:DescribeRegions",
           "ec2:DescribeAvailabilityZones",
           "iam:GetRole",
-          "budgets:ViewBudget"
+          "iam:ListRolePolicies",
+          "budgets:ViewBudget",
+          "budgets:ListTagsForResource"
         ]
         Resource = "*"
       },
@@ -253,7 +258,8 @@ resource "aws_iam_policy" "static_website" {
       {
         Effect = "Allow"
         Action = [
-          "SNS:GetTopicAttributes"
+          "SNS:GetTopicAttributes",
+          "SNS:ListTagsForResource"
         ]
         Resource = "arn:aws:sns:*:${data.aws_caller_identity.current.account_id}:*"
       }
