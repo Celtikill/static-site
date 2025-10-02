@@ -35,7 +35,7 @@ module "cross_account_admin_role_dev" {
   require_mfa              = true
   max_session_duration     = 3600
   use_administrator_access = true
-  external_id              = "cross-account-admin-dev"
+  external_id              = null # Console access - no ExternalId required
   create_readonly_role     = try(var.create_readonly_admin_roles, false)
 
   tags = merge(try(var.tags, {}), {
@@ -63,7 +63,7 @@ module "cross_account_admin_role_staging" {
   require_mfa              = true
   max_session_duration     = 3600
   use_administrator_access = true
-  external_id              = "cross-account-admin-staging"
+  external_id              = null # Console access - no ExternalId required
   create_readonly_role     = try(var.create_readonly_admin_roles, false)
 
   tags = merge(try(var.tags, {}), {
@@ -91,7 +91,7 @@ module "cross_account_admin_role_prod" {
   require_mfa              = true
   max_session_duration     = 3600
   use_administrator_access = true
-  external_id              = "cross-account-admin-prod"
+  external_id              = null # Console access - no ExternalId required
   create_readonly_role     = try(var.create_readonly_admin_roles, false)
 
   tags = merge(try(var.tags, {}), {

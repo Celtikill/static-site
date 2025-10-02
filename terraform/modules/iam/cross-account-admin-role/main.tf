@@ -30,10 +30,14 @@ data "aws_iam_policy_document" "admin_role_trust" {
 
     actions = ["sts:AssumeRole"]
 
-    condition {
-      test     = "StringEquals"
-      variable = "sts:ExternalId"
-      values   = [var.external_id]
+    # Optional: Add ExternalId requirement (omit for console access)
+    dynamic "condition" {
+      for_each = var.external_id != null && var.external_id != "" ? [1] : []
+      content {
+        test     = "StringEquals"
+        variable = "sts:ExternalId"
+        values   = [var.external_id]
+      }
     }
 
     # Optional: Add MFA requirement

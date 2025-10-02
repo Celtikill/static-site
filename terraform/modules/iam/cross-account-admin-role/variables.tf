@@ -56,9 +56,9 @@ variable "account_environment" {
 }
 
 variable "external_id" {
-  description = "External ID for additional security when assuming the role"
+  description = "External ID for additional security when assuming the role (optional - omit for console access)"
   type        = string
-  default     = "cross-account-admin-access"
+  default     = null
   sensitive   = true
 }
 

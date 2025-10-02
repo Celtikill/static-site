@@ -93,11 +93,9 @@ data "aws_iam_policy_document" "cross_account_assume_role" {
 
     resources = values(local.cross_account_role_arns)
 
-    condition {
-      test     = "StringEquals"
-      variable = "sts:ExternalId"
-      values   = [var.assume_role_external_id]
-    }
+    # ExternalId removed to enable AWS console role switching
+    # Console cannot assume roles with ExternalId requirement
+    # Within same organization, account-based trust is sufficient
   }
 
   statement {
