@@ -255,7 +255,8 @@ resource "aws_iam_policy" "github_actions_org_management" {
         Effect = "Allow"
         Action = [
           "sts:GetCallerIdentity",
-          "ec2:DescribeRegions"
+          "ec2:DescribeRegions",
+          "iam:GetAccountSummary"
         ]
         Resource = "*"
       },

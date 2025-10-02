@@ -497,10 +497,10 @@ jobs:
           echo "🔄 Importing existing SCP policy attachments to avoid duplicate errors..."
 
           # Import workload guardrails attachment if it exists
-          tofu import aws_organizations_policy_attachment.workload_guardrails ou-klz3-i6e1vrrj/p-bfqkqfe7 || echo "⚠️ Workload guardrails attachment already in state or doesn't exist"
+          tofu import aws_organizations_policy_attachment.workload_guardrails ou-klz3-i6e1vrrj:p-bfqkqfe7 || echo "⚠️ Workload guardrails attachment already in state or doesn't exist"
 
           # Import sandbox restrictions attachment if it exists
-          tofu import aws_organizations_policy_attachment.sandbox_restrictions ou-klz3-aqvpp61l/p-5rx6bwz2 || echo "⚠️ Sandbox restrictions attachment already in state or doesn't exist"
+          tofu import aws_organizations_policy_attachment.sandbox_restrictions ou-klz3-aqvpp61l:p-5rx6bwz2 || echo "⚠️ Sandbox restrictions attachment already in state or doesn't exist"
 
           echo "✅ Import step completed"
 
@@ -524,13 +524,27 @@ jobs:
       - name: Generate AWS Configuration Files
         if: inputs.action == 'apply'
         working-directory: terraform/foundations/org-management
+        continue-on-error: true
         run: |
           echo "📝 Generating AWS configuration files..."
 
           mkdir -p ../../aws-configs
 
-          # Extract CLI config content
-          tofu output -json aws_configuration | jq -r '.cli_config_content' > ../../aws-configs/aws-cli-config.ini
+          # Extract CLI config content with error handling
+          if tofu output -json aws_configuration > /tmp/aws-config-output.json 2>&1; then
+            jq -r '.cli_config_content // empty' /tmp/aws-config-output.json > ../../aws-configs/aws-cli-config.ini
+
+            if [[ -s ../../aws-configs/aws-cli-config.ini ]]; then
+              echo "✅ AWS CLI config generated successfully"
+            else
+              echo "⚠️ Config file is empty - check output structure"
+              cat /tmp/aws-config-output.json | head -20
+            fi
+          else
+            echo "⚠️ Could not generate AWS configuration output"
+            cat /tmp/aws-config-output.json
+            exit 0
+          fi
 
           # Create setup instructions
           cat > ../../aws-configs/README.md <<'EOF'
