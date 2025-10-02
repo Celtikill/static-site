@@ -135,12 +135,10 @@ resource "aws_iam_policy" "static_website" {
           "s3:PutBucketNotification",
           "s3:GetBucketTagging",
           "s3:PutBucketTagging",
-          "s3:GetBucketAcl",
-          "s3:GetAccelerateConfiguration",
-          "s3:GetObject",
+          "s3:Get*",
           "s3:PutObject",
           "s3:DeleteObject",
-          "s3:ListBucket"
+          "s3:List*"
         ]
         Resource = [
           "arn:aws:s3:::static-website-${var.environment}-*",
@@ -208,23 +206,23 @@ resource "aws_iam_policy" "static_website" {
         Action = [
           "cloudwatch:PutMetricAlarm",
           "cloudwatch:DeleteAlarms",
-          "cloudwatch:DescribeAlarms",
           "cloudwatch:PutDashboard",
-          "cloudwatch:GetDashboard",
           "cloudwatch:DeleteDashboards",
-          "cloudwatch:ListDashboards",
+          "cloudwatch:Get*",
+          "cloudwatch:List*",
+          "cloudwatch:Describe*",
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
-          "logs:DescribeLogGroups",
-          "logs:DescribeMetricFilters",
           "logs:PutRetentionPolicy",
           "logs:TagLogGroup",
           "logs:UntagLogGroup",
-          "logs:ListTagsForResource"
+          "logs:Get*",
+          "logs:List*",
+          "logs:Describe*"
         ]
         Resource = "*"
       },
-      # KMS Management (limited to specific keys)
+      # KMS Management (limited to account keys)
       {
         Effect = "Allow"
         Action = [
@@ -232,34 +230,39 @@ resource "aws_iam_policy" "static_website" {
           "kms:Decrypt",
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
-          "kms:DescribeKey",
-          "kms:GetKeyPolicy"
+          "kms:Get*",
+          "kms:List*",
+          "kms:Describe*"
         ]
         Resource = [
           "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/*"
         ]
       },
-      # Read-only permissions for planning and state refresh
+      # Comprehensive read-only permissions for Terraform state refresh
+      # Following "middle way" approach: wildcard patterns with resource constraints
       {
         Effect = "Allow"
         Action = [
+          # Core AWS services
           "sts:GetCallerIdentity",
-          "account:GetAccountInformation",
-          "ec2:DescribeRegions",
-          "ec2:DescribeAvailabilityZones",
-          "iam:GetRole",
-          "iam:ListRolePolicies",
-          "budgets:ViewBudget",
-          "budgets:ListTagsForResource"
+          "account:Get*",
+          "ec2:Describe*",
+          # IAM read operations (required for role/policy management)
+          "iam:Get*",
+          "iam:List*",
+          # Budgets read operations
+          "budgets:View*",
+          "budgets:Get*",
+          "budgets:List*"
         ]
         Resource = "*"
       },
-      # SNS Read Permissions
+      # SNS read permissions (scoped to account)
       {
         Effect = "Allow"
         Action = [
-          "SNS:GetTopicAttributes",
-          "SNS:ListTagsForResource"
+          "SNS:Get*",
+          "SNS:List*"
         ]
         Resource = "arn:aws:sns:*:${data.aws_caller_identity.current.account_id}:*"
       }
