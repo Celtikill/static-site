@@ -126,6 +126,7 @@ jobs:
         uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: ${{ env.OPENTOFU_VERSION }}
+          tofu_wrapper: false  # Disable wrapper to preserve exit codes
 
       - name: Initialize Terraform Module
         working-directory: terraform/modules/cross-account-roles
