@@ -528,13 +528,13 @@ jobs:
         run: |
           echo "📝 Generating AWS configuration files..."
 
-          mkdir -p ../../aws-configs
+          mkdir -p $GITHUB_WORKSPACE/aws-configs
 
           # Extract CLI config content with error handling
           if tofu output -json aws_configuration > /tmp/aws-config-output.json 2>&1; then
-            jq -r '.cli_config_content // empty' /tmp/aws-config-output.json > ../../aws-configs/aws-cli-config.ini
+            jq -r '.cli_config_content // empty' /tmp/aws-config-output.json > $GITHUB_WORKSPACE/aws-configs/aws-cli-config.ini
 
-            if [[ -s ../../aws-configs/aws-cli-config.ini ]]; then
+            if [[ -s $GITHUB_WORKSPACE/aws-configs/aws-cli-config.ini ]]; then
               echo "✅ AWS CLI config generated successfully"
             else
               echo "⚠️ Config file is empty - check output structure"
@@ -547,7 +547,7 @@ jobs:
           fi
 
           # Create setup instructions
-          cat > ../../aws-configs/README.md <<'EOF'
+          cat > $GITHUB_WORKSPACE/aws-configs/README.md <<'EOF'
           # AWS Cross-Account Configuration
 
           ## Quick Setup
@@ -594,7 +594,7 @@ jobs:
           EOF
 
           echo "✅ Configuration files generated"
-          ls -lh ../../aws-configs/
+          ls -lh $GITHUB_WORKSPACE/aws-configs/
 
       - name: Upload AWS Configuration Artifact
         if: inputs.action == 'apply'
