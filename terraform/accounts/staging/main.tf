@@ -39,8 +39,8 @@ module "deployment_role" {
   central_role_arn = "arn:aws:iam::${var.aws_account_id_management}:role/GitHubActions-StaticSite-Central"
   external_id      = "github-actions-static-site"
 
-  # State bucket configuration (management account)
-  state_bucket_account_id = var.aws_account_id_management
+  # State bucket configuration (staging account - distributed backend)
+  state_bucket_account_id = var.aws_account_id_staging
   state_bucket_region     = var.default_region
 
   # Additional S3 bucket patterns for staging environment

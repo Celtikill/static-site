@@ -83,7 +83,7 @@ resource "aws_iam_policy" "terraform_state" {
           "dynamodb:PutItem",
           "dynamodb:DeleteItem"
         ]
-        Resource = "arn:aws:dynamodb:${var.state_bucket_region}:${var.state_bucket_account_id}:table/static-website-locks-${var.environment}"
+        Resource = "arn:aws:dynamodb:${var.state_bucket_region}:${var.state_bucket_account_id}:table/static-site-locks-${var.environment}"
       }
     ]
   })
