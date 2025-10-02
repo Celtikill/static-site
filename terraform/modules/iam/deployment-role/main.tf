@@ -135,6 +135,7 @@ resource "aws_iam_policy" "static_website" {
           "s3:PutBucketNotification",
           "s3:GetBucketTagging",
           "s3:PutBucketTagging",
+          "s3:GetBucketAcl",
           "s3:GetObject",
           "s3:PutObject",
           "s3:DeleteObject",
@@ -216,7 +217,8 @@ resource "aws_iam_policy" "static_website" {
           "logs:DescribeLogGroups",
           "logs:PutRetentionPolicy",
           "logs:TagLogGroup",
-          "logs:UntagLogGroup"
+          "logs:UntagLogGroup",
+          "logs:ListTagsForResource"
         ]
         Resource = "*"
       },
@@ -233,22 +235,27 @@ resource "aws_iam_policy" "static_website" {
         Resource = [
           "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/*"
         ]
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
-          }
-        }
       },
-      # Read-only permissions for planning
+      # Read-only permissions for planning and state refresh
       {
         Effect = "Allow"
         Action = [
           "sts:GetCallerIdentity",
           "account:GetAccountInformation",
           "ec2:DescribeRegions",
-          "ec2:DescribeAvailabilityZones"
+          "ec2:DescribeAvailabilityZones",
+          "iam:GetRole",
+          "budgets:ViewBudget"
         ]
         Resource = "*"
+      },
+      # SNS Read Permissions
+      {
+        Effect = "Allow"
+        Action = [
+          "SNS:GetTopicAttributes"
+        ]
+        Resource = "arn:aws:sns:*:${data.aws_caller_identity.current.account_id}:*"
       }
     ]
   })
