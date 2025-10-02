@@ -184,11 +184,11 @@ jobs:
             echo "Generated targets: $TARGETS"
           fi
 
-          # Run plan
-          tofu plan -detailed-exitcode -out=tfplan $TARGETS
+          # Run plan and capture exit code (use || true to prevent bash -e from exiting on code 2)
+          tofu plan -detailed-exitcode -out=tfplan $TARGETS || PLAN_EXIT_CODE=$?
 
-          # Store plan result
-          echo "PLAN_RESULT=$?" >> $GITHUB_ENV
+          # Store plan result (terraform exit code 2 means changes, 0 means no changes, 1 means error)
+          echo "PLAN_RESULT=${PLAN_EXIT_CODE:-0}" >> $GITHUB_ENV
 
       - name: Display Plan Summary
         working-directory: terraform/modules/cross-account-roles
