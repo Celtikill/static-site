@@ -24,7 +24,7 @@ data "aws_iam_policy_document" "admin_role_trust" {
     principals {
       type = "AWS"
       identifiers = [
-        "arn:aws:iam::${var.management_account_id}:group/${var.admin_group_path}${var.admin_group_name}"
+        "arn:aws:iam::${var.management_account_id}:root"
       ]
     }
 

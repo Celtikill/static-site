@@ -93,3 +93,86 @@ output "next_steps" {
     security_reference = "See SECURITY.md for complete service-scoped permissions documentation and approved patterns"
   }
 }
+
+# AWS Configuration for cross-account access
+output "aws_configuration" {
+  description = "Complete AWS configuration for CLI and console access with embedded console URLs"
+  value = {
+    # CLI config file content with console URLs as comments
+    cli_config_content = <<-EOT
+# ============================================================================
+# Cross-Account Admin Roles - static-site Organization
+# Management Account: ${data.aws_caller_identity.current.account_id}
+# Generated: ${timestamp()}
+# ============================================================================
+#
+# SETUP INSTRUCTIONS:
+# 1. Append this content to your ~/.aws/config file:
+#    cat aws-cli-config.ini >> ~/.aws/config
+#
+# 2. Replace YOUR_USERNAME with your IAM username in all mfa_serial lines
+#
+# 3. For AWS Console access, click the Console URL comments below to
+#    automatically configure role switching in your browser
+#
+# ============================================================================
+
+# Dev Environment
+# Console URL: https://signin.aws.amazon.com/switchrole?account=${try(local.account_ids["dev"], "822529998967")}&roleName=CrossAccountAdminRole&displayName=Dev-Admin
+[profile dev-admin]
+role_arn = arn:aws:iam::${try(local.account_ids["dev"], "822529998967")}:role/cross-account/CrossAccountAdminRole
+source_profile = default
+region = us-east-1
+mfa_serial = arn:aws:iam::${data.aws_caller_identity.current.account_id}:mfa/YOUR_USERNAME
+duration_seconds = 3600
+
+# Staging Environment
+# Console URL: https://signin.aws.amazon.com/switchrole?account=${try(local.account_ids["staging"], "927588814642")}&roleName=CrossAccountAdminRole&displayName=Staging-Admin
+[profile staging-admin]
+role_arn = arn:aws:iam::${try(local.account_ids["staging"], "927588814642")}:role/cross-account/CrossAccountAdminRole
+source_profile = default
+region = us-east-1
+mfa_serial = arn:aws:iam::${data.aws_caller_identity.current.account_id}:mfa/YOUR_USERNAME
+duration_seconds = 3600
+
+# Production Environment
+# Console URL: https://signin.aws.amazon.com/switchrole?account=${try(local.account_ids["prod"], "546274483801")}&roleName=CrossAccountAdminRole&displayName=Prod-Admin
+[profile prod-admin]
+role_arn = arn:aws:iam::${try(local.account_ids["prod"], "546274483801")}:role/cross-account/CrossAccountAdminRole
+source_profile = default
+region = us-east-1
+mfa_serial = arn:aws:iam::${data.aws_caller_identity.current.account_id}:mfa/YOUR_USERNAME
+duration_seconds = 3600
+
+# ============================================================================
+# USAGE:
+#
+# CLI Access:
+#   aws s3 ls --profile dev-admin
+#   aws sts get-caller-identity --profile staging-admin
+#
+# Console Access:
+#   Click the "Console URL" links above to configure browser role switching
+#
+# ============================================================================
+EOT
+
+    # Structured data for workflow automation
+    console_urls = {
+      dev     = "https://signin.aws.amazon.com/switchrole?account=${try(local.account_ids["dev"], "822529998967")}&roleName=CrossAccountAdminRole&displayName=Dev-Admin"
+      staging = "https://signin.aws.amazon.com/switchrole?account=${try(local.account_ids["staging"], "927588814642")}&roleName=CrossAccountAdminRole&displayName=Staging-Admin"
+      prod    = "https://signin.aws.amazon.com/switchrole?account=${try(local.account_ids["prod"], "546274483801")}&roleName=CrossAccountAdminRole&displayName=Prod-Admin"
+    }
+
+    # Role ARNs for reference
+    role_arns = {
+      dev     = "arn:aws:iam::${try(local.account_ids["dev"], "822529998967")}:role/cross-account/CrossAccountAdminRole"
+      staging = "arn:aws:iam::${try(local.account_ids["staging"], "927588814642")}:role/cross-account/CrossAccountAdminRole"
+      prod    = "arn:aws:iam::${try(local.account_ids["prod"], "546274483801")}:role/cross-account/CrossAccountAdminRole"
+    }
+
+    # Account information
+    management_account_id = data.aws_caller_identity.current.account_id
+    workload_accounts     = local.account_ids
+  }
+}

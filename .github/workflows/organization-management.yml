@@ -506,6 +506,75 @@ jobs:
           echo "### Applied Changes Summary"
           tofu output -json | jq .
 
+      - name: Generate AWS Configuration Files
+        if: inputs.action == 'apply'
+        working-directory: terraform/foundations/org-management
+        run: |
+          echo "📝 Generating AWS configuration files..."
+
+          mkdir -p ../../aws-configs
+
+          # Extract CLI config content
+          tofu output -json aws_configuration | jq -r '.cli_config_content' > ../../aws-configs/aws-cli-config.ini
+
+          # Create setup instructions
+          cat > ../../aws-configs/README.md <<'EOF'
+          # AWS Cross-Account Configuration
+
+          ## Quick Setup
+
+          ### 1. AWS CLI Configuration
+
+          Append the configuration to your AWS config file:
+
+          ```bash
+          cat aws-cli-config.ini >> ~/.aws/config
+          ```
+
+          Then edit `~/.aws/config` and replace `YOUR_USERNAME` with your actual IAM username.
+
+          ### 2. AWS Console Role Switching
+
+          Open the `aws-cli-config.ini` file and click the "Console URL" links in the comments. This will automatically configure role switching in your AWS Console.
+
+          ## Usage Examples
+
+          ### CLI:
+          ```bash
+          # List S3 buckets in dev account
+          aws s3 ls --profile dev-admin
+
+          # Check current identity in staging
+          aws sts get-caller-identity --profile staging-admin
+
+          # Deploy to prod
+          aws cloudformation deploy --profile prod-admin ...
+          ```
+
+          ### Console:
+          After clicking the Console URLs once, roles will appear in your AWS Console dropdown (username → Switch Role → Recent Roles)
+
+          ## MFA Setup
+
+          Find your MFA device ARN:
+          ```bash
+          aws iam list-mfa-devices
+          ```
+
+          Replace `YOUR_USERNAME` in the config with your actual IAM username.
+          EOF
+
+          echo "✅ Configuration files generated"
+          ls -lh ../../aws-configs/
+
+      - name: Upload AWS Configuration Artifact
+        if: inputs.action == 'apply'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aws-cross-account-config-${{ github.run_id }}
+          path: aws-configs/
+          retention-days: 30
+
       - name: Terraform Destroy
         working-directory: terraform/foundations/org-management
         if: inputs.action == 'destroy'
@@ -612,6 +681,47 @@ jobs:
             echo "❌ **Overall Status: Some Operations Failed** - Check individual job logs" >> $GITHUB_STEP_SUMMARY
           else
             echo "ℹ️ **Overall Status: Operations Completed** - Some jobs may have been skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # AWS Configuration Section (only if apply was successful)
+          if [[ "${{ needs.organization-management.result }}" == "success" && "${{ inputs.action }}" == "apply" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## 🔐 AWS Cross-Account Configuration" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "### 📥 Download Configuration" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Download the complete AWS configuration package from the workflow artifacts above." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**The package includes:**" >> $GITHUB_STEP_SUMMARY
+            echo "- \`aws-cli-config.ini\` - AWS CLI profiles with embedded console URLs" >> $GITHUB_STEP_SUMMARY
+            echo "- \`README.md\` - Setup instructions and usage examples" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "### 🔗 Quick Console Access" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Click these links to configure AWS Console role switching:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Environment | Console URL |" >> $GITHUB_STEP_SUMMARY
+            echo "|-------------|-------------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔵 Dev | [Switch to Dev Admin](https://signin.aws.amazon.com/switchrole?account=822529998967&roleName=CrossAccountAdminRole&displayName=Dev-Admin) |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Staging | [Switch to Staging Admin](https://signin.aws.amazon.com/switchrole?account=927588814642&roleName=CrossAccountAdminRole&displayName=Staging-Admin) |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Prod | [Switch to Prod Admin](https://signin.aws.amazon.com/switchrole?account=546274483801&roleName=CrossAccountAdminRole&displayName=Prod-Admin) |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "### 💡 Quick Start" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**For Console Users:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Click any Console URL above" >> $GITHUB_STEP_SUMMARY
+            echo "2. Click \"Switch Role\" in AWS Console" >> $GITHUB_STEP_SUMMARY
+            echo "3. Role is now saved in your history (accessible via username dropdown)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**For CLI Users:**" >> $GITHUB_STEP_SUMMARY
+            echo "1. Download the artifact above" >> $GITHUB_STEP_SUMMARY
+            echo "2. Run: \`cat aws-cli-config.ini >> ~/.aws/config\`" >> $GITHUB_STEP_SUMMARY
+            echo "3. Edit \`~/.aws/config\` and replace \`YOUR_USERNAME\` with your IAM username" >> $GITHUB_STEP_SUMMARY
+            echo "4. Use profiles: \`aws s3 ls --profile dev-admin\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "" >> $GITHUB_STEP_SUMMARY
