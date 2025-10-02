@@ -280,6 +280,29 @@ resource "aws_iam_policy" "github_actions_org_management" {
         ]
       },
       {
+        Sid    = "IAMCrossAccountAdminManagement"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateGroup",
+          "iam:DeleteGroup",
+          "iam:GetGroup",
+          "iam:UpdateGroup",
+          "iam:AddUserToGroup",
+          "iam:RemoveUserFromGroup",
+          "iam:AttachGroupPolicy",
+          "iam:DetachGroupPolicy",
+          "iam:PutGroupPolicy",
+          "iam:DeleteGroupPolicy",
+          "iam:GetGroupPolicy",
+          "iam:ListGroupPolicies",
+          "iam:ListGroupsForUser"
+        ]
+        Resource = [
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:group/admins/*",
+          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:group/CrossAccountAdmins"
+        ]
+      },
+      {
         Sid    = "S3OrganizationOperations"
         Effect = "Allow"
         Action = [
