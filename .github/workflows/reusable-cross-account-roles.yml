@@ -152,13 +152,10 @@ jobs:
         run: |
           echo "⚙️ Generating terraform variables..."
 
-          # Create terraform.tfvars - properly escape JSON for HCL string
-          # The account_mapping variable expects a JSON string, so we need to escape it properly
-          ACCOUNT_JSON='${{ needs.validation.outputs.parsed_accounts }}'
-
-          # Escape the JSON string for HCL by using printf to quote it properly
+          # Create terraform.tfvars - properly format JSON as HCL string literal
+          # The account_mapping variable expects a JSON string in quotes
           cat > terraform.tfvars <<EOF
-          account_mapping = $(printf '%q' "$ACCOUNT_JSON")
+          account_mapping = "${{ needs.validation.outputs.parsed_accounts }}"
           external_id = "${{ inputs.external_id }}"
           management_account_id = "${{ inputs.management_account_id }}"
           aws_region = "${{ env.AWS_DEFAULT_REGION }}"
