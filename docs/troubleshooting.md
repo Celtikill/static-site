@@ -237,6 +237,154 @@ gh run view [RUN_ID] --log | grep -A 10 "CloudFront"
 
 ---
 
+## Organization Management Workflow Issues
+
+### Service Control Policy (SCP) Errors
+
+#### Duplicate Policy Attachment
+
+**Issue**: `DuplicatePolicyAttachmentException: A policy with the specified name and type already exists`
+
+**Cause**: SCP policies are already attached to Organizational Units but not tracked in Terraform state
+
+**Solution**:
+```bash
+# Option 1: Manually detach existing attachments
+aws organizations detach-policy --policy-id p-bfqkqfe7 --target-id ou-klz3-i6e1vrrj
+aws organizations detach-policy --policy-id p-5rx6bwz2 --target-id ou-klz3-aqvpp61l
+
+# Then trigger workflow to recreate and capture in state
+gh workflow run organization-management.yml --field action=apply
+
+# Option 2: Use workflow import (automatic with continue-on-error)
+# The workflow includes import steps that handle existing attachments gracefully
+```
+
+#### SCP Import ID Format Error
+
+**Issue**: `Error: unexpected format for ID (ou-id/policy-id), expected TARGETID:POLICYID`
+
+**Cause**: Incorrect delimiter in Terraform import command - must use colon `:` not forward slash `/`
+
+**Solution**:
+```bash
+# Incorrect format
+tofu import aws_organizations_policy_attachment.example ou-klz3-i6e1vrrj/p-bfqkqfe7
+
+# Correct format
+tofu import aws_organizations_policy_attachment.example ou-klz3-i6e1vrrj:p-bfqkqfe7
+```
+
+### IAM Permission Errors
+
+#### GetAccountSummary Access Denied
+
+**Issue**: `User is not authorized to perform: iam:GetAccountSummary on resource: *`
+
+**Cause**: Service-scoped IAM wildcard (`iam:*`) applies only to scoped resources, but `GetAccountSummary` requires resource `*`
+
+**Context**: This is expected behavior when using service-scoped permissions per SECURITY.md guidelines
+
+**Solution**: Add `iam:GetAccountSummary` to `GeneralPermissions` statement:
+```hcl
+{
+  Sid    = "GeneralPermissions"
+  Effect = "Allow"
+  Action = [
+    "sts:GetCallerIdentity",
+    "ec2:DescribeRegions",
+    "iam:GetAccountSummary"  # Add this line
+  ]
+  Resource = "*"
+}
+```
+
+### GitHub Actions Artifact Errors
+
+#### AWS Config Artifact Not Found
+
+**Issue**: `No files were found with the provided path: aws-configs/`
+
+**Cause**: Relative path resolution from workflow `working-directory` doesn't resolve to repo root
+
+**Solution**: Use `$GITHUB_WORKSPACE` for absolute paths:
+```yaml
+# Incorrect (relative from working-directory)
+- working-directory: terraform/foundations/org-management
+  run: |
+    mkdir -p ../../aws-configs/
+    tofu output -json aws_configuration | jq -r '.cli_config_content' > ../../aws-configs/aws-cli-config.ini
+
+# Correct (absolute using environment variable)
+- working-directory: terraform/foundations/org-management
+  run: |
+    mkdir -p $GITHUB_WORKSPACE/aws-configs/
+    tofu output -json aws_configuration | jq -r '.cli_config_content' > $GITHUB_WORKSPACE/aws-configs/aws-cli-config.ini
+
+# Artifact upload path also needs absolute reference
+- uses: actions/upload-artifact@v4
+  with:
+    name: aws-cross-account-config
+    path: $GITHUB_WORKSPACE/aws-configs/
+```
+
+### Backend Configuration Issues
+
+#### S3 Backend Access Denied
+
+**Issue**: `User is not authorized to perform: s3:ListBucket on resource: arn:aws:s3:::static-site-state-dev-822529998967`
+
+**Cause**: Deployment role IAM policy doesn't include access to distributed backend pattern
+
+**Context**: Infrastructure uses dual backend patterns:
+- Centralized: `static-site-terraform-state-us-east-1` (org-management, iam-management)
+- Distributed: `static-site-state-{env}-{account-id}` (environment-specific resources)
+
+**Solution**: Ensure IAM policy includes both patterns in S3 resource ARNs:
+```hcl
+Resource = [
+  # Legacy centralized backend
+  "arn:aws:s3:::static-site-terraform-state-us-east-1",
+  "arn:aws:s3:::static-site-terraform-state-us-east-1/*",
+  # Modern distributed backend
+  "arn:aws:s3:::static-site-state-${var.environment}-*",
+  "arn:aws:s3:::static-site-state-${var.environment}-*/*"
+]
+```
+
+### Workflow Validation
+
+#### Check Organization Management Workflow Status
+
+```bash
+# List recent organization-management workflow runs
+gh run list --workflow=organization-management.yml --limit 5
+
+# View specific run with annotations
+gh run view 18201607126
+
+# Download AWS config artifact
+gh run download 18201607126 --name aws-cross-account-config
+
+# Check for errors/warnings in logs
+gh run view 18201607126 --log | grep -i "error\|warning"
+```
+
+#### Verify SCP Attachments
+
+```bash
+# List all SCPs in organization
+aws organizations list-policies --filter SERVICE_CONTROL_POLICY
+
+# Check specific policy attachments
+aws organizations list-targets-for-policy --policy-id p-bfqkqfe7
+
+# Verify OU structure
+aws organizations list-organizational-units-for-parent --parent-id r-xyz
+```
+
+---
+
 ## Environment-Specific Issues
 
 ### Development Environment

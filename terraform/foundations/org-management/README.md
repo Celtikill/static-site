@@ -33,6 +33,29 @@ AWS Organization (Management Account)
 - S3 bucket for centralized audit logs
 - Service Control Policies to enforce security best practices
 
+### 4. Backend Architecture
+
+This infrastructure uses a **dual backend pattern** for Terraform state management:
+
+#### Centralized Backend (Management Account)
+Used by foundation infrastructure in the management account:
+- **Bucket**: `static-site-terraform-state-us-east-1`
+- **Components**: `org-management`, `iam-management`
+- **Location**: Management account only
+- **Purpose**: Organization-level resources that span accounts
+
+#### Distributed Backend (Per-Environment)
+Used by environment-specific infrastructure in workload accounts:
+- **Pattern**: `static-site-state-{environment}-{account-id}`
+- **Examples**:
+  - Dev: `static-site-state-dev-822529998967`
+  - Staging: `static-site-state-staging-927588814642`
+  - Prod: `static-site-state-prod-546274483801`
+- **Components**: Website infrastructure, CloudFront, WAF
+- **Purpose**: Environment isolation and account-level resource management
+
+**Important**: IAM policies for deployment roles must grant access to both backend patterns to support the full infrastructure lifecycle.
+
 ## Deployment Instructions
 
 ### Prerequisites
@@ -94,6 +117,22 @@ After completing Organization Management setup:
 3. Update GitHub Actions workflows with new account details
 4. Test deployments to each environment
 
+## AWS Configuration Output
+
+After successful deployment, the workflow generates AWS CLI configuration files as artifacts:
+
+- **aws-cli-config.ini**: AWS CLI profiles for cross-account access to dev/staging/prod
+- **README.md**: Instructions for using the generated configuration
+
+These files are uploaded as GitHub Actions artifacts and can be downloaded from the workflow run page.
+
+### Using Generated Configuration
+
+1. Download the artifact from the successful workflow run
+2. Extract the files and follow the README instructions
+3. Append the configuration to your `~/.aws/config`
+4. Replace `YOUR_USERNAME` with your IAM username in MFA serial entries
+
 ## Troubleshooting
 
 ### Common Issues
@@ -109,6 +148,57 @@ After completing Organization Management setup:
 3. **CloudTrail Bucket Access Denied**
    - Ensure bucket policy allows CloudTrail service access
    - Check S3 bucket region matches trail region
+
+### Workflow-Specific Issues
+
+#### SCP Duplicate Policy Attachment Error
+
+**Error**: `DuplicatePolicyAttachmentException: A policy with the specified name and type already exists`
+
+**Cause**: SCP policies are already attached to OUs but not in Terraform state
+
+**Solution**:
+```bash
+# Option 1: Manually detach and let workflow recreate
+aws organizations detach-policy --policy-id <policy-id> --target-id <ou-id>
+
+# Option 2: Import existing attachments (handled automatically in workflow)
+# The workflow includes import steps with continue-on-error for existing attachments
+```
+
+#### SCP Import ID Format Error
+
+**Error**: `unexpected format for ID (ou-id/policy-id), expected TARGETID:POLICYID`
+
+**Cause**: Incorrect separator in import ID - must use colon `:` not forward slash `/`
+
+**Correct Format**:
+```bash
+tofu import aws_organizations_policy_attachment.example ou-klz3-i6e1vrrj:p-bfqkqfe7
+```
+
+#### IAM GetAccountSummary Access Denied
+
+**Error**: `User is not authorized to perform: iam:GetAccountSummary on resource: *`
+
+**Cause**: Service-scoped IAM permission requires resource `*` for account-level operations
+
+**Solution**: Already fixed - `iam:GetAccountSummary` added to GeneralPermissions statement in main.tf:259
+
+#### AWS Config Artifact Not Found
+
+**Error**: `No files were found with the provided path: aws-configs/`
+
+**Cause**: Relative path resolution issue when workflow working directory differs from repo root
+
+**Solution**: Use `$GITHUB_WORKSPACE` environment variable for absolute paths:
+```yaml
+# Incorrect (relative path from working directory)
+mkdir -p ../../aws-configs/
+
+# Correct (absolute path using environment variable)
+mkdir -p $GITHUB_WORKSPACE/aws-configs/
+```
 
 ## Rollback Procedure
 
