@@ -51,7 +51,7 @@ module "github_role_dev" {
   environment             = "dev"
   central_role_arn        = "arn:aws:iam::${var.management_account_id}:root"
   external_id             = var.external_id
-  state_bucket_account_id = var.management_account_id
+  state_bucket_account_id = local.accounts.dev
   state_bucket_region     = var.aws_region
 
   # Additional S3 bucket patterns for environment-specific resources
@@ -70,7 +70,7 @@ module "github_role_staging" {
   environment             = "staging"
   central_role_arn        = "arn:aws:iam::${var.management_account_id}:root"
   external_id             = var.external_id
-  state_bucket_account_id = var.management_account_id
+  state_bucket_account_id = local.accounts.staging
   state_bucket_region     = var.aws_region
 
   additional_s3_bucket_patterns = [
@@ -88,7 +88,7 @@ module "github_role_prod" {
   environment             = "prod"
   central_role_arn        = "arn:aws:iam::${var.management_account_id}:root"
   external_id             = var.external_id
-  state_bucket_account_id = var.management_account_id
+  state_bucket_account_id = local.accounts.prod
   state_bucket_region     = var.aws_region
 
   additional_s3_bucket_patterns = [
