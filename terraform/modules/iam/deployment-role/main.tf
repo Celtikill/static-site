@@ -68,8 +68,12 @@ resource "aws_iam_policy" "terraform_state" {
           "s3:ListBucket"
         ]
         Resource = [
-          "arn:aws:s3:::static-site-terraform-state-${var.state_bucket_account_id}",
-          "arn:aws:s3:::static-site-terraform-state-${var.state_bucket_account_id}/*"
+          # Legacy centralized backend (org-management, iam-management in management account)
+          "arn:aws:s3:::static-site-terraform-state-us-east-1",
+          "arn:aws:s3:::static-site-terraform-state-us-east-1/*",
+          # Modern distributed backend (per-environment buckets in respective accounts)
+          "arn:aws:s3:::static-site-state-${var.environment}-*",
+          "arn:aws:s3:::static-site-state-${var.environment}-*/*"
         ]
       },
       {

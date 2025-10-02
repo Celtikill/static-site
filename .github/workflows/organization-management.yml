@@ -489,6 +489,21 @@ jobs:
             exit 1
           fi
 
+      - name: Import SCP Policy Attachments
+        working-directory: terraform/foundations/org-management
+        if: inputs.action == 'apply' && (env.PLAN_RESULT == '2' || env.PLAN_RESULT == '0')
+        continue-on-error: true
+        run: |
+          echo "🔄 Importing existing SCP policy attachments to avoid duplicate errors..."
+
+          # Import workload guardrails attachment if it exists
+          tofu import aws_organizations_policy_attachment.workload_guardrails ou-klz3-i6e1vrrj/p-bfqkqfe7 || echo "⚠️ Workload guardrails attachment already in state or doesn't exist"
+
+          # Import sandbox restrictions attachment if it exists
+          tofu import aws_organizations_policy_attachment.sandbox_restrictions ou-klz3-aqvpp61l/p-5rx6bwz2 || echo "⚠️ Sandbox restrictions attachment already in state or doesn't exist"
+
+          echo "✅ Import step completed"
+
       - name: Terraform Apply
         working-directory: terraform/foundations/org-management
         if: inputs.action == 'apply' && (env.PLAN_RESULT == '2' || env.PLAN_RESULT == '0')
