@@ -222,7 +222,7 @@ resource "aws_iam_policy" "static_website" {
         ]
         Resource = "*"
       },
-      # KMS Management (limited to account keys)
+      # KMS Key Operations (scoped to account keys)
       {
         Effect = "Allow"
         Action = [
@@ -231,12 +231,20 @@ resource "aws_iam_policy" "static_website" {
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
           "kms:Get*",
-          "kms:List*",
           "kms:Describe*"
         ]
         Resource = [
           "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/*"
         ]
+      },
+      # KMS Service-Level Operations (requires wildcard resource)
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:ListAliases",
+          "kms:ListKeys"
+        ]
+        Resource = "*"
       },
       # Comprehensive read-only permissions for Terraform state refresh
       # Following "middle way" approach: wildcard patterns with resource constraints
