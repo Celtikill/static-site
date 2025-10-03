@@ -231,7 +231,8 @@ resource "aws_iam_policy" "static_website" {
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
           "kms:Get*",
-          "kms:Describe*"
+          "kms:Describe*",
+          "kms:ListResourceTags"
         ]
         Resource = [
           "arn:aws:kms:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:key/*"
