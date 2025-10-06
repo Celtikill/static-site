@@ -28,10 +28,10 @@ module "cross_account_admin_role_dev" {
     aws = aws.workload_account_dev
   }
 
-  management_account_id    = local.management_account_id
-  admin_group_name         = local.admin_group_name
-  account_environment      = "dev"
-  role_name                = "CrossAccountAdminRole"
+  management_account_id = local.management_account_id
+  admin_group_name      = local.admin_group_name
+  account_environment   = "dev"
+  role_name             = "CrossAccountAdminRole"
   # AWS Console cannot pass MFA context during role switching (sts:AssumeRole)
   # Setting require_mfa = false enables console access while maintaining security through:
   # - MFA enforcement at console login (user experience unchanged)
@@ -63,10 +63,10 @@ module "cross_account_admin_role_staging" {
     aws = aws.workload_account_staging
   }
 
-  management_account_id    = local.management_account_id
-  admin_group_name         = local.admin_group_name
-  account_environment      = "staging"
-  role_name                = "CrossAccountAdminRole"
+  management_account_id = local.management_account_id
+  admin_group_name      = local.admin_group_name
+  account_environment   = "staging"
+  role_name             = "CrossAccountAdminRole"
   # AWS Console cannot pass MFA context during role switching (sts:AssumeRole)
   # Setting require_mfa = false enables console access while maintaining security through:
   # - MFA enforcement at console login (user experience unchanged)
@@ -98,10 +98,10 @@ module "cross_account_admin_role_prod" {
     aws = aws.workload_account_prod
   }
 
-  management_account_id    = local.management_account_id
-  admin_group_name         = local.admin_group_name
-  account_environment      = "prod"
-  role_name                = "CrossAccountAdminRole"
+  management_account_id = local.management_account_id
+  admin_group_name      = local.admin_group_name
+  account_environment   = "prod"
+  role_name             = "CrossAccountAdminRole"
   # AWS Console cannot pass MFA context during role switching (sts:AssumeRole)
   # Setting require_mfa = false enables console access while maintaining security through:
   # - MFA enforcement at console login (user experience unchanged)
