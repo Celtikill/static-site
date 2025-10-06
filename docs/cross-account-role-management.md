@@ -98,6 +98,61 @@ Each workload role trusts the central management account **by account ARN** (not
 }
 ```
 
+## IAM User Console Access Setup
+
+### CrossAccountAdmins Group
+
+For **human users** who need AWS Console access to switch roles across accounts, the `CrossAccountAdmins` IAM group provides the necessary `sts:AssumeRole` permissions.
+
+**Configuration:**
+- **Group Name**: `CrossAccountAdmins`
+- **Location**: Management Account
+- **Purpose**: Grants console users permission to assume CrossAccountAdminRole in workload accounts
+
+### Adding New Admin Users
+
+#### Option 1: Via AWS CLI (Immediate)
+```bash
+# Add user to CrossAccountAdmins group
+aws iam add-user-to-group \
+  --group-name CrossAccountAdmins \
+  --user-name <your-username>
+
+# Verify membership
+aws iam get-group --group-name CrossAccountAdmins
+```
+
+#### Option 2: Via Terraform (Managed)
+1. Edit `terraform/foundations/iam-management/terraform.tfvars` (local file, not tracked in git):
+```hcl
+initial_admin_users = ["alice", "bob"]
+```
+
+2. Run the ORG workflow to apply:
+```bash
+gh workflow run organization-management.yml \
+  --field action=apply
+```
+
+**Note**: The `terraform.tfvars` file is intentionally excluded from git (contains sensitive config). Update `terraform.tfvars.example` to document the canonical user list.
+
+### CrossAccountAdminRole Access
+
+Users in the CrossAccountAdmins group can assume the `CrossAccountAdminRole` in each workload account:
+
+| Account | Role ARN | Console Switch URL |
+|---------|----------|-------------------|
+| Dev | `arn:aws:iam::YOUR_DEV_ACCOUNT_ID:role/CrossAccountAdminRole` | Available in ORG workflow output |
+| Staging | `arn:aws:iam::YOUR_STAGING_ACCOUNT_ID:role/CrossAccountAdminRole` | Available in ORG workflow output |
+| Prod | `arn:aws:iam::YOUR_PROD_ACCOUNT_ID:role/CrossAccountAdminRole` | Available in ORG workflow output |
+
+**How it works:**
+1. User signs into Management Account with MFA
+2. User's IAM group (CrossAccountAdmins) grants `sts:AssumeRole` permission
+3. User clicks "Switch Role" in AWS Console (or uses CLI)
+4. User assumes CrossAccountAdminRole in target workload account
+5. User gains PowerUserAccess equivalent permissions in workload account
+
 ## Best Practices Applied
 
 ### 1. Account-Based Trust (Not Role-Based)
@@ -128,11 +183,11 @@ Support both naming conventions to prevent authentication failures:
 
 ## Creating Missing Roles
 
-### For Staging Account (927588814642)
+### For Staging Account (YOUR_STAGING_ACCOUNT_ID)
 
 1. **Switch to staging account context**:
 ```bash
-aws configure set profile.staging.role_arn arn:aws:iam::927588814642:role/OrganizationAccountAccessRole
+aws configure set profile.staging.role_arn arn:aws:iam::YOUR_STAGING_ACCOUNT_ID:role/OrganizationAccountAccessRole
 aws configure set profile.staging.source_profile default
 ```
 
@@ -147,7 +202,7 @@ aws iam create-role \
       {
         "Effect": "Allow",
         "Principal": {
-          "AWS": "arn:aws:iam::223938610551:root"
+          "AWS": "arn:aws:iam::YOUR_MANAGEMENT_ACCOUNT_ID:root"
         },
         "Action": "sts:AssumeRole",
         "Condition": {
@@ -165,14 +220,14 @@ aws iam create-role \
 aws iam attach-role-policy \
   --profile staging \
   --role-name GitHubActions-StaticSite-Staging-Role \
-  --policy-arn arn:aws:iam::927588814642:policy/static-site-deployment-policy
+  --policy-arn arn:aws:iam::YOUR_STAGING_ACCOUNT_ID:policy/static-site-deployment-policy
 ```
 
-### For Production Account (546274483801)
+### For Production Account (YOUR_PROD_ACCOUNT_ID)
 
 1. **Switch to production account context**:
 ```bash
-aws configure set profile.prod.role_arn arn:aws:iam::546274483801:role/OrganizationAccountAccessRole
+aws configure set profile.prod.role_arn arn:aws:iam::YOUR_PROD_ACCOUNT_ID:role/OrganizationAccountAccessRole
 aws configure set profile.prod.source_profile default
 ```
 
@@ -187,7 +242,7 @@ aws iam create-role \
       {
         "Effect": "Allow",
         "Principal": {
-          "AWS": "arn:aws:iam::223938610551:root"
+          "AWS": "arn:aws:iam::YOUR_MANAGEMENT_ACCOUNT_ID:root"
         },
         "Action": "sts:AssumeRole",
         "Condition": {
@@ -205,7 +260,7 @@ aws iam create-role \
 aws iam attach-role-policy \
   --profile prod \
   --role-name GitHubActions-StaticSite-Prod-Role \
-  --policy-arn arn:aws:iam::546274483801:policy/static-site-deployment-policy
+  --policy-arn arn:aws:iam::YOUR_PROD_ACCOUNT_ID:policy/static-site-deployment-policy
 ```
 
 ## Testing Cross-Account Access
@@ -214,19 +269,19 @@ aws iam attach-role-policy \
 ```bash
 # Test dev environment
 aws sts assume-role \
-  --role-arn "arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role" \
+  --role-arn "arn:aws:iam::YOUR_DEV_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role" \
   --role-session-name "test-session" \
   --external-id "github-actions-static-site"
 
 # Test staging environment
 aws sts assume-role \
-  --role-arn "arn:aws:iam::927588814642:role/GitHubActions-StaticSite-Staging-Role" \
+  --role-arn "arn:aws:iam::YOUR_STAGING_ACCOUNT_ID:role/GitHubActions-StaticSite-Staging-Role" \
   --role-session-name "test-session" \
   --external-id "github-actions-static-site"
 
 # Test production environment
 aws sts assume-role \
-  --role-arn "arn:aws:iam::546274483801:role/GitHubActions-StaticSite-Prod-Role" \
+  --role-arn "arn:aws:iam::YOUR_PROD_ACCOUNT_ID:role/GitHubActions-StaticSite-Prod-Role" \
   --role-session-name "test-session" \
   --external-id "github-actions-static-site"
 ```
@@ -237,9 +292,9 @@ aws sts assume-role \
 # test-cross-account-access.sh
 
 ACCOUNTS=(
-  "822529998967:dev"
-  "927588814642:staging"
-  "546274483801:prod"
+  "YOUR_DEV_ACCOUNT_ID:dev"
+  "YOUR_STAGING_ACCOUNT_ID:staging"
+  "YOUR_PROD_ACCOUNT_ID:prod"
 )
 
 for account_env in "${ACCOUNTS[@]}"; do
@@ -297,12 +352,12 @@ done
 #!/bin/bash
 # create-workload-roles.sh
 
-MANAGEMENT_ACCOUNT="223938610551"
+MANAGEMENT_ACCOUNT="YOUR_MANAGEMENT_ACCOUNT_ID"
 EXTERNAL_ID="github-actions-static-site"
 
 ACCOUNTS=(
-  "927588814642:staging"
-  "546274483801:prod"
+  "YOUR_STAGING_ACCOUNT_ID:staging"
+  "YOUR_PROD_ACCOUNT_ID:prod"
 )
 
 for account_env in "${ACCOUNTS[@]}"; do
@@ -358,10 +413,10 @@ All cross-account assumptions logged in CloudTrail:
   "eventName": "AssumeRole",
   "sourceIPAddress": "github-actions-runner",
   "userIdentity": {
-    "arn": "arn:aws:sts::223938610551:assumed-role/github-actions-management/github-actions-central-12345"
+    "arn": "arn:aws:sts::YOUR_MANAGEMENT_ACCOUNT_ID:assumed-role/github-actions-management/github-actions-central-12345"
   },
   "requestParameters": {
-    "roleArn": "arn:aws:iam::822529998967:role/GitHubActions-StaticSite-Dev-Role",
+    "roleArn": "arn:aws:iam::YOUR_DEV_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role",
     "externalId": "github-actions-static-site"
   }
 }
@@ -379,13 +434,13 @@ Ensure GitHub secrets are properly configured:
 ```bash
 # Central role for cross-account access
 gh secret set AWS_ASSUME_ROLE_CENTRAL \
-  --body "arn:aws:iam::223938610551:role/github-actions-management"
+  --body "arn:aws:iam::YOUR_MANAGEMENT_ACCOUNT_ID:role/github-actions-management"
 
 # Account ID variables
-gh variable set AWS_ACCOUNT_ID_MANAGEMENT --body "223938610551"
-gh variable set AWS_ACCOUNT_ID_DEV --body "822529998967"
-gh variable set AWS_ACCOUNT_ID_STAGING --body "927588814642"
-gh variable set AWS_ACCOUNT_ID_PROD --body "546274483801"
+gh variable set AWS_ACCOUNT_ID_MANAGEMENT --body "YOUR_MANAGEMENT_ACCOUNT_ID"
+gh variable set AWS_ACCOUNT_ID_DEV --body "YOUR_DEV_ACCOUNT_ID"
+gh variable set AWS_ACCOUNT_ID_STAGING --body "YOUR_STAGING_ACCOUNT_ID"
+gh variable set AWS_ACCOUNT_ID_PROD --body "YOUR_PROD_ACCOUNT_ID"
 ```
 
 ## Fork Setup Considerations

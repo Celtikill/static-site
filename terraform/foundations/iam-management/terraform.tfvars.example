@@ -13,12 +13,15 @@ assume_role_external_id = "cross-account-admin-access"
 # Fallback account IDs when organization state is not available
 # These will be automatically replaced when organization management deploys
 fallback_account_ids = {
-  dev     = "822529998967"
-  staging = "927588814642"
-  prod    = "546274483801"
+  dev     = "YOUR_DEV_ACCOUNT_ID"
+  staging = "YOUR_STAGING_ACCOUNT_ID"
+  prod    = "YOUR_PROD_ACCOUNT_ID"
 }
 
-# Initial admin users (empty by default)
+# Initial admin users
+# Add IAM usernames for initial cross-account administrators
+# These users will be added to the CrossAccountAdmins group
+# Example: initial_admin_users = ["alice", "bob"]
 initial_admin_users = []
 
 # Console access for new users
