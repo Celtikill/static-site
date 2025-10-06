@@ -39,7 +39,9 @@ env:
   NO_COLOR: 1
 
 concurrency:
-  group: run-${{ inputs.environment || 'auto' }}-${{ github.ref }}
+  # Ensure per-environment serialization to prevent Terraform state lock conflicts
+  # Manual dispatches use selected environment, automatic runs default to 'dev'
+  group: deploy-${{ inputs.environment || 'dev' }}
   cancel-in-progress: false
 
 jobs:
@@ -196,6 +198,9 @@ jobs:
     timeout-minutes: 8
     needs: [info, setup]
     if: always() && needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
+    env:
+      # Configure Terraform state lock timeout (5 minutes)
+      TF_LOCK_TIMEOUT: 5m
     outputs:
       deployment_status: ${{ steps.deploy.outputs.deployment_status }}
     steps:
@@ -255,6 +260,40 @@ jobs:
           echo "- **Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ needs.info.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
 
+          # Retry function with exponential backoff
+          retry_with_backoff() {
+            local max_attempts=3
+            local timeout_duration=$1
+            local attempt=1
+            local delay=10
+            shift
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "⏳ Attempt $attempt/$max_attempts..."
+
+              if timeout ${timeout_duration}s "$@"; then
+                return 0
+              fi
+
+              local exit_code=$?
+              if [ $exit_code -eq 124 ]; then
+                echo "⚠️ Command timed out after ${timeout_duration}s"
+              else
+                echo "⚠️ Command failed with exit code $exit_code"
+              fi
+
+              if [ $attempt -lt $max_attempts ]; then
+                echo "⏳ Waiting ${delay}s before retry..."
+                sleep $delay
+                delay=$((delay * 2))  # Exponential backoff
+                attempt=$((attempt + 1))
+              else
+                echo "❌ All retry attempts exhausted"
+                return $exit_code
+              fi
+            done
+          }
+
           # Check for distributed backend configuration
           BACKEND_CONFIG="../backend-configs/${{ needs.info.outputs.target_environment }}.hcl"
           if [ -f "$BACKEND_CONFIG" ]; then
@@ -269,13 +308,13 @@ jobs:
           echo "🔧 Initializing with backend configuration..."
           timeout 90s tofu init -no-color $BACKEND_ARGS
 
-          # Plan deployment
+          # Plan deployment with retry logic
           echo "📋 Creating deployment plan..."
-          timeout 300s tofu plan -no-color -out=deployment.tfplan
+          retry_with_backoff 300 tofu plan -no-color -out=deployment.tfplan
 
-          # Apply deployment
+          # Apply deployment with retry logic
           echo "🚀 Applying infrastructure changes..."
-          timeout 180s tofu apply -no-color -auto-approve deployment.tfplan
+          retry_with_backoff 180 tofu apply -no-color -auto-approve deployment.tfplan
 
           # Get outputs (filter out warnings)
           BUCKET_NAME=$(tofu output -raw s3_bucket_name 2>&1 | grep -v "Warning:" | head -n1 || echo "")
