@@ -155,7 +155,7 @@ output "website_url" {
   description = "Primary website URL"
   value = length(var.domain_aliases) > 0 ? (
     var.acm_certificate_arn != null ? "https://${var.domain_aliases[0]}" : "http://${var.domain_aliases[0]}"
-  ) : var.enable_cloudfront ? "https://${module.cloudfront[0].distribution_domain_name}" : (
+    ) : var.enable_cloudfront ? "https://${module.cloudfront[0].distribution_domain_name}" : (
     module.s3.website_endpoint != null ? "http://${module.s3.website_endpoint}" : null
   )
 }
