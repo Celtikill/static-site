@@ -155,11 +155,6 @@ variable "enable_cross_region_monitoring" {
   default     = false
 }
 
-variable "aws_account_id" {
-  description = "AWS account ID for cross-account console access URLs"
-  type        = string
-}
-
 variable "common_tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)
