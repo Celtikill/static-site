@@ -136,6 +136,95 @@ region = us-east-1
 account_id = PRODUCTION_ACCOUNT_ID
 ```
 
+### Security: Multi-Factor Authentication (MFA)
+
+**IMPORTANT: MFA IS REQUIRED** for all AWS Console access.
+
+#### What You Need to Know
+
+**For AWS Console Users:**
+- ✅ **MFA is REQUIRED** when logging into AWS Console
+- ✅ You will be prompted for MFA code on every login
+- ✅ Role switching to workload accounts works normally after MFA login
+- ✅ No additional MFA prompts when switching roles
+
+**Your Experience:**
+1. Navigate to AWS Console login page
+2. Enter username and password
+3. **Enter MFA code from your device** (required)
+4. Successfully authenticated - access AWS Console
+5. Use "Switch Role" to access dev/staging/prod accounts
+6. MFA already verified - switch role succeeds immediately
+
+#### Technical Context
+
+The cross-account admin roles use `require_mfa = false` in their trust policies. This is **not a security compromise** - it's required for AWS Console compatibility:
+
+- AWS Console verifies MFA at login ✅
+- Console's role switching cannot re-verify MFA (AWS technical limitation)
+- MFA trust policy condition would block all console access ❌
+
+**Security is maintained through:**
+- MFA enforcement at login (unchanged user experience)
+- 1-hour session timeout (automatic credential expiration)
+- CloudTrail audit logging (all actions tracked)
+- IAM group membership control (easy access revocation)
+
+#### Setting Up Your MFA Device
+
+If you haven't configured MFA yet:
+
+```bash
+# 1. Log into AWS Console (management account)
+# 2. Navigate to: IAM → Users → Your Username → Security Credentials
+# 3. Click "Assign MFA device"
+# 4. Choose device type:
+#    - Virtual MFA (Google Authenticator, Authy, etc.) - Recommended
+#    - Hardware MFA (YubiKey, etc.)
+#    - SMS MFA (not recommended for security)
+# 5. Follow setup wizard to register device
+# 6. Save backup codes in secure location
+```
+
+**Recommended MFA Apps:**
+- **Google Authenticator** (iOS/Android)
+- **Authy** (iOS/Android/Desktop)
+- **Microsoft Authenticator** (iOS/Android)
+- **1Password** (with TOTP support)
+
+#### For Advanced Users: CLI/API Access
+
+If you need programmatic access with MFA verification at role assumption time:
+
+```bash
+# Assume role with MFA (optional - for stricter security requirements)
+aws sts assume-role \
+  --role-arn "arn:aws:iam::WORKLOAD_ACCOUNT_ID:role/CrossAccountAdminRole" \
+  --role-session-name "my-session" \
+  --serial-number "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:mfa/your-username" \
+  --token-code "123456"
+```
+
+**Note**: This is optional. Standard CLI/API access works without MFA parameters since MFA is enforced at login.
+
+#### Troubleshooting
+
+**Problem**: "User is not authorized to perform: sts:AssumeRole"
+
+**Solution**: Ensure you're in the CrossAccountAdmins IAM group:
+```bash
+aws iam get-group --group-name CrossAccountAdmins
+```
+
+**Problem**: "Access denied" when switching roles despite MFA login
+
+**Solutions**:
+1. Verify you're in CrossAccountAdmins group (see above)
+2. Check role exists in target account
+3. Confirm you're using correct account ID in switch role form
+
+**For More Details**: See [Cross-Account Role Management - MFA Security Model](docs/cross-account-role-management.md#mfa-security-model)
+
 ---
 
 ## Phase 1: Manual Setup

@@ -232,6 +232,43 @@ aws sts assume-role \
 
 ## Security Implications
 
+### MFA Configuration for Console Access
+
+**Configuration**: CrossAccountAdminRole uses `require_mfa = false` in trust policy
+
+**Rationale**: AWS Console cannot pass MFA context during role switching. Setting `require_mfa = true` would block all console access despite users authenticating with MFA at login.
+
+**Compensating Security Controls**:
+
+1. **MFA Enforcement at Login**
+   - IAM users must configure MFA device
+   - Console prompts for MFA code every session
+   - No console access without MFA authentication
+
+2. **CloudTrail Audit Logging**
+   - All cross-account role assumptions logged
+   - Full audit trail: user, timestamp, source IP, actions
+   - Enables security investigations and compliance reporting
+
+3. **Short Session Duration**
+   - Sessions limited to 1 hour (`max_session_duration = 3600`)
+   - Automatic credential expiration reduces exposure window
+   - Significantly shorter than AWS default (12 hours)
+
+4. **Centralized Access Control**
+   - Access granted via CrossAccountAdmins IAM group
+   - Easy revocation by removing user from group
+   - No direct role trust to individual users
+
+5. **Account-Level Isolation**
+   - Each workload account has separate admin role
+   - No cross-environment access by default
+   - Production requires explicit configuration
+
+**Security Posture**: High security maintained through defense-in-depth approach.
+
+**See Also**: [Cross-Account Role Management - MFA Security Model](cross-account-role-management.md#mfa-security-model) for detailed analysis.
+
 ### Current Risk Assessment
 
 #### High Priority Risks

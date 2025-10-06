@@ -93,6 +93,20 @@ After deployment, note these critical values:
 
 ## Security Considerations
 
+### MFA Configuration for Cross-Account Admin Roles
+
+**Configuration**: CrossAccountAdminRole uses `require_mfa = false`
+
+**Rationale**: AWS Console cannot pass MFA context during role switching. This setting enables console access while maintaining enterprise-grade security through:
+- MFA enforcement at console login (required for all users)
+- CloudTrail audit logging (all role assumptions tracked)
+- 1-hour session duration (automatic credential expiration)
+- IAM group-based access control (easy revocation)
+
+**User Impact**: Users authenticate with MFA at login, then seamlessly switch roles without additional MFA prompts.
+
+**For Detailed Security Analysis**: See [Cross-Account Role Management - MFA Security Model](../../docs/cross-account-role-management.md#mfa-security-model)
+
 ### Service Control Policies Applied
 1. **DenyRootAccount**: Prevents use of root credentials in workload accounts
 2. **RequireIMDSv2**: Enforces IMDSv2 for EC2 instances

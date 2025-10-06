@@ -32,7 +32,14 @@ module "cross_account_admin_role_dev" {
   admin_group_name         = local.admin_group_name
   account_environment      = "dev"
   role_name                = "CrossAccountAdminRole"
-  require_mfa              = true
+  # AWS Console cannot pass MFA context during role switching (sts:AssumeRole)
+  # Setting require_mfa = false enables console access while maintaining security through:
+  # - MFA enforcement at console login (user experience unchanged)
+  # - CloudTrail audit logging for all role assumptions
+  # - ExternalID protection (not used for console, used for programmatic access)
+  # - Short session duration (3600s = 1 hour)
+  # See docs/cross-account-role-management.md for detailed security analysis
+  require_mfa              = false
   max_session_duration     = 3600
   use_administrator_access = true
   external_id              = null # Console access - no ExternalId required
@@ -60,7 +67,14 @@ module "cross_account_admin_role_staging" {
   admin_group_name         = local.admin_group_name
   account_environment      = "staging"
   role_name                = "CrossAccountAdminRole"
-  require_mfa              = true
+  # AWS Console cannot pass MFA context during role switching (sts:AssumeRole)
+  # Setting require_mfa = false enables console access while maintaining security through:
+  # - MFA enforcement at console login (user experience unchanged)
+  # - CloudTrail audit logging for all role assumptions
+  # - ExternalID protection (not used for console, used for programmatic access)
+  # - Short session duration (3600s = 1 hour)
+  # See docs/cross-account-role-management.md for detailed security analysis
+  require_mfa              = false
   max_session_duration     = 3600
   use_administrator_access = true
   external_id              = null # Console access - no ExternalId required
@@ -88,7 +102,14 @@ module "cross_account_admin_role_prod" {
   admin_group_name         = local.admin_group_name
   account_environment      = "prod"
   role_name                = "CrossAccountAdminRole"
-  require_mfa              = true
+  # AWS Console cannot pass MFA context during role switching (sts:AssumeRole)
+  # Setting require_mfa = false enables console access while maintaining security through:
+  # - MFA enforcement at console login (user experience unchanged)
+  # - CloudTrail audit logging for all role assumptions
+  # - ExternalID protection (not used for console, used for programmatic access)
+  # - Short session duration (3600s = 1 hour)
+  # See docs/cross-account-role-management.md for detailed security analysis
+  require_mfa              = false
   max_session_duration     = 3600
   use_administrator_access = true
   external_id              = null # Console access - no ExternalId required

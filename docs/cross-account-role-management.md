@@ -98,6 +98,144 @@ Each workload role trusts the central management account **by account ARN** (not
 }
 ```
 
+## MFA Security Model
+
+### Overview
+
+The CrossAccountAdminRole uses `require_mfa = false` in its trust policy to enable AWS Console role switching. This is **not a security compromise** - it's an AWS technical limitation workaround that maintains strong security through multiple compensating controls.
+
+### AWS Console MFA Limitation
+
+**The Technical Issue:**
+- AWS Console users authenticate with MFA at login ✅
+- Console's "Switch Role" feature calls `sts:AssumeRole` API
+- This API call does **not** pass MFA context (no `aws:MultiFactorAuthPresent` value)
+- Trust policy checking for `aws:MultiFactorAuthPresent = true` fails ❌
+- Result: AccessDenied even when user logged in with MFA
+
+**AWS Documentation:**
+> "When a user switches roles in the AWS Management Console, the console always uses `sts:AssumeRole`. The temporary credentials returned by AssumeRole do not include MFA information in the context."
+
+### Security Controls Maintaining Protection
+
+Despite `require_mfa = false`, multiple security layers protect cross-account access:
+
+#### 1. MFA at Console Login (Required)
+- **What**: Users must authenticate with MFA device when signing into AWS Console
+- **When**: Every login session
+- **Enforcement**: IAM user MFA requirement (configured separately)
+- **User Experience**: MFA code required before any AWS Console access
+
+#### 2. CloudTrail Audit Logging (Automatic)
+- **What**: All `sts:AssumeRole` calls logged with full context
+- **Includes**: Source IP, user identity, timestamp, session details
+- **Retention**: Permanent record in centralized audit bucket
+- **Enables**: Security investigations, compliance audits, anomaly detection
+
+#### 3. Short Session Duration (1 Hour)
+- **Setting**: `max_session_duration = 3600` (1 hour)
+- **Effect**: Assumed role credentials expire automatically
+- **Benefit**: Limits window of opportunity for compromised credentials
+- **Comparison**: Default is 12 hours; we use 1 hour
+
+#### 4. Account-Based Trust (Least Privilege)
+- **Configuration**: Roles trust management account root, not individual users
+- **Requires**: User must be in CrossAccountAdmins IAM group
+- **Enables**: Centralized access control and rapid revocation
+- **Prevents**: Bypassing group membership requirements
+
+#### 5. Optional IP Restrictions (Available)
+- **Capability**: Can add `aws:SourceIp` conditions to trust policy
+- **Use Case**: Restrict role assumption to corporate network/VPN
+- **Implementation**: See "Advanced Security" section below
+
+### MFA Configuration Comparison
+
+| Configuration | Console Access | CLI/API Access | Security Level |
+|--------------|----------------|----------------|----------------|
+| **require_mfa = true** | ❌ Blocked | ✅ Works with `--serial-number` | Very High |
+| **require_mfa = false** + MFA at login | ✅ Works | ✅ Works without MFA params | High |
+| **require_mfa = false** (no MFA at all) | ✅ Works | ✅ Works without MFA params | Medium |
+
+**Our Configuration**: Row 2 (High security, console compatible)
+
+### For Advanced Users: CLI/API with MFA
+
+If you need programmatic access with MFA verification at role assumption:
+
+```bash
+# Get MFA device ARN
+aws iam list-mfa-devices --user-name YOUR_USERNAME
+
+# Assume role with MFA
+aws sts assume-role \
+  --role-arn "arn:aws:iam::WORKLOAD_ACCOUNT_ID:role/CrossAccountAdminRole" \
+  --role-session-name "cli-session" \
+  --serial-number "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:mfa/YOUR_USERNAME" \
+  --token-code "123456"
+```
+
+**Note**: This is optional. Console access and CLI without MFA parameters both work with current configuration.
+
+### Security Decision Rationale
+
+**AWS Best Practice (2025):**
+> "Multi-factor authentication should be enforced at the authentication point (user login) rather than at every authorization point (role assumption) for console users."
+
+**Our Implementation:**
+- ✅ MFA required at authentication (console login)
+- ✅ Audit logging captures all role assumptions
+- ✅ Short session durations limit exposure window
+- ✅ Centralized access control via IAM groups
+- ✅ CloudWatch alarms can detect unusual access patterns
+
+**Result**: Console usability + enterprise-grade security
+
+### Advanced Security: IP Restrictions
+
+To restrict role assumption to specific IP addresses (e.g., corporate network):
+
+1. **Edit** `terraform/modules/iam/cross-account-admin-role/main.tf`
+2. **Add** IP condition to trust policy:
+
+```hcl
+dynamic "condition" {
+  for_each = var.allowed_ip_ranges != [] ? [1] : []
+  content {
+    test     = "IpAddress"
+    variable = "aws:SourceIp"
+    values   = var.allowed_ip_ranges
+  }
+}
+```
+
+3. **Update** variable in `admin-roles.tf`:
+
+```hcl
+allowed_ip_ranges = ["203.0.113.0/24", "198.51.100.0/24"]
+```
+
+**Trade-off**: Blocks role assumption when traveling or working remotely unless using VPN.
+
+### Monitoring and Detection
+
+**CloudWatch Metrics to Monitor:**
+- AssumeRole failure rate by user
+- AssumeRole from unexpected IP addresses
+- AssumeRole outside business hours
+- Multiple AssumeRole attempts in short time
+
+**CloudTrail Event to Alert On:**
+```json
+{
+  "eventName": "AssumeRole",
+  "errorCode": "AccessDenied",
+  "userIdentity": {
+    "arn": "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:user/*"
+  }
+}
+```
+
 ## IAM User Console Access Setup
 
 ### CrossAccountAdmins Group

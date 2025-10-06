@@ -1,5 +1,12 @@
 # AWS Static Website Infrastructure
 
+## 🔄 Pipeline Status
+
+[![Build](https://github.com/Celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/build.yml)
+[![Test](https://github.com/Celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/test.yml)
+[![Run](https://github.com/Celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/run.yml)
+
+
 This is my take on an enterprise-grade AWS static website infrastructure using OpenTofu with multi-account architecture. My goal here is to implements secure, scalable static website deployment to demonstrate a few things I've learned over my years in the industry.
 
 ## Lessons Reflected
@@ -21,11 +28,17 @@ If you pay any attention to my commit history, you'll see this thing evolved qui
 - Since I'm not using CloudFront, TLS encryption (https) is not easily available, and not deployed.
 - Yes, I realize this is a security concern.  Given the use case and threat model of this demo site, this is acceptable to me as an architect in cybersecurity.
 
-## 🔄 Pipeline Status
+## On the role of our new AI overlords :alien:
 
-[![Build](https://github.com/Celtikill/static-site/actions/workflows/build.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/build.yml)
-[![Test](https://github.com/Celtikill/static-site/actions/workflows/test.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/test.yml)
-[![Run](https://github.com/Celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/run.yml)
+I have been for some time opposed to the AI industry.  It is driven by selfish motives, and largely aims to replace a workforce barely holding on to some semblence of quality life, while simultaneously stealing the original works of that same workforce to feed its hunger for power and control.
+
+>And, I cannot deny the power and possiblity of (specifically) machine learning.  It needs to be used responsibly, and it should never be the property of anyone in specific.
+
+In efforts to explore this domain,  and help my employer (a nonprofit)do more with less, I used this project as a testing ground for agentic AI.  much of it is "vibe coded".
+
+You will see in my commit history the sucesses and (many) failures of this system.
+
+For those interested in these lessons, [email me](mailto:celtikill@celtikill.io).  It's beyond the scope of this project to discuss these lessons, my plans for ML/AI, or how it (not the companies trying to sell it) could be of use or harm in your work.
 
 ## 🎯 Features
 
