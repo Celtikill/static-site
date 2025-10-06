@@ -16,13 +16,8 @@ output "dashboard_name" {
 }
 
 output "dashboard_url" {
-  description = "URL of the CloudWatch dashboard (requires being in correct account)"
-  value       = "https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main.dashboard_name}"
-}
-
-output "dashboard_switch_role_url" {
-  description = "Switch role URL for accessing dashboard"
-  value       = "https://signin.aws.amazon.com/switchrole?account=${var.aws_account_id}&roleName=CrossAccountAdminRole&displayName=Dashboard-Access"
+  description = "URL of the CloudWatch dashboard"
+  value       = "https://${var.aws_account_id}.console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}#dashboards:name=${aws_cloudwatch_dashboard.main.dashboard_name}"
 }
 
 output "composite_alarm_arn" {

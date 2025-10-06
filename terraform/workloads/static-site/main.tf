@@ -294,6 +294,7 @@ module "monitoring" {
   s3_bucket_name                  = module.s3.bucket_id
   waf_web_acl_name                = var.enable_cloudfront && var.enable_waf ? module.waf[0].web_acl_name : ""
   aws_region                      = data.aws_region.current.name
+  aws_account_id                  = data.aws_caller_identity.current.account_id
   alert_email_addresses           = var.alert_email_addresses
   kms_key_arn                     = var.kms_key_arn
   cloudfront_error_rate_threshold = var.cloudfront_error_rate_threshold
