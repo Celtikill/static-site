@@ -7,19 +7,19 @@
 [![Run](https://github.com/Celtikill/static-site/actions/workflows/run.yml/badge.svg)](https://github.com/Celtikill/static-site/actions/workflows/run.yml)
 
 
-This is my take on an enterprise-grade AWS static website infrastructure using OpenTofu with multi-account architecture. My goal here is to implements secure, scalable static website deployment to demonstrate a few things I've learned over my years in the industry.
+This is my take on an enterprise-grade AWS static website infrastructure using OpenTofu with multi-account architecture. My goal here is to implement secure, scalable static website deployment to demonstrate a few things I've learned over my years in the industry.
 
 ## Lessons Reflected
 
 If you pay any attention to my commit history, you'll see this thing evolved quite a bit over the course of development. I set out to demonstrate [AWS Well-Architected](https://aws.amazon.com/architecture/well-architected/) patterns, but due to cost and customer demand, focused here:
 
-1. **BUILD-TEST-RUN pipeline fidelity.**  In my mind, passing builds in that order yeilds cleaner, faster delivery.
+1. **BUILD-TEST-RUN pipeline fidelity.**  In my mind, passing builds in that order yields cleaner, faster delivery.
 2. **Multi-account, multi-environment architecture.**  Limit the blast radius of compromise by segregating environments at the highest order (in cloud services, at the account layer).
 3. **Cascading access control.**  Enable automation even as you segregate, by carefully assigning tiered roles.
 4. **Generally sound security practice** (see notes below)
 
 > :warning: Security Warning :warning:
-> Do not use this blindly for anyting you care about.  Do not host sensitive data with what I provide, or use this in production, without careful (and very simple) modification.
+> Do not use this blindly for anything you care about.  Do not host sensitive data with what I provide, or use this in production, without careful (and very simple) modification.
 
 **It's wise to not run anything you don't personally review and understand.**  Of special note here:
 
@@ -30,13 +30,13 @@ If you pay any attention to my commit history, you'll see this thing evolved qui
 
 ## On the role of our new AI overlords :alien:
 
-I have been for some time opposed to the AI industry.  It is driven by selfish motives, and largely aims to replace a workforce barely holding on to some semblence of quality life, while simultaneously stealing the original works of that same workforce to feed its hunger for power and control.
+I have been for some time opposed to the AI industry.  It is driven by selfish motives, and largely aims to replace a workforce barely holding on to some semblance of quality life, while simultaneously stealing the original works of that same workforce to feed its hunger for power and control.
 
->And, I cannot deny the power and possiblity of (specifically) machine learning.  It needs to be used responsibly, and it should never be the property of anyone in specific.
+>And, I cannot deny the power and possibility of (specifically) machine learning.  It needs to be used responsibly, and it should never be the property of anyone in specific.
 
-In efforts to explore this domain,  and help my employer (a nonprofit)do more with less, I used this project as a testing ground for agentic AI.  much of it is "vibe coded".
+In efforts to explore this domain,  and help my employer (a nonprofit) do more with less, I used this project as a testing ground for agentic AI.  Much of it is "vibe coded", using a strictly-controlled group of personas tailored to the needs of my project.  All of it is thoroughly reviewed and tested (as you will see in your own reviews :thinking:)
 
-You will see in my commit history the sucesses and (many) failures of this system.
+You will see in my commit history the successes and (many) failures of this system.
 
 For those interested in these lessons, [email me](mailto:celtikill@celtikill.io).  It's beyond the scope of this project to discuss these lessons, my plans for ML/AI, or how it (not the companies trying to sell it) could be of use or harm in your work.
 
