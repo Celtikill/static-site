@@ -19,7 +19,7 @@ If you pay any attention to my commit history, you'll see this thing evolved qui
 4. **Generally sound security practice** (see notes below)
 
 > :warning: Security Warning :warning:
-> Do not use this for anyting you care about.  Do not host sensitive data with what I provide, or use this in production, without careful (and very simple) modification.
+> Do not use this blindly for anyting you care about.  Do not host sensitive data with what I provide, or use this in production, without careful (and very simple) modification.
 
 **It's wise to not run anything you don't personally review and understand.**  Of special note here:
 
