@@ -10,6 +10,8 @@ This system implements enterprise-grade static website hosting using AWS service
 
 ### Account Structure
 
+> **Note on Account IDs**: This diagram uses placeholder IDs (`MANAGEMENT_ACCOUNT_ID`, etc.) for fork-ready customization. The [README.md](../README.md) shows actual account IDs from the reference deployment. Per AWS guidance, account IDs are safe to expose publicly and do not present a security risk.
+
 ```mermaid
 graph TB
     subgraph Org["🏛️ AWS Organization<br/>o-0hh51yjgxw"]

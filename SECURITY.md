@@ -8,7 +8,7 @@ We take the security of our AWS static website infrastructure seriously. If you 
 
 **Please do NOT report security vulnerabilities through public GitHub issues.**
 
-Instead, please report them via email to: **security@example.com**
+Instead, please report them via email to: **security@YOUR-DOMAIN.com** (replace with your actual security contact)
 
 Include the following information in your report:
 - Type of issue (e.g., buffer overflow, SQL injection, cross-site scripting, etc.)
@@ -121,22 +121,22 @@ We follow a **90-day coordinated disclosure policy**:
 
 ### Security Features by Environment
 
-| Feature | Development | Staging | Production |
-|---------|-------------|---------|------------|
-| OIDC Authentication | ✅ | ✅ | ✅ |
-| KMS Encryption | ✅ | ✅ | ✅ |
-| WAF Protection | ❌ Disabled¹ | ✅ | ✅ |
-| CloudFront CDN | ❌ Disabled² | ✅ | ✅ |
-| Cross-Region Replication | ❌ Disabled³ | ✅ | ✅ |
-| Enhanced Monitoring | ✅ | ✅ | ✅ |
-| Policy Enforcement | INFORMATIONAL | WARNING | STRICT |
+| Feature | Module Default | Development (example) | Staging (example) | Production (example) |
+|---------|----------------|----------------------|-------------------|----------------------|
+| OIDC Authentication | ✅ Always | ✅ | ✅ | ✅ |
+| KMS Encryption | ✅ Always | ✅ | ✅ | ✅ |
+| WAF Protection | ❌ Disabled¹ | ❌ | ✅ | ✅ |
+| CloudFront CDN | ❌ Disabled² | ❌ | ✅ | ✅ |
+| Cross-Region Replication | ✅ Enabled³ | ✅ or ❌ | ✅ | ✅ |
+| Enhanced Monitoring | ✅ Always | ✅ | ✅ | ✅ |
+| Policy Enforcement | - | INFORMATIONAL | WARNING | STRICT |
 
-**Cost Optimization Notes:**
-1. **WAF Protection**: Disabled in development for cost savings (~$5-10/month). WAF requires CloudFront to be enabled.
-2. **CloudFront CDN**: Disabled in development for cost optimization (~$15-25/month savings). Uses direct S3 website hosting.
-3. **Cross-Region Replication**: Disabled in development to minimize storage costs. Single-region deployment only.
+**Feature Flag Configuration:**
+1. **WAF Protection**: Disabled by default (`enable_waf = false`). ~$5-10/month when enabled. WAF requires CloudFront for S3 static websites.
+2. **CloudFront CDN**: Disabled by default (`enable_cloudfront = false`). ~$15-25/month when enabled. Uses direct S3 website hosting when disabled.
+3. **Cross-Region Replication**: Enabled by default (`enable_cross_region_replication = true`). Adds ~2x storage costs and bandwidth charges.
 
-These features are controlled by feature flags in the Terraform configuration. See [Feature Flags Documentation](docs/feature-flags.md) for detailed cost analysis and configuration options.
+> **Note**: The environment examples shown represent recommended patterns. Actual environment configurations (`terraform/environments/*/main.tf`) currently use module defaults. These features are controlled by feature flags in the OpenTofu/Terraform configuration. See [Feature Flags Documentation](docs/feature-flags.md) for detailed cost analysis and configuration options.
 
 ### Security Best Practices for Contributors
 
@@ -171,8 +171,8 @@ In case of a security incident:
 
 ### Security Contacts
 
-- **Security Issues**: security@example.com
-- **General Issues**: [GitHub Issues](https://github.com/<your-org>/static-site/issues)
+- **Security Issues**: security@YOUR-DOMAIN.com (replace with your actual security contact)
+- **General Issues**: [GitHub Issues](https://github.com/Celtikill/static-site/issues)
 - **Emergency**: For critical security issues requiring immediate attention
 
 ### Acknowledgments
@@ -181,5 +181,5 @@ We appreciate the security research community and will acknowledge researchers w
 
 ---
 
-**Last Updated**: 2025-09-22
-**Next Review**: 2025-12-22
+**Last Updated**: 2025-10-06
+**Next Review**: 2026-01-06

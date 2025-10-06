@@ -6,6 +6,8 @@ Cost optimization and feature toggles for AWS Static Website Infrastructure depl
 
 Feature flags allow conditional resource deployment based on environment requirements, enabling cost optimization while maintaining functionality where needed.
 
+> **Note**: The environment configuration examples in this document are illustrative, showing recommended patterns for fork users. Actual environment files (`terraform/environments/*/main.tf`) currently use module defaults without explicit overrides. Adjust these examples to match your requirements.
+
 ## Available Feature Flags
 
 ### CloudFront CDN
@@ -13,38 +15,40 @@ Feature flags allow conditional resource deployment based on environment require
 variable "enable_cloudfront" {
   description = "Enable CloudFront CDN distribution"
   type        = bool
-  default     = true
+  default     = false
 }
 ```
 
 **Impact**:
 - ✅ **Enabled**: Global CDN, improved performance, ~$15-25/month additional cost
-- ❌ **Disabled**: Direct S3 access, regional performance, ~$1-5/month savings
+- ❌ **Disabled** (default): Direct S3 access, regional performance, cost-optimized
 
 ### WAF Protection
 ```hcl
 variable "enable_waf" {
   description = "Enable AWS WAF v2 protection"
   type        = bool
-  default     = true
+  default     = false
 }
 ```
 
 **Impact**:
 - ✅ **Enabled**: OWASP Top 10 protection, rate limiting, ~$5-10/month additional cost
-- ❌ **Disabled**: Basic S3 security only, ~$5-10/month savings
+- ❌ **Disabled** (default): Basic S3 security only, cost-optimized
+
+**Note**: WAF requires CloudFront (`enable_cloudfront = true`) for S3 static websites, as AWS WAF cannot directly attach to S3 buckets.
 
 ### Cross-Region Replication
 ```hcl
 variable "enable_cross_region_replication" {
   description = "Enable S3 cross-region replication to us-west-2"
   type        = bool
-  default     = false
+  default     = true
 }
 ```
 
 **Impact**:
-- ✅ **Enabled**: Disaster recovery, 2x storage costs, bandwidth costs
+- ✅ **Enabled** (default): Disaster recovery, 2x storage costs, bandwidth costs
 - ❌ **Disabled**: Single-region deployment, standard storage costs
 
 ### Route 53 DNS
@@ -114,14 +118,14 @@ module "static_website" {
 
 ### Cost Breakdown by Feature
 
-| Feature | Development | Staging | Production | Annual Impact |
-|---------|-------------|---------|------------|---------------|
-| **Base S3** | $1-2 | $3-5 | $5-10 | $108-204 |
-| **CloudFront** | ❌ $0 | ✅ $10-15 | ✅ $15-25 | $300-480 |
-| **WAF** | ❌ $0 | ✅ $5-8 | ✅ $8-12 | $156-240 |
-| **Replication** | ❌ $0 | ✅ $2-5 | ✅ $3-8 | $60-156 |
-| **Route 53** | ❌ $0 | ❌ $0 | ✅ $0.50 | $6 |
-| **Total/Month** | **$1-2** | **$20-33** | **$31-55** | **$630-1086** |
+| Feature | Default | Development | Staging | Production | Annual Impact |
+|---------|---------|-------------|---------|------------|---------------|
+| **Base S3** | Always | $1-2 | $3-5 | $5-10 | $108-204 |
+| **CloudFront** | ❌ Disabled | ❌ $0 | ✅ $10-15 | ✅ $15-25 | $300-480 |
+| **WAF** | ❌ Disabled | ❌ $0 | ✅ $5-8 | ✅ $8-12 | $156-240 |
+| **Replication** | ✅ Enabled | ✅ $2-4 | ✅ $2-5 | ✅ $3-8 | $84-204 |
+| **Route 53** | ❌ Disabled | ❌ $0 | ❌ $0 | ✅ $0.50 | $6 |
+| **Total/Month** | - | **$3-6** | **$20-33** | **$31-55** | **$648-1134** |
 
 ### Optimization Strategies
 
@@ -141,7 +145,7 @@ module "static_website" {
 
 ### Toggling Features
 
-#### Via Terraform Variables
+#### Via OpenTofu/Terraform Variables
 ```bash
 # Disable CloudFront in development
 cd terraform/environments/dev

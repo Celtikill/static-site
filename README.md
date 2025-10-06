@@ -26,7 +26,7 @@ If you pay any attention to my commit history, you'll see this thing evolved qui
 - This is a demonstration pipeline, deploying demonstration infrastructure.
 - CloudFront and WAF (key security AWS Well Architected features) are managed with feature flags I generally leave off.
 - Since I'm not using CloudFront, TLS encryption (https) is not easily available, and not deployed.
-- Yes, I realize this is a security concern.  Given the use case and threat model of this demo site, this is acceptable to me as an architect in cybersecurity.
+- Yes, I realize this is a security concern.  Given the use case and threat model of this demo site, this is acceptable to me, and in the end, that's what matters (and you can too!). :cool:
 
 ## On the role of our new AI overlords :alien:
 
@@ -34,7 +34,9 @@ I have been for some time opposed to the AI industry.  It is driven by selfish m
 
 >And, I cannot deny the power and possibility of (specifically) machine learning.  It needs to be used responsibly, and it should never be the property of anyone in specific.
 
-In efforts to explore this domain,  and help my employer (a nonprofit) do more with less, I used this project as a testing ground for agentic AI.  Much of it is "vibe coded", using a strictly-controlled group of personas tailored to the needs of my project.  All of it is thoroughly reviewed and tested (as you will see in your own reviews :thinking:)
+In efforts to explore this domain,  and help my employer (a nonprofit) do more with less, I used this project as a testing ground for agentic AI.  Much of it is "vibe coded", using a strictly-controlled group of personas tailored to the needs of my project.
+
+> All of it is thoroughly reviewed and tested (as you will see in your own reviews :thinking:)
 
 You will see in my commit history the successes and (many) failures of this system.
 
@@ -273,12 +275,10 @@ See [ROADMAP.md](ROADMAP.md) for detailed project plans including:
 - 📈 Short-term enhancements
 - 🚀 Long-term strategic vision
 
-See [ROADMAP.md](ROADMAP.md) for the complete project roadmap and planned enhancements.
-
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/<your-org>/static-site/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/<your-org>/static-site/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Celtikill/static-site/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Celtikill/static-site/discussions)
 - **Security**: See [SECURITY.md](SECURITY.md) for vulnerability reporting
 - **Documentation**: [docs/](docs/) directory for detailed guides
 
@@ -299,4 +299,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with** ❤️ **by the open source community**
+**Built with** ❤️ **, may it be of benefit. **
