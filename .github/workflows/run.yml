@@ -442,25 +442,7 @@ jobs:
           echo "dashboard_url=$DASHBOARD_URL" >> $GITHUB_OUTPUT
 
           echo "✅ Website deployment completed successfully" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 🌐 **Deployment URLs**" >> $GITHUB_STEP_SUMMARY
-          echo "| Resource Type | URL | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------------|-----|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Primary Site | [$WEBSITE_URL]($WEBSITE_URL) | ✅ Active |" >> $GITHUB_STEP_SUMMARY
-
-          if [ -n "$CLOUDFRONT_URL" ]; then
-            echo "| CloudFront CDN | [$CLOUDFRONT_URL]($CLOUDFRONT_URL) | ✅ Active |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| CloudFront CDN | Disabled (cost optimization) | 💰 Saved |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ -n "$S3_ENDPOINT" ]; then
-            echo "| S3 Direct | [$S3_ENDPOINT]($S3_ENDPOINT) | ✅ Available |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          if [ -n "$DASHBOARD_URL" ]; then
-            echo "| Monitoring | [$DASHBOARD_URL]($DASHBOARD_URL) | 📊 Active |" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "📊 See final summary for deployment URLs" >> $GITHUB_STEP_SUMMARY
 
   validation:
     name: "✅ Post-Deployment Validation"
@@ -489,22 +471,7 @@ jobs:
             else
               echo "⚠️ Website returned HTTP $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
             fi
-
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "## 🌐 **Validated URLs**" >> $GITHUB_STEP_SUMMARY
-            echo "| Resource | URL | HTTP Status |" >> $GITHUB_STEP_SUMMARY
-            echo "|----------|-----|-------------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Primary Site | [$WEBSITE_URL]($WEBSITE_URL) | $HTTP_STATUS |" >> $GITHUB_STEP_SUMMARY
-
-            if [ -n "$CLOUDFRONT_URL" ]; then
-              echo "| CloudFront CDN | [$CLOUDFRONT_URL]($CLOUDFRONT_URL) | Active |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| CloudFront CDN | Disabled (cost optimization) | N/A |" >> $GITHUB_STEP_SUMMARY
-            fi
-
-            if [ -n "$DASHBOARD_URL" ]; then
-              echo "| Monitoring | [$DASHBOARD_URL]($DASHBOARD_URL) | Available |" >> $GITHUB_STEP_SUMMARY
-            fi
+            echo "📊 See final summary for deployment URLs" >> $GITHUB_STEP_SUMMARY
           else
             echo "ℹ️ No website URL available for validation" >> $GITHUB_STEP_SUMMARY
           fi
@@ -520,6 +487,21 @@ jobs:
     steps:
       - name: Final Summary
         run: |
+          # URL normalization function - ensures all URLs have protocol prefix
+          normalize_url() {
+            local url="$1"
+            if [ -z "$url" ]; then
+              echo ""
+              return
+            fi
+            # If URL doesn't start with http:// or https://, add http://
+            if [[ ! "$url" =~ ^https?:// ]]; then
+              echo "http://$url"
+            else
+              echo "$url"
+            fi
+          }
+
           echo "## 📊 Final Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
@@ -529,10 +511,11 @@ jobs:
           echo "| Website | ${{ needs.deploy_website.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Validation | ${{ needs.validation.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
 
-          DEPLOY_URL="${{ needs.deploy_website.outputs.deployment_url }}"
-          CLOUDFRONT_URL="${{ needs.deploy_website.outputs.cloudfront_url }}"
-          S3_ENDPOINT="${{ needs.deploy_website.outputs.s3_endpoint }}"
-          DASHBOARD_URL="${{ needs.deploy_website.outputs.dashboard_url }}"
+          # Normalize URLs to ensure they have protocols
+          DEPLOY_URL=$(normalize_url "${{ needs.deploy_website.outputs.deployment_url }}")
+          CLOUDFRONT_URL=$(normalize_url "${{ needs.deploy_website.outputs.cloudfront_url }}")
+          S3_ENDPOINT=$(normalize_url "${{ needs.deploy_website.outputs.s3_endpoint }}")
+          DASHBOARD_URL=$(normalize_url "${{ needs.deploy_website.outputs.dashboard_url }}")
 
           if [ -n "$DEPLOY_URL" ]; then
             echo "| Primary URL | [$DEPLOY_URL]($DEPLOY_URL) |" >> $GITHUB_STEP_SUMMARY
