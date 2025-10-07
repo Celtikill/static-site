@@ -10,6 +10,8 @@ This system implements enterprise-grade static website hosting using AWS service
 
 ### Account Structure
 
+> **💡 For detailed IAM permissions, security model, and migration roadmap**, see [IAM Deep Dive](iam-deep-dive.md).
+
 > **Note on Account IDs**: This diagram uses placeholder IDs (`MANAGEMENT_ACCOUNT_ID`, etc.) for fork-ready customization. The [README.md](../README.md) shows actual account IDs from the reference deployment. Per AWS guidance, account IDs are safe to expose publicly and do not present a security risk.
 
 ```mermaid
@@ -57,11 +59,21 @@ graph TB
 
 The system uses a 3-tier security model with OIDC authentication:
 
-1. **Tier 1**: GitHub Actions authenticates with AWS using OIDC (no stored credentials)
-2. **Tier 2**: Assumes Central Role in Management Account for cross-account orchestration
-3. **Tier 3**: Assumes Environment-specific roles in target accounts for resource deployment
+1. **Tier 1 (Bootstrap)**: GitHub Actions → OIDC → Bootstrap Role (infrastructure creation)
+2. **Tier 2 (Central)**: GitHub Actions → OIDC → Central Role (cross-account orchestration)
+3. **Tier 3 (Environment)**: Central Role → Environment Role (application deployment)
 
-For comprehensive details including current MVP compromises and migration roadmap, see [3-Tier Permissions Architecture](permissions-architecture.md).
+**Key Security Features:**
+- ✅ No stored credentials (OIDC-based authentication)
+- ✅ Least privilege access (role-based separation)
+- ✅ Cross-account isolation
+- ✅ Audit trail via CloudTrail
+
+**Current Status:**
+- ✅ Tier 1 & 2: Fully implemented
+- ⚠️ Tier 3: MVP with documented compromises
+
+For comprehensive IAM details, compromises, and migration roadmap, see [IAM Deep Dive](iam-deep-dive.md).
 
 ## Infrastructure Components
 

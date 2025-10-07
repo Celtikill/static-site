@@ -224,8 +224,8 @@ graph TD
 
 ### Additional Resources
 - **[Documentation Index](docs/README.md)** - Complete documentation map
-- **[Contributing Guide](CONTRIBUTING.md)** - Development guidelines
-- **[Project Roadmap](ROADMAP.md)** - Future plans and enhancements
+- **[Contributing Guide](docs/CONTRIBUTING.md)** - Development guidelines
+- **[Project Roadmap](docs/ROADMAP.md)** - Future plans and enhancements
 
 **Difficulty Key**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
 

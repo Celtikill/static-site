@@ -28,11 +28,11 @@
 
 ### Architecture & Design ⭐⭐
 - **[Architecture Overview](architecture.md)** ⭐⭐ - Technical architecture and infrastructure design
-- **[Permissions Architecture](permissions-architecture.md)** ⭐⭐⭐ - IAM deep-dive, security model, and migration roadmap
+- **[IAM Deep Dive](iam-deep-dive.md)** ⭐⭐⭐ - IAM permissions, security model, and migration roadmap
 - **[Security Policy](../SECURITY.md)** ⭐ - Security practices and vulnerability reporting
 
 ### CI/CD & Workflows ⭐⭐
-- **[Workflows Overview](workflows.md)** ⭐⭐ - BUILD → TEST → RUN pipeline
+- **[CI/CD Pipeline](ci-cd.md)** ⭐⭐ - Complete BUILD → TEST → RUN pipeline guide
 - **[Secrets & Variables](secrets-and-variables.md)** ⭐⭐ - GitHub OIDC authentication setup
 - **[Workflow Conditions](workflow-conditions.md)** ⭐⭐⭐ - Advanced routing logic
 
@@ -50,7 +50,7 @@
 | **Deploy in 5 minutes** | [Quick Start](../DEPLOYMENT.md#-quick-start-5-minutes) | 5 min |
 | **Understand the architecture** | [Architecture Overview](architecture.md) | 20 min |
 | **Set up GitHub Actions** | [Secrets & Variables](secrets-and-variables.md) | 15 min |
-| **Understand IAM permissions** | [Permissions Architecture](permissions-architecture.md) | 30 min |
+| **Understand IAM permissions** | [IAM Deep Dive](iam-deep-dive.md) | 30 min |
 | **Fix a deployment error** | [Troubleshooting](troubleshooting.md) + [Deployment Reference](deployment-reference.md) | 10-30 min |
 | **Find a specific command** | [Command Reference](reference.md) | 2 min |
 | **Optimize costs** | [Feature Flags](feature-flags.md) | 10 min |
@@ -74,7 +74,7 @@
 
 ### For Architects
 1. Study [Architecture Overview](architecture.md) - System design
-2. Deep-dive [Permissions Architecture](permissions-architecture.md) - IAM model
+2. Deep-dive [IAM Deep Dive](iam-deep-dive.md) - IAM model
 3. Review [Feature Flags](feature-flags.md) - Configuration options
 4. Explore [IAM Policies](iam-policies/) - Security policies
 
@@ -95,7 +95,7 @@ Examples: [Command Reference](reference.md), [Deployment Reference](deployment-r
 ### Deep Dives ⭐⭐⭐
 **Best for**: Understanding concepts, architecture decisions, trade-offs
 
-Examples: [Architecture](architecture.md), [Permissions Architecture](permissions-architecture.md)
+Examples: [Architecture](architecture.md), [IAM Deep Dive](iam-deep-dive.md)
 
 ---
 
@@ -108,10 +108,20 @@ Examples: [Architecture](architecture.md), [Permissions Architecture](permission
 - ✅ **Improved Organization**: Documentation grouped by purpose and difficulty
 
 ### What Changed
+
+**Phase 1:**
 - **Merged**: DEPLOYMENT_GUIDE.md + docs/deployment.md + docs/quickstart.md → DEPLOYMENT.md
 - **Created**: deployment-reference.md (commands and troubleshooting)
 - **Updated**: README.md (streamlined with better navigation)
 - **Updated**: docs/README.md (this file - clearer structure)
+
+**Phase 2:**
+- **Created**: ci-cd.md (unified CI/CD pipeline documentation)
+- **Created**: iam-deep-dive.md (copy of permissions-architecture.md with better naming)
+- **Updated**: architecture.md (added IAM summary and cross-references)
+- **Moved**: CONTRIBUTING.md → docs/CONTRIBUTING.md
+- **Moved**: ROADMAP.md → docs/ROADMAP.md
+- **Updated**: All internal links to reflect new structure
 
 ### Benefits
 - 📉 **40% less duplication** - No more searching across multiple files
