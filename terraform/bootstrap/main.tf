@@ -160,6 +160,54 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
   restrict_public_buckets = true
 }
 
+# S3 bucket policy for state access
+resource "aws_s3_bucket_policy" "terraform_state" {
+  bucket = aws_s3_bucket.terraform_state.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowOrganizationAccountAccessRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${var.aws_account_id}:role/OrganizationAccountAccessRole"
+        }
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          aws_s3_bucket.terraform_state.arn,
+          "${aws_s3_bucket.terraform_state.arn}/*"
+        ]
+      },
+      {
+        Sid    = "AllowDeploymentRole"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
+        }
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          aws_s3_bucket.terraform_state.arn,
+          "${aws_s3_bucket.terraform_state.arn}/*"
+        ]
+      }
+    ]
+  })
+
+  # Ensure public access block is applied before policy
+  depends_on = [aws_s3_bucket_public_access_block.terraform_state]
+}
+
 # S3 bucket lifecycle configuration for old versions
 resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
   bucket = aws_s3_bucket.terraform_state.id

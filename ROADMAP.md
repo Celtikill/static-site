@@ -187,6 +187,80 @@ gh workflow run bootstrap-distributed-backend.yml \
 
 ## 🎨 Medium-Term Enhancements (3-6 Months)
 
+### Policy & State Management
+
+#### Policy Lifecycle Management
+**Priority**: HIGH ⭐
+**Effort**: 3-4 hours
+**Value**: Consistent policy enforcement and easier updates
+
+**Objective**: Centralize policy management and automate updates
+- Add `lifecycle` blocks to all policy resources
+- Use `prevent_destroy = true` for production policies
+- Implement versioning for policy changes
+- Tag all policies with `ManagedBy = "Terraform"`
+- Create policy update approval workflow
+- Document policy governance process
+
+**Implementation Details**:
+```hcl
+resource "aws_iam_policy" "example" {
+  name   = "example-policy"
+  policy = jsonencode(...)
+
+  lifecycle {
+    prevent_destroy = true  # Protect production policies
+    create_before_destroy = true
+  }
+
+  tags = {
+    ManagedBy = "Terraform"
+    Version   = "1.0.0"
+  }
+}
+```
+
+#### Drift Detection & State Management
+**Priority**: MEDIUM ⭐⭐
+**Effort**: 4-6 hours
+**Value**: Prevent configuration drift and orphaned resources
+
+**Objective**: Implement automated drift detection in CI/CD
+- Add scheduled drift detection job (daily runs)
+- Report drift as GitHub Issues with details
+- Detect orphaned AWS resources not in Terraform state
+- Create drift remediation playbook
+- Alert on critical drift scenarios
+
+**Implementation Approach**:
+- Create `.github/workflows/drift-detection.yml` scheduled workflow
+- Run `tofu plan` against all environments
+- Parse plan output for unexpected changes
+- Create GitHub Issues for drift detected
+- Add Slack/email notifications for critical drift
+- Implement `terraform-compliance` for policy drift
+
+**Drift Detection Workflow**:
+```yaml
+name: Drift Detection
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Run daily at 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  detect-drift:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [dev, staging, prod]
+    steps:
+      - name: Check for drift
+        run: |
+          tofu plan -detailed-exitcode
+          # Exit code 2 = changes detected (drift)
+```
+
 ### Platform Scalability
 
 #### GitHub Template Repository Release

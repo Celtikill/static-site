@@ -1,0 +1,119 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3Management",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:GetBucket*",
+        "s3:PutBucket*",
+        "s3:DeleteBucket*",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:List*"
+      ],
+      "Resource": [
+        "arn:aws:s3:::static-website-ENVIRONMENT-*",
+        "arn:aws:s3:::static-website-ENVIRONMENT-*/*"
+      ]
+    },
+    {
+      "Sid": "CloudFrontManagement",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateDistribution",
+        "cloudfront:GetDistribution*",
+        "cloudfront:UpdateDistribution",
+        "cloudfront:DeleteDistribution",
+        "cloudfront:*OriginAccessControl",
+        "cloudfront:*OriginAccessIdentity",
+        "cloudfront:TagResource",
+        "cloudfront:UntagResource",
+        "cloudfront:ListTagsForResource"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "WAFManagement",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:CreateWebACL",
+        "wafv2:GetWebACL",
+        "wafv2:UpdateWebACL",
+        "wafv2:DeleteWebACL",
+        "wafv2:ListWebACLs",
+        "wafv2:*RuleGroup",
+        "wafv2:TagResource",
+        "wafv2:UntagResource"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "aws:RequestedRegion": "us-east-1"
+        }
+      }
+    },
+    {
+      "Sid": "CloudWatchManagement",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:PutDashboard",
+        "cloudwatch:DeleteDashboards",
+        "cloudwatch:Get*",
+        "cloudwatch:List*",
+        "cloudwatch:Describe*",
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:TagLogGroup",
+        "logs:Get*",
+        "logs:List*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KMSOperations",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:Get*",
+        "kms:Describe*",
+        "kms:ListResourceTags",
+        "kms:ListAliases",
+        "kms:ListKeys"
+      ],
+      "Resource": [
+        "arn:aws:kms:REGION:ACCOUNT_ID:key/*"
+      ]
+    },
+    {
+      "Sid": "ReadOnlyPermissions",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "account:Get*",
+        "ec2:Describe*",
+        "iam:Get*",
+        "iam:List*",
+        "budgets:View*",
+        "budgets:Get*",
+        "sns:Get*",
+        "sns:List*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

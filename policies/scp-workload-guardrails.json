@@ -1,0 +1,92 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyRootAccountUsage",
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "aws:PrincipalArn": "arn:aws:iam::*:root"
+        }
+      }
+    },
+    {
+      "Sid": "RequireIMDSv2",
+      "Effect": "Deny",
+      "Action": "ec2:RunInstances",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "ec2:MetadataHttpTokens": "required"
+        }
+      }
+    },
+    {
+      "Sid": "EnforceS3Encryption",
+      "Effect": "Deny",
+      "Action": "s3:PutObject",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "s3:x-amz-server-side-encryption": [
+            "AES256",
+            "aws:kms"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyS3PublicAccessModification",
+      "Effect": "Deny",
+      "Action": [
+        "s3:PutBucketPublicAccessBlock",
+        "s3:DeletePublicAccessBlock"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "Bool": {
+          "s3:PublicAccessBlockConfiguration.BlockPublicAcls": "false"
+        }
+      }
+    },
+    {
+      "Sid": "RequireSSLRequestsOnly",
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::*/*",
+        "arn:aws:s3:::*"
+      ],
+      "Condition": {
+        "Bool": {
+          "aws:SecureTransport": "false"
+        }
+      }
+    },
+    {
+      "Sid": "DenyRegionRestriction",
+      "Effect": "Deny",
+      "NotAction": [
+        "iam:*",
+        "organizations:*",
+        "route53:*",
+        "cloudfront:*",
+        "waf:*",
+        "wafv2:*",
+        "support:*",
+        "trustedadvisor:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:RequestedRegion": [
+            "us-east-1",
+            "us-west-2"
+          ]
+        }
+      }
+    }
+  ]
+}

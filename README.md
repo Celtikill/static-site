@@ -26,7 +26,7 @@ If you pay any attention to my commit history, you'll see this thing evolved qui
 - This is a demonstration pipeline, deploying demonstration infrastructure.
 - CloudFront and WAF (key security AWS Well Architected features) are managed with feature flags I generally leave off.
 - Since I'm not using CloudFront, TLS encryption (https) is not easily available, and not deployed.
-- Yes, I realize this is a security concern.  Given the use case and threat model of this demo site, this is acceptable to me, and in the end, that's what matters (and you can too!). :cool:
+- Yes, I realize this is a security concern.  This is acceptable to me. :cool:
 
 ## On the role of our new AI overlords :alien:
 
