@@ -12,6 +12,110 @@ Choose your path based on experience level and available time:
 
 ---
 
+## 🎯 Choosing Your Deployment Path
+
+**Before you begin, choose the right approach based on your AWS account setup:**
+
+### Fresh AWS Account (No Existing Infrastructure)
+
+**Recommended approach: Bootstrap Scripts → Workflows**
+
+Use the [bootstrap scripts](scripts/bootstrap/) to quickly set up foundational infrastructure:
+
+```bash
+# 1. Create AWS Organization and member accounts
+./scripts/bootstrap/bootstrap-organization.sh
+
+# 2. Create OIDC providers, IAM roles, and Terraform backends
+./scripts/bootstrap/bootstrap-foundation.sh
+
+# 3. Continue with GitHub Actions for day-2 operations
+```
+
+**Why this approach?**
+- ✅ Fastest path to deployment (~10 minutes)
+- ✅ No manual AWS Organization setup required
+- ✅ Direct CLI control for troubleshooting
+- ✅ Idempotent and can be re-run safely
+
+**See**: [Bootstrap Scripts Documentation](scripts/bootstrap/README.md)
+
+### Existing AWS Account (With Organizations)
+
+**Recommended approach: Manual accounts.json → Bootstrap Foundation → Workflows**
+
+If you already have AWS Organizations with member accounts:
+
+```bash
+# 1. Create accounts.json with your existing account IDs
+cat > scripts/bootstrap/accounts.json <<EOF
+{
+  "management": "YOUR_MGMT_ACCOUNT_ID",
+  "dev": "YOUR_DEV_ACCOUNT_ID",
+  "staging": "YOUR_STAGING_ACCOUNT_ID",
+  "prod": "YOUR_PROD_ACCOUNT_ID"
+}
+EOF
+
+# 2. Run foundation bootstrap only
+./scripts/bootstrap/bootstrap-foundation.sh
+
+# 3. Continue with GitHub Actions workflows
+```
+
+**Why this approach?**
+- ✅ Works with existing AWS Organizations
+- ✅ Doesn't modify existing account structure
+- ✅ Creates only necessary OIDC/IAM resources
+- ✅ Preserves existing governance
+
+### Using GitHub Actions Workflows Only
+
+**Recommended for: Teams with existing Terraform state management**
+
+If you prefer to manage everything via workflows:
+
+```bash
+# 1. Manually configure GitHub secrets/variables
+gh variable set AWS_ACCOUNT_ID_DEV --body "123456789012"
+
+# 2. Run organization workflow (if needed)
+gh workflow run organization-management.yml
+
+# 3. Run bootstrap workflow
+gh workflow run bootstrap-distributed-backend.yml \
+  --field environment=dev \
+  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+
+# 4. Deploy infrastructure
+gh workflow run run.yml --field environment=dev
+```
+
+**Why this approach?**
+- ✅ Everything in version control
+- ✅ Full audit trail via GitHub Actions
+- ✅ Supports team collaboration with PR reviews
+- ✅ Declarative Terraform state management
+
+**See**: [GitHub Actions Workflows Documentation](.github/workflows/README.md)
+
+### Decision Matrix
+
+| Factor | Bootstrap Scripts | Workflows Only |
+|--------|------------------|----------------|
+| **Fresh AWS Account** | ✅ Recommended | Possible but slower |
+| **Existing AWS Org** | ✅ Foundation only | ✅ Works well |
+| **Speed** | Fast (~10 min) | Slower (~20 min) |
+| **Local Control** | ✅ Yes | Limited |
+| **Audit Trail** | Basic (logs) | ✅ Full (GitHub) |
+| **Team Collaboration** | Manual | ✅ PR-based |
+| **Troubleshooting** | ✅ Easy (direct CLI) | Harder (workflow logs) |
+| **Day-2 Operations** | Manual | ✅ Automated |
+
+**Recommendation**: Use **bootstrap scripts for initial setup**, then **workflows for ongoing operations**.
+
+---
+
 ## 🚀 Quick Start (5 Minutes)
 
 **For experienced users with AWS and GitHub already configured.**

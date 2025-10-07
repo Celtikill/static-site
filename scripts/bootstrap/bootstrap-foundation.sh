@@ -218,6 +218,13 @@ ${BOLD}Next Steps:${NC}
 
 4. Monitor the workflow run in GitHub Actions
 
+${BOLD}Automated Deployments:${NC}
+
+You can now use GitHub Actions workflows for ongoing operations:
+   ${BLUE}gh workflow run run.yml --field environment=dev${NC}
+
+See workflow documentation: ${BLUE}.github/workflows/README.md${NC}
+
 ${BOLD}Verification:${NC}
 EOF
 

@@ -93,6 +93,52 @@ cd scripts/bootstrap
 ./bootstrap-foundation.sh
 ```
 
+## 🤔 When to Use Bootstrap Scripts vs Workflows
+
+**The bootstrap scripts and GitHub Actions workflows are complementary, not redundant.**
+
+### Use Bootstrap Scripts if you:
+
+- ✅ Have a **fresh AWS account** (greenfield deployment)
+- ✅ Want to **run setup locally** without GitHub
+- ✅ Need to **quickly teardown and rebuild** infrastructure
+- ✅ Prefer **imperative CLI-based approach** with direct control
+- ✅ Want **fast iteration** during development (no git push required)
+- ✅ Need to **troubleshoot issues** with direct AWS access
+- ✅ Are **setting up the initial organization** structure
+
+### Use GitHub Actions Workflows if you:
+
+- ✅ Have **existing AWS Organizations** infrastructure
+- ✅ Want **GitOps workflow** with PR reviews and approval gates
+- ✅ Need **audit trail** and compliance tracking
+- ✅ Prefer **declarative Terraform** management with full state tracking
+- ✅ Want **everything in version control** with change history
+- ✅ Need **team collaboration** with code review process
+- ✅ Are **managing ongoing operations** after initial setup
+
+### Typical Usage Pattern
+
+```mermaid
+graph TD
+    A[Fresh AWS Account] --> B[Run bootstrap-organization.sh]
+    B --> C[Run bootstrap-foundation.sh]
+    C --> D[Commit accounts.json]
+    D --> E[Use Workflows for Day-2 Operations]
+    E --> F[Infrastructure Changes via PR]
+    F --> G[Automated Deployment via Actions]
+
+    H[Existing AWS Org] --> I[Update accounts.json manually]
+    I --> C
+```
+
+**Key Points:**
+
+1. **Both use the same Terraform modules** (`terraform/bootstrap`)
+2. **Scripts are for bootstrapping**, workflows are for ongoing management
+3. **Scripts enable workflows** by creating necessary OIDC/IAM infrastructure
+4. **You can use both** - scripts for initial setup, workflows for daily operations
+
 ## 📖 Usage Guide
 
 ### Stage 1: Organization Bootstrap
