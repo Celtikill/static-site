@@ -1,5 +1,17 @@
 # 🚀 Complete Deployment Guide: From Zero to Fully Operational
 
+> **⚠️ DEPRECATED**: This guide has been superseded by [DEPLOYMENT.md](DEPLOYMENT.md).
+> This file will be removed on 2026-01-07. Please update your bookmarks.
+>
+> **New Documentation:**
+> - **Quick Start (5 min)**: [DEPLOYMENT.md#quick-start](DEPLOYMENT.md#-quick-start-5-minutes)
+> - **Standard Setup (30 min)**: [DEPLOYMENT.md#standard-setup](DEPLOYMENT.md#-standard-setup-30-minutes)
+> - **Command Reference**: [docs/deployment-reference.md](docs/deployment-reference.md)
+>
+> All content from this file has been consolidated and improved in the new guides.
+
+---
+
 This guide walks you through deploying the static website infrastructure from scratch, with detailed explanations for beginners.
 
 ## 🍴 Fork Setup (IMPORTANT)

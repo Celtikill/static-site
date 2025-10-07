@@ -40,6 +40,11 @@
 - **[Feature Flags](feature-flags.md)** ⭐⭐ - Cost optimization and conditional resources
 - **[IAM Policies](iam-policies/)** ⭐⭐⭐ - JSON policy files and trust relationships
 
+### Operations & Maintenance ⭐⭐
+- **[Monitoring & Observability](monitoring.md)** ⭐⭐ - CloudWatch, logs, metrics, and alerts
+- **[Cost Management](cost-management.md)** ⭐⭐ - Cost optimization and budget controls
+- **[Disaster Recovery](disaster-recovery.md)** ⭐⭐ - Backup, recovery, and business continuity
+
 ---
 
 ## 📋 Quick Task Guide

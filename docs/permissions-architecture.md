@@ -1,5 +1,14 @@
 # 3-Tier Permissions Architecture
 
+> **⚠️ DEPRECATED**: This guide has been renamed to [iam-deep-dive.md](iam-deep-dive.md).
+> This file will be removed on 2026-01-07. Please update your bookmarks.
+>
+> **New Location:** [IAM Deep Dive](iam-deep-dive.md)
+>
+> The content is identical - we've simply improved the file naming for better clarity.
+
+---
+
 Comprehensive documentation of the AWS IAM permissions model for the static website infrastructure, comparing current MVP implementation with the intended pure 3-tier architecture.
 
 ## Executive Summary

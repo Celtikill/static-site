@@ -1,5 +1,19 @@
 # Workflows Overview
 
+> **⚠️ DEPRECATED**: This guide has been superseded by [ci-cd.md](ci-cd.md).
+> This file will be removed on 2026-01-07. Please update your bookmarks.
+>
+> **New Documentation:** [CI/CD Pipeline Guide](ci-cd.md)
+>
+> The new guide includes:
+> - Complete BUILD → TEST → RUN pipeline documentation
+> - Security gates and policy validation details
+> - Workflow routing logic
+> - Manual operations and troubleshooting
+> - Performance metrics and best practices
+
+---
+
 GitHub Actions workflows implementing the BUILD → TEST → RUN pipeline for AWS Static Website Infrastructure.
 
 ## Pipeline Architecture
