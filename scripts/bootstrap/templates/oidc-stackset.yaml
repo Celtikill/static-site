@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'GitHub Actions OIDC Provider for Static Site Infrastructure'
+
+Parameters:
+  GitHubThumbprint:
+    Type: String
+    Description: Thumbprint of GitHub OIDC provider certificate
+    Default: '6938fd4d98bab03faadb97b34396831e3780aea1'
+
+Resources:
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - !Ref GitHubThumbprint
+      Tags:
+        - Key: Name
+          Value: github-actions-oidc-provider
+        - Key: ManagedBy
+          Value: cloudformation-stackset
+        - Key: Project
+          Value: static-site
+
+Outputs:
+  OIDCProviderArn:
+    Description: ARN of the GitHub OIDC Provider
+    Value: !Ref GitHubOIDCProvider
+    Export:
+      Name: !Sub '${AWS::StackName}-OIDCProviderArn'
+
+  OIDCProviderUrl:
+    Description: URL of the GitHub OIDC Provider
+    Value: https://token.actions.githubusercontent.com
+    Export:
+      Name: !Sub '${AWS::StackName}-OIDCProviderUrl'
