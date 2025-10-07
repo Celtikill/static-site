@@ -13,18 +13,26 @@
 # - Member account closure (optional, PERMANENT for 90 days)
 #
 # SINGLE-ACCOUNT RESOURCES:
-# - All S3 buckets and their contents
+# - All S3 buckets and their contents (including replicas in all US regions)
+# - All S3 replication configurations and intelligent tiering configs
 # - All KMS keys (scheduled for deletion)
-# - All IAM roles, policies, and OIDC providers
+# - All IAM roles, policies, users, groups, and OIDC providers
 # - All CloudFront distributions
 # - All DynamoDB tables (Terraform state locks)
 # - All CloudTrail trails and logs
 # - All SNS topics and subscriptions
-# - All CloudWatch alarms and log groups
+# - All CloudWatch alarms, log groups, dashboards, and composite alarms
 # - All WAF Web ACLs
-# - All Route53 hosted zones (if created)
+# - All Route53 hosted zones, health checks, and DNS records
+# - All AWS Budgets and budget actions
+# - All SSM Parameter Store parameters
 # - All ACM certificates
 # - Any orphaned EC2 resources (Elastic IPs, etc.)
+#
+# AWS ORGANIZATIONS RESOURCES (management account):
+# - Service Control Policies (detached and deleted)
+# - Organizational Units (deleted bottom-up)
+# - Policy attachments to OUs and accounts
 #
 # Required Environment Variables:
 #   - AWS_DEFAULT_REGION: AWS region (default: us-east-1)
@@ -196,6 +204,31 @@ check_account_filter() {
     return 1
 }
 
+# Get all US AWS regions
+get_us_regions() {
+    aws ec2 describe-regions \
+        --query 'Regions[?starts_with(RegionName, `us-`)].RegionName' \
+        --output text 2>/dev/null || echo "us-east-1 us-east-2 us-west-1 us-west-2"
+}
+
+# Execute function across all US regions
+execute_in_all_regions() {
+    local function_name="$1"
+    local regions
+
+    log_info "Executing $function_name across all US regions..."
+    regions=$(get_us_regions)
+
+    for region in $regions; do
+        log_info "Processing region: $region"
+        export AWS_REGION="$region"
+        "$function_name" "$region"
+    done
+
+    # Reset to default region
+    export AWS_REGION="$AWS_DEFAULT_REGION"
+}
+
 # AWS CLI wrapper with error handling
 aws_cmd() {
     local cmd=("$@")
@@ -244,6 +277,15 @@ destroy_s3_buckets() {
                 log_action "Empty and delete S3 bucket: $bucket"
 
                 if [[ "$DRY_RUN" != "true" ]]; then
+                    # Remove replication configuration if exists
+                    aws s3api delete-bucket-replication --bucket "$bucket" 2>/dev/null || true
+
+                    # Remove intelligent tiering configuration if exists
+                    aws s3api list-bucket-intelligent-tiering-configurations --bucket "$bucket" --query 'IntelligentTieringConfigurationList[].Id' --output text 2>/dev/null | \
+                        while read -r config_id; do
+                            [[ -n "$config_id" ]] && aws s3api delete-bucket-intelligent-tiering-configuration --bucket "$bucket" --id "$config_id" 2>/dev/null || true
+                        done
+
                     # Empty bucket first (including all versions and delete markers)
                     aws s3api list-object-versions --bucket "$bucket" \
                         --query 'Versions[].{Key:Key,VersionId:VersionId}' \
@@ -268,6 +310,72 @@ destroy_s3_buckets() {
                         log_success "Deleted S3 bucket: $bucket"
                     else
                         log_error "Failed to delete S3 bucket: $bucket"
+                    fi
+                fi
+            fi
+        fi
+    done
+}
+
+# Destroy replica S3 buckets in secondary regions
+destroy_replica_s3_buckets() {
+    local region="${1:-us-west-2}"
+    log_info "🪣 Scanning for replica S3 buckets in $region..."
+
+    # S3 buckets are global, but we need to check regional endpoints
+    local buckets
+    buckets=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+
+    if [[ -z "$buckets" ]]; then
+        log_info "No S3 buckets found"
+        return 0
+    fi
+
+    for bucket in $buckets; do
+        # Check if bucket is in the target region and matches project
+        if matches_project "$bucket"; then
+            # Get bucket location
+            local bucket_region
+            bucket_region=$(aws s3api get-bucket-location --bucket "$bucket" --query 'LocationConstraint' --output text 2>/dev/null || echo "us-east-1")
+
+            # Handle null/None response for us-east-1
+            [[ "$bucket_region" == "None" ]] || [[ "$bucket_region" == "null" ]] && bucket_region="us-east-1"
+
+            if [[ "$bucket_region" == "$region" ]]; then
+                log_info "Found replica bucket $bucket in $region"
+
+                if confirm_destruction "Replica S3 Bucket" "$bucket (region: $region)"; then
+                    log_action "Empty and delete replica S3 bucket: $bucket"
+
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        # Remove replication configuration if it exists
+                        aws s3api delete-bucket-replication --bucket "$bucket" 2>/dev/null || true
+
+                        # Empty bucket (all versions and delete markers)
+                        aws s3api list-object-versions --bucket "$bucket" \
+                            --query 'Versions[].{Key:Key,VersionId:VersionId}' \
+                            --output text 2>/dev/null | \
+                            while read -r key version_id; do
+                                [[ -n "$key" ]] && aws s3api delete-object --bucket "$bucket" --key "$key" --version-id "$version_id" 2>/dev/null || true
+                            done
+
+                        # Delete delete markers
+                        aws s3api list-object-versions --bucket "$bucket" \
+                            --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' \
+                            --output text 2>/dev/null | \
+                            while read -r key version_id; do
+                                [[ -n "$key" ]] && aws s3api delete-object --bucket "$bucket" --key "$key" --version-id "$version_id" 2>/dev/null || true
+                            done
+
+                        # Force empty using CLI
+                        aws s3 rm "s3://$bucket" --recursive 2>/dev/null || true
+
+                        # Delete bucket
+                        if aws s3api delete-bucket --bucket "$bucket" --region "$region" 2>/dev/null; then
+                            log_success "Deleted replica S3 bucket: $bucket"
+                        else
+                            log_error "Failed to delete replica S3 bucket: $bucket"
+                        fi
                     fi
                 fi
             fi
@@ -642,6 +750,120 @@ destroy_iam_resources() {
             fi
         fi
     done
+
+    # Destroy IAM users
+    log_info "👤 Scanning for IAM users..."
+    local users
+    users=$(aws iam list-users --query 'Users[].UserName' --output text 2>/dev/null || true)
+
+    for user_name in $users; do
+        if matches_project "$user_name"; then
+            if confirm_destruction "IAM User" "$user_name"; then
+                log_action "Delete IAM user: $user_name"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    # Remove user from all groups
+                    aws iam list-groups-for-user --user-name "$user_name" --query 'Groups[].GroupName' --output text 2>/dev/null | \
+                        while read -r group_name; do
+                            [[ -n "$group_name" ]] && aws iam remove-user-from-group --user-name "$user_name" --group-name "$group_name" 2>/dev/null || true
+                        done
+
+                    # Delete access keys
+                    aws iam list-access-keys --user-name "$user_name" --query 'AccessKeyMetadata[].AccessKeyId' --output text 2>/dev/null | \
+                        while read -r access_key_id; do
+                            [[ -n "$access_key_id" ]] && aws iam delete-access-key --user-name "$user_name" --access-key-id "$access_key_id" 2>/dev/null || true
+                        done
+
+                    # Delete MFA devices
+                    aws iam list-mfa-devices --user-name "$user_name" --query 'MFADevices[].SerialNumber' --output text 2>/dev/null | \
+                        while read -r serial_number; do
+                            [[ -n "$serial_number" ]] && aws iam deactivate-mfa-device --user-name "$user_name" --serial-number "$serial_number" 2>/dev/null || true
+                            [[ -n "$serial_number" ]] && aws iam delete-virtual-mfa-device --serial-number "$serial_number" 2>/dev/null || true
+                        done
+
+                    # Delete signing certificates
+                    aws iam list-signing-certificates --user-name "$user_name" --query 'Certificates[].CertificateId' --output text 2>/dev/null | \
+                        while read -r cert_id; do
+                            [[ -n "$cert_id" ]] && aws iam delete-signing-certificate --user-name "$user_name" --certificate-id "$cert_id" 2>/dev/null || true
+                        done
+
+                    # Delete SSH public keys
+                    aws iam list-ssh-public-keys --user-name "$user_name" --query 'SSHPublicKeys[].SSHPublicKeyId' --output text 2>/dev/null | \
+                        while read -r ssh_key_id; do
+                            [[ -n "$ssh_key_id" ]] && aws iam delete-ssh-public-key --user-name "$user_name" --ssh-public-key-id "$ssh_key_id" 2>/dev/null || true
+                        done
+
+                    # Delete service specific credentials
+                    aws iam list-service-specific-credentials --user-name "$user_name" --query 'ServiceSpecificCredentials[].ServiceSpecificCredentialId' --output text 2>/dev/null | \
+                        while read -r cred_id; do
+                            [[ -n "$cred_id" ]] && aws iam delete-service-specific-credential --user-name "$user_name" --service-specific-credential-id "$cred_id" 2>/dev/null || true
+                        done
+
+                    # Detach managed policies
+                    aws iam list-attached-user-policies --user-name "$user_name" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null | \
+                        while read -r policy_arn; do
+                            [[ -n "$policy_arn" ]] && aws iam detach-user-policy --user-name "$user_name" --policy-arn "$policy_arn" 2>/dev/null || true
+                        done
+
+                    # Delete inline policies
+                    aws iam list-user-policies --user-name "$user_name" --query 'PolicyNames[]' --output text 2>/dev/null | \
+                        while read -r policy_name; do
+                            [[ -n "$policy_name" ]] && aws iam delete-user-policy --user-name "$user_name" --policy-name "$policy_name" 2>/dev/null || true
+                        done
+
+                    # Delete login profile (console access)
+                    aws iam delete-login-profile --user-name "$user_name" 2>/dev/null || true
+
+                    # Delete user
+                    if aws iam delete-user --user-name "$user_name" 2>/dev/null; then
+                        log_success "Deleted IAM user: $user_name"
+                    else
+                        log_error "Failed to delete IAM user: $user_name"
+                    fi
+                fi
+            fi
+        fi
+    done
+
+    # Destroy IAM groups
+    log_info "👥 Scanning for IAM groups..."
+    local groups
+    groups=$(aws iam list-groups --query 'Groups[].GroupName' --output text 2>/dev/null || true)
+
+    for group_name in $groups; do
+        if matches_project "$group_name"; then
+            if confirm_destruction "IAM Group" "$group_name"; then
+                log_action "Delete IAM group: $group_name"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    # Remove all users from group
+                    aws iam get-group --group-name "$group_name" --query 'Users[].UserName' --output text 2>/dev/null | \
+                        while read -r user_name; do
+                            [[ -n "$user_name" ]] && aws iam remove-user-from-group --user-name "$user_name" --group-name "$group_name" 2>/dev/null || true
+                        done
+
+                    # Detach managed policies
+                    aws iam list-attached-group-policies --group-name "$group_name" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null | \
+                        while read -r policy_arn; do
+                            [[ -n "$policy_arn" ]] && aws iam detach-group-policy --group-name "$group_name" --policy-arn "$policy_arn" 2>/dev/null || true
+                        done
+
+                    # Delete inline policies
+                    aws iam list-group-policies --group-name "$group_name" --query 'PolicyNames[]' --output text 2>/dev/null | \
+                        while read -r policy_name; do
+                            [[ -n "$policy_name" ]] && aws iam delete-group-policy --group-name "$group_name" --policy-name "$policy_name" 2>/dev/null || true
+                        done
+
+                    # Delete group
+                    if aws iam delete-group --group-name "$group_name" 2>/dev/null; then
+                        log_success "Deleted IAM group: $group_name"
+                    else
+                        log_error "Failed to delete IAM group: $group_name"
+                    fi
+                fi
+            fi
+        fi
+    done
 }
 
 # Destroy CloudWatch resources
@@ -709,6 +931,191 @@ destroy_sns_resources() {
                         log_success "Deleted SNS topic: $topic_name"
                     else
                         log_error "Failed to delete SNS topic: $topic_name"
+                    fi
+                fi
+            fi
+        fi
+    done
+}
+
+# Destroy Route53 resources
+destroy_route53_resources() {
+    log_info "🌐 Scanning for Route53 resources..."
+
+    # Destroy health checks
+    local health_checks
+    health_checks=$(aws route53 list-health-checks --query 'HealthChecks[].Id' --output text 2>/dev/null || true)
+
+    for health_check_id in $health_checks; do
+        local health_check_config
+        health_check_config=$(aws route53 get-health-check --health-check-id "$health_check_id" --query 'HealthCheck.HealthCheckConfig.FullyQualifiedDomainName' --output text 2>/dev/null || echo "unknown")
+
+        if matches_project "$health_check_config" || [[ "$health_check_config" == *"static-site"* ]]; then
+            if confirm_destruction "Route53 Health Check" "$health_check_id ($health_check_config)"; then
+                log_action "Delete Route53 health check: $health_check_id"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    if aws route53 delete-health-check --health-check-id "$health_check_id" 2>/dev/null; then
+                        log_success "Deleted Route53 health check: $health_check_id"
+                    else
+                        log_error "Failed to delete Route53 health check: $health_check_id"
+                    fi
+                fi
+            fi
+        fi
+    done
+
+    # Destroy hosted zones
+    local hosted_zones
+    hosted_zones=$(aws route53 list-hosted-zones --query 'HostedZones[].{Id:Id,Name:Name}' --output json 2>/dev/null || echo "[]")
+
+    if [[ "$hosted_zones" != "[]" ]] && [[ "$hosted_zones" != "null" ]] && [[ -n "$hosted_zones" ]]; then
+        echo "$hosted_zones" | jq -c '.[]' | while read -r zone; do
+            local zone_id zone_name
+            zone_id=$(echo "$zone" | jq -r '.Id' | cut -d'/' -f3)
+            zone_name=$(echo "$zone" | jq -r '.Name')
+
+            if matches_project "$zone_name"; then
+                if confirm_destruction "Route53 Hosted Zone" "$zone_name ($zone_id)"; then
+                    log_action "Delete Route53 hosted zone: $zone_name"
+
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        # Delete all non-essential records first (keep SOA and NS for the zone itself)
+                        local records
+                        records=$(aws route53 list-resource-record-sets --hosted-zone-id "$zone_id" --query 'ResourceRecordSets[?Type!=`SOA` && Type!=`NS`].{Name:Name,Type:Type}' --output json 2>/dev/null || echo "[]")
+
+                        echo "$records" | jq -c '.[]' | while read -r record; do
+                            local record_name record_type
+                            record_name=$(echo "$record" | jq -r '.Name')
+                            record_type=$(echo "$record" | jq -r '.Type')
+
+                            log_info "Deleting record: $record_name ($record_type)"
+
+                            # Get full record details for deletion
+                            local record_data
+                            record_data=$(aws route53 list-resource-record-sets --hosted-zone-id "$zone_id" --query "ResourceRecordSets[?Name=='$record_name' && Type=='$record_type']" --output json 2>/dev/null || echo "[]")
+
+                            if [[ "$record_data" != "[]" ]]; then
+                                # Create change batch for deletion
+                                local change_batch
+                                change_batch=$(echo "$record_data" | jq '{Changes: [{Action: "DELETE", ResourceRecordSet: .[0]}]}')
+
+                                aws route53 change-resource-record-sets --hosted-zone-id "$zone_id" --change-batch "$change_batch" 2>/dev/null || log_warn "Failed to delete record $record_name"
+                            fi
+                        done
+
+                        # Now delete the hosted zone
+                        if aws route53 delete-hosted-zone --id "$zone_id" 2>/dev/null; then
+                            log_success "Deleted Route53 hosted zone: $zone_name"
+                        else
+                            log_error "Failed to delete Route53 hosted zone: $zone_name (may still have records)"
+                        fi
+                    fi
+                fi
+            fi
+        done
+    fi
+}
+
+# Destroy CloudWatch dashboards and composite alarms
+destroy_cloudwatch_dashboards() {
+    log_info "📊 Scanning for CloudWatch dashboards..."
+
+    local dashboards
+    dashboards=$(aws cloudwatch list-dashboards --query 'DashboardEntries[].DashboardName' --output text 2>/dev/null || true)
+
+    for dashboard_name in $dashboards; do
+        if matches_project "$dashboard_name"; then
+            if confirm_destruction "CloudWatch Dashboard" "$dashboard_name"; then
+                log_action "Delete CloudWatch dashboard: $dashboard_name"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    if aws cloudwatch delete-dashboards --dashboard-names "$dashboard_name" 2>/dev/null; then
+                        log_success "Deleted CloudWatch dashboard: $dashboard_name"
+                    else
+                        log_error "Failed to delete CloudWatch dashboard: $dashboard_name"
+                    fi
+                fi
+            fi
+        fi
+    done
+
+    # Destroy composite alarms
+    log_info "📊 Scanning for CloudWatch composite alarms..."
+    local composite_alarms
+    composite_alarms=$(aws cloudwatch describe-alarms --alarm-types CompositeAlarm --query 'CompositeAlarms[].AlarmName' --output text 2>/dev/null || true)
+
+    for alarm_name in $composite_alarms; do
+        if matches_project "$alarm_name"; then
+            if confirm_destruction "CloudWatch Composite Alarm" "$alarm_name"; then
+                log_action "Delete CloudWatch composite alarm: $alarm_name"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    if aws cloudwatch delete-alarms --alarm-names "$alarm_name" 2>/dev/null; then
+                        log_success "Deleted CloudWatch composite alarm: $alarm_name"
+                    else
+                        log_error "Failed to delete CloudWatch composite alarm: $alarm_name"
+                    fi
+                fi
+            fi
+        fi
+    done
+}
+
+# Destroy AWS Budgets
+destroy_aws_budgets() {
+    log_info "💰 Scanning for AWS Budgets..."
+
+    local current_account
+    current_account=$(aws sts get-caller-identity --query 'Account' --output text)
+
+    local budgets
+    budgets=$(aws budgets describe-budgets --account-id "$current_account" --query 'Budgets[].BudgetName' --output text 2>/dev/null || true)
+
+    for budget_name in $budgets; do
+        if matches_project "$budget_name" || [[ "$budget_name" == *"static-site"* ]]; then
+            if confirm_destruction "AWS Budget" "$budget_name"; then
+                log_action "Delete AWS Budget: $budget_name"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    # Delete budget actions first
+                    local actions
+                    actions=$(aws budgets describe-budget-actions-for-budget --account-id "$current_account" --budget-name "$budget_name" --query 'Actions[].ActionId' --output text 2>/dev/null || true)
+
+                    for action_id in $actions; do
+                        log_info "Deleting budget action: $action_id"
+                        aws budgets delete-budget-action --account-id "$current_account" --budget-name "$budget_name" --action-id "$action_id" 2>/dev/null || true
+                    done
+
+                    # Delete the budget
+                    if aws budgets delete-budget --account-id "$current_account" --budget-name "$budget_name" 2>/dev/null; then
+                        log_success "Deleted AWS Budget: $budget_name"
+                    else
+                        log_error "Failed to delete AWS Budget: $budget_name"
+                    fi
+                fi
+            fi
+        fi
+    done
+}
+
+# Destroy SSM Parameters
+destroy_ssm_parameters() {
+    log_info "🔧 Scanning for SSM Parameters..."
+
+    local parameters
+    parameters=$(aws ssm describe-parameters --query 'Parameters[].Name' --output text 2>/dev/null || true)
+
+    for param_name in $parameters; do
+        if matches_project "$param_name"; then
+            if confirm_destruction "SSM Parameter" "$param_name"; then
+                log_action "Delete SSM parameter: $param_name"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    if aws ssm delete-parameter --name "$param_name" 2>/dev/null; then
+                        log_success "Deleted SSM parameter: $param_name"
+                    else
+                        log_error "Failed to delete SSM parameter: $param_name"
                     fi
                 fi
             fi
@@ -974,6 +1381,156 @@ close_member_accounts() {
         log_info "  - Reserved Instance charges will continue until expiration"
         log_info "  - You can reopen accounts during the 90-day period if needed"
     fi
+}
+
+# Destroy AWS Organizations resources
+destroy_organizations_resources() {
+    log_info "🏢 Scanning for AWS Organizations resources..."
+
+    local current_account
+    current_account=$(aws sts get-caller-identity --query 'Account' --output text)
+
+    # Only run from management account
+    if [[ "$current_account" != "$MANAGEMENT_ACCOUNT_ID" ]]; then
+        log_warn "AWS Organizations cleanup only supported from management account"
+        return 0
+    fi
+
+    # Check if organization exists
+    if ! aws organizations describe-organization >/dev/null 2>&1; then
+        log_info "No AWS Organization found - skipping"
+        return 0
+    fi
+
+    log_info "Processing AWS Organizations structure..."
+
+    # Step 1: Detach SCPs from OUs and accounts
+    log_info "Detaching Service Control Policies..."
+    local policies
+    policies=$(aws organizations list-policies --filter SERVICE_CONTROL_POLICY --query 'Policies[?Name!=`FullAWSAccess`].Id' --output text 2>/dev/null || true)
+
+    for policy_id in $policies; do
+        local policy_name
+        policy_name=$(aws organizations describe-policy --policy-id "$policy_id" --query 'Policy.PolicySummary.Name' --output text 2>/dev/null || echo "unknown")
+
+        # Get all targets for this policy
+        local targets
+        targets=$(aws organizations list-targets-for-policy --policy-id "$policy_id" --query 'Targets[].TargetId' --output text 2>/dev/null || true)
+
+        for target_id in $targets; do
+            if confirm_destruction "SCP Attachment" "$policy_name from $target_id"; then
+                log_action "Detach SCP $policy_name from $target_id"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    if aws organizations detach-policy --policy-id "$policy_id" --target-id "$target_id" 2>/dev/null; then
+                        log_success "Detached SCP $policy_name from $target_id"
+                    else
+                        log_error "Failed to detach SCP $policy_name from $target_id"
+                    fi
+                fi
+            fi
+        done
+    done
+
+    # Step 2: Delete custom SCPs
+    log_info "Deleting custom Service Control Policies..."
+    for policy_id in $policies; do
+        local policy_name
+        policy_name=$(aws organizations describe-policy --policy-id "$policy_id" --query 'Policy.PolicySummary.Name' --output text 2>/dev/null || echo "unknown")
+
+        if confirm_destruction "Service Control Policy" "$policy_name"; then
+            log_action "Delete SCP: $policy_name"
+
+            if [[ "$DRY_RUN" != "true" ]]; then
+                if aws organizations delete-policy --policy-id "$policy_id" 2>/dev/null; then
+                    log_success "Deleted SCP: $policy_name"
+                else
+                    log_error "Failed to delete SCP: $policy_name"
+                fi
+            fi
+        fi
+    done
+
+    # Step 3: Move accounts from OUs back to root (if closing accounts)
+    if [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]]; then
+        log_info "Moving member accounts to root OU..."
+        local root_id
+        root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>/dev/null)
+
+        for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+            if ! check_account_filter "$account_id"; then
+                continue
+            fi
+
+            # Find current parent OU
+            local parent_id
+            parent_id=$(aws organizations list-parents --child-id "$account_id" --query 'Parents[0].Id' --output text 2>/dev/null || true)
+
+            if [[ -n "$parent_id" ]] && [[ "$parent_id" != "$root_id" ]]; then
+                log_action "Move account $account_id to root OU"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    if aws organizations move-account --account-id "$account_id" --source-parent-id "$parent_id" --destination-parent-id "$root_id" 2>/dev/null; then
+                        log_success "Moved account $account_id to root"
+                    else
+                        log_error "Failed to move account $account_id"
+                    fi
+                fi
+            fi
+        done
+    fi
+
+    # Step 4: Delete OUs (bottom-up, children first)
+    log_info "Deleting Organizational Units..."
+    local root_id
+    root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>/dev/null)
+
+    # Function to recursively delete OUs
+    delete_ous_recursive() {
+        local parent_id="$1"
+
+        # List all child OUs
+        local child_ous
+        child_ous=$(aws organizations list-organizational-units-for-parent --parent-id "$parent_id" --query 'OrganizationalUnits[].Id' --output text 2>/dev/null || true)
+
+        for ou_id in $child_ous; do
+            # Recursively delete children first
+            delete_ous_recursive "$ou_id"
+
+            # Now delete this OU
+            local ou_name
+            ou_name=$(aws organizations describe-organizational-unit --organizational-unit-id "$ou_id" --query 'OrganizationalUnit.Name' --output text 2>/dev/null || echo "unknown")
+
+            if confirm_destruction "Organizational Unit" "$ou_name ($ou_id)"; then
+                log_action "Delete OU: $ou_name"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    # Move any accounts in this OU to root first
+                    local accounts_in_ou
+                    accounts_in_ou=$(aws organizations list-accounts-for-parent --parent-id "$ou_id" --query 'Accounts[].Id' --output text 2>/dev/null || true)
+
+                    for account_id in $accounts_in_ou; do
+                        log_info "Moving account $account_id from OU $ou_name to root"
+                        aws organizations move-account --account-id "$account_id" --source-parent-id "$ou_id" --destination-parent-id "$root_id" 2>/dev/null || true
+                    done
+
+                    # Delete the OU
+                    if aws organizations delete-organizational-unit --organizational-unit-id "$ou_id" 2>/dev/null; then
+                        log_success "Deleted OU: $ou_name"
+                    else
+                        log_error "Failed to delete OU: $ou_name (may have accounts or child OUs)"
+                    fi
+                fi
+            fi
+        done
+    }
+
+    # Start deletion from root
+    if [[ -n "$root_id" ]]; then
+        delete_ous_recursive "$root_id"
+    fi
+
+    log_info "AWS Organizations cleanup completed"
 }
 
 # Cleanup orphaned resources that cost money
@@ -1366,13 +1923,17 @@ ENVIRONMENT VARIABLES:
     CLEANUP_TERRAFORM_STATE  Set to 'false' to disable state cleanup
 
 DESTRUCTION PHASES:
-    Phase 1: Cross-account infrastructure cleanup
-    Phase 2: Dependent resources (CloudFront, WAF)
-    Phase 3: Storage and logging (S3, CloudTrail, CloudWatch, SNS)
-    Phase 4: Compute and database (DynamoDB)
-    Phase 5: Identity and security (IAM, KMS)
-    Phase 6: Orphaned resources cleanup
-    Phase 7: Member account closure (if enabled)
+    Phase 1:  Cross-account infrastructure cleanup
+    Phase 2:  Dependent resources (CloudFront, WAF)
+    Phase 3:  Storage and logging (S3 multi-region, CloudTrail, CloudWatch, SNS)
+    Phase 4:  Compute and database (DynamoDB)
+    Phase 5:  DNS and network (Route53 zones, health checks, records)
+    Phase 6:  Identity and security (IAM roles/users/groups, KMS)
+    Phase 7:  Cost and configuration (Budgets, SSM Parameters)
+    Phase 8:  Orphaned resources cleanup (Elastic IPs, etc.)
+    Phase 9:  AWS Organizations cleanup (SCPs, OUs) - management account only
+    Phase 10: Member account closure (if enabled) - PERMANENT for 90 days
+    Phase 11: Post-destruction validation across all US regions
 
 SAFETY FEATURES:
     • Dry run mode shows complete destruction plan
@@ -1383,17 +1944,111 @@ SAFETY FEATURES:
 
 WARNING - PERMANENT DATA LOSS:
     This script will PERMANENTLY DELETE all matching AWS resources including:
-    • All S3 buckets and contents
-    • All IAM roles, policies, and OIDC providers (including cross-account)
+    • All S3 buckets and contents (including replicas across US regions)
+    • All S3 replication configurations and intelligent tiering
+    • All IAM roles, policies, users, groups, and OIDC providers
     • All KMS keys (scheduled for deletion)
     • All CloudFront distributions and associated resources
     • All DynamoDB tables and Terraform state locks
+    • All CloudWatch dashboards, alarms, and composite alarms
+    • All Route53 hosted zones, health checks, and DNS records
+    • All AWS Budgets and budget actions
+    • All SSM Parameter Store parameters
+    • All CloudTrail trails and organization trails
+    • All AWS Organizations resources (SCPs, OUs) - management account only
     • Terraform state for cross-account modules
     • Optionally: Member accounts (90-day closure period)
 
+    MULTI-REGION: Scans all US regions (us-east-1, us-east-2, us-west-1, us-west-2)
     USE --dry-run FIRST to review the complete destruction plan.
     Member account closure cannot be undone for 90 days.
 EOF
+}
+
+# Post-destruction validation
+validate_complete_destruction() {
+    log_info "🔍 Validating complete destruction across all regions..."
+
+    local remaining_resources=0
+    local regions
+    regions=$(get_us_regions)
+
+    echo "" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+    echo "## 🔍 Post-Destruction Validation" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+    echo "" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+
+    for region in $regions; do
+        log_info "Validating region: $region"
+
+        # Check S3 buckets
+        local s3_count=0
+        local buckets
+        buckets=$(aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+        for bucket in $buckets; do
+            if matches_project "$bucket"; then
+                ((s3_count++)) || true
+                log_warn "  Found remaining S3 bucket: $bucket"
+            fi
+        done
+
+        # Check DynamoDB tables
+        local dynamo_count=0
+        local tables
+        tables=$(AWS_DEFAULT_REGION=$region aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true)
+        for table in $tables; do
+            if matches_project "$table"; then
+                ((dynamo_count++)) || true
+                log_warn "  Found remaining DynamoDB table: $table (region: $region)"
+            fi
+        done
+
+        # Check CloudWatch log groups
+        local log_count=0
+        local log_groups
+        log_groups=$(AWS_DEFAULT_REGION=$region aws logs describe-log-groups --query 'logGroups[].logGroupName' --output text 2>/dev/null || true)
+        for log_group in $log_groups; do
+            if matches_project "$log_group" || [[ "$log_group" == *"/aws/cloudtrail"* ]]; then
+                ((log_count++)) || true
+                log_warn "  Found remaining log group: $log_group (region: $region)"
+            fi
+        done
+
+        remaining_resources=$((remaining_resources + s3_count + dynamo_count + log_count))
+    done
+
+    # Check global resources
+    local cf_count=0
+    local distributions
+    distributions=$(aws cloudfront list-distributions --query 'DistributionList.Items[].Id' --output text 2>/dev/null || true)
+    for dist_id in $distributions; do
+        ((cf_count++)) || true
+        log_warn "Found remaining CloudFront distribution: $dist_id"
+    done
+
+    local iam_roles_count=0
+    local roles
+    roles=$(aws iam list-roles --query 'Roles[].RoleName' --output text 2>/dev/null || true)
+    for role in $roles; do
+        if matches_project "$role"; then
+            ((iam_roles_count++)) || true
+            log_warn "Found remaining IAM role: $role"
+        fi
+    done
+
+    remaining_resources=$((remaining_resources + cf_count + iam_roles_count))
+
+    echo "| Resource Type | Remaining Count |" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+    echo "|--------------|----------------|" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+    echo "| **Total** | **$remaining_resources** |" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+
+    if [[ $remaining_resources -eq 0 ]]; then
+        log_success "✅ Complete destruction validated - no remaining resources found"
+        return 0
+    else
+        log_warn "⚠️ Found $remaining_resources remaining resources"
+        log_warn "Review the warnings above and run the script again if needed"
+        return 0
+    fi
 }
 
 # Main execution function
@@ -1411,12 +2066,15 @@ main() {
         echo "║  created by the static-site infrastructure repository.      ║"
         echo "║                                                              ║"
         echo "║  Resources that will be destroyed:                          ║"
-        echo "║  • S3 buckets and all contents                              ║"
+        echo "║  • S3 buckets (all US regions) and contents               ║"
         echo "║  • KMS keys (scheduled for deletion)                       ║"
-        echo "║  • IAM roles, policies, and OIDC providers                 ║"
+        echo "║  • IAM roles, users, groups, policies, OIDC providers      ║"
         echo "║  • CloudFront distributions                                 ║"
+        echo "║  • CloudWatch dashboards, alarms, log groups               ║"
+        echo "║  • Route53 zones, health checks, DNS records              ║"
         echo "║  • DynamoDB tables                                          ║"
-        echo "║  • CloudTrail trails and logs                              ║"
+        echo "║  • AWS Budgets and SSM parameters                          ║"
+        echo "║  • Organizations resources (SCPs, OUs)                     ║"
         echo "║  • All other project-related AWS resources                 ║"
         echo "║                                                              ║"
         echo "║  💸 This action may result in significant cost savings      ║"
@@ -1495,27 +2153,44 @@ main() {
     destroy_cloudfront_distributions
     destroy_waf_resources
 
-    log_info "Phase 3: Destroying storage and logging..."
+    log_info "Phase 3: Destroying storage and logging (multi-region)..."
     destroy_s3_buckets
+    log_info "Destroying replica S3 buckets in us-west-2..."
+    destroy_replica_s3_buckets "us-west-2"
     destroy_cloudtrail_resources
     destroy_cloudwatch_resources
+    destroy_cloudwatch_dashboards
     destroy_sns_resources
 
     log_info "Phase 4: Destroying compute and database resources..."
     destroy_dynamodb_tables
 
-    log_info "Phase 5: Destroying identity and security..."
+    log_info "Phase 5: Destroying DNS and network resources..."
+    destroy_route53_resources
+
+    log_info "Phase 6: Destroying identity and security..."
     destroy_iam_resources
     destroy_kms_keys
 
-    log_info "Phase 6: Cleanup orphaned resources..."
+    log_info "Phase 7: Destroying cost and configuration management..."
+    destroy_aws_budgets
+    destroy_ssm_parameters
+
+    log_info "Phase 8: Cleanup orphaned resources..."
     cleanup_orphaned_resources
 
-    log_info "Phase 7: Member account closure (if enabled)..."
+    log_info "Phase 9: AWS Organizations cleanup (if enabled)..."
+    destroy_organizations_resources
+
+    log_info "Phase 10: Member account closure (if enabled)..."
     close_member_accounts
 
     # Generate cost savings estimate
     generate_cost_estimate
+
+    # Validate complete destruction
+    log_info "Phase 11: Post-destruction validation..."
+    validate_complete_destruction
 
     local end_time duration
     end_time=$(date +%s)
