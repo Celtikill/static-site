@@ -66,46 +66,26 @@ For those interested in these lessons, [email me](mailto:celtikill@celtikill.io)
 
 ## 🚀 Quick Start
 
-Get your static website deployed in under 10 minutes:
+Choose your deployment path:
 
-### 1. Setup Repository
+| Experience Level | Time | Guide |
+|-----------------|------|-------|
+| **Experienced Users** | 5 min | [Quick Start Commands](#quick-commands) |
+| **Standard Setup** | 30 min | [Full Deployment Guide](DEPLOYMENT.md) |
+| **First-Time Users** | 1 hour | [Complete Step-by-Step](DEPLOYMENT.md#standard-setup-30-minutes) |
+
+### Quick Commands
+
 ```bash
-# Fork the repository on GitHub, then clone your fork
-git clone https://github.com/<your-username>/static-site.git
-cd static-site
+# Deploy to development
+gh workflow run run.yml --field environment=dev \
+  --field deploy_infrastructure=true --field deploy_website=true
+
+# Monitor deployment
+gh run watch
 ```
 
-### 2. Configure AWS Credentials
-```bash
-# Configure your AWS profiles for each environment
-aws configure --profile dev-deploy
-aws configure --profile staging-deploy  # Optional
-aws configure --profile prod-deploy     # Optional
-```
-
-### 3. Deploy to Development
-```bash
-# Trigger development deployment
-gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true --field deploy_website=true
-
-# Monitor deployment progress
-gh run list --limit 5
-```
-
-### 4. Bootstrap Additional Environments (Optional)
-```bash
-# Bootstrap staging environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
-
-# Bootstrap production environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=prod \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
-```
+**For detailed instructions**, see the [Deployment Guide](DEPLOYMENT.md).
 
 ## 🏗️ Architecture Overview
 
@@ -231,14 +211,23 @@ graph TD
 
 ## 📚 Documentation
 
-- **[Complete Deployment Guide](DEPLOYMENT_GUIDE.md)** - Comprehensive step-by-step deployment from zero to production
-- **[Quick Start Guide](docs/quickstart.md)** - Get started in 10 minutes
-- **[Architecture Guide](docs/architecture.md)** - Detailed technical architecture
-- **[3-Tier Permissions Architecture](docs/permissions-architecture.md)** - IAM roles and security model
-- **[Security Policy](SECURITY.md)** - Security practices and vulnerability reporting
-- **[Advanced Deployment](docs/deployment.md)** - Advanced deployment strategies and patterns
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
-- **[Reference Guide](docs/reference.md)** - Command reference and specifications
+### Getting Started
+- **[Deployment Guide](DEPLOYMENT.md)** ⭐ - Complete deployment instructions (Quick Start → Advanced)
+- **[Architecture Overview](docs/architecture.md)** ⭐⭐ - Technical architecture and design
+- **[Security Policy](SECURITY.md)** ⭐ - Security practices and vulnerability reporting
+
+### Reference & Operations
+- **[Deployment Reference](docs/deployment-reference.md)** ⭐⭐ - Commands, troubleshooting, operations
+- **[Permissions Architecture](docs/permissions-architecture.md)** ⭐⭐⭐ - IAM deep-dive and security model
+- **[Troubleshooting Guide](docs/troubleshooting.md)** ⭐ - Common issues and solutions
+- **[Command Reference](docs/reference.md)** ⭐ - Quick command lookup
+
+### Additional Resources
+- **[Documentation Index](docs/README.md)** - Complete documentation map
+- **[Contributing Guide](CONTRIBUTING.md)** - Development guidelines
+- **[Project Roadmap](ROADMAP.md)** - Future plans and enhancements
+
+**Difficulty Key**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
 
 ## 🛠️ Development
 

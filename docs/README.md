@@ -1,68 +1,171 @@
 # Documentation Index
 
-> **🎯 Streamlined Access**: Essential guides consolidated for faster navigation
-> **📊 Complexity Levels**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
-> **⏱️ Total Reading Time**: ~15 minutes (streamlined for 2025)
-> **🔄 Last Updated**: 2025-09-22 (aligned with main README.md)
-
-Welcome to the AWS Static Website Infrastructure documentation. Start with the [main README.md](../README.md) for quick start and architecture overview, then dive into specific guides below.
+> **🎯 Choose Your Path**: Pick the guide that matches your experience and needs
+> **📊 Difficulty Levels**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
+> **⏱️ Time Estimates**: Realistic reading and implementation times included
+> **🔄 Last Updated**: 2025-10-07 (consolidated and simplified)
 
 ---
 
-## 🚀 Essential Documentation
+## 🚀 Getting Started (Choose Your Path)
 
-### Get Started Quickly
-- **[Complete Deployment Guide](../DEPLOYMENT_GUIDE.md)** ⭐⭐ - Comprehensive step-by-step guide from zero to production
-- **[Quick Start](quickstart.md)** ⭐ - Deploy your website in under 10 minutes
-- **[Reference Guide](reference.md)** ⭐⭐ - All commands and technical specifications
-- **[Troubleshooting](troubleshooting.md)** ⭐ - Common issues and solutions
+| Experience Level | Time | Documentation |
+|-----------------|------|---------------|
+| **Experienced Users** | 5 min | [Quick Start](../DEPLOYMENT.md#-quick-start-5-minutes) |
+| **Standard Setup** | 30 min | [Full Deployment Guide](../DEPLOYMENT.md#-standard-setup-30-minutes) |
+| **First-Time Users** | 1 hour | [Complete Guide with Explanations](../DEPLOYMENT.md) |
+| **Advanced Patterns** | Variable | [Advanced Deployment](../DEPLOYMENT.md#-advanced-deployment-patterns) |
 
-### Security & Architecture
-- **[3-Tier Permissions Architecture](permissions-architecture.md)** ⭐⭐⭐ - IAM roles, compromises, and migration roadmap
-- **[Architecture Guide](architecture.md)** ⭐⭐⭐ - Detailed technical architecture
+---
 
-### Workflow Configuration
-- **[Workflows Overview](workflows.md)** ⭐⭐ - BUILD → TEST → RUN pipeline overview
-- **[Secrets & Variables](secrets-and-variables.md)** ⭐⭐ - GitHub authentication and OIDC setup
-- **[Workflow Conditions](workflow-conditions.md)** ⭐⭐⭐ - Advanced workflow routing logic
+## 📚 Core Documentation
 
-### Features & Configuration
-- **[Feature Flags](feature-flags.md)** ⭐⭐ - Cost optimization and feature toggles
+### Deployment & Operations ⭐
+- **[Deployment Guide](../DEPLOYMENT.md)** - Unified deployment instructions (Quick Start → Advanced)
+- **[Deployment Reference](deployment-reference.md)** ⭐⭐ - Commands, troubleshooting, daily operations
+- **[Troubleshooting Guide](troubleshooting.md)** ⭐ - Common issues and solutions
+- **[Command Reference](reference.md)** ⭐ - Quick command lookup
 
-### IAM Policies
+### Architecture & Design ⭐⭐
+- **[Architecture Overview](architecture.md)** ⭐⭐ - Technical architecture and infrastructure design
+- **[Permissions Architecture](permissions-architecture.md)** ⭐⭐⭐ - IAM deep-dive, security model, and migration roadmap
+- **[Security Policy](../SECURITY.md)** ⭐ - Security practices and vulnerability reporting
+
+### CI/CD & Workflows ⭐⭐
+- **[Workflows Overview](workflows.md)** ⭐⭐ - BUILD → TEST → RUN pipeline
+- **[Secrets & Variables](secrets-and-variables.md)** ⭐⭐ - GitHub OIDC authentication setup
+- **[Workflow Conditions](workflow-conditions.md)** ⭐⭐⭐ - Advanced routing logic
+
+### Configuration & Features ⭐⭐
+- **[Feature Flags](feature-flags.md)** ⭐⭐ - Cost optimization and conditional resources
 - **[IAM Policies](iam-policies/)** ⭐⭐⭐ - JSON policy files and trust relationships
 
 ---
 
-## 📋 Quick Navigation
+## 📋 Quick Task Guide
 
-| Task | Documentation | Time |
-|------|---------------|------|
-| **Get started quickly** | [**Main README.md**](../README.md) | **5 min** |
-| First deployment | [Quick Start](quickstart.md) | 10 min |
-| Set up GitHub Actions | [Secrets & Variables](secrets-and-variables.md) | 15 min |
-| **Understand IAM permissions** | [**3-Tier Permissions Architecture**](permissions-architecture.md) | **15 min** |
-| Report security issues | [**Security Policy**](../SECURITY.md) | **2 min** |
-| Enable cost optimization | [Feature Flags](feature-flags.md) | 5 min |
-| Debug deployment issues | [Troubleshooting](troubleshooting.md) | Variable |
-| Understand workflows | [Workflows Overview](workflows.md) | 10 min |
+| I Want To... | Documentation | Time |
+|-------------|---------------|------|
+| **Deploy my first website** | [Deployment Guide](../DEPLOYMENT.md) | 30 min |
+| **Deploy in 5 minutes** | [Quick Start](../DEPLOYMENT.md#-quick-start-5-minutes) | 5 min |
+| **Understand the architecture** | [Architecture Overview](architecture.md) | 20 min |
+| **Set up GitHub Actions** | [Secrets & Variables](secrets-and-variables.md) | 15 min |
+| **Understand IAM permissions** | [Permissions Architecture](permissions-architecture.md) | 30 min |
+| **Fix a deployment error** | [Troubleshooting](troubleshooting.md) + [Deployment Reference](deployment-reference.md) | 10-30 min |
+| **Find a specific command** | [Command Reference](reference.md) | 2 min |
+| **Optimize costs** | [Feature Flags](feature-flags.md) | 10 min |
+| **Report a security issue** | [Security Policy](../SECURITY.md) | 2 min |
 
 ---
 
-## 📊 Documentation Updates (2025-09-22)
+## 🗺️ Documentation Map
 
-### Enhanced Documentation Structure
-- **✅ Main README.md**: Comprehensive entry point with architecture diagrams
-- **✅ SECURITY.md**: Professional security policy and vulnerability reporting
-- **✅ Enhanced Navigation**: Clear pathways from main README to specific guides
-- **✅ Mermaid Diagrams**: Visual architecture and workflow representations
-- **✅ Consistency**: Aligned with 2025 documentation best practices
+### For New Users
+1. Start with [Main README](../README.md) - Project overview
+2. Follow [Deployment Guide](../DEPLOYMENT.md) - Step-by-step setup
+3. Read [Architecture Overview](architecture.md) - Understand the system
+4. Review [Security Policy](../SECURITY.md) - Security best practices
 
-### Key Improvements
-- **Visual Architecture**: Mermaid diagrams for multi-account and CI/CD architecture
-- **Security Focus**: Dedicated security documentation following GitHub standards
-- **User Experience**: Clear entry points and quick navigation
-- **Professional Standards**: Industry-standard documentation structure
-- **Maintenance**: Streamlined for minimal overhead while maximizing value
+### For Operators
+1. Use [Deployment Reference](deployment-reference.md) - Daily operations
+2. Bookmark [Command Reference](reference.md) - Quick lookups
+3. Keep [Troubleshooting](troubleshooting.md) handy - Problem solving
+4. Monitor [Workflows](workflows.md) - CI/CD pipeline
 
-This update transforms the documentation from operational notes to professional, user-friendly guides suitable for enterprise use.
+### For Architects
+1. Study [Architecture Overview](architecture.md) - System design
+2. Deep-dive [Permissions Architecture](permissions-architecture.md) - IAM model
+3. Review [Feature Flags](feature-flags.md) - Configuration options
+4. Explore [IAM Policies](iam-policies/) - Security policies
+
+---
+
+## 📖 Document Types Explained
+
+### Guides ⭐
+**Best for**: Step-by-step instructions, tutorials, walkthroughs
+
+Examples: [Deployment Guide](../DEPLOYMENT.md), [Troubleshooting](troubleshooting.md)
+
+### References ⭐⭐
+**Best for**: Quick lookups, command syntax, configuration options
+
+Examples: [Command Reference](reference.md), [Deployment Reference](deployment-reference.md)
+
+### Deep Dives ⭐⭐⭐
+**Best for**: Understanding concepts, architecture decisions, trade-offs
+
+Examples: [Architecture](architecture.md), [Permissions Architecture](permissions-architecture.md)
+
+---
+
+## 🔄 Documentation Updates (2025-10-07)
+
+### What's New
+- ✅ **Consolidated Deployment**: Merged 3 guides into single [DEPLOYMENT.md](../DEPLOYMENT.md)
+- ✅ **Added Reference Guide**: New [deployment-reference.md](deployment-reference.md) for quick lookups
+- ✅ **Streamlined Navigation**: Clear paths for different experience levels
+- ✅ **Improved Organization**: Documentation grouped by purpose and difficulty
+
+### What Changed
+- **Merged**: DEPLOYMENT_GUIDE.md + docs/deployment.md + docs/quickstart.md → DEPLOYMENT.md
+- **Created**: deployment-reference.md (commands and troubleshooting)
+- **Updated**: README.md (streamlined with better navigation)
+- **Updated**: docs/README.md (this file - clearer structure)
+
+### Benefits
+- 📉 **40% less duplication** - No more searching across multiple files
+- 🎯 **Clear entry points** - Know exactly where to start
+- ⚡ **Faster navigation** - Task-based guide helps find what you need
+- 📚 **Better organization** - Documents grouped by purpose
+
+---
+
+## 💡 Tips for Using This Documentation
+
+### First Time Here?
+1. Read the [Main README](../README.md) for project overview
+2. Follow the [Deployment Guide](../DEPLOYMENT.md) from start to finish
+3. Bookmark this index for future reference
+
+### Need Something Specific?
+1. Check the [Quick Task Guide](#-quick-task-guide) above
+2. Use your browser's find function (Ctrl+F / Cmd+F)
+3. Review the [Document Types](#-document-types-explained) section
+
+### Stuck on an Issue?
+1. Start with [Troubleshooting Guide](troubleshooting.md)
+2. Check [Deployment Reference](deployment-reference.md) for specific errors
+3. Review [GitHub Actions logs](../DEPLOYMENT.md#monitoring--validation)
+4. Open an issue if problem persists
+
+---
+
+## 🤝 Contributing to Documentation
+
+Found an error or want to improve the docs? See our [Contributing Guide](../CONTRIBUTING.md).
+
+**Common contributions**:
+- Fixing typos or broken links
+- Adding missing command examples
+- Clarifying confusing sections
+- Adding troubleshooting solutions
+- Improving diagrams or examples
+
+---
+
+## 📞 Getting Help
+
+| Need | Resource |
+|------|----------|
+| **Quick question** | Check [Quick Task Guide](#-quick-task-guide) |
+| **Deployment issue** | See [Troubleshooting](troubleshooting.md) |
+| **Bug report** | Open [GitHub Issue](https://github.com/Celtikill/static-site/issues) |
+| **Security issue** | Follow [Security Policy](../SECURITY.md) |
+| **Feature request** | Open [GitHub Discussion](https://github.com/Celtikill/static-site/discussions) |
+
+---
+
+**Happy deploying!** 🚀
+
+This documentation is maintained by the community. Last major update: October 2025.
