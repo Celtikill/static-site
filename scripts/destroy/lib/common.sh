@@ -7,7 +7,9 @@
 # =============================================================================
 
 log_debug() {
-    [[ "$VERBOSE" == "true" ]] && echo -e "${BLUE}[DEBUG]${NC} $*" | tee -a "$LOG_FILE" >&2
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo -e "${BLUE}[DEBUG]${NC} $*" | tee -a "$LOG_FILE" >&2
+    fi
 }
 
 log_info() {

@@ -75,7 +75,7 @@ destroy_s3_buckets() {
 
     local buckets
     # S3 buckets are global, no need for region-specific calls
-    buckets=$(AWS_DEFAULT_REGION=us-east-1 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+    buckets=$(AWS_REGION=us-east-1 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
 
     if [[ -z "$buckets" ]]; then
         log_info "No S3 buckets found"

@@ -274,6 +274,9 @@ main() {
     destroy_waf_resources
 
     log_info "Phase 3: Destroying storage and logging (multi-region)..."
+    # CRITICAL: Stop CloudTrail logging BEFORE deleting S3 to prevent infinite loop
+    # where CloudTrail logs the S3 deletion events, creating new log files
+    stop_all_cloudtrail_logging
     destroy_all_s3_buckets
     destroy_cloudtrail_resources
     destroy_cloudwatch_resources

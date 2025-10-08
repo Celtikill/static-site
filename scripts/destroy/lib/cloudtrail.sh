@@ -6,6 +6,50 @@
 # CLOUDTRAIL OPERATIONS
 # =============================================================================
 
+# Stop ALL CloudTrail logging to prevent infinite loop during S3 deletion
+stop_all_cloudtrail_logging() {
+    log_info "🛑 Stopping all CloudTrail logging to prevent S3 deletion race condition..."
+
+    local trails
+    trails=$(aws cloudtrail describe-trails --query 'trailList[].Name' --output json 2>/dev/null || echo "[]")
+
+    # Handle null or empty response
+    if [[ "$trails" == "null" ]] || [[ "$trails" == "[]" ]] || [[ -z "$trails" ]]; then
+        log_info "No CloudTrail trails found to stop"
+        return 0
+    fi
+
+    local stopped=0
+    local already_stopped=0
+
+    echo "$trails" | jq -r '.[]' | while read -r trail_name; do
+        if [[ -n "$trail_name" ]]; then
+            # Check if logging is enabled
+            local is_logging
+            is_logging=$(aws cloudtrail get-trail-status --name "$trail_name" --query 'IsLogging' --output text 2>/dev/null || echo "false")
+
+            if [[ "$is_logging" == "True" ]] || [[ "$is_logging" == "true" ]]; then
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    log_info "Stopping CloudTrail logging: $trail_name"
+                    if aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null; then
+                        log_success "Stopped CloudTrail logging: $trail_name"
+                        ((stopped++))
+                    else
+                        log_warn "Failed to stop CloudTrail logging: $trail_name"
+                    fi
+                else
+                    log_info "[DRY RUN] Would stop CloudTrail logging: $trail_name"
+                fi
+            else
+                log_info "CloudTrail already stopped: $trail_name"
+                ((already_stopped++))
+            fi
+        fi
+    done
+
+    log_info "CloudTrail logging: $stopped stopped, $already_stopped already stopped"
+}
+
 # Destroy CloudTrail trails matching project patterns
 destroy_cloudtrail_resources() {
     log_info "📋 Scanning for CloudTrail resources..."
