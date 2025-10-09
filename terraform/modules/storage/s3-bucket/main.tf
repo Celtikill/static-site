@@ -336,6 +336,17 @@ resource "aws_s3_bucket_logging" "website" {
 
 # Access logging bucket lifecycle configuration to prevent log accumulation
 # Uses storage class transitions instead of expiration to avoid delete marker proliferation
+#
+# Platform Engineers: This lifecycle configuration now uses variables for full tunability.
+# Pattern matches aws-organizations CloudTrail lifecycle for consistency across modules.
+#
+# Timeline:
+#   Day 0-30:  S3 Standard (active troubleshooting, $0.023/GB/month)
+#   Day 30+:   Intelligent Tiering (auto-optimized, $0.023/GB/month)
+#   Day 90+:   Glacier (var.access_logs_lifecycle_glacier_days, $0.004/GB/month)
+#   Day 365+:  Deep Archive (optional, var.access_logs_lifecycle_deep_archive_days, $0.00099/GB/month)
+#
+# Backward Compatibility: Defaults maintain previous hardcoded behavior (30→IT, 90→Glacier).
 resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
   count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
   bucket = aws_s3_bucket.access_logs[0].id
@@ -346,26 +357,45 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
 
     filter {}
 
-    # NO expiration block - prevents delete marker creation
-    # Transition logs to cheaper storage classes instead
+    # NO expiration block - prevents delete marker creation on current versions
+    # Transition logs to cheaper storage classes instead for cost optimization
 
-    # Transition to Intelligent Tiering after 30 days
+    # Always transition to Intelligent Tiering after 30 days (prerequisite for Glacier)
     transition {
       days          = 30
       storage_class = "INTELLIGENT_TIERING"
     }
 
-    # Transition to Glacier after 90 days
+    # Configurable Glacier transition (default: 90 days)
     transition {
-      days          = 90
+      days          = var.access_logs_lifecycle_glacier_days
       storage_class = "GLACIER"
     }
 
-    # Only expire noncurrent versions (no delete markers created)
-    noncurrent_version_expiration {
-      noncurrent_days = 30
+    # Optional Deep Archive transition (default: disabled)
+    # Most access logs don't need multi-year retention - enable only for compliance
+    dynamic "transition" {
+      for_each = var.access_logs_lifecycle_deep_archive_days != null ? [1] : []
+      content {
+        days          = var.access_logs_lifecycle_deep_archive_days
+        storage_class = "DEEP_ARCHIVE"
+      }
     }
 
+    # Only expire noncurrent (old) versions - no delete markers created
+    # Backward compatibility: Use new variable, but fall back to deprecated var if needed
+    noncurrent_version_expiration {
+      noncurrent_days = coalesce(
+        var.access_logs_noncurrent_version_expiration_days,
+        var.lifecycle_expiration_days
+      )
+    }
+
+    # Clean up expired delete markers from manually deleted objects
+    # Architecture review recommendation: Prevents orphaned delete marker accumulation
+    expired_object_delete_marker = true
+
+    # Clean up incomplete multipart uploads after 7 days
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
     }

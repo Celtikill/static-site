@@ -209,6 +209,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
       noncurrent_days = var.cloudtrail_noncurrent_version_expiration_days
     }
 
+    # Clean up expired delete markers from manually deleted objects
+    # Architecture review recommendation: Prevents orphaned delete marker accumulation
+    expired_object_delete_marker = true
+
     # Clean up incomplete multipart uploads
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
