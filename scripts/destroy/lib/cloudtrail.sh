@@ -22,7 +22,7 @@ stop_all_cloudtrail_logging() {
     local stopped=0
     local already_stopped=0
 
-    echo "$trails" | jq -r '.[]' | while read -r trail_name; do
+    while read -r trail_name; do
         if [[ -n "$trail_name" ]]; then
             # Check if logging is enabled
             local is_logging
@@ -33,7 +33,7 @@ stop_all_cloudtrail_logging() {
                     log_info "Stopping CloudTrail logging: $trail_name"
                     if aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null; then
                         log_success "Stopped CloudTrail logging: $trail_name"
-                        ((stopped++))
+                        ((stopped++)) || true
                     else
                         log_warn "Failed to stop CloudTrail logging: $trail_name"
                     fi
@@ -42,10 +42,10 @@ stop_all_cloudtrail_logging() {
                 fi
             else
                 log_info "CloudTrail already stopped: $trail_name"
-                ((already_stopped++))
+                ((already_stopped++)) || true
             fi
         fi
-    done
+    done < <(echo "$trails" | jq -r '.[]')
 
     log_info "CloudTrail logging: $stopped stopped, $already_stopped already stopped"
 }
@@ -66,31 +66,33 @@ destroy_cloudtrail_resources() {
     local destroyed=0
     local failed=0
 
-    echo "$trails" | jq -c '.[]' | while read -r trail_info; do
-        local trail_name s3_bucket
-        trail_name=$(echo "$trail_info" | jq -r '.Name')
-        s3_bucket=$(echo "$trail_info" | jq -r '.S3BucketName // ""')
+    while read -r trail_info; do
+        if [[ -n "$trail_info" ]]; then
+            local trail_name s3_bucket
+            trail_name=$(echo "$trail_info" | jq -r '.Name')
+            s3_bucket=$(echo "$trail_info" | jq -r '.S3BucketName // ""')
 
-        if matches_project "$trail_name" || matches_project "$s3_bucket"; then
-            if confirm_destruction "CloudTrail Trail" "$trail_name"; then
-                log_action "Delete CloudTrail trail: $trail_name"
+            if matches_project "$trail_name" || matches_project "$s3_bucket"; then
+                if confirm_destruction "CloudTrail Trail" "$trail_name"; then
+                    log_action "Delete CloudTrail trail: $trail_name"
 
-                if [[ "$DRY_RUN" != "true" ]]; then
-                    # Stop logging first
-                    aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null || true
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        # Stop logging first
+                        aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null || true
 
-                    # Delete trail
-                    if aws cloudtrail delete-trail --name "$trail_name" 2>/dev/null; then
-                        log_success "Deleted CloudTrail trail: $trail_name"
-                        ((destroyed++))
-                    else
-                        log_error "Failed to delete CloudTrail trail: $trail_name"
-                        ((failed++))
+                        # Delete trail
+                        if aws cloudtrail delete-trail --name "$trail_name" 2>/dev/null; then
+                            log_success "Deleted CloudTrail trail: $trail_name"
+                            ((destroyed++)) || true
+                        else
+                            log_error "Failed to delete CloudTrail trail: $trail_name"
+                            ((failed++)) || true
+                        fi
                     fi
                 fi
             fi
         fi
-    done
+    done < <(echo "$trails" | jq -c '.[]')
 
     log_info "CloudTrail trails: $destroyed destroyed, $failed failed"
 }

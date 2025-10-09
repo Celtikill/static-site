@@ -72,7 +72,7 @@ destroy_cloudfront_distributions() {
 
                                 log_info "Waiting for distribution $dist_id to be deployed (status: $status)..."
                                 sleep 30
-                                ((attempts++))
+                                ((attempts++)) || true
                             done
                         fi
                     fi
@@ -87,10 +87,10 @@ destroy_cloudfront_distributions() {
                         --id "$dist_id" \
                         --if-match "$etag" 2>/dev/null; then
                         log_success "Deleted CloudFront distribution: $dist_id"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_warn "Could not delete CloudFront distribution $dist_id (may need manual intervention)"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi

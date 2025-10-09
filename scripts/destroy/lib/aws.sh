@@ -24,7 +24,7 @@ aws_cmd() {
             return 0
         fi
 
-        ((retry_count++))
+        ((retry_count++)) || true
         if [[ $retry_count -lt $max_retries ]]; then
             log_warn "Command failed, retrying (${retry_count}/${max_retries}): aws ${cmd[*]}"
             sleep 2

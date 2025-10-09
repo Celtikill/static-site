@@ -29,10 +29,10 @@ destroy_dynamodb_tables() {
                 if [[ "$DRY_RUN" != "true" ]]; then
                     if aws dynamodb delete-table --table-name "$table" >/dev/null 2>&1; then
                         log_success "Deleted DynamoDB table: $table"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete DynamoDB table: $table"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi

@@ -45,10 +45,10 @@ destroy_kms_keys() {
                         --key-id "$target_key_id" \
                         --pending-window-in-days 7 >/dev/null 2>&1; then
                         log_success "Scheduled KMS key deletion: $target_key_id (7 days)"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to schedule KMS key deletion: $target_key_id"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi

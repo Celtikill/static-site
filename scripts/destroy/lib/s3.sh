@@ -89,9 +89,9 @@ destroy_s3_buckets() {
         if matches_project "$bucket"; then
             if confirm_destruction "S3 Bucket" "$bucket"; then
                 if empty_and_delete_bucket "$bucket"; then
-                    ((destroyed++))
+                    ((destroyed++)) || true
                 else
-                    ((failed++))
+                    ((failed++)) || true
                 fi
             fi
         fi
@@ -168,10 +168,10 @@ destroy_replica_s3_buckets() {
                         # Delete bucket
                         if aws s3api delete-bucket --bucket "$bucket" --region "$region" 2>/dev/null; then
                             log_success "Deleted replica S3 bucket: $bucket"
-                            ((destroyed++))
+                            ((destroyed++)) || true
                         else
                             log_error "Failed to delete replica S3 bucket: $bucket"
-                            ((failed++))
+                            ((failed++)) || true
                         fi
                     fi
                 fi

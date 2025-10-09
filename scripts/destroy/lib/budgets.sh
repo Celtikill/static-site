@@ -42,10 +42,10 @@ destroy_aws_budgets() {
                     # Delete the budget
                     if aws budgets delete-budget --account-id "$current_account" --budget-name "$budget_name" 2>/dev/null; then
                         log_success "Deleted AWS Budget: $budget_name"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete AWS Budget: $budget_name"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi

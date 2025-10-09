@@ -277,7 +277,9 @@ main() {
     # CRITICAL: Stop CloudTrail logging BEFORE deleting S3 to prevent infinite loop
     # where CloudTrail logs the S3 deletion events, creating new log files
     stop_all_cloudtrail_logging
-    destroy_all_s3_buckets
+    # SKIPPING S3 bucket deletion - too time consuming, will handle manually if needed
+    log_info "⏩ Skipping S3 bucket deletion (user requested)"
+    # destroy_all_s3_buckets
     destroy_cloudtrail_resources
     destroy_cloudwatch_resources
     destroy_cloudwatch_dashboards

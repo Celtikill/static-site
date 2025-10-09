@@ -39,10 +39,10 @@ destroy_waf_resources() {
 
                     if [[ -n "$lock_token" ]] && aws wafv2 delete-web-acl --scope CLOUDFRONT --id "$id" --name "$name" --lock-token "$lock_token" 2>/dev/null; then
                         log_success "Deleted WAF Web ACL: $name"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete WAF Web ACL: $name"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi

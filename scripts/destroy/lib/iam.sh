@@ -168,10 +168,10 @@ destroy_iam_roles() {
                     # Delete role
                     if aws iam delete-role --role-name "$role_name" 2>/dev/null; then
                         log_success "Deleted IAM role: $role_name"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete IAM role: $role_name"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi
@@ -219,10 +219,10 @@ destroy_iam_policies() {
                     # Delete policy
                     if aws iam delete-policy --policy-arn "$policy_arn" 2>/dev/null; then
                         log_success "Deleted IAM policy: $policy_name"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete IAM policy: $policy_name"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi
@@ -254,10 +254,10 @@ destroy_oidc_providers() {
                 if [[ "$DRY_RUN" != "true" ]]; then
                     if aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$provider_arn" 2>/dev/null; then
                         log_success "Deleted OIDC identity provider: $provider_arn"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete OIDC identity provider: $provider_arn"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi
@@ -342,10 +342,10 @@ destroy_iam_users() {
                     # Delete user
                     if aws iam delete-user --user-name "$user_name" 2>/dev/null; then
                         log_success "Deleted IAM user: $user_name"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete IAM user: $user_name"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi
@@ -396,10 +396,10 @@ destroy_iam_groups() {
                     # Delete group
                     if aws iam delete-group --group-name "$group_name" 2>/dev/null; then
                         log_success "Deleted IAM group: $group_name"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete IAM group: $group_name"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi

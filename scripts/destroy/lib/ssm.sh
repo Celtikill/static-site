@@ -29,10 +29,10 @@ destroy_ssm_parameters() {
                 if [[ "$DRY_RUN" != "true" ]]; then
                     if aws ssm delete-parameter --name "$param_name" 2>/dev/null; then
                         log_success "Deleted SSM parameter: $param_name"
-                        ((destroyed++))
+                        ((destroyed++)) || true
                     else
                         log_error "Failed to delete SSM parameter: $param_name"
-                        ((failed++))
+                        ((failed++)) || true
                     fi
                 fi
             fi
