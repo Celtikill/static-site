@@ -335,20 +335,33 @@ resource "aws_s3_bucket_logging" "website" {
 # }
 
 # Access logging bucket lifecycle configuration to prevent log accumulation
+# Uses storage class transitions instead of expiration to avoid delete marker proliferation
 resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
   count  = var.enable_access_logging && var.access_logging_bucket == "" ? 1 : 0
   bucket = aws_s3_bucket.access_logs[0].id
 
   rule {
-    id     = "access-logs-cleanup"
+    id     = "access-logs-retention"
     status = "Enabled"
 
     filter {}
 
-    expiration {
-      days = 90
+    # NO expiration block - prevents delete marker creation
+    # Transition logs to cheaper storage classes instead
+
+    # Transition to Intelligent Tiering after 30 days
+    transition {
+      days          = 30
+      storage_class = "INTELLIGENT_TIERING"
     }
 
+    # Transition to Glacier after 90 days
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
+
+    # Only expire noncurrent versions (no delete markers created)
     noncurrent_version_expiration {
       noncurrent_days = 30
     }

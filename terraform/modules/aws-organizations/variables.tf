@@ -144,6 +144,39 @@ variable "kms_deletion_window" {
   }
 }
 
+variable "cloudtrail_lifecycle_glacier_days" {
+  description = "Days before transitioning CloudTrail logs to Glacier storage class"
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.cloudtrail_lifecycle_glacier_days > 30
+    error_message = "Glacier transition must be greater than 30 days (after Intelligent Tiering)."
+  }
+}
+
+variable "cloudtrail_lifecycle_deep_archive_days" {
+  description = "Days before transitioning CloudTrail logs to Deep Archive storage class"
+  type        = number
+  default     = 365
+
+  validation {
+    condition     = var.cloudtrail_lifecycle_deep_archive_days > var.cloudtrail_lifecycle_glacier_days
+    error_message = "Deep Archive transition must be greater than Glacier transition days."
+  }
+}
+
+variable "cloudtrail_noncurrent_version_expiration_days" {
+  description = "Days before expiring noncurrent CloudTrail log versions (does not create delete markers)"
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.cloudtrail_noncurrent_version_expiration_days >= 1
+    error_message = "Noncurrent version expiration must be at least 1 day."
+  }
+}
+
 variable "tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)

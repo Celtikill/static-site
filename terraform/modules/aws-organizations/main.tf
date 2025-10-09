@@ -171,6 +171,51 @@ resource "aws_s3_bucket_public_access_block" "cloudtrail" {
   restrict_public_buckets = true
 }
 
+# CloudTrail S3 bucket lifecycle configuration
+# Uses storage class transitions instead of expiration to avoid delete marker proliferation
+resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
+  count  = var.enable_cloudtrail ? 1 : 0
+  bucket = aws_s3_bucket.cloudtrail[0].id
+
+  rule {
+    id     = "intelligent-cloudtrail-retention"
+    status = "Enabled"
+
+    filter {}
+
+    # NO expiration block - prevents delete marker creation
+    # Current versions transition to cheaper storage classes over time
+
+    # Transition to Intelligent Tiering after 30 days
+    transition {
+      days          = 30
+      storage_class = "INTELLIGENT_TIERING"
+    }
+
+    # Transition to Glacier after configurable period (default: 90 days)
+    transition {
+      days          = var.cloudtrail_lifecycle_glacier_days
+      storage_class = "GLACIER"
+    }
+
+    # Transition to Deep Archive after configurable period (default: 365 days)
+    transition {
+      days          = var.cloudtrail_lifecycle_deep_archive_days
+      storage_class = "DEEP_ARCHIVE"
+    }
+
+    # Only expire noncurrent versions (no delete markers created)
+    noncurrent_version_expiration {
+      noncurrent_days = var.cloudtrail_noncurrent_version_expiration_days
+    }
+
+    # Clean up incomplete multipart uploads
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+}
+
 resource "aws_s3_bucket_policy" "cloudtrail" {
   count = var.enable_cloudtrail ? 1 : 0
 
