@@ -14,9 +14,9 @@ validate_complete_destruction() {
     local regions
     regions=$(get_us_regions)
 
-    echo "" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-    echo "## 🔍 Post-Destruction Validation" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-    echo "" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+    echo "" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
+    echo "## 🔍 Post-Destruction Validation" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
+    echo "" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
 
     for region in $regions; do
         log_info "Validating region: $region"
@@ -78,9 +78,9 @@ validate_complete_destruction() {
 
     remaining_resources=$((remaining_resources + cf_count + iam_roles_count))
 
-    echo "| Resource Type | Remaining Count |" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-    echo "|--------------|----------------|" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
-    echo "| **Total** | **$remaining_resources** |" >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+    echo "| Resource Type | Remaining Count |" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
+    echo "|--------------|----------------|" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
+    echo "| **Total** | **$remaining_resources** |" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
 
     if [[ $remaining_resources -eq 0 ]]; then
         log_success "✅ Complete destruction validated - no remaining resources found"
