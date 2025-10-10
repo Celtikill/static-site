@@ -89,3 +89,11 @@ output "root_id" {
   description = "The organization root ID"
   value       = local.root_id
 }
+
+output "security_hub" {
+  description = "Security Hub configuration"
+  value = var.enable_security_hub ? {
+    account_id = aws_securityhub_account.this[0].id
+    standards  = var.security_hub_standards
+  } : null
+}

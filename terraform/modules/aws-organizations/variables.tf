@@ -177,6 +177,29 @@ variable "cloudtrail_noncurrent_version_expiration_days" {
   }
 }
 
+variable "enable_security_hub" {
+  description = "Enable AWS Security Hub for security finding aggregation and compliance monitoring"
+  type        = bool
+  default     = false
+}
+
+variable "security_hub_standards" {
+  description = "List of Security Hub standards to enable"
+  type        = list(string)
+  default     = ["aws-foundational-security-best-practices"]
+
+  validation {
+    condition = alltrue([
+      for standard in var.security_hub_standards : contains([
+        "aws-foundational-security-best-practices",
+        "cis-aws-foundations-benchmark",
+        "pci-dss"
+      ], standard)
+    ])
+    error_message = "Invalid Security Hub standard. Allowed values: aws-foundational-security-best-practices, cis-aws-foundations-benchmark, pci-dss"
+  }
+}
+
 variable "tags" {
   description = "Common tags to apply to all resources"
   type        = map(string)

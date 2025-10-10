@@ -311,3 +311,22 @@ data "aws_iam_policy_document" "cloudtrail_kms" {
 }
 
 data "aws_caller_identity" "current" {}
+
+# AWS Security Hub (optional)
+resource "aws_securityhub_account" "this" {
+  count = var.enable_security_hub ? 1 : 0
+}
+
+# Security Hub Standards Subscriptions
+resource "aws_securityhub_standards_subscription" "this" {
+  for_each = var.enable_security_hub ? toset(var.security_hub_standards) : []
+
+  standards_arn = each.key == "aws-foundational-security-best-practices" ? "arn:aws:securityhub:${data.aws_region.current.name}::standards/aws-foundational-security-best-practices/v/1.0.0" : (
+    each.key == "cis-aws-foundations-benchmark" ? "arn:aws:securityhub:${data.aws_region.current.name}::standards/cis-aws-foundations-benchmark/v/1.2.0" :
+    "arn:aws:securityhub:${data.aws_region.current.name}::standards/pci-dss/v/3.2.1"
+  )
+
+  depends_on = [aws_securityhub_account.this]
+}
+
+data "aws_region" "current" {}
