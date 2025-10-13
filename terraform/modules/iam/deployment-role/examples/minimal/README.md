@@ -1,5 +1,17 @@
 # Minimal Deployment Role Example
 
+**TL;DR**: Single GitHub Actions deployment role for dev environment. Deploy time: 5 minutes. Free (IAM roles cost $0).
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+gh secret set AWS_DEV_DEPLOYMENT_ROLE --body "$(terraform output -raw dev_role_arn)"
+```
+
+**Full guide below** ↓
+
+---
+
 Simplest possible deployment role configuration for GitHub Actions with default settings.
 
 ## What This Creates

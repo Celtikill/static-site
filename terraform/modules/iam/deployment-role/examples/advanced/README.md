@@ -1,5 +1,17 @@
 # Advanced Deployment Role Example
 
+**TL;DR**: Production role with Route53, custom external ID, 2-hour sessions, cross-region access. Deploy time: 15 minutes. Free (IAM roles cost $0).
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+gh secret set AWS_PROD_EXTERNAL_ID --body "$(terraform output -raw external_id)"
+```
+
+**Full guide below** ↓
+
+---
+
 Production deployment role with custom permissions, Route53 support, cross-region replication, and extended session duration.
 
 ## What This Creates

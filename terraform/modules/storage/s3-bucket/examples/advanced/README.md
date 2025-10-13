@@ -1,5 +1,18 @@
 # Advanced S3 Bucket Example
 
+**TL;DR**: Enterprise static website with multi-region DR (15-min RPO), KMS encryption, 7-year compliance retention. Cost: ~$3.40/month (10 GB). SOC 2/HIPAA ready. Deploy time: 10 minutes.
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+aws s3 sync ./build s3://$(terraform output -raw primary_bucket_name)/ --delete
+# Objects automatically replicate to us-west-2 within 15 minutes
+```
+
+**Full guide below** ↓
+
+---
+
 Enterprise-grade static website with cross-region replication, KMS encryption, disaster recovery, and compliance-focused long-term backups.
 
 ## What This Creates

@@ -1,5 +1,17 @@
 # Minimal S3 Bucket Example
 
+**TL;DR**: Simplest S3 bucket with AES-256 encryption. Cost: ~$0.23/GB/month (~$0.25/month for 10 GB). Deploy time: 2 minutes.
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+aws s3 cp test.txt s3://$(terraform output -raw bucket_name)/
+```
+
+**Full guide below** ↓
+
+---
+
 Simplest possible S3 bucket with default security settings and encryption.
 
 ## What This Creates

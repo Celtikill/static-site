@@ -1,5 +1,17 @@
 # Minimal AWS Organizations Example
 
+**TL;DR**: Import and reference existing AWS Organization (read-only). Deploy time: 2 minutes. Free (no resources created).
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+# Imports existing org for reference in other modules
+```
+
+**Full guide below** ↓
+
+---
+
 This example demonstrates the simplest possible use of the aws-organizations module: using an existing AWS Organization without creating additional resources.
 
 ## What This Creates

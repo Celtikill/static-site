@@ -1,5 +1,17 @@
 # Typical S3 Bucket Example
 
+**TL;DR**: Production static website with versioning, access logs, lifecycle cost optimization. Cost: ~$0.35/month (10 GB). Deploy time: 5 minutes.
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+aws s3 sync ./build s3://$(terraform output -raw website_bucket_name)/ --delete
+```
+
+**Full guide below** ↓
+
+---
+
 Production-ready static website hosting with access logging, versioning, and lifecycle cost optimization.
 
 ## What This Creates

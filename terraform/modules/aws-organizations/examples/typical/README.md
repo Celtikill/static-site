@@ -1,5 +1,17 @@
 # Typical AWS Organizations Example
 
+**TL;DR**: Add CloudTrail organization trail + Security Hub to existing org. Deploy time: 5 minutes. Cost: ~$2/month (CloudTrail).
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+# Enables org-wide audit logging and compliance monitoring
+```
+
+**Full guide below** ↓
+
+---
+
 Production-ready AWS Organization setup with CloudTrail audit logging and Security Hub compliance monitoring.
 
 ## What This Creates

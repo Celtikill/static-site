@@ -1,5 +1,17 @@
 # Advanced AWS Organizations Example
 
+**TL;DR**: Full enterprise org with OUs, SCPs, accounts, CloudTrail, Security Hub. Deploy time: 15 minutes. Cost: ~$5-10/month (trails, accounts).
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+# Creates complete multi-account organization structure
+```
+
+**Full guide below** ↓
+
+---
+
 Enterprise multi-account organization with organizational units, Service Control Policies (SCPs), CloudTrail, and Security Hub.
 
 ## What This Creates

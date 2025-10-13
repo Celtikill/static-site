@@ -1,5 +1,17 @@
 # Typical Deployment Role Example
 
+**TL;DR**: Production deployment roles for dev/staging/prod with GitHub Actions OIDC. Deploy time: 10 minutes. Free (IAM roles cost $0).
+
+**Quick start:**
+```bash
+terraform init && terraform apply
+# Add all 3 role ARNs to GitHub secrets
+```
+
+**Full guide below** ↓
+
+---
+
 Production-ready deployment roles for all three environments (dev, staging, prod) with environment-specific session durations.
 
 ## What This Creates
