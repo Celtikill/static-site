@@ -56,21 +56,9 @@ echo "http://$(terraform output -raw website_endpoint)"
 
 ## Cost
 
-### Storage Costs
-- **Website bucket**: ~$0.023/GB/month (Standard)
-- **Logs bucket**: ~$0.023/GB/month
-- **Old versions**: $0.0125/GB/month (IA after 30 days), $0.004/GB/month (Glacier after 90 days)
+**~$0.35/month** (10 GB website + 2 GB logs)
 
-### Request Costs
-- **PUT/POST**: $0.005 per 1,000 requests
-- **GET**: $0.0004 per 1,000 requests
-
-### Typical Production Usage
-- **10 GB website** + **2 GB logs/month**: ~$0.30/month storage
-- **100,000 views/month**: ~$0.04/month requests
-- **Total**: ~$0.35/month
-
-**With CloudFront**: Reduce S3 costs by 80-90% (CloudFront caching reduces origin requests)
+See [detailed cost analysis](/home/user0/workspace/github/celtikill/static-site/terraform/docs/COST_MODEL.md#s3-bucket-typical) including lifecycle optimization savings.
 
 ## What You Get
 
@@ -116,66 +104,11 @@ origin {
 
 ## GitHub Actions Integration
 
-### Deploy Website Content
+See [GitHub Actions deployment workflows](/home/user0/workspace/github/celtikill/static-site/terraform/docs/GITHUB_ACTIONS.md#deploy-s3-bucket) for complete CI/CD setup.
 
-```yaml
-name: Deploy Website
+## Lifecycle Policy
 
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE }}
-          aws-region: us-east-1
-
-      - name: Build Website
-        run: |
-          npm ci
-          npm run build
-
-      - name: Deploy to S3
-        run: |
-          aws s3 sync ./dist s3://${{ secrets.WEBSITE_BUCKET_NAME }}/ \
-            --delete \
-            --cache-control "public, max-age=3600" \
-            --exclude "*.html" \
-            --exclude "error.html"
-
-          # HTML files with shorter cache (for frequent updates)
-          aws s3 sync ./dist s3://${{ secrets.WEBSITE_BUCKET_NAME }}/ \
-            --cache-control "public, max-age=300" \
-            --exclude "*" \
-            --include "*.html"
-
-      - name: Invalidate CloudFront Cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*"
-```
-
-## Lifecycle Policy Details
-
-### Old Version Optimization
-```hcl
-30 days  → Move to STANDARD_IA (-46% cost)
-90 days  → Move to GLACIER (-83% cost)
-365 days → Delete permanently
-```
-
-**Example Savings** (10 GB website, 50 versions):
-- All versions in Standard: 500 GB × $0.023 = **$11.50/month**
-- With lifecycle policy: 10 GB Standard + 20 GB IA + 20 GB Glacier + 450 GB deleted = **$0.55/month**
-- **Savings: $10.95/month (95%)**
+Automatic cost optimization: 30d → IA, 90d → Glacier, 365d → Delete. See [lifecycle optimization details](/home/user0/workspace/github/celtikill/static-site/terraform/docs/COST_MODEL.md#lifecycle-optimization) for savings calculations.
 
 ## Access Logs
 
@@ -228,37 +161,7 @@ LIMIT 10;
 
 ## Troubleshooting
 
-### Website Returns 403 Instead of index.html
-
-**Problem**: Accessing example.com/docs/ returns 403
-**Solution**: Ensure you're using CloudFront with website_domain, not bucket_domain_name
-
-### Old Versions Not Transitioning
-
-**Problem**: Lifecycle policy not working
-**Solution**:
-- Check versioning is enabled: `aws s3api get-bucket-versioning --bucket BUCKET_NAME`
-- Lifecycle rules take 24-48 hours to apply
-- Use AWS CLI to check rules: `aws s3api get-bucket-lifecycle-configuration --bucket BUCKET_NAME`
-
-### Access Logs Not Appearing
-
-**Problem**: No logs in logs bucket
-**Solution**:
-- Logs appear within 2 hours (not real-time)
-- Verify logs bucket has proper permissions (set automatically by module)
-- Check logging configuration: `aws s3api get-bucket-logging --bucket BUCKET_NAME`
-
-### High Costs from Old Versions
-
-**Problem**: Storage costs increasing over time
-**Solution**: This example includes lifecycle policies to automatically optimize costs. Check noncurrent versions:
-```bash
-aws s3api list-object-versions \
-  --bucket BUCKET_NAME \
-  --max-items 100 \
-  --query 'Versions[?IsLatest==`false`].[Key,VersionId,StorageClass]'
-```
+See [S3 troubleshooting guide](/home/user0/workspace/github/celtikill/static-site/terraform/docs/TROUBLESHOOTING.md#s3-bucket-issues) for common issues and solutions.
 
 ## Security Notes
 

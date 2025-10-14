@@ -74,47 +74,11 @@ aws s3api get-bucket-replication \
 aws s3 ls s3://$(terraform output -raw replica_bucket_name)/ --region us-west-2
 ```
 
-## Cost Analysis
+## Cost
 
-### Monthly Costs (10 GB website, 1M requests/month)
+**~$3.40/month** (10 GB with DR + KMS)
 
-#### Storage Costs
-- **Primary bucket**: $0.23/month (10 GB × $0.023)
-- **Replica bucket**: $0.125/month (10 GB × $0.0125 in IA)
-- **Backup bucket**: $0.01/month (10 GB × $0.001 in Deep Archive after 90 days)
-- **Logs buckets**: $0.05/month (2 GB combined)
-- **Versioning overhead**: $0.15/month (old versions in IA/Glacier)
-- **Storage Total**: ~$0.56/month
-
-#### Replication Costs
-- **Replication data transfer**: $0.20/month (10 GB × $0.02 per GB cross-region)
-- **PUT requests (replication)**: $0.05/month (1,000 objects × $0.05 per 1,000)
-- **Replication Time Control**: $0.10/month (per-object fee)
-- **Replication Total**: ~$0.35/month
-
-#### KMS Costs
-- **Key storage**: $2.00/month (2 keys × $1.00)
-- **API requests**: $0.03/month (10,000 encrypt/decrypt × $0.03 per 10,000)
-- **KMS Total**: ~$2.03/month
-
-#### Request Costs
-- **GET requests**: $0.40/month (1M × $0.0004 per 1,000)
-- **PUT requests**: $0.05/month (1,000 × $0.005 per 1,000)
-- **Request Total**: ~$0.45/month
-
-### Total Monthly Cost: ~$3.40/month
-
-**Cost Comparison**:
-- Minimal example: $0.25/month
-- Typical example: $0.35/month
-- Advanced example: $3.40/month (**~10x cost** for enterprise features)
-
-### Cost Optimization Tips
-
-1. **Disable replication for dev/staging** (saves $0.35/month + 58%)
-2. **Use CloudFront** (reduces origin requests by 90%)
-3. **Adjust lifecycle policies** (move to Glacier sooner)
-4. **Reduce backup retention** (7 years → 1 year saves storage)
+See [detailed cost breakdown and optimization strategies](/home/user0/workspace/github/celtikill/static-site/terraform/docs/COST_MODEL.md#s3-bucket-advanced) including replication, KMS, and backup costs.
 
 ## Features Breakdown
 
@@ -250,109 +214,7 @@ fetch('http://localhost:3000/api/data.json', {
 
 ## GitHub Actions Integration
 
-### Deploy with Automatic Replication
-
-```yaml
-name: Deploy with DR
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE }}
-          aws-region: us-east-1
-
-      - name: Build
-        run: npm run build
-
-      - name: Deploy to Primary
-        id: deploy
-        run: |
-          aws s3 sync ./dist s3://${{ secrets.PRIMARY_BUCKET_NAME }}/ \
-            --delete \
-            --cache-control "public, max-age=3600"
-
-          echo "timestamp=$(date +%s)" >> $GITHUB_OUTPUT
-
-      - name: Wait for Replication
-        run: |
-          echo "Waiting 5 minutes for replication to complete..."
-          sleep 300
-
-      - name: Verify Replication
-        run: |
-          # Count objects in primary
-          PRIMARY_COUNT=$(aws s3 ls s3://${{ secrets.PRIMARY_BUCKET_NAME }}/ --recursive | wc -l)
-
-          # Count objects in replica
-          REPLICA_COUNT=$(aws s3 ls s3://${{ secrets.REPLICA_BUCKET_NAME }}/ \
-            --recursive --region us-west-2 | wc -l)
-
-          echo "Primary objects: $PRIMARY_COUNT"
-          echo "Replica objects: $REPLICA_COUNT"
-
-          if [ "$PRIMARY_COUNT" -eq "$REPLICA_COUNT" ]; then
-            echo "✅ Replication verified!"
-          else
-            echo "⚠️  Replication incomplete (expected within 15 min)"
-          fi
-
-      - name: Create Manual Backup
-        run: |
-          # Copy to backup bucket (long-term retention)
-          aws s3 sync s3://${{ secrets.PRIMARY_BUCKET_NAME }}/ \
-            s3://${{ secrets.BACKUP_BUCKET_NAME }}/backups/${{ steps.deploy.outputs.timestamp }}/
-```
-
-### DR Failover Automation
-
-```yaml
-name: Disaster Recovery Failover
-
-on:
-  workflow_dispatch:
-    inputs:
-      target_region:
-        description: 'Failover to region'
-        required: true
-        type: choice
-        options:
-          - us-west-2
-
-jobs:
-  failover:
-    runs-on: ubuntu-latest
-    environment: production  # Requires manual approval
-    steps:
-      - name: Update CloudFront Origin
-        run: |
-          # Get current distribution config
-          aws cloudfront get-distribution-config \
-            --id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --query 'DistributionConfig' \
-            > current-config.json
-
-          # Update origin to replica bucket
-          jq '.Origins.Items[0].DomainName = "${{ secrets.REPLICA_BUCKET_ENDPOINT }}"' \
-            current-config.json > new-config.json
-
-          # Apply changes
-          aws cloudfront update-distribution \
-            --id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --distribution-config file://new-config.json
-
-          echo "✅ Failover to ${{ inputs.target_region }} initiated"
-```
+See [multi-region deployment and DR failover workflows](/home/user0/workspace/github/celtikill/static-site/terraform/docs/GITHUB_ACTIONS.md#deploy-with-replication) for complete CI/CD setup.
 
 ## Monitoring
 
@@ -396,99 +258,7 @@ aws s3api list-objects-v2 \
 
 ## Troubleshooting
 
-### Replication Not Working
-
-**Problem**: Objects not appearing in replica bucket
-
-**Solutions**:
-1. Verify versioning enabled on both buckets:
-```bash
-aws s3api get-bucket-versioning --bucket PRIMARY_BUCKET
-aws s3api get-bucket-versioning --bucket REPLICA_BUCKET --region us-west-2
-```
-
-2. Check IAM role permissions:
-```bash
-aws iam get-role --role-name s3-replication-role-static-website
-aws iam list-role-policies --role-name s3-replication-role-static-website
-```
-
-3. Verify replication rule status:
-```bash
-aws s3api get-bucket-replication --bucket PRIMARY_BUCKET \
-  --query 'ReplicationConfiguration.Rules[*].[ID,Status]'
-```
-
-4. Check CloudWatch for replication metrics (see Monitoring section)
-
-### High Replication Costs
-
-**Problem**: Monthly bill higher than expected
-
-**Solution**: Disable RTC if 15-minute RPO not required:
-```hcl
-# In main.tf, remove:
-replication_time = { ... }
-metrics = { ... }
-
-# Saves ~$0.10/month per 10 GB
-```
-
-### KMS Permission Errors
-
-**Problem**: `Access Denied` errors when accessing objects
-
-**Solution**: Verify IAM user/role has KMS decrypt permissions:
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "kms:Decrypt",
-        "kms:DescribeKey"
-      ],
-      "Resource": "arn:aws:kms:us-east-1:ACCOUNT:key/KEY_ID"
-    }
-  ]
-}
-```
-
-### Objects in Deep Archive Not Accessible
-
-**Problem**: Cannot download objects after lifecycle transition
-
-**Explanation**: Deep Archive requires 12-hour restore time
-
-**Solution**: Restore objects before accessing:
-```bash
-# Initiate restore (Expedited: 1-5 min, Standard: 12 hours)
-aws s3api restore-object \
-  --bucket BUCKET_NAME \
-  --key path/to/object.html \
-  --restore-request Days=7,GlacierJobParameters={Tier=Standard}
-
-# Check restore status
-aws s3api head-object \
-  --bucket BUCKET_NAME \
-  --key path/to/object.html \
-  --query 'Restore'
-```
-
-### Backup Bucket Costs Too High
-
-**Problem**: 7-year retention too expensive
-
-**Solution**: Adjust retention period in lifecycle rules:
-```hcl
-# Change from 2555 days (7 years) to 365 days (1 year)
-expiration = {
-  days = 365
-}
-
-# Savings: ~85% reduction in backup costs
-```
+See [S3 replication, KMS, and backup troubleshooting](/home/user0/workspace/github/celtikill/static-site/terraform/docs/TROUBLESHOOTING.md#s3-advanced-issues) for common issues and solutions.
 
 ## Security Best Practices
 

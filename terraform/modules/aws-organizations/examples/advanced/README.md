@@ -72,9 +72,9 @@ aws organizations list-policies --filter SERVICE_CONTROL_POLICY
 
 ## Cost
 
-**~$2-5/month**:
-- Same as typical example (CloudTrail + Security Hub)
-- OUs and SCPs are free
+**~$5-10/month** (CloudTrail + Security Hub across multiple accounts)
+
+See [AWS Organizations cost details](/home/user0/workspace/github/celtikill/static-site/terraform/docs/COST_MODEL.md#aws-organizations) for breakdown.
 
 ## Security Policies Explained
 
@@ -163,31 +163,7 @@ Root
 
 ## Troubleshooting
 
-### SCP Locks You Out
-
-If an SCP prevents legitimate actions:
-
-```bash
-# 1. Detach the policy
-aws organizations detach-policy \
-  --policy-id p-xxxxxxxx \
-  --target-id ACCOUNT_ID
-
-# 2. Fix the policy
-# 3. Re-attach
-```
-
-### Region Restriction Too Strict
-
-Edit the `deny_region_restriction` policy to add more allowed regions:
-
-```hcl
-"aws:RequestedRegion" = [
-  "us-east-1",
-  "us-west-2",
-  "eu-west-1"  # Add as needed
-]
-```
+See [AWS Organizations SCP troubleshooting](/home/user0/workspace/github/celtikill/static-site/terraform/docs/TROUBLESHOOTING.md#aws-organizations-issues) for SCP lockout recovery and region restriction adjustments.
 
 ## Next Steps
 

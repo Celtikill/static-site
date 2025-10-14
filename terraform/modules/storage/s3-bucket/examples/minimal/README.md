@@ -47,9 +47,9 @@ aws s3 cp test.txt s3://$(terraform output -raw bucket_name)/
 
 ## Cost
 
-**~$0.023/GB/month** for Standard storage (first 50 TB)
+**~$0.25/month** (10 GB typical dev usage)
 
-**Typical dev usage**: ~$0.25/month (10 GB)
+See [cost breakdown](/home/user0/workspace/github/celtikill/static-site/terraform/docs/COST_MODEL.md#s3-bucket-minimal) for detailed pricing.
 
 ## What You Get
 

@@ -54,21 +54,7 @@ terraform output dev_role_arn
 
 ## GitHub Actions Integration
 
-Add to your workflow:
-
-```yaml
-- name: Configure AWS Credentials
-  uses: aws-actions/configure-aws-credentials@v4
-  with:
-    role-to-assume: ${{ secrets.AWS_DEV_DEPLOYMENT_ROLE }}
-    aws-region: us-east-1
-
-- name: Deploy Infrastructure
-  run: |
-    cd terraform
-    tofu init
-    tofu apply -auto-approve
-```
+See [deployment role workflow examples](/home/user0/workspace/github/celtikill/static-site/terraform/docs/GITHUB_ACTIONS.md#deployment-roles) for complete CI/CD setup.
 
 ## Next Steps
 

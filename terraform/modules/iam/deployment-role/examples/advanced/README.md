@@ -69,50 +69,7 @@ gh secret set AWS_PROD_EXTERNAL_ID --body "prod-deployment-2024-unique-id"
 gh secret set AWS_PROD_DEPLOYMENT_ROLE --body "$(terraform output -raw prod_role_arn)"
 ```
 
-### Production Deployment Workflow
-
-```yaml
-name: Production Deployment
-
-on:
-  release:
-    types: [published]
-  workflow_dispatch:
-
-jobs:
-  deploy-prod:
-    runs-on: ubuntu-latest
-    environment: production  # Requires manual approval
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_PROD_DEPLOYMENT_ROLE }}
-          role-external-id: ${{ secrets.AWS_PROD_EXTERNAL_ID }}
-          aws-region: us-east-1
-          role-duration-seconds: 7200  # 2 hours
-
-      - name: Deploy Infrastructure
-        run: |
-          cd terraform
-          tofu init -backend-config=backend-prod.hcl
-          tofu apply -auto-approve -var-file=prod.tfvars
-
-      - name: Update Route53 Records
-        run: |
-          # Custom domain configuration
-          aws route53 change-resource-record-sets \
-            --hosted-zone-id ZXXXXXXXXXXXXX \
-            --change-batch file://route53-changes.json
-
-      - name: Replicate to Backup Region
-        run: |
-          # Sync to cross-region replica
-          aws s3 sync s3://static-website-prod-primary/ \
-                      s3://static-website-prod-replica-us-west-2/
-```
+See [production deployment with Route53 and replication workflows](/home/user0/workspace/github/celtikill/static-site/terraform/docs/GITHUB_ACTIONS.md#production-deployment-advanced) for complete CI/CD setup.
 
 ## Advanced Features Explained
 
@@ -188,29 +145,7 @@ aws iam get-policy-version \
 
 ## Troubleshooting
 
-### External ID Mismatch
-
-```
-Error: AccessDenied when assuming role
-```
-
-**Solution**: Verify external ID matches in both Terraform and GitHub secret.
-
-### Session Duration Exceeded
-
-```
-Error: Role session duration exceeds maximum
-```
-
-**Solution**: Reduce `session_duration` to 7200 or less (2 hours max).
-
-### Route53 Permission Denied
-
-```
-Error: User is not authorized to perform: route53:ChangeResourceRecordSets
-```
-
-**Solution**: Ensure `additional_policies` includes Route53 policy ARN.
+See [deployment role troubleshooting](/home/user0/workspace/github/celtikill/static-site/terraform/docs/TROUBLESHOOTING.md#deployment-role-issues) for common issues with external IDs, session duration, and Route53 permissions.
 
 ## Next Steps
 

@@ -70,43 +70,7 @@ gh secret set AWS_STAGING_DEPLOYMENT_ROLE --body "$(terraform output -raw deploy
 gh secret set AWS_PROD_DEPLOYMENT_ROLE --body "$(terraform output -raw deployment_role_arns | jq -r '.prod')"
 ```
 
-### Workflow Configuration
-
-```yaml
-name: Deploy Infrastructure
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy'
-        required: true
-        type: choice
-        options:
-          - dev
-          - staging
-          - prod
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets[format('AWS_{0}_DEPLOYMENT_ROLE', github.event.inputs.environment)] }}
-          aws-region: us-east-1
-
-      - name: Deploy
-        run: |
-          cd terraform
-          tofu init -backend-config=backend-${{ github.event.inputs.environment }}.hcl
-          tofu apply -auto-approve
-```
+See [multi-environment deployment workflows](/home/user0/workspace/github/celtikill/static-site/terraform/docs/GITHUB_ACTIONS.md#multi-environment-deployment) for complete CI/CD setup.
 
 ## Verification
 

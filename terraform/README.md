@@ -2,21 +2,15 @@
 
 Enterprise-grade AWS infrastructure for static website hosting with mult-account deployment, comprehensive security controls, and cost optimization.
 
-## 🚀 Quickstart (5 Minutes)
+## 🚀 Quick Start
 
-```bash
-# 1. Bootstrap state backend (one-time, in management account)
-cd terraform/bootstrap
-terraform init
-terraform apply -var-file=prod.tfvars
+**New to this project?** See [Quick Start Guide](docs/QUICK_START.md) - deploy in 5 minutes.
 
-# 2. Deploy application infrastructure (per environment)
-cd terraform/workloads/static-site
-terraform init -backend-config=backend-dev.hcl
-terraform apply -var-file=terraform.tfvars
-```
-
-**Result**: Secure static website with CloudFront CDN, WAF protection, and cross-region replication.
+**Choose your path**:
+- [Which example should I use?](docs/DECISION_TREES.md) - decision flowcharts
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - common issues
+- [Cost planning](docs/COST_MODEL.md) - detailed pricing
+- [GitHub Actions CI/CD](docs/GITHUB_ACTIONS.md) - deployment workflows
 
 ---
 
@@ -275,18 +269,12 @@ terraform {
 
 ### Cost Optimization
 
-**Feature Flags for Cost Control**:
-```hcl
-# terraform.tfvars
-enable_cloudfront = false  # Dev: Save $5-15/month
-enable_waf = false          # Dev: Save $10-20/month
-enable_replication = false  # Dev: Save $5-10/month
-```
+**Estimated costs**:
+- Development: $1-5/month
+- Staging: $15-25/month
+- Production: $25-50/month
 
-**Cost by Environment**:
-- Development: $1-5/month (minimal features)
-- Staging: $15-25/month (full features, low traffic)
-- Production: $25-50/month (full features, moderate traffic)
+See [cost model documentation](docs/COST_MODEL.md) for detailed breakdown, scaling scenarios, and optimization strategies.
 
 ---
 
@@ -323,49 +311,34 @@ External → WAF → CloudFront → OAC → S3
 
 ---
 
-## 📚 Additional Documentation
+## 📚 Documentation Hub
 
-- **Architecture Deep Dive**: [../docs/architecture.md](../docs/architecture.md)
-- **IAM Security Model**: [../docs/iam-deep-dive.md](../docs/iam-deep-dive.md)
-- **Glossary**: [GLOSSARY.md](GLOSSARY.md)
-- **TODO**: [../TODO.md](../TODO.md)
-- **Wishlist**: [../WISHLIST.md](../WISHLIST.md)
+**Getting Started**:
+- [Quick Start Guide](docs/QUICK_START.md) - 5-minute deployment
+- [Decision Trees](docs/DECISION_TREES.md) - which example to use
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - common issues
+
+**Planning & Operations**:
+- [Cost Model](docs/COST_MODEL.md) - pricing & optimization
+- [GitHub Actions](docs/GITHUB_ACTIONS.md) - CI/CD workflows
+- [Architecture Deep Dive](../docs/architecture.md) - design decisions
+- [IAM Security Model](../docs/iam-deep-dive.md) - security patterns
+
+**Reference**:
+- [Glossary](GLOSSARY.md) - terminology
+- [TODO](../TODO.md) - roadmap
+- [Wishlist](../WISHLIST.md) - future ideas
 
 ---
 
 ## 🔍 Troubleshooting
 
-### Common Issues
-
-**Backend initialization fails**:
-```bash
-# Ensure backend bucket exists
-aws s3 ls s3://static-site-state-dev-{account-id}
-
-# Verify AWS credentials
-aws sts get-caller-identity
-
-# Check backend config file
-cat backend-dev.hcl
-```
-
-**Module version conflicts**:
-```bash
-# Upgrade all providers
-terraform init -upgrade
-
-# Lock provider versions
-terraform providers lock
-```
-
-**Permission denied errors**:
-```bash
-# Verify IAM role permissions
-aws iam get-role --role-name GitHubActions-StaticSite-Dev-Role
-
-# Check assume role policy
-aws iam get-role-policy --role-name ... --policy-name ...
-```
+See [comprehensive troubleshooting guide](docs/TROUBLESHOOTING.md) for:
+- Backend initialization issues
+- State locking problems
+- IAM permission errors
+- S3 and CloudFront issues
+- Module version conflicts
 
 ---
 
