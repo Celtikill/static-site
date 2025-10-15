@@ -381,10 +381,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "access_logs" {
       )
     }
 
-    # Clean up expired delete markers from manually deleted objects
-    # Architecture review recommendation: Prevents orphaned delete marker accumulation
-    expired_object_delete_marker = true
-
     # Clean up incomplete multipart uploads after 7 days
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
