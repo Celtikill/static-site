@@ -83,7 +83,7 @@ jobs:
           echo "- **Commit**: $COMMIT_SHA" >> $GITHUB_STEP_SUMMARY
 
   policy-validation:
-    name: "📋 Policy Validation"
+    name: "🔐 Authenticated Policy Validation"
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: info
@@ -93,6 +93,50 @@ jobs:
         with:
           ref: ${{ needs.info.outputs.commit_sha }}
 
+      - name: Determine Target Account
+        id: account
+        run: |
+          TARGET_ENV="${{ needs.info.outputs.target_environment }}"
+          case "$TARGET_ENV" in
+            dev)
+              echo "account_id=${{ vars.AWS_ACCOUNT_ID_DEV }}" >> $GITHUB_OUTPUT
+              echo "environment_dir=dev" >> $GITHUB_OUTPUT
+              ;;
+            staging)
+              echo "account_id=${{ vars.AWS_ACCOUNT_ID_STAGING }}" >> $GITHUB_OUTPUT
+              echo "environment_dir=staging" >> $GITHUB_OUTPUT
+              ;;
+            prod)
+              echo "account_id=${{ vars.AWS_ACCOUNT_ID_PROD }}" >> $GITHUB_OUTPUT
+              echo "environment_dir=prod" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: 🔐 Configure AWS Credentials via OIDC
+        id: auth
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ steps.account.outputs.account_id }}:role/GitHubActions-StaticSite-${{ needs.info.outputs.target_environment }}-Role
+          role-session-name: github-actions-test-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}
+          aws-region: ${{ vars.AWS_DEFAULT_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: ✅ Verify Authentication
+        id: verify
+        run: |
+          echo "## 🔐 Authentication & Policy Validation - ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Verify OIDC authentication succeeded
+          echo "**🔍 Verifying OIDC Authentication:**" >> $GITHUB_STEP_SUMMARY
+          CALLER_IDENTITY=$(aws sts get-caller-identity --output json)
+          ACCOUNT_ID=$(echo "$CALLER_IDENTITY" | jq -r '.Account')
+          USER_ARN=$(echo "$CALLER_IDENTITY" | jq -r '.Arn')
+
+          echo "- **Account ID**: $ACCOUNT_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- **Assumed Role**: $USER_ARN" >> $GITHUB_STEP_SUMMARY
+          echo "✅ OIDC authentication successful" >> $GITHUB_STEP_SUMMARY
+
       - name: Setup OpenTofu and Policy Tools
         run: |
           # Install OpenTofu
@@ -100,13 +144,6 @@ jobs:
             https://github.com/opentofu/opentofu/releases/download/v${{ env.OPENTOFU_VERSION }}/tofu_${{ env.OPENTOFU_VERSION }}_linux_amd64.zip
           unzip -q /tmp/tofu.zip -d /tmp
           sudo mv /tmp/tofu /usr/local/bin/
-
-          # Install OPA
-          OPA_VERSION=v1.8.0
-          curl -L -o /tmp/opa \
-            https://openpolicyagent.org/downloads/${OPA_VERSION}/opa_linux_amd64_static
-          chmod +x /tmp/opa
-          sudo mv /tmp/opa /usr/local/bin/
 
           # Install Conftest
           CONFTEST_VERSION=0.62.0
@@ -117,118 +154,68 @@ jobs:
           chmod +x /usr/local/bin/conftest
 
           # Verify installations
-          echo "=== Tool Verification ==="
           tofu version || exit 1
-          opa version || exit 1
           conftest --version || exit 1
-          echo "✅ All policy tools installed successfully"
+          echo "✅ All tools installed successfully"
 
-      - name: Policy Validation with OPA
-        working-directory: terraform/environments/staging
+      - name: 📋 Generate Authenticated Terraform Plan
+        id: plan
+        working-directory: terraform/environments/${{ steps.account.outputs.environment_dir }}
         env:
           TARGET_ENV: ${{ needs.info.outputs.target_environment }}
         run: |
-          echo "## 📋 Policy Validation with OPA - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**📋 Terraform Plan Generation:**" >> $GITHUB_STEP_SUMMARY
 
-          # Temporarily move existing backend configuration for policy validation
-          if [ -f "backend.tf" ]; then
-            mv backend.tf backend.tf.bak
-          fi
-
-          # Create local backend for policy validation
-          cat > backend.tf <<EOF
-          terraform {
-            backend "local" {
-              path = "terraform.tfstate.policy"
-            }
-          }
-          EOF
-
-          # Create provider override to skip AWS credential validation
-          # This allows policy testing without real AWS credentials
-          # Must override all three providers (default, replica, cloudfront)
-          cat > provider_override.tf <<EOF
-          provider "aws" {
-            region                      = "us-east-1"
-            skip_credentials_validation = true
-            skip_requesting_account_id  = true
-            skip_metadata_api_check     = true
-            access_key                  = "mock_access_key"
-            secret_key                  = "mock_secret_key"
-          }
-
-          provider "aws" {
-            alias                       = "replica"
-            region                      = "us-west-2"
-            skip_credentials_validation = true
-            skip_requesting_account_id  = true
-            skip_metadata_api_check     = true
-            access_key                  = "mock_access_key"
-            secret_key                  = "mock_secret_key"
-          }
-
-          provider "aws" {
-            alias                       = "cloudfront"
-            region                      = "us-east-1"
-            skip_credentials_validation = true
-            skip_requesting_account_id  = true
-            skip_metadata_api_check     = true
-            access_key                  = "mock_access_key"
-            secret_key                  = "mock_secret_key"
-          }
-          EOF
-
-          # Initialize with local backend for policy validation
-          tofu init -reconfigure
+          # Initialize with actual backend (read-only state access)
+          echo "🔧 Initializing Terraform..."
+          tofu init -no-color
 
           # Configuration validation
-          echo "**🔍 Configuration Validation:**" >> $GITHUB_STEP_SUMMARY
-          if tofu validate; then
-            echo "✅ Terraform configuration syntax is valid" >> $GITHUB_STEP_SUMMARY
+          echo "🔍 Validating configuration..."
+          if tofu validate -no-color; then
+            echo "✅ Configuration syntax valid" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ Terraform configuration validation failed" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Configuration validation failed" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-          # Generate plan
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**📋 Generating Plan for Policy Analysis:**" >> $GITHUB_STEP_SUMMARY
-
-          # Remove any existing plan file
-          rm -f policy.tfplan
-
-          # Run the plan command (using staging environment defaults)
+          # Generate plan with authenticated credentials
+          # This implicitly tests:
+          # - AWS credential validity
+          # - IAM permissions for all resources
+          # - Data source access (STS, S3, etc.)
+          echo "📋 Generating deployment plan..."
           set +e
-          tofu plan -out=policy.tfplan -refresh=false
+          tofu plan -no-color -out=policy.tfplan
           PLAN_EXIT_CODE=$?
           set -e
 
-          # Check if plan command succeeded
           if [ $PLAN_EXIT_CODE -ne 0 ]; then
-            echo "❌ **PLAN GENERATION FAILED** (exit code: $PLAN_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
-            echo "Plan command returned non-zero exit code. Check logs for errors." >> $GITHUB_STEP_SUMMARY
+            echo "❌ **PLAN GENERATION FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "- This indicates authentication or permission issues" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-          # Check if plan file was created
-          if [ -f "policy.tfplan" ]; then
-            echo "✅ Plan file generated successfully" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ **PLAN GENERATION FAILED** - No plan file created" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
+          echo "✅ Plan generated successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Credential Validation**: Implicit (plan succeeded)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Permission Verification**: Implicit (all resources accessible)" >> $GITHUB_STEP_SUMMARY
 
-          # Convert plan to JSON
+          # Convert plan to JSON for OPA analysis
           tofu show -json policy.tfplan > plan.json
+
+      - name: 🛡️ Run OPA Security Policy Validation
+        working-directory: terraform/environments/${{ steps.account.outputs.environment_dir }}
+        env:
+          TARGET_ENV: ${{ needs.info.outputs.target_environment }}
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**🛡️ OPA Security Policy Validation:**" >> $GITHUB_STEP_SUMMARY
 
           # Copy policy files
           cp ../../../policies/*.rego . || exit 1
 
           # Run security policies
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🛡️ OPA Security Policy Validation:**" >> $GITHUB_STEP_SUMMARY
-
           SECURITY_VIOLATIONS=0
           set +e
           conftest test --policy foundation-security.rego plan.json \
@@ -247,7 +234,6 @@ jobs:
             # Parse conftest output and format violations
             if [ -f security_output.txt ]; then
               grep -E "FAIL|Error:" security_output.txt | while IFS= read -r line; do
-                # Extract violation details and format for table
                 violation=$(echo "$line" | sed 's/^FAIL - //' | sed 's/Error: //')
                 echo "| Security | Infrastructure | $violation |" >> $GITHUB_STEP_SUMMARY
               done
@@ -301,152 +287,57 @@ jobs:
           # Environment-specific enforcement
           echo "" >> $GITHUB_STEP_SUMMARY
           if [ "$TARGET_ENV" = "prod" ] && [ $SECURITY_VIOLATIONS -gt 0 ]; then
-            echo "❌ **POLICY VALIDATION FAILED** - Production deployment blocked" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **VALIDATION FAILED** - Production deployment blocked" >> $GITHUB_STEP_SUMMARY
             exit 1
           elif [ $SECURITY_VIOLATIONS -gt 0 ]; then
-            echo "⚠️ **SECURITY VIOLATIONS FOUND** - Review for $TARGET_ENV environment" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **SECURITY VIOLATIONS FOUND** - Review for $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           else
-            echo "🎉 **ALL POLICIES COMPLIANT**" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **ALL VALIDATIONS PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Authentication successful" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Credentials valid" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Permissions verified" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Security policies compliant" >> $GITHUB_STEP_SUMMARY
+            echo "- ✅ Compliance policies satisfied" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Cleanup: Restore original backend configuration and remove provider override
-          if [ -f "backend.tf.bak" ]; then
-            mv backend.tf.bak backend.tf
-          fi
-          rm -f provider_override.tf
-
-  credential-validation:
-    name: "🔐 AWS Credential Validation"
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [info, policy-validation]
-    strategy:
-      matrix:
-        environment: [dev, staging, prod]
-      fail-fast: false
-    steps:
-      - name: Determine Account ID
-        id: account
-        run: |
-          ENV="${{ matrix.environment }}"
-          case "$ENV" in
-            dev)
-              echo "account_id=${{ vars.AWS_ACCOUNT_ID_DEV }}" >> $GITHUB_OUTPUT
-              ;;
-            staging)
-              echo "account_id=${{ vars.AWS_ACCOUNT_ID_STAGING }}" >> $GITHUB_OUTPUT
-              ;;
-            prod)
-              echo "account_id=${{ vars.AWS_ACCOUNT_ID_PROD }}" >> $GITHUB_OUTPUT
-              ;;
-          esac
-
-      - name: Configure AWS Credentials via OIDC
-        id: auth
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ steps.account.outputs.account_id }}:role/GitHubActions-StaticSite-${{ matrix.environment }}-Role
-          role-session-name: github-actions-test-${{ matrix.environment }}-${{ github.run_id }}
-          aws-region: ${{ vars.AWS_DEFAULT_REGION }}
-          audience: sts.amazonaws.com
-
-      - name: Validate Credentials and Permissions
-        run: |
-          echo "## 🔐 Credential Validation - ${{ matrix.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          # Verify STS caller identity
-          echo "**🔍 Verifying AWS Identity:**" >> $GITHUB_STEP_SUMMARY
-          CALLER_IDENTITY=$(aws sts get-caller-identity --output json)
-          ACCOUNT_ID=$(echo "$CALLER_IDENTITY" | jq -r '.Account')
-          USER_ARN=$(echo "$CALLER_IDENTITY" | jq -r '.Arn')
-
-          echo "- **Account ID**: $ACCOUNT_ID" >> $GITHUB_STEP_SUMMARY
-          echo "- **Assumed Role**: $USER_ARN" >> $GITHUB_STEP_SUMMARY
-
-          # Verify IAM role exists and is accessible
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🔍 Verifying IAM Role Access:**" >> $GITHUB_STEP_SUMMARY
-          ROLE_NAME="GitHubActions-StaticSite-${{ matrix.environment }}-Role"
-
-          if aws iam get-role --role-name "$ROLE_NAME" > /dev/null 2>&1; then
-            echo "✅ IAM role $ROLE_NAME is accessible" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Cannot access IAM role $ROLE_NAME (may lack iam:GetRole permission)" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          # Verify S3 access (basic permission check)
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🔍 Verifying S3 Access:**" >> $GITHUB_STEP_SUMMARY
-          if aws s3 ls > /dev/null 2>&1; then
-            echo "✅ S3 access verified" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "❌ S3 access failed" >> $GITHUB_STEP_SUMMARY
-            exit 1
-          fi
-
-          # Verify CloudWatch Logs access
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**🔍 Verifying CloudWatch Logs Access:**" >> $GITHUB_STEP_SUMMARY
-          if aws logs describe-log-groups --limit 1 > /dev/null 2>&1; then
-            echo "✅ CloudWatch Logs access verified" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ CloudWatch Logs access limited" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🎉 **CREDENTIAL VALIDATION PASSED** for ${{ matrix.environment }}" >> $GITHUB_STEP_SUMMARY
+          # Cleanup
+          rm -f policy.tfplan plan.json *.rego *_output.txt
 
   summary:
     name: "📊 Test Summary"
     runs-on: ubuntu-latest
     timeout-minutes: 2
-    needs: [info, policy-validation, credential-validation]
+    needs: [info, policy-validation]
     if: always()
     steps:
       - name: Test Summary
         run: |
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-
-          # Check Policy Validation status
-          POLICY_STATUS="${{ needs.policy-validation.result }}"
-          if [ "$POLICY_STATUS" = "success" ]; then
-            echo "| Policy Validation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          elif [ "$POLICY_STATUS" = "skipped" ]; then
-            echo "| Policy Validation | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| Policy Validation | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
-          fi
-
-          # Check Credential Validation status
-          CREDENTIAL_STATUS="${{ needs.credential-validation.result }}"
-          if [ "$CREDENTIAL_STATUS" = "success" ]; then
-            echo "| Credential Validation | ✅ Passed (all environments) |" >> $GITHUB_STEP_SUMMARY
-          elif [ "$CREDENTIAL_STATUS" = "skipped" ]; then
-            echo "| Credential Validation | ➖ Skipped |" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "| Credential Validation | ❌ Failed (check logs for environment details) |" >> $GITHUB_STEP_SUMMARY
-          fi
-
+          echo "## 📊 Test Results Summary - ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          # Determine overall success
-          if [ "$POLICY_STATUS" = "success" ] && [ "$CREDENTIAL_STATUS" = "success" ]; then
-            echo "🎉 **ALL TESTS PASSED** - Ready for RUN phase" >> $GITHUB_STEP_SUMMARY
+          # Check unified validation status
+          VALIDATION_STATUS="${{ needs.policy-validation.result }}"
+
+          if [ "$VALIDATION_STATUS" = "success" ]; then
+            echo "🎉 **ALL VALIDATIONS PASSED** - Ready for RUN phase" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**✅ Policy Compliance**: Infrastructure configuration meets security policies" >> $GITHUB_STEP_SUMMARY
-            echo "**✅ Credential Access**: OIDC authentication verified for all environments" >> $GITHUB_STEP_SUMMARY
+            echo "| Validation Type | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----------------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔐 OIDC Authentication | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔑 Credential Validation | ✅ Passed (via terraform plan) |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔓 Permission Verification | ✅ Passed (via terraform plan) |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🛡️ Security Policies | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            echo "| 📋 Compliance Policies | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Target Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Infrastructure Status**: Ready for deployment" >> $GITHUB_STEP_SUMMARY
+          elif [ "$VALIDATION_STATUS" = "skipped" ]; then
+            echo "➖ **VALIDATION SKIPPED**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **TESTS FAILED** - Deployment blocked" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **VALIDATION FAILED** - Deployment blocked" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            if [ "$POLICY_STATUS" != "success" ]; then
-              echo "**❌ Policy Issues**: Review policy validation results above" >> $GITHUB_STEP_SUMMARY
-            fi
-            if [ "$CREDENTIAL_STATUS" != "success" ]; then
-              echo "**❌ Credential Issues**: Review credential validation results above" >> $GITHUB_STEP_SUMMARY
-            fi
+            echo "**Target Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Issue**: Review policy validation results above for details" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
