@@ -174,11 +174,18 @@ jobs:
           PLAN_EXIT_CODE=$?
           set -e
 
+          # Check if plan command succeeded
+          if [ $PLAN_EXIT_CODE -ne 0 ]; then
+            echo "❌ **PLAN GENERATION FAILED** (exit code: $PLAN_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
+            echo "Plan command returned non-zero exit code. Check logs for errors." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
           # Check if plan file was created
           if [ -f "policy.tfplan" ]; then
             echo "✅ Plan file generated successfully" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **PLAN GENERATION FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **PLAN GENERATION FAILED** - No plan file created" >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
