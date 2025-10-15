@@ -90,38 +90,45 @@ gh run watch
 
 ## 🏗️ Architecture Overview
 
-### Multi-Account Architecture
+### Multi-Account Architecture (Direct OIDC)
 ```mermaid
 graph TB
-    subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
-        OIDC["🔐 OIDC Provider<br/>GitHub Actions"]
-        Bootstrap["⚙️ Bootstrap Role<br/>Infrastructure Creation"]
-        Central["🌐 Central Role<br/>Cross-Account Access"]
+    subgraph GitHub["🐙 GitHub Actions"]
+        GH["GitHub Workflows<br/>Direct OIDC"]
     end
 
-    subgraph Dev["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
-        DevRole["🔧 Dev Role<br/>Deployment + Bootstrap"]
+    subgraph Management["🏢 Management Account<br/>223938610551"]
+        MgmtOIDC["🔐 OIDC Provider"]
+        MgmtState["📦 Central State Bucket<br/>Foundation Resources"]
+    end
+
+    subgraph Dev["🧪 Dev Account<br/>822529998967"]
+        DevOIDC["🔐 OIDC Provider"]
+        DevRole["🔧 GitHubActions Role<br/>Direct OIDC Trust"]
         DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
     end
 
-    subgraph Staging["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
-        StagingRole["🔧 Staging Role<br/>Deployment + Bootstrap"]
-        StagingInfra["☁️ Staging Infrastructure<br/>⏳ Ready"]
+    subgraph Staging["🚀 Staging Account<br/>927588814642"]
+        StagingOIDC["🔐 OIDC Provider"]
+        StagingRole["🔧 GitHubActions Role<br/>Direct OIDC Trust"]
+        StagingInfra["☁️ Staging Infrastructure<br/>✅ READY"]
     end
 
-    subgraph Prod["🏭 Production Account<br/>PRODUCTION_ACCOUNT_ID"]
-        ProdRole["🔧 Prod Role<br/>Deployment + Bootstrap"]
-        ProdInfra["☁️ Production Infrastructure<br/>⏳ Ready"]
+    subgraph Prod["🏭 Production Account<br/>546274483801"]
+        ProdOIDC["🔐 OIDC Provider"]
+        ProdRole["🔧 GitHubActions Role<br/>Direct OIDC Trust"]
+        ProdInfra["☁️ Production Infrastructure<br/>✅ READY"]
     end
 
-    OIDC --> Central
-    Central --> DevRole
-    Central --> StagingRole
-    Central --> ProdRole
+    GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| DevRole
+    GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| StagingRole
+    GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| ProdRole
     DevRole --> DevInfra
     StagingRole --> StagingInfra
     ProdRole --> ProdInfra
 ```
+
+**Key Change**: Workflows now authenticate **directly** to environment roles via OIDC. No centralized role needed.
 
 ### CI/CD Pipeline
 ```mermaid
@@ -176,12 +183,26 @@ graph TD
 ## 🔒 Security Architecture
 
 - **Multi-Account Isolation**: Separate AWS accounts for each environment
-- **OIDC Authentication**: No stored AWS credentials in GitHub
-- **3-Tier Security Model**: Bootstrap → Central → Environment roles ([detailed architecture](docs/permissions-architecture.md))
+- **Direct OIDC Authentication**: GitHub authenticates directly to environment roles via `AssumeRoleWithWebIdentity`
+  - No stored AWS credentials in GitHub
+  - No centralized role (single-step authentication)
+  - Repository-scoped trust policies
+  - Session tokens expire after workflow completion
 - **Encryption**: KMS encryption for all data at rest
 - **Policy Validation**: OPA/Rego policies with 100% compliance
 - **Security Scanning**: Checkov + Trivy with fail-fast on critical issues
 - **WAF Protection**: OWASP Top 10 protection and rate limiting
+
+**Authentication Flow**:
+```
+GitHub Actions → OIDC Provider → Environment Role (Direct)
+```
+
+**Benefits of Direct OIDC** (AWS 2025 best practice):
+- ✅ Simpler (one role assumption vs. two)
+- ✅ More secure (fewer trust boundaries)
+- ✅ Easier to audit (single authentication step)
+- ✅ Per-account isolation (each account has own OIDC provider)
 
 ## 💰 Cost Optimization
 
