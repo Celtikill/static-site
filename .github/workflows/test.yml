@@ -304,11 +304,27 @@ jobs:
         environment: [dev, staging, prod]
       fail-fast: false
     steps:
+      - name: Determine Account ID
+        id: account
+        run: |
+          ENV="${{ matrix.environment }}"
+          case "$ENV" in
+            dev)
+              echo "account_id=${{ vars.AWS_ACCOUNT_ID_DEV }}" >> $GITHUB_OUTPUT
+              ;;
+            staging)
+              echo "account_id=${{ vars.AWS_ACCOUNT_ID_STAGING }}" >> $GITHUB_OUTPUT
+              ;;
+            prod)
+              echo "account_id=${{ vars.AWS_ACCOUNT_ID_PROD }}" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
       - name: Configure AWS Credentials via OIDC
         id: auth
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ vars[format('AWS_ACCOUNT_ID_{0}', upper(matrix.environment))] }}:role/GitHubActions-StaticSite-${{ matrix.environment }}-Role
+          role-to-assume: arn:aws:iam::${{ steps.account.outputs.account_id }}:role/GitHubActions-StaticSite-${{ matrix.environment }}-Role
           role-session-name: github-actions-test-${{ matrix.environment }}-${{ github.run_id }}
           aws-region: ${{ vars.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
