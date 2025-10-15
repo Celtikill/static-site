@@ -98,7 +98,7 @@ create_terraform_backend() {
     fi
 
     # Use existing Terraform bootstrap configuration
-    local bootstrap_dir="${BOOTSTRAP_DIR}/../terraform/bootstrap"
+    local bootstrap_dir="${BOOTSTRAP_DIR}/../../terraform/bootstrap"
 
     if [[ ! -d "$bootstrap_dir" ]]; then
         log_error "Bootstrap Terraform directory not found: $bootstrap_dir"
