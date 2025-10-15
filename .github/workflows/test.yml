@@ -127,6 +127,10 @@ jobs:
         working-directory: terraform/environments/staging
         env:
           TARGET_ENV: ${{ needs.info.outputs.target_environment }}
+          # Mock AWS credentials for policy validation (no actual API calls with -refresh=false)
+          AWS_ACCESS_KEY_ID: "test"
+          AWS_SECRET_ACCESS_KEY: "test"
+          AWS_DEFAULT_REGION: "us-east-1"
         run: |
           echo "## 📋 Policy Validation with OPA - $TARGET_ENV" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
