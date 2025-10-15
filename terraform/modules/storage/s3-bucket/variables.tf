@@ -124,7 +124,7 @@ variable "access_logs_lifecycle_glacier_days" {
       Glacier transition must be greater than 30 days because logs first transition to
       Intelligent Tiering at day 30. Current value: ${var.access_logs_lifecycle_glacier_days} days.
 
-      Timeline: Active (0-30d) → Intelligent Tiering (30-90d) → Glacier (${var.access_logs_lifecycle_glacier_days}d+)
+      Timeline: Active (0-30d) → Intelligent Tiering (30-90d) → Glacier (90d+ recommended)
 
       Fix: Set to 60, 90, or 180 days. Recommended: 90 days for standard troubleshooting window.
     EOT
@@ -161,16 +161,12 @@ variable "access_logs_lifecycle_deep_archive_days" {
     )
     error_message = <<-EOT
       Deep Archive transition (${var.access_logs_lifecycle_deep_archive_days} days) must be greater than
-      Glacier transition (${var.access_logs_lifecycle_glacier_days} days), or null to disable.
+      Glacier transition days, or null to disable.
 
       Timeline must flow: Standard → Intelligent Tiering → Glacier → Deep Archive
 
-      Current configuration:
-        - Glacier transition: ${var.access_logs_lifecycle_glacier_days} days
-        - Deep Archive transition: ${var.access_logs_lifecycle_deep_archive_days} days (INVALID)
-
-      Fix: Set access_logs_lifecycle_deep_archive_days to > ${var.access_logs_lifecycle_glacier_days}, or null to disable.
-      Example: access_logs_lifecycle_deep_archive_days = ${var.access_logs_lifecycle_glacier_days + 275} (1 year total)
+      Fix: Set access_logs_lifecycle_deep_archive_days to be greater than access_logs_lifecycle_glacier_days, or null to disable.
+      Example: If Glacier is set to 90 days, set Deep Archive to 365+ days (1 year total retention)
     EOT
   }
 }
