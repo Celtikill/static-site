@@ -209,43 +209,13 @@ jobs:
         with:
           ref: ${{ needs.info.outputs.commit_sha }}
 
-      - name: Configure AWS Credentials (Central Role)
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
-          role-session-name: github-actions-central-${{ github.run_id }}
+          role-to-assume: ${{ needs.setup.outputs.target_role_arn }}
+          role-session-name: github-actions-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}
           aws-region: ${{ needs.setup.outputs.aws_region }}
           audience: sts.amazonaws.com
-
-      - name: Assume Environment-Specific Role
-        run: |
-          TARGET_ROLE="${{ needs.setup.outputs.target_role_arn }}"
-          EXTERNAL_ID="github-actions-static-site"
-          SESSION_NAME="github-actions-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}"
-
-          echo "🔄 Assuming environment role: $TARGET_ROLE"
-
-          CREDS=$(aws sts assume-role \
-            --role-arn "$TARGET_ROLE" \
-            --role-session-name "$SESSION_NAME" \
-            --external-id "$EXTERNAL_ID" \
-            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-            --output text)
-
-          if [ $? -ne 0 ]; then
-            echo "❌ Failed to assume role: $TARGET_ROLE"
-            exit 1
-          fi
-
-          AWS_ACCESS_KEY_ID=$(echo $CREDS | cut -d' ' -f1)
-          AWS_SECRET_ACCESS_KEY=$(echo $CREDS | cut -d' ' -f2)
-          AWS_SESSION_TOKEN=$(echo $CREDS | cut -d' ' -f3)
-
-          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
-          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
-
-          echo "✅ Successfully assumed environment role"
 
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
@@ -348,34 +318,13 @@ jobs:
         with:
           ref: ${{ needs.info.outputs.commit_sha }}
 
-      - name: Configure AWS Credentials (Central Role)
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
-          role-session-name: github-actions-central-${{ github.run_id }}
+          role-to-assume: ${{ needs.setup.outputs.target_role_arn }}
+          role-session-name: github-actions-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}
           aws-region: ${{ needs.setup.outputs.aws_region }}
           audience: sts.amazonaws.com
-
-      - name: Assume Environment-Specific Role
-        run: |
-          TARGET_ROLE="${{ needs.setup.outputs.target_role_arn }}"
-          EXTERNAL_ID="github-actions-static-site"
-          SESSION_NAME="github-actions-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}"
-
-          CREDS=$(aws sts assume-role \
-            --role-arn "$TARGET_ROLE" \
-            --role-session-name "$SESSION_NAME" \
-            --external-id "$EXTERNAL_ID" \
-            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-            --output text)
-
-          AWS_ACCESS_KEY_ID=$(echo $CREDS | cut -d' ' -f1)
-          AWS_SECRET_ACCESS_KEY=$(echo $CREDS | cut -d' ' -f2)
-          AWS_SESSION_TOKEN=$(echo $CREDS | cut -d' ' -f3)
-
-          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> $GITHUB_ENV
-          echo "AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN" >> $GITHUB_ENV
 
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
