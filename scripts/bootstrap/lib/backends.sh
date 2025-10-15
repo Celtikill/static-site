@@ -108,9 +108,9 @@ create_terraform_backend() {
     # Change to bootstrap directory
     pushd "$bootstrap_dir" > /dev/null || return 1
 
-    # Initialize Terraform
+    # Initialize Terraform/OpenTofu
     log_info "Initializing Terraform for $environment backend..."
-    if ! terraform init -upgrade > "$OUTPUT_DIR/terraform-init-${environment}.log" 2>&1; then
+    if ! tofu init -upgrade > "$OUTPUT_DIR/terraform-init-${environment}.log" 2>&1; then
         log_error "Terraform init failed. See: $OUTPUT_DIR/terraform-init-${environment}.log"
         popd > /dev/null
         return 1
@@ -118,7 +118,7 @@ create_terraform_backend() {
 
     # Plan backend creation
     log_info "Planning backend creation for $environment..."
-    if ! terraform plan \
+    if ! tofu plan \
         -var="environment=$environment" \
         -var="aws_account_id=$account_id" \
         -var="aws_region=$region" \
@@ -131,7 +131,7 @@ create_terraform_backend() {
 
     # Apply backend creation
     log_info "Creating backend resources for $environment..."
-    if terraform apply \
+    if tofu apply \
         -auto-approve \
         "$OUTPUT_DIR/backend-${environment}.tfplan" \
         > "$OUTPUT_DIR/terraform-apply-${environment}.log" 2>&1; then
@@ -140,8 +140,8 @@ create_terraform_backend() {
         # Extract outputs
         local backend_bucket
         local backend_table
-        backend_bucket=$(terraform output -raw backend_bucket 2>/dev/null)
-        backend_table=$(terraform output -raw backend_dynamodb_table 2>/dev/null)
+        backend_bucket=$(tofu output -raw backend_bucket 2>/dev/null)
+        backend_table=$(tofu output -raw backend_dynamodb_table 2>/dev/null)
 
         log_info "Backend bucket: $backend_bucket"
         log_info "Lock table: $backend_table"
