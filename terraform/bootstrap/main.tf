@@ -17,11 +17,9 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-  # Bootstrap Role assumes environment role to create resources in target account
-  assume_role {
-    role_arn    = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
-    external_id = "github-actions-static-site"
-  }
+  # NOTE: assume_role block removed for local bootstrap
+  # When running from bootstrap scripts, we're already using OrganizationAccountAccessRole
+  # For GitHub Actions, the role is assumed via OIDC before Terraform runs
 
   default_tags {
     tags = {
@@ -215,6 +213,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "terraform_state" {
   rule {
     id     = "delete_old_versions"
     status = "Enabled"
+
+    filter {}  # Apply to all objects
 
     noncurrent_version_expiration {
       noncurrent_days = 90
