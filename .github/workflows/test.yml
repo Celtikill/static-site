@@ -171,14 +171,25 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 Terraform Plan Generation:**" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize WITHOUT backend configuration (validation-only, ephemeral state)
+          # Create backend override to use local (ephemeral) backend
+          # Override files (_override.tf) take precedence over original backend.tf
           # This approach:
           # - Uses local backend (ephemeral, destroyed after runner completes)
           # - Queries AWS directly to discover existing resources
           # - Perfect for validation workflows that don't deploy
           # - No state bucket permissions needed
+          echo "🔧 Creating local backend override for validation..."
+          cat > backend_override.tf <<'EOF'
+terraform {
+  backend "local" {
+    path = "terraform.tfstate"
+  }
+}
+EOF
+
+          # Initialize with local backend (ephemeral, destroyed after runner completes)
           echo "🔧 Initializing Terraform with local backend..."
-          tofu init -backend=false -no-color
+          tofu init -no-color
 
           # Configuration validation
           echo "🔍 Validating configuration..."
