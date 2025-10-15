@@ -319,3 +319,4 @@ __marimo__/
 # script outputs
 scripts/destroy/output/*
 scripts/bootstrap/accounts.json
+scripts/bootstrap/output/*

@@ -113,6 +113,9 @@ create_terraform_backend() {
         return 1
     }
 
+    # Clean up any previous terraform state to avoid pollution between environments
+    rm -rf .terraform .terraform.lock.hcl terraform.tfstate* 2>/dev/null || true
+
     # Initialize Terraform/OpenTofu
     log_info "Initializing Terraform for $environment backend..."
     if ! tofu init -upgrade > "$OUTPUT_DIR/terraform-init-${environment}.log" 2>&1; then
