@@ -25,6 +25,35 @@ readonly AWS_DEFAULT_REGION="us-east-1"
 readonly MANAGEMENT_ACCOUNT_ID="223938610551"
 
 # =============================================================================
+# STATE MANAGEMENT
+# =============================================================================
+
+# Central Foundation State Bucket:
+#   Name: static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}
+#   Purpose: Stores Terraform state for foundational infrastructure
+#   Created: Automatically by bootstrap-foundation.sh (Step 2)
+#   Stores state for:
+#     - OIDC providers (foundations/github-oidc/)
+#     - IAM management roles (foundations/iam-management/)
+#     - Organization management (foundations/org-management/)
+#   Access: All engineers with management account credentials
+#   Region: us-east-1
+#
+# Per-Account State Buckets:
+#   Name: static-site-state-{env}-{account-id}
+#   Purpose: Stores Terraform state for environment-specific infrastructure
+#   Created: By bootstrap-foundation.sh (Step 5) via Terraform bootstrap module
+#   Stores state for:
+#     - Workload infrastructure (workloads/static-site/)
+#     - Environment-specific resources
+#   Access: Environment-specific deployment roles
+#
+# This architecture enables:
+#   - Multi-engineer collaboration (shared remote state)
+#   - State isolation (foundation vs environment)
+#   - Scalability (easily add new accounts/environments)
+
+# =============================================================================
 # EXECUTION MODES
 # =============================================================================
 
