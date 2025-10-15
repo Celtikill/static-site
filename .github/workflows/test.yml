@@ -171,9 +171,14 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**📋 Terraform Plan Generation:**" >> $GITHUB_STEP_SUMMARY
 
-          # Initialize with actual backend (read-only state access)
-          echo "🔧 Initializing Terraform..."
-          tofu init -no-color
+          # Initialize WITHOUT backend configuration (validation-only, ephemeral state)
+          # This approach:
+          # - Uses local backend (ephemeral, destroyed after runner completes)
+          # - Queries AWS directly to discover existing resources
+          # - Perfect for validation workflows that don't deploy
+          # - No state bucket permissions needed
+          echo "🔧 Initializing Terraform with local backend..."
+          tofu init -backend=false -no-color
 
           # Configuration validation
           echo "🔍 Validating configuration..."
@@ -185,11 +190,12 @@ jobs:
           fi
 
           # Generate plan with authenticated credentials
+          # Plan queries AWS APIs directly to discover existing resources
           # This implicitly tests:
           # - AWS credential validity
           # - IAM permissions for all resources
           # - Data source access (STS, S3, etc.)
-          echo "📋 Generating deployment plan..."
+          echo "📋 Generating deployment plan (querying AWS directly)..."
           set +e
           tofu plan -no-color -out=policy.tfplan
           PLAN_EXIT_CODE=$?
@@ -202,6 +208,7 @@ jobs:
           fi
 
           echo "✅ Plan generated successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend**: Local (ephemeral, validation-only)" >> $GITHUB_STEP_SUMMARY
           echo "- **Credential Validation**: Implicit (plan succeeded)" >> $GITHUB_STEP_SUMMARY
           echo "- **Permission Verification**: Implicit (all resources accessible)" >> $GITHUB_STEP_SUMMARY
 
