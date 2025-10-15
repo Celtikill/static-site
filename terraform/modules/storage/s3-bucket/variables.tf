@@ -157,15 +157,17 @@ variable "access_logs_lifecycle_deep_archive_days" {
 
   validation {
     condition = var.access_logs_lifecycle_deep_archive_days == null || (
-      var.access_logs_lifecycle_deep_archive_days > var.access_logs_lifecycle_glacier_days
+      var.access_logs_lifecycle_deep_archive_days > 30
     )
     error_message = <<-EOT
-      Deep Archive transition must be greater than Glacier transition days, or null to disable.
+      Deep Archive transition must be greater than 30 days (to allow progression through Intelligent Tiering), or null to disable.
 
-      Timeline must flow: Standard → Intelligent Tiering → Glacier → Deep Archive
+      Timeline must flow: Standard (0-30d) → Intelligent Tiering (30d+) → Glacier → Deep Archive
 
-      Fix: Set access_logs_lifecycle_deep_archive_days to be greater than access_logs_lifecycle_glacier_days, or null to disable.
-      Example: If Glacier is set to 90 days, set Deep Archive to 365+ days (1 year total retention)
+      Common values: 365 days (1-year retention), 2190 days (6-year HIPAA), 2555 days (7-year SOX)
+
+      Fix: Set to a value greater than 30 days, or null to disable. Recommended: 365+ days for compliance retention.
+      Note: Ensure this value is greater than your Glacier transition days for proper lifecycle progression.
     EOT
   }
 }
