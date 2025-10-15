@@ -160,8 +160,7 @@ variable "access_logs_lifecycle_deep_archive_days" {
       var.access_logs_lifecycle_deep_archive_days > var.access_logs_lifecycle_glacier_days
     )
     error_message = <<-EOT
-      Deep Archive transition (${var.access_logs_lifecycle_deep_archive_days} days) must be greater than
-      Glacier transition days, or null to disable.
+      Deep Archive transition must be greater than Glacier transition days, or null to disable.
 
       Timeline must flow: Standard → Intelligent Tiering → Glacier → Deep Archive
 
