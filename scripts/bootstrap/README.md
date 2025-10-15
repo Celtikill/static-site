@@ -352,29 +352,47 @@ The bootstrap scripts require the following permissions in the management accoun
 - `kms:*` - Create encryption keys
 - `sts:AssumeRole` - Cross-account access
 
-### OIDC Trust Policy
+### Direct OIDC Trust Policy
 
-GitHub Actions roles trust the OIDC provider with repository restriction:
+GitHub Actions roles trust the GitHub OIDC provider **directly** using `AssumeRoleWithWebIdentity`:
 
 ```json
 {
-  "Condition": {
-    "StringEquals": {
-      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-    },
-    "StringLike": {
-      "token.actions.githubusercontent.com:sub": "repo:Celtikill/static-site:*"
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+        },
+        "StringLike": {
+          "token.actions.githubusercontent.com:sub": "repo:Celtikill/static-site:*"
+        }
+      }
     }
-  }
+  ]
 }
 ```
+
+**Key Security Features:**
+- ✅ **No centralized role** - Each environment role is accessed directly
+- ✅ **Repository scoping** - Only your specific repository can assume the role
+- ✅ **Per-account isolation** - Each account has its own OIDC provider and roles
+- ✅ **No long-lived credentials** - Tokens expire after workflow completion
+- ✅ **AWS-recommended pattern** (2025 best practices)
 
 ### Cross-Account Access
 
 Bootstrap uses `OrganizationAccountAccessRole` for cross-account operations:
 - Auto-created when accounts are created via AWS Organizations
 - Provides admin access from management account
-- Used only during bootstrap, not by GitHub Actions
+- **Used only during bootstrap**, not by GitHub Actions
+- GitHub Actions workflows use direct OIDC (no cross-account role assumption needed)
 
 ## 🛠️ Troubleshooting
 
@@ -500,26 +518,34 @@ Bootstrap scripts are idempotent - safe to re-run:
 
 ### Workflow Configuration
 
-Update your workflows to use the new roles:
+After bootstrap, your GitHub Actions workflows can authenticate **directly** to each environment:
 
 ```yaml
-- name: Configure AWS Credentials
+- name: Configure AWS Credentials (Direct OIDC)
   uses: aws-actions/configure-aws-credentials@v4
   with:
-    role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-StaticSite-Dev-Role
+    role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-StaticSite-Dev-Role
+    role-session-name: github-actions-dev-${{ github.run_id }}
     aws-region: us-east-1
+    audience: sts.amazonaws.com
 ```
 
-### GitHub Secrets
+**Important**: This is a **single-step** direct OIDC authentication. No centralized role is needed.
 
-Update repository secrets (if needed):
+### GitHub Variables (Not Secrets!)
+
+Set up repository **variables** (not secrets, as account IDs are not sensitive):
 
 ```bash
 # Using GitHub CLI
-gh secret set AWS_ACCOUNT_ID_DEV --body "210987654321"
-gh secret set AWS_ACCOUNT_ID_STAGING --body "111222333444"
-gh secret set AWS_ACCOUNT_ID_PROD --body "555666777888"
+gh variable set AWS_ACCOUNT_ID_DEV --body "210987654321"
+gh variable set AWS_ACCOUNT_ID_STAGING --body "111222333444"
+gh variable set AWS_ACCOUNT_ID_PROD --body "555666777888"
+gh variable set AWS_DEFAULT_REGION --body "us-east-1"
+gh variable set OPENTOFU_VERSION --body "1.8.8"
 ```
+
+**No AWS credentials needed** - OIDC handles authentication automatically.
 
 ### Backend Configuration
 

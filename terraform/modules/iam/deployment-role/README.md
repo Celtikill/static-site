@@ -1,5 +1,11 @@
 # IAM Deployment Role Module
 
+> ⚠️ **DEPRECATED**: This module implements a two-step authentication pattern (central role → workload role) which is **no longer recommended** as of 2025.
+>
+> **Recommended Alternative**: Use **direct OIDC authentication** where GitHub Actions authenticates directly to environment-specific roles using `AssumeRoleWithWebIdentity`. This is simpler, more secure, and follows AWS best practices.
+>
+> **Migration Path**: See [Direct OIDC Setup](#-migration-to-direct-oidc) below.
+
 Environment-specific IAM role for GitHub Actions to deploy static website infrastructure with least-privilege permissions and external ID validation.
 
 ---
@@ -395,6 +401,88 @@ When modifying this module:
    tofu fmt -recursive
    tofu validate
    ```
+
+---
+
+## 🔄 Migration to Direct OIDC
+
+### Why Migrate?
+
+The two-step authentication pattern (this module) has several limitations:
+
+1. **Complexity**: Requires two role assumptions instead of one
+2. **Maintenance**: More IAM roles and policies to manage
+3. **Security**: External ID is an outdated security pattern
+4. **Best Practices**: AWS now recommends direct OIDC for GitHub Actions (2025)
+
+### Direct OIDC Pattern
+
+Instead of:
+```
+GitHub Actions → Central Role (OIDC) → Deployment Role (AssumeRole + External ID)
+```
+
+Use:
+```
+GitHub Actions → Deployment Role (Direct OIDC via AssumeRoleWithWebIdentity)
+```
+
+### Migration Steps
+
+1. **Create OIDC Providers** in each environment account:
+   ```bash
+   cd scripts/bootstrap
+   ./bootstrap-foundation.sh
+   ```
+
+2. **Update GitHub Actions workflows**:
+   ```yaml
+   # OLD (deprecated)
+   - name: Configure AWS Credentials
+     uses: aws-actions/configure-aws-credentials@v4
+     with:
+       role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
+       aws-region: us-east-1
+
+   - name: Assume Environment Role
+     run: |
+       aws sts assume-role \
+         --role-arn ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }} \
+         --external-id github-actions-static-site
+
+   # NEW (recommended)
+   - name: Configure AWS Credentials (Direct OIDC)
+     uses: aws-actions/configure-aws-credentials@v4
+     with:
+       role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-StaticSite-Dev-Role
+       role-session-name: github-actions-dev-${{ github.run_id }}
+       aws-region: us-east-1
+       audience: sts.amazonaws.com
+   ```
+
+3. **Update GitHub secrets/variables**:
+   ```bash
+   # Remove old secrets
+   gh secret delete AWS_ASSUME_ROLE_CENTRAL
+   gh secret delete AWS_DEPLOYMENT_ROLE_ARN
+
+   # Add new variables (not secrets!)
+   gh variable set AWS_ACCOUNT_ID_DEV --body "822529998967"
+   gh variable set AWS_ACCOUNT_ID_STAGING --body "927588814642"
+   gh variable set AWS_ACCOUNT_ID_PROD --body "546274483801"
+   ```
+
+4. **Cleanup old resources** (after migration):
+   ```bash
+   # Remove central role and deployment roles
+   # (Only after confirming direct OIDC works!)
+   ```
+
+### Resources
+
+- [Bootstrap Scripts](../../../../scripts/bootstrap/) - Automated OIDC setup
+- [Workflow README](../../../../.github/workflows/README.md) - Direct OIDC examples
+- [AWS Best Practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html)
 
 ---
 
