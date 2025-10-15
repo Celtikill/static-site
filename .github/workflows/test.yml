@@ -147,8 +147,29 @@ jobs:
 
           # Create provider override to skip AWS credential validation
           # This allows policy testing without real AWS credentials
+          # Must override all three providers (default, replica, cloudfront)
           cat > provider_override.tf <<EOF
           provider "aws" {
+            region                      = "us-east-1"
+            skip_credentials_validation = true
+            skip_requesting_account_id  = true
+            skip_metadata_api_check     = true
+            access_key                  = "mock_access_key"
+            secret_key                  = "mock_secret_key"
+          }
+
+          provider "aws" {
+            alias                       = "replica"
+            region                      = "us-west-2"
+            skip_credentials_validation = true
+            skip_requesting_account_id  = true
+            skip_metadata_api_check     = true
+            access_key                  = "mock_access_key"
+            secret_key                  = "mock_secret_key"
+          }
+
+          provider "aws" {
+            alias                       = "cloudfront"
             region                      = "us-east-1"
             skip_credentials_validation = true
             skip_requesting_account_id  = true
