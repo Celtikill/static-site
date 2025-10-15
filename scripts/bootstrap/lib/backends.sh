@@ -85,16 +85,17 @@ create_terraform_backend() {
     local bucket_name="static-site-state-${environment}-${account_id}"
     local table_name="static-site-locks-${environment}"
 
+    # Assume role for all operations
+    if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-backend-${environment}"; then
+        log_error "Failed to assume OrganizationAccountAccessRole in account $account_id"
+        return 1
+    fi
+
     # Check if backend already exists
-    if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-backend-${environment}"; then
-
-        if s3_bucket_exists "$bucket_name" && dynamodb_table_exists "$table_name"; then
-            log_success "Terraform backend already exists for $environment"
-            clear_assumed_role
-            return 0
-        fi
-
+    if s3_bucket_exists "$bucket_name" && dynamodb_table_exists "$table_name"; then
+        log_success "Terraform backend already exists for $environment"
         clear_assumed_role
+        return 0
     fi
 
     # Use existing Terraform bootstrap configuration
@@ -102,17 +103,22 @@ create_terraform_backend() {
 
     if [[ ! -d "$bootstrap_dir" ]]; then
         log_error "Bootstrap Terraform directory not found: $bootstrap_dir"
+        clear_assumed_role
         return 1
     fi
 
     # Change to bootstrap directory
-    pushd "$bootstrap_dir" > /dev/null || return 1
+    pushd "$bootstrap_dir" > /dev/null || {
+        clear_assumed_role
+        return 1
+    }
 
     # Initialize Terraform/OpenTofu
     log_info "Initializing Terraform for $environment backend..."
     if ! tofu init -upgrade > "$OUTPUT_DIR/terraform-init-${environment}.log" 2>&1; then
         log_error "Terraform init failed. See: $OUTPUT_DIR/terraform-init-${environment}.log"
         popd > /dev/null
+        clear_assumed_role
         return 1
     fi
 
@@ -126,6 +132,7 @@ create_terraform_backend() {
         > "$OUTPUT_DIR/terraform-plan-${environment}.log" 2>&1; then
         log_error "Terraform plan failed. See: $OUTPUT_DIR/terraform-plan-${environment}.log"
         popd > /dev/null
+        clear_assumed_role
         return 1
     fi
 
@@ -150,10 +157,12 @@ create_terraform_backend() {
         save_backend_config "$environment" "$backend_bucket" "$backend_table" "$region"
 
         popd > /dev/null
+        clear_assumed_role
         return 0
     else
         log_error "Terraform apply failed. See: $OUTPUT_DIR/terraform-apply-${environment}.log"
         popd > /dev/null
+        clear_assumed_role
         return 1
     fi
 }
