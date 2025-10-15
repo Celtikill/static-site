@@ -53,10 +53,10 @@ module "deployment_roles" {
 
   for_each = local.environments
 
-  environment          = each.key
-  central_role_arn     = "arn:aws:iam::${var.management_account_id}:role/GitHubActions-CentralRole"
-  external_id          = "github-actions-static-site"
-  session_duration     = each.value.session_duration
+  environment             = each.key
+  central_role_arn        = "arn:aws:iam::${var.management_account_id}:role/GitHubActions-CentralRole"
+  external_id             = "github-actions-static-site"
+  session_duration        = each.value.session_duration
   state_bucket_account_id = var.management_account_id
 }
 
