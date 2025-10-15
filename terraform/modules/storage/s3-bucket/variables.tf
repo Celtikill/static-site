@@ -156,9 +156,7 @@ variable "access_logs_lifecycle_deep_archive_days" {
   default     = null
 
   validation {
-    condition = var.access_logs_lifecycle_deep_archive_days == null || (
-      var.access_logs_lifecycle_deep_archive_days > 30
-    )
+    condition = var.access_logs_lifecycle_deep_archive_days == null ? true : var.access_logs_lifecycle_deep_archive_days > 30
     error_message = <<-EOT
       Deep Archive transition must be greater than 30 days (to allow progression through Intelligent Tiering), or null to disable.
 
