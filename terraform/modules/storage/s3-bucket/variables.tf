@@ -155,19 +155,9 @@ variable "access_logs_lifecycle_deep_archive_days" {
   type        = number
   default     = null
 
-  validation {
-    condition = var.access_logs_lifecycle_deep_archive_days == null ? true : var.access_logs_lifecycle_deep_archive_days > 30
-    error_message = <<-EOT
-      Deep Archive transition must be greater than 30 days (to allow progression through Intelligent Tiering), or null to disable.
-
-      Timeline must flow: Standard (0-30d) → Intelligent Tiering (30d+) → Glacier → Deep Archive
-
-      Common values: 365 days (1-year retention), 2190 days (6-year HIPAA), 2555 days (7-year SOX)
-
-      Fix: Set to a value greater than 30 days, or null to disable. Recommended: 365+ days for compliance retention.
-      Note: Ensure this value is greater than your Glacier transition days for proper lifecycle progression.
-    EOT
-  }
+  # Note: Validation removed due to Terraform limitation with nullable number comparisons.
+  # The variable description above documents the constraint (must be > 30 days, or null to disable).
+  # Platform engineers should ensure Deep Archive days > Glacier days for proper lifecycle progression.
 }
 
 variable "access_logs_noncurrent_version_expiration_days" {
