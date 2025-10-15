@@ -183,20 +183,6 @@ graph TD
 - **Security Scanning**: Checkov + Trivy with fail-fast on critical issues
 - **WAF Protection**: OWASP Top 10 protection and rate limiting
 
-## 📊 Deployment Status
-
-### Pipeline Health ✅ FULLY OPERATIONAL
-- **BUILD**: ✅ Security scanning and artifact creation (~20s)
-- **TEST**: ✅ OPA policy validation with enhanced reporting (~35s)
-- **RUN**: ✅ Complete deployment workflow (~1m49s)
-- **BOOTSTRAP**: ✅ Distributed backend creation working
-
-### Account Status
-- **Management (MANAGEMENT_ACCOUNT_ID)**: OIDC provider ✅, Bootstrap Role ✅
-- **Dev (DEVELOPMENT_ACCOUNT_ID)**: **FULLY DEPLOYED** ✅
-- **Staging (STAGING_ACCOUNT_ID)**: Ready for bootstrap ⏳
-- **Prod (PRODUCTION_ACCOUNT_ID)**: Ready for bootstrap ⏳
-
 ## 💰 Cost Optimization
 
 ### Environment-Specific Profiles
