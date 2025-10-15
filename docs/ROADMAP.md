@@ -1,6 +1,6 @@
 # Project Roadmap
 
-**Last Updated**: October 14, 2025
+**Last Updated**: October 15, 2025
 **Project Status**: Infrastructure documentation complete, ready for deployment and scaling
 
 ## 🎯 Overview
@@ -58,9 +58,9 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
   - `access_logs_noncurrent_version_expiration_days` (default: 30)
 - ✅ Created educational variable descriptions for platform engineers
 
-### Destroy Script Refactoring
-**Status**: IN PROGRESS 🚧 (October 2025)
-**Impact**: Improved infrastructure teardown reliability
+### Bootstrap & Destroy Script Refactoring
+**Status**: COMPLETED ✅ (October 2025)
+**Impact**: Improved infrastructure teardown reliability and clean bootstrap capability
 
 **Completed Work**:
 - ✅ Created modular destroy library architecture (`scripts/lib/`)
@@ -69,10 +69,10 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 - ✅ Refactored core orchestrator script
 - ✅ Added force and close-accounts options
 - ✅ Implemented comprehensive logging
-
-**Remaining Work**:
-- Finalize S3 bucket emptying for versioned buckets with lifecycle markers
-- Complete destroy script testing and validation
+- ✅ Fixed IAM role deletion to handle both managed and inline policies
+- ✅ Fixed KMS cleanup to delete aliases before scheduling key deletion
+- ✅ Successfully tested complete destroy → bootstrap cycle from clean state
+- ✅ Verified all backends created correctly (S3 + DynamoDB + KMS) in dev/staging/prod
 
 ### Cross-Account Role Automation with Terraform
 **Status**: COMPLETED ✅ (January 2025)
@@ -161,16 +161,17 @@ gh workflow run bootstrap-distributed-backend.yml \
 - Add validation rules with helpful error messages
 - Document default value rationale
 
-### 4. Finalize Destroy Scripts
-**Priority**: MEDIUM ⭐⭐
-**Effort**: 2-3 hours
-**Value**: Reliable infrastructure teardown for testing
+### 4. ~~Finalize Destroy Scripts~~ ✅ COMPLETED
+~~**Priority**: MEDIUM ⭐⭐~~
+~~**Effort**: 2-3 hours~~
+~~**Value**: Reliable infrastructure teardown for testing~~
 
-**Objective**: Complete destroy script testing and edge case handling
-- Test destroy scripts with various infrastructure states
-- Handle S3 versioned buckets with delete markers
-- Add progress indicators and better logging
-- Create destroy script documentation
+**Status**: COMPLETED ✅ (October 2025)
+- ✅ Tested destroy scripts with complete infrastructure teardown
+- ✅ Fixed S3 bucket emptying for versioned buckets with delete markers
+- ✅ Implemented comprehensive logging with verbose mode
+- ✅ Created destroy-foundation.sh script with full documentation
+- ✅ Validated bootstrap from completely clean state
 
 ---
 
