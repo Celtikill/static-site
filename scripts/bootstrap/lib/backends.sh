@@ -368,16 +368,24 @@ destroy_terraform_backend() {
             fi
         fi
 
-        # Delete KMS key (if exists)
+        # Delete KMS alias and key (if exists)
         local kms_alias="alias/static-site-state-${environment}-${account_id}"
         local kms_key_id
         kms_key_id=$(aws kms describe-key --key-id "$kms_alias" --query 'KeyMetadata.KeyId' --output text 2>/dev/null || echo "")
 
         if [[ -n "$kms_key_id" ]]; then
+            # Delete alias first
+            if aws kms delete-alias --alias-name "$kms_alias" 2>&1; then
+                log_info "Deleted KMS alias: $kms_alias"
+            else
+                log_warn "Failed to delete KMS alias: $kms_alias (may not exist)"
+            fi
+
+            # Then schedule key deletion
             if aws kms schedule-key-deletion --key-id "$kms_key_id" --pending-window-in-days 7 2>&1; then
                 log_success "Scheduled KMS key deletion: $kms_key_id"
             else
-                log_warn "Failed to schedule KMS key deletion: $kms_key_id"
+                log_warn "Failed to schedule KMS key deletion: $kms_key_id (may already be pending)"
             fi
         fi
 

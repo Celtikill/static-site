@@ -389,11 +389,28 @@ delete_github_actions_role() {
     if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "delete-role-${environment}"; then
 
         if iam_role_exists "$role_name"; then
-            # Delete inline policies first
-            local policies
-            policies=$(aws iam list-role-policies --role-name "$role_name" --query 'PolicyNames[]' --output text 2>/dev/null)
+            # Detach managed policies first
+            local attached_policies
+            attached_policies=$(aws iam list-attached-role-policies --role-name "$role_name" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null)
 
-            for policy in $policies; do
+            for policy_arn in $attached_policies; do
+                if aws iam detach-role-policy --role-name "$role_name" --policy-arn "$policy_arn" 2>&1; then
+                    log_info "Detached managed policy: $policy_arn"
+
+                    # If it's a customer-managed policy (not AWS managed), delete it
+                    if [[ "$policy_arn" == *":policy/"* ]] && [[ "$policy_arn" != "arn:aws:iam::aws:policy/"* ]]; then
+                        if aws iam delete-policy --policy-arn "$policy_arn" 2>&1; then
+                            log_info "Deleted customer-managed policy: $policy_arn"
+                        fi
+                    fi
+                fi
+            done
+
+            # Delete inline policies
+            local inline_policies
+            inline_policies=$(aws iam list-role-policies --role-name "$role_name" --query 'PolicyNames[]' --output text 2>/dev/null)
+
+            for policy in $inline_policies; do
                 aws iam delete-role-policy --role-name "$role_name" --policy-name "$policy" 2>&1
                 log_info "Deleted inline policy: $policy"
             done
