@@ -1,16 +1,6 @@
 # S3 Module for Static Website Hosting
 # Implements AWS Well-Architected security and reliability patterns
 
-terraform {
-  required_providers {
-    aws = {
-      source                = "hashicorp/aws"
-      version               = "~> 5.0"
-      configuration_aliases = [aws.replica]
-    }
-  }
-}
-
 # Data source for current AWS account
 data "aws_caller_identity" "current" {}
 
