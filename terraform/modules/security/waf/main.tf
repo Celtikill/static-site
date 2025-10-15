@@ -1,16 +1,6 @@
 # WAF Module for Web Application Security
 # Implements OWASP Top 10 protection and defense-in-depth security
 
-terraform {
-  required_providers {
-    aws = {
-      source                = "hashicorp/aws"
-      version               = "~> 5.0"
-      configuration_aliases = [aws.cloudfront]
-    }
-  }
-}
-
 # WAF Web ACL
 resource "aws_wafv2_web_acl" "main" {
   name        = var.web_acl_name

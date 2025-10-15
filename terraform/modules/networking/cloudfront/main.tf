@@ -1,19 +1,6 @@
 # CloudFront Module for Global Content Delivery
 # Implements AWS Well-Architected performance and security patterns
 
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.4"
-    }
-  }
-}
-
 # Origin Access Control for S3
 resource "aws_cloudfront_origin_access_control" "website" {
   name                              = "${var.distribution_name}-oac"

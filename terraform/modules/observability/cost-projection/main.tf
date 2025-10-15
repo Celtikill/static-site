@@ -2,15 +2,6 @@
 # Calculates and reports monthly AWS infrastructure costs
 # Integrates with CI/CD pipeline for budget validation and cost tracking
 
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
 # Local pricing data for AWS services (based on us-east-1 pricing)
 locals {
   # S3 Storage pricing (USD per GB-month)
