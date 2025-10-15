@@ -46,11 +46,12 @@ ENVIRONMENT VARIABLES:
 DESCRIPTION:
     This script performs Stage 2 of the bootstrap process:
     1. Loads account IDs from accounts.json
-    2. Creates OIDC providers in all accounts
-    3. Creates GitHub Actions deployment roles
-    4. Creates Terraform state backends (S3 + DynamoDB)
-    5. Verifies all resources
-    6. Tests GitHub Actions integration
+    2. Ensures central foundation state bucket exists
+    3. Creates OIDC providers in all accounts
+    4. Creates GitHub Actions deployment roles
+    5. Creates Terraform state backends (S3 + DynamoDB)
+    6. Verifies all resources
+    7. Tests GitHub Actions integration
 
     PREREQUISITES:
     - AWS Organizations must exist (run bootstrap-organization.sh first)
@@ -111,9 +112,9 @@ main() {
     print_header "AWS Bootstrap Foundation - Stage 2"
 
     # Set total steps for progress tracking
-    local total_steps=6
+    local total_steps=7
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        total_steps=8
+        total_steps=9
     fi
     set_steps $total_steps
     start_timer
@@ -134,41 +135,47 @@ main() {
     log_info "Staging Account: $STAGING_ACCOUNT"
     log_info "Prod Account: $PROD_ACCOUNT"
 
-    # Step 2: Create OIDC providers
+    # Step 2: Ensure central foundation state bucket exists
+    step "Ensuring central foundation state bucket"
+    if ! ensure_central_state_bucket; then
+        die "Failed to create or verify central state bucket"
+    fi
+
+    # Step 3: Create OIDC providers
     step "Creating OIDC providers"
     if ! create_all_oidc_providers; then
         die "Failed to create OIDC providers"
     fi
 
-    # Step 3: Create GitHub Actions roles
+    # Step 4: Create GitHub Actions roles
     step "Creating GitHub Actions roles"
     if ! create_all_github_actions_roles; then
         die "Failed to create GitHub Actions roles"
     fi
 
-    # Step 4: Create Terraform backends
+    # Step 5: Create Terraform backends
     step "Creating Terraform backends"
     if ! create_all_terraform_backends; then
         die "Failed to create Terraform backends"
     fi
 
-    # Step 5: Generate backend configurations
+    # Step 6: Generate backend configurations
     step "Generating backend configurations"
     log_success "Backend configurations saved to: $OUTPUT_DIR/backend-config-*.hcl"
 
-    # Step 6: Summary
+    # Step 7: Summary
     step "Generating summary"
     end_timer
 
     # Optional verification steps
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        # Step 7: Run verification
+        # Step 8: Run verification
         step "Running verification tests"
         if ! run_full_verification; then
             log_warn "Some verification checks failed. Review the output above."
         fi
 
-        # Step 8: Generate report
+        # Step 9: Generate report
         step "Generating verification report"
         generate_verification_report
     fi
@@ -177,6 +184,11 @@ main() {
 
     cat <<EOF
 ${BOLD}Bootstrap Foundation Created:${NC}
+
+Central State Bucket:
+  ✓ static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}
+  Purpose: Stores foundation state (OIDC, IAM management, org management)
+  Access: Shared by all engineers with management account credentials
 
 OIDC Providers:
   ✓ Dev Account:     ${DEV_ACCOUNT}

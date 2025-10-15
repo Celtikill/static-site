@@ -3,6 +3,70 @@
 # Handles S3 state bucket and DynamoDB lock table creation
 
 # =============================================================================
+# CENTRAL FOUNDATION BUCKET
+# =============================================================================
+
+ensure_central_state_bucket() {
+    local bucket_name="static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
+
+    log_info "Checking for central foundation state bucket..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would ensure central bucket exists: $bucket_name"
+        return 0
+    fi
+
+    # Check if bucket already exists
+    if s3_bucket_exists "$bucket_name"; then
+        log_success "Central state bucket already exists: $bucket_name"
+        return 0
+    fi
+
+    log_info "Creating central foundation state bucket: $bucket_name"
+
+    # Create bucket
+    if ! aws s3 mb "s3://$bucket_name" --region "$AWS_DEFAULT_REGION" 2>&1; then
+        log_error "Failed to create central state bucket"
+        return 1
+    fi
+
+    # Enable versioning
+    if ! aws s3api put-bucket-versioning \
+        --bucket "$bucket_name" \
+        --versioning-configuration Status=Enabled 2>&1; then
+        log_warn "Failed to enable versioning on central bucket"
+    fi
+
+    # Block public access
+    if ! aws s3api put-public-access-block \
+        --bucket "$bucket_name" \
+        --public-access-block-configuration \
+            BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true 2>&1; then
+        log_warn "Failed to block public access on central bucket"
+    fi
+
+    # Enable encryption (AES256 - simple and sufficient)
+    if ! aws s3api put-bucket-encryption \
+        --bucket "$bucket_name" \
+        --server-side-encryption-configuration '{
+            "Rules": [{
+                "ApplyServerSideEncryptionByDefault": {
+                    "SSEAlgorithm": "AES256"
+                },
+                "BucketKeyEnabled": true
+            }]
+        }' 2>&1; then
+        log_warn "Failed to enable encryption on central bucket"
+    fi
+
+    log_success "Created central foundation state bucket: $bucket_name"
+    log_info "Purpose: Stores OIDC, IAM management, and org management state"
+    log_info "Access: Shared by all engineers with management account credentials"
+
+    return 0
+}
+
+# =============================================================================
 # BACKEND CREATION
 # =============================================================================
 
