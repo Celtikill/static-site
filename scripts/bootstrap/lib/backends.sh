@@ -402,7 +402,7 @@ migrate_to_remote_backend() {
     pushd "$main_terraform_dir" > /dev/null || return 1
 
     log_info "Re-initializing Terraform with remote backend..."
-    if terraform init -migrate-state -backend-config="$backend_config" -force-copy; then
+    if tofu init -migrate-state -backend-config="$backend_config" -force-copy; then
         log_success "Migrated $environment to remote backend"
         popd > /dev/null
         return 0
