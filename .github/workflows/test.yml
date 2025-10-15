@@ -123,14 +123,6 @@ jobs:
           conftest --version || exit 1
           echo "✅ All policy tools installed successfully"
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_CENTRAL }}
-          role-session-name: github-actions-policy-validation-${{ github.run_id }}
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
-          audience: sts.amazonaws.com
-
       - name: Policy Validation with OPA
         working-directory: terraform/environments/staging
         env:
