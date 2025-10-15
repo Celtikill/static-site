@@ -112,6 +112,10 @@ jobs:
               ;;
           esac
 
+          # Capitalize first letter for IAM role name (Dev, Staging, Prod)
+          ENV_CAP="$(echo "${TARGET_ENV}" | sed 's/./\U&/')"
+          echo "environment_cap=$ENV_CAP" >> $GITHUB_OUTPUT
+
       - name: 🔐 Configure AWS Credentials via OIDC
         id: auth
         uses: aws-actions/configure-aws-credentials@v4
