@@ -323,7 +323,7 @@ EOF
           fi
 
           # Cleanup
-          rm -f policy.tfplan plan.json *.rego *_output.txt
+          rm -f policy.tfplan plan.json *.rego *_output.txt backend_override.tf terraform.tfstate terraform.tfstate.backup .terraform.lock.hcl
 
   summary:
     name: "📊 Test Summary"
