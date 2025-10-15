@@ -179,13 +179,13 @@ jobs:
           # - Perfect for validation workflows that don't deploy
           # - No state bucket permissions needed
           echo "🔧 Creating local backend override for validation..."
-          cat > backend_override.tf <<'EOF'
-terraform {
-  backend "local" {
-    path = "terraform.tfstate"
-  }
-}
-EOF
+          cat > backend_override.tf <<-'HEREDOC'
+          	terraform {
+          	  backend "local" {
+          	    path = "terraform.tfstate"
+          	  }
+          	}
+          	HEREDOC
 
           # Initialize with local backend (ephemeral, destroyed after runner completes)
           echo "🔧 Initializing Terraform with local backend..."
