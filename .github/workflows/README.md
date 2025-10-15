@@ -100,15 +100,6 @@ gh workflow run bootstrap-distributed-backend.yml \
 
 ### Reusable Workflows
 
-#### `reusable-aws-auth.yml`
-**Purpose**: Centralized AWS authentication via OIDC
-
-**Outputs**:
-- AWS credentials configured
-- Session information
-
-**Used by**: All workflows requiring AWS access
-
 #### `reusable-terraform-ops.yml`
 **Purpose**: Standardized Terraform operations
 
@@ -168,9 +159,12 @@ Before using these workflows, ensure:
    ./bootstrap-foundation.sh
    ```
 
-2. **GitHub secrets configured**:
-   - Repository variables: `AWS_ACCOUNT_ID_DEV`, `AWS_ACCOUNT_ID_STAGING`, `AWS_ACCOUNT_ID_PROD`
-   - Repository secret: `AWS_ASSUME_ROLE_CENTRAL` (optional, for centralized role)
+2. **GitHub variables configured**:
+   - `AWS_ACCOUNT_ID_DEV` - Dev account ID (e.g., 822529998967)
+   - `AWS_ACCOUNT_ID_STAGING` - Staging account ID (e.g., 927588814642)
+   - `AWS_ACCOUNT_ID_PROD` - Prod account ID (e.g., 546274483801)
+   - `AWS_DEFAULT_REGION` - Default AWS region (e.g., us-east-1)
+   - `OPENTOFU_VERSION` - OpenTofu version (e.g., 1.8.8)
 
 3. **Repository references updated** (for forks):
    ```bash
@@ -223,23 +217,48 @@ graph TD
 
 ## 🔐 Security
 
-### OIDC Authentication
+### Direct OIDC Authentication
 
-All workflows use OpenID Connect (OIDC) to authenticate with AWS:
+All workflows use **direct OIDC authentication** - a single-step process where GitHub directly assumes environment-specific IAM roles:
 
 ```yaml
 - name: Configure AWS Credentials
   uses: aws-actions/configure-aws-credentials@v4
   with:
     role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-StaticSite-Dev-Role
+    role-session-name: github-actions-dev-${{ github.run_id }}
     aws-region: us-east-1
+    audience: sts.amazonaws.com
 ```
 
-**Benefits**:
-- ✅ No long-lived credentials
-- ✅ Short-lived tokens (1 hour)
-- ✅ Fine-grained IAM policies
-- ✅ Audit trail in CloudTrail
+**Key Points**:
+- ✅ **No centralized role** - Workflows authenticate directly to target account roles
+- ✅ **No long-lived credentials** - Uses OIDC tokens instead of AWS access keys
+- ✅ **Short-lived sessions** - Temporary credentials expire after job completion
+- ✅ **Repository scoping** - Roles trust only your specific GitHub repository
+- ✅ **Complete audit trail** - All actions logged in CloudTrail
+
+**Trust Policy Pattern**:
+Each IAM role trusts the GitHub OIDC provider with repository-specific conditions:
+```json
+{
+  "Effect": "Allow",
+  "Principal": {
+    "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+  },
+  "Action": "sts:AssumeRoleWithWebIdentity",
+  "Condition": {
+    "StringEquals": {
+      "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+    },
+    "StringLike": {
+      "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:*"
+    }
+  }
+}
+```
+
+This is the **AWS-recommended pattern** for GitHub Actions as of 2025.
 
 ### Environment Protection
 
