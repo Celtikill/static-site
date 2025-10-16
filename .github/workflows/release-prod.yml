@@ -1,0 +1,335 @@
+name: Production Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  deployments: write
+  actions: read
+
+env:
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
+  TF_IN_AUTOMATION: true
+  TF_CLI_ARGS: "-no-color"
+  NO_COLOR: 1
+
+jobs:
+  info:
+    name: "📋 Release Information"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_url: ${{ github.event.release.html_url }}
+      deploy_infrastructure: ${{ steps.version.outputs.deploy_infrastructure }}
+      deploy_website: ${{ steps.version.outputs.deploy_website }}
+    steps:
+      - name: Extract Version
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "deploy_infrastructure=true" >> $GITHUB_OUTPUT
+          echo "deploy_website=true" >> $GITHUB_OUTPUT
+
+          echo "# 🚀 Production Release: $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Notes**: ${{ github.event.release.html_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by**: GitHub Release publish" >> $GITHUB_STEP_SUMMARY
+
+  authorization:
+    name: "🔐 Production Authorization"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: info
+    environment:
+      name: production
+      url: ${{ github.event.release.html_url }}
+    steps:
+      - name: Production Authorization
+        run: |
+          echo "🔐 **Production Deployment Authorization**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: ${{ needs.info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release**: ${{ needs.info.outputs.release_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **AUTHORIZED**: Production deployment approved" >> $GITHUB_STEP_SUMMARY
+
+  setup:
+    name: "⚙️ Setup AWS Authentication"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, authorization]
+    outputs:
+      target_role_arn: ${{ steps.config.outputs.target_role_arn }}
+      aws_region: ${{ steps.config.outputs.aws_region }}
+    steps:
+      - name: Configure Production Authentication
+        id: config
+        run: |
+          TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/GitHubActions-StaticSite-Prod-Role"
+          AWS_REGION="us-east-1"
+
+          echo "target_role_arn=$TARGET_ROLE" >> $GITHUB_OUTPUT
+          echo "aws_region=$AWS_REGION" >> $GITHUB_OUTPUT
+
+          echo "🔐 **Production Authentication Setup**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target Role**: $TARGET_ROLE" >> $GITHUB_STEP_SUMMARY
+          echo "- **AWS Region**: $AWS_REGION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+  deploy_infrastructure:
+    name: "🏗️ Infrastructure Deployment"
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: [info, setup]
+    env:
+      TF_LOCK_TIMEOUT: 5m
+    outputs:
+      deployment_status: ${{ steps.deploy.outputs.deployment_status }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.setup.outputs.target_role_arn }}
+          role-session-name: github-actions-prod-${{ github.run_id }}
+          aws-region: ${{ needs.setup.outputs.aws_region }}
+          audience: sts.amazonaws.com
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+
+      - name: Deploy Infrastructure
+        id: deploy
+        working-directory: terraform/environments/prod
+        run: |
+          # Enable strict error handling
+          set -euo pipefail
+
+          echo "🏗️ **Infrastructure Deployment**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: production" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+          # Check for distributed backend configuration
+          BACKEND_CONFIG="../backend-configs/prod.hcl"
+          if [ -f "$BACKEND_CONFIG" ]; then
+            echo "✅ Using distributed backend configuration: $BACKEND_CONFIG" >> $GITHUB_STEP_SUMMARY
+            BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
+          else
+            echo "⚠️ Using legacy centralized backend (static backend.tf)" >> $GITHUB_STEP_SUMMARY
+            BACKEND_ARGS=""
+          fi
+
+          # Initialize Terraform
+          echo "🔧 Initializing with backend configuration..."
+          timeout 90s tofu init -no-color $BACKEND_ARGS
+
+          # Plan deployment
+          echo "📋 Creating deployment plan..."
+          timeout 300s tofu plan -no-color -out=deployment.tfplan
+
+          # Apply deployment
+          echo "🚀 Applying infrastructure changes..."
+          timeout 180s tofu apply -no-color -auto-approve deployment.tfplan
+
+          # Get outputs
+          BUCKET_NAME=$(tofu output -raw s3_bucket_name 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+          WEBSITE_URL=$(tofu output -raw website_url 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+
+          echo "deployment_status=success" >> $GITHUB_OUTPUT
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
+          echo "cloudfront_id=$CLOUDFRONT_ID" >> $GITHUB_ENV
+          echo "website_url=$WEBSITE_URL" >> $GITHUB_ENV
+
+          echo "✅ Infrastructure deployment completed successfully" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$WEBSITE_URL" ]; then
+            echo "🌐 **Website URL**: $WEBSITE_URL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  deploy_website:
+    name: "🌐 Website Deployment"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, setup, deploy_infrastructure]
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+      cloudfront_url: ${{ steps.deploy.outputs.cloudfront_url }}
+      s3_endpoint: ${{ steps.deploy.outputs.s3_endpoint }}
+      dashboard_url: ${{ steps.deploy.outputs.dashboard_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ needs.setup.outputs.target_role_arn }}
+          role-session-name: github-actions-prod-${{ github.run_id }}
+          aws-region: ${{ needs.setup.outputs.aws_region }}
+          audience: sts.amazonaws.com
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.OPENTOFU_VERSION }}
+
+      - name: Deploy Website Content
+        id: deploy
+        run: |
+          # Enable strict error handling
+          set -euo pipefail
+
+          echo "🌐 **Website Deployment**" >> $GITHUB_STEP_SUMMARY
+
+          # Get infrastructure outputs
+          cd terraform/environments/prod
+
+          # Check for distributed backend configuration
+          BACKEND_CONFIG="../backend-configs/prod.hcl"
+          if [ -f "$BACKEND_CONFIG" ]; then
+            BACKEND_ARGS="-backend-config=$BACKEND_CONFIG"
+          else
+            BACKEND_ARGS=""
+          fi
+
+          # Initialize to read outputs
+          timeout 60s tofu init -no-color $BACKEND_ARGS
+
+          # Refresh state
+          echo "🔄 Refreshing state..."
+          timeout 60s tofu refresh -no-color
+
+          # Get outputs using JSON format
+          OUTPUT_JSON=$(tofu output -no-color -json)
+
+          # Parse outputs
+          BUCKET_NAME=$(echo "$OUTPUT_JSON" | jq -r '.s3_bucket_id.value // empty')
+          WEBSITE_URL=$(echo "$OUTPUT_JSON" | jq -r '.website_url.value // empty')
+          S3_ENDPOINT=$(echo "$OUTPUT_JSON" | jq -r '.s3_bucket_domain_name.value // empty')
+          DASHBOARD_URL=$(echo "$OUTPUT_JSON" | jq -r '.cloudwatch_dashboard_url.value // empty')
+          CLOUDFRONT_ID=$(echo "$OUTPUT_JSON" | jq -r '.cloudfront_distribution_id.value // empty' | grep -v "^null$" || echo "")
+          CLOUDFRONT_URL=$(echo "$OUTPUT_JSON" | jq -r '.cloudfront_url.value // empty' | grep -v "^null$" || echo "")
+
+          echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
+
+          # Sync website content
+          echo "📤 Syncing website content to S3..."
+          timeout 120s aws s3 sync ../../../src/ s3://$BUCKET_NAME --delete --sse AES256
+
+          # Invalidate CloudFront cache if distribution exists
+          if [ -n "$CLOUDFRONT_ID" ]; then
+            echo "🔄 Invalidating CloudFront cache..."
+            timeout 60s aws cloudfront create-invalidation \
+              --distribution-id $CLOUDFRONT_ID \
+              --paths "/*"
+          else
+            echo "ℹ️ No CloudFront distribution to invalidate (cost-optimized S3-only deployment)"
+          fi
+
+          echo "deployment_url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+          echo "cloudfront_url=$CLOUDFRONT_URL" >> $GITHUB_OUTPUT
+          echo "s3_endpoint=$S3_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "dashboard_url=$DASHBOARD_URL" >> $GITHUB_OUTPUT
+
+          echo "✅ Website deployment completed successfully" >> $GITHUB_STEP_SUMMARY
+
+  validation:
+    name: "✅ Post-Deployment Validation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [info, deploy_infrastructure, deploy_website]
+    steps:
+      - name: Health Check
+        run: |
+          echo "✅ **Post-Deployment Validation**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+          WEBSITE_URL="${{ needs.deploy_website.outputs.deployment_url }}"
+
+          if [ -n "$WEBSITE_URL" ]; then
+            echo "🔍 Testing website accessibility..."
+
+            # Test website accessibility
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$WEBSITE_URL" || echo "000")
+
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ Website is accessible (HTTP $HTTP_STATUS)" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ Website returned HTTP $HTTP_STATUS" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "ℹ️ No website URL available for validation" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "✅ Post-deployment validation completed" >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: "📊 Deployment Summary"
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: [info, deploy_infrastructure, deploy_website, validation]
+    if: always()
+    steps:
+      - name: Final Summary
+        run: |
+          echo "## 📊 Production Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ needs.info.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | production |" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.deploy_infrastructure.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Website | ${{ needs.deploy_website.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Validation | ${{ needs.validation.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+
+          DEPLOY_URL="${{ needs.deploy_website.outputs.deployment_url }}"
+          CLOUDFRONT_URL="${{ needs.deploy_website.outputs.cloudfront_url }}"
+          DASHBOARD_URL="${{ needs.deploy_website.outputs.dashboard_url }}"
+
+          if [ -n "$DEPLOY_URL" ]; then
+            echo "| Primary URL | [$DEPLOY_URL]($DEPLOY_URL) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "$CLOUDFRONT_URL" ]; then
+            echo "| CloudFront URL | [$CLOUDFRONT_URL]($CLOUDFRONT_URL) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "$DASHBOARD_URL" ]; then
+            echo "| Monitoring | [$DASHBOARD_URL]($DASHBOARD_URL) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Final status
+          INFRA_SUCCESS="${{ needs.deploy_infrastructure.result }}"
+          WEBSITE_SUCCESS="${{ needs.deploy_website.result }}"
+
+          if [[ "$INFRA_SUCCESS" == "success" || "$INFRA_SUCCESS" == "skipped" ]] && \
+             [[ "$WEBSITE_SUCCESS" == "success" || "$WEBSITE_SUCCESS" == "skipped" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **PRODUCTION DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
+            echo "🌐 **Version**: ${{ needs.info.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+            if [ -n "$DEPLOY_URL" ]; then
+              echo "🔗 **Visit**: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **DEPLOYMENT FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "Check the deployment job logs for details" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
