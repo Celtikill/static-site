@@ -156,6 +156,8 @@ generate_deployment_policy() {
         "s3:CreateBucket",
         "s3:DeleteBucket",
         "s3:GetBucket*",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetLifecycleConfiguration",
         "s3:PutBucket*",
         "s3:ListBucket",
         "s3:GetObject",
@@ -164,7 +166,9 @@ generate_deployment_policy() {
       ],
       "Resource": [
         "arn:aws:s3:::static-site-*",
-        "arn:aws:s3:::static-site-*/*"
+        "arn:aws:s3:::static-site-*/*",
+        "arn:aws:s3:::static-website-*",
+        "arn:aws:s3:::static-website-*/*"
       ]
     },
     {
@@ -267,6 +271,20 @@ generate_deployment_policy() {
       "Resource": "*"
     },
     {
+      "Sid": "CloudWatchAlarms",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:PutMetricData",
+        "cloudwatch:ListTagsForResource",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "IAMRoleManagement",
       "Effect": "Allow",
       "Action": [
@@ -293,6 +311,7 @@ generate_deployment_policy() {
         "sns:Subscribe",
         "sns:Unsubscribe",
         "sns:ListSubscriptionsByTopic",
+        "sns:ListTagsForResource",
         "sns:TagResource",
         "sns:UntagResource"
       ],
@@ -306,7 +325,8 @@ generate_deployment_policy() {
         "budgets:ModifyBudget",
         "budgets:DeleteBudget",
         "budgets:ViewBudget",
-        "budgets:DescribeBudget"
+        "budgets:DescribeBudget",
+        "budgets:TagResource"
       ],
       "Resource": "*"
     }

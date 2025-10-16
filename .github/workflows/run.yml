@@ -226,6 +226,9 @@ jobs:
         id: deploy
         working-directory: terraform/environments/${{ needs.info.outputs.target_environment }}
         run: |
+          # Enable strict error handling
+          set -euo pipefail
+
           echo "🏗️ **Infrastructure Deployment**" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ needs.info.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
@@ -342,6 +345,9 @@ jobs:
       - name: Deploy Website Content
         id: deploy
         run: |
+          # Enable strict error handling
+          set -euo pipefail
+
           echo "🌐 **Website Deployment**" >> $GITHUB_STEP_SUMMARY
 
           # Get infrastructure outputs using dynamic backend configuration
