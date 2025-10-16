@@ -164,7 +164,9 @@ generate_deployment_policy() {
       ],
       "Resource": [
         "arn:aws:s3:::static-site-*",
-        "arn:aws:s3:::static-site-*/*"
+        "arn:aws:s3:::static-site-*/*",
+        "arn:aws:s3:::static-website-*",
+        "arn:aws:s3:::static-website-*/*"
       ]
     },
     {
@@ -267,6 +269,17 @@ generate_deployment_policy() {
       "Resource": "*"
     },
     {
+      "Sid": "CloudWatchAlarms",
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:PutMetricAlarm",
+        "cloudwatch:DeleteAlarms",
+        "cloudwatch:DescribeAlarms",
+        "cloudwatch:PutMetricData"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "IAMRoleManagement",
       "Effect": "Allow",
       "Action": [
@@ -307,7 +320,8 @@ generate_deployment_policy() {
         "budgets:ModifyBudget",
         "budgets:DeleteBudget",
         "budgets:ViewBudget",
-        "budgets:DescribeBudget"
+        "budgets:DescribeBudget",
+        "budgets:TagResource"
       ],
       "Resource": "*"
     }
