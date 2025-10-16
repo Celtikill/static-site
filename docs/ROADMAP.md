@@ -1,7 +1,7 @@
 # Project Roadmap
 
-**Last Updated**: October 15, 2025
-**Project Status**: BUILD/TEST workflows operational, RUN workflow pending IAM permission enhancement
+**Last Updated**: October 16, 2025
+**Project Status**: Full BUILD→TEST→RUN pipeline operational in dev environment
 
 ## 🎯 Overview
 
@@ -10,6 +10,39 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 ---
 
 ## ✅ Recently Completed Milestones
+
+### Pipeline IAM Permissions & Full Pipeline Validation
+**Status**: COMPLETED ✅ (October 2025)
+**Impact**: Full CI/CD pipeline operational, dev environment deployed successfully
+
+**Completed Work**:
+- ✅ Implemented middle-way IAM permission strategy
+  - Action-category wildcards (Get*, Put*, List*) with resource restrictions
+  - Balanced security with operational efficiency
+- ✅ Added workflow error handling (`set -euo pipefail`)
+  - Fixed error propagation in Infrastructure and Website deployment steps
+- ✅ Enhanced deployment policy with missing permissions:
+  - IAM role management (resource-scoped to `arn:aws:iam::*:role/static-site-*`)
+  - SNS topic management (resource-scoped to `arn:aws:sns:*:*:static-website-*`)
+  - Budget management
+  - CloudWatch logging with wildcards
+- ✅ Complete pipeline test: BUILD→TEST→RUN
+  - All 8 workflow jobs passing
+  - Zero IAM permission errors
+  - Infrastructure deployed to dev (822529998967)
+  - Website content deployed successfully
+- ✅ Updated documentation:
+  - `scripts/bootstrap/lib/roles.sh` - Policy generation with middle-way approach
+  - `policies/iam-static-website.json` - Documentation template updated
+  - `.github/workflows/run.yml` - Error handling enhanced
+
+**Architectural Benefits**:
+- **Pipeline Reliability**: Zero permission failures, proper error detection
+- **Security Balance**: Resource-scoped permissions with operational flexibility
+- **Documentation**: Comprehensive test plan and completion summary
+- **Multi-Account Ready**: Policies applied to dev/staging/prod accounts
+
+**See Also**: `PIPELINE-TEST-PLAN.md` for detailed implementation notes
 
 ### Infrastructure Documentation Overhaul
 **Status**: COMPLETED ✅ (October 2025)
@@ -104,27 +137,6 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 
 ## 🚀 Immediate Actions (Next 1-2 Weeks)
 
-### 0. Fix Pipeline IAM Permissions & Complete Full Pipeline Test
-**Priority**: URGENT 🔥
-**Status**: Ready to Execute
-**Effort**: 15 minutes
-**Value**: Enables full CI/CD pipeline operation
-
-**Objective**: Complete BUILD→TEST→RUN pipeline end-to-end
-- Enhance IAM deployment role with missing permissions (IAM, SNS, Budgets)
-- Re-run bootstrap script to update role policies
-- Test full pipeline with feature branch push
-- Verify infrastructure deployment to dev environment
-
-**Detailed Plan**: See `PIPELINE-TEST-PLAN.md` in repository root
-
-**Next Steps Tomorrow**:
-1. Edit `scripts/bootstrap/lib/roles.sh` - add 3 new policy statements
-2. Run `./scripts/bootstrap/bootstrap-foundation.sh --skip-verify`
-3. Create feature branch and trigger pipeline
-4. Monitor BUILD → TEST → RUN execution
-5. Verify successful deployment to dev account
-
 ### 1. Complete Documentation Examples
 **Priority**: HIGH ⭐
 **Status**: 30% COMPLETE 🚧
@@ -144,15 +156,20 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 
 ### 2. Complete Multi-Account Deployment
 **Priority**: HIGH ⭐
-**Status**: BLOCKED (Waiting for IAM permission fix)
+**Status**: READY (IAM permissions fixed) ✅
 **Impact**: Enables full production readiness
 
-**Blocker**: RUN workflow needs enhanced IAM permissions before multi-environment deployment
+**Blocker Resolved**: ✅ IAM permissions enhanced, dev deployment successful
 
-**After IAM Fix Complete**:
-1. Test dev deployment (via pipeline test plan)
+**Next Steps**:
+1. ✅ Test dev deployment (COMPLETED - Run ID: 18567763990)
 2. Deploy to staging environment (15 minutes)
+   - Trigger workflow on main branch or staging environment
+   - Verify infrastructure deployment
+   - Validate website content
 3. Deploy to production environment (15 minutes)
+   - Requires production authorization workflow
+   - Comprehensive pre-deployment validation
 4. Validate multi-account deployment (30 minutes)
 5. Test CloudFront invalidation across environments
 6. Verify monitoring and alerting functionality
@@ -467,8 +484,11 @@ This roadmap is reviewed quarterly to:
 - Add new opportunities identified
 - Adjust timelines based on resource availability
 
-**Last Review**: October 14, 2025
+**Last Review**: October 16, 2025
 **Next Review**: January 2026
+
+**Recent Updates**:
+- October 16, 2025: Moved "Fix Pipeline IAM Permissions" from Immediate Actions to Recently Completed
 
 ---
 
