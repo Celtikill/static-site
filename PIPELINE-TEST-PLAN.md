@@ -1,12 +1,17 @@
 # 🧪 BUILD→TEST→RUN Pipeline Test Plan (Informed by 2025 Best Practices)
 
-**Status**: Ready for execution
+**Status**: ✅ COMPLETED (Phase 1)
 **Date Created**: 2025-10-15
-**Last Updated**: 2025-10-15
+**Last Updated**: 2025-10-16
+**Completed**: 2025-10-16
 
 ## Executive Summary
 
-The BUILD and TEST workflows are operational. RUN workflow fails due to missing IAM permissions in the deployment role. This plan outlines how to fix the permissions and test the full pipeline.
+**PHASE 1 COMPLETE**: Full BUILD→TEST→RUN pipeline operational with middle-way IAM permissions approach. All workflows passing successfully in dev environment. Infrastructure and website deployment working end-to-end.
+
+**Original Issue**: BUILD and TEST workflows were operational, but RUN workflow failed due to missing IAM permissions.
+**Solution Implemented**: Middle-way permission strategy using action-category wildcards (Get*, Put*, List*) with resource restrictions, plus explicit workflow error handling.
+**Result**: Complete pipeline success - zero permission errors, proper error propagation, successful deployments.
 
 ## Key Insights from Web Research (2025 Best Practices)
 
@@ -163,29 +168,31 @@ GitHubActions-StaticSite-Dev-DeploymentRole (NEEDS ENHANCEMENT)
 
 ## Proposed Solution: Two Options
 
-### **Option A: Quick Fix (Single Role Enhanced) - RECOMMENDED FOR NOW**
+### **Option A: Middle-Way Approach (Single Role Enhanced) - ✅ COMPLETED**
 
-**Rationale**: Fastest path to working pipeline, aligns with current single-role architecture
+**Rationale**: Fastest path to working pipeline, balances security with operational efficiency
 
-**Action**: Enhance existing `generate_deployment_policy()` function in `scripts/bootstrap/lib/roles.sh`
+**Action**: Enhanced `generate_deployment_policy()` function in `scripts/bootstrap/lib/roles.sh` with middle-way permissions
 
-**Changes Needed**:
-1. Add IAM role creation permissions (after line 255)
-2. Add SNS management permissions (new statement)
-3. Add Budget management permissions (new statement)
+**Changes Implemented**:
+1. ✅ Action-category wildcards: `Get*`, `Put*`, `List*` instead of granular permissions
+2. ✅ Added IAM role creation permissions (resource-scoped to `arn:aws:iam::*:role/static-site-*`)
+3. ✅ Added SNS management permissions (resource-scoped to `arn:aws:sns:*:*:static-website-*`)
+4. ✅ Added Budget management permissions
+5. ✅ Maintained resource restrictions for security
+6. ✅ Added workflow error handling (`set -euo pipefail`)
 
-**Timeline**: ~15 minutes to fix + 3-4 minutes pipeline test
+**Actual Timeline**: ~45 minutes total (permission refinement + testing + workflow fixes)
 
-**Pros**:
-- ✅ Minimal changes to existing architecture
-- ✅ Fast to implement and test
-- ✅ Works with current workflow configuration
+**Results**:
+- ✅ Zero IAM permission errors
+- ✅ All 8 workflow jobs passing (Infrastructure + Website deployment)
+- ✅ Proper error propagation in workflows
 - ✅ Can refactor to two-role model later
 
-**Cons**:
-- ❌ Same role does validation and deployment (less secure)
-- ❌ No separation of concerns
-- ❌ Harder to audit who did what
+**Trade-offs Accepted**:
+- ⚠️ Same role does validation and deployment (acceptable for current stage)
+- ⚠️ Broader wildcards than strict least-privilege (balanced for operational efficiency)
 
 ---
 
@@ -386,15 +393,17 @@ git checkout HEAD~1 scripts/bootstrap/lib/roles.sh
 
 ## Success Criteria
 
-### Phase 1 Complete When:
-- [ ] Bootstrap script updated with new permissions
-- [ ] Bootstrap re-run successfully updates all role policies
-- [ ] Feature branch push triggers full BUILD→TEST→RUN pipeline
-- [ ] BUILD workflow passes (security scans)
-- [ ] TEST workflow passes (terraform plan in dev)
-- [ ] RUN workflow passes (infrastructure deployed to dev)
-- [ ] Website content accessible at S3 endpoint
-- [ ] No IAM permission errors in logs
+### Phase 1 Complete ✅ (2025-10-16):
+- [x] Bootstrap script updated with middle-way permissions
+- [x] Bootstrap re-run successfully updated all role policies
+- [x] Feature branch push triggered full BUILD→TEST→RUN pipeline
+- [x] BUILD workflow passes (security scans) - 20s execution time
+- [x] TEST workflow passes (terraform plan in dev) - 38s execution time
+- [x] RUN workflow passes (infrastructure deployed to dev) - ~2m execution time
+- [x] Website content accessible at S3 endpoint
+- [x] No IAM permission errors in logs
+- [x] Workflow error handling fixed (`set -euo pipefail`)
+- [x] All 8 workflow jobs passing successfully
 
 ### Phase 2 Complete When:
 - [ ] Separate ValidationRole created in all accounts
@@ -474,5 +483,29 @@ git checkout HEAD~1 scripts/bootstrap/lib/roles.sh
 
 ---
 
-**Last Updated**: 2025-10-15 19:30 UTC
-**Status**: Ready for Phase 1 execution
+**Last Updated**: 2025-10-16
+**Status**: Phase 1 COMPLETED ✅ | Phase 2 (Two-Role Model) remains future enhancement
+
+---
+
+## Completion Summary (Phase 1)
+
+**Date Completed**: 2025-10-16
+**Approach**: Middle-way IAM permissions with action-category wildcards
+**Results**: Full pipeline operational (BUILD→TEST→RUN)
+
+**Key Changes Made**:
+1. `scripts/bootstrap/lib/roles.sh` - Middle-way permission wildcards (Get*, Put*, List*)
+2. `.github/workflows/run.yml` - Strict error handling (`set -euo pipefail`)
+3. `policies/iam-static-website.json` - Documentation updated to match implementation
+
+**Workflow Run Evidence**:
+- Run ID: 18567763990
+- All jobs: SUCCESS
+- Zero permission errors
+- Infrastructure + Website deployed successfully
+
+**Next Steps**:
+- Multi-account deployment (staging + prod)
+- Documentation and cleanup
+- Consider Phase 2 (two-role model) for production readiness

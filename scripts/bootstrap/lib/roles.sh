@@ -155,13 +155,9 @@ generate_deployment_policy() {
       "Action": [
         "s3:CreateBucket",
         "s3:DeleteBucket",
-        "s3:GetBucket*",
-        "s3:GetAccelerateConfiguration",
-        "s3:GetLifecycleConfiguration",
-        "s3:PutBucket*",
-        "s3:ListBucket",
-        "s3:GetObject",
-        "s3:PutObject",
+        "s3:Get*",
+        "s3:Put*",
+        "s3:List*",
         "s3:DeleteObject"
       ],
       "Resource": [
@@ -175,21 +171,14 @@ generate_deployment_policy() {
       "Sid": "CloudFrontManagement",
       "Effect": "Allow",
       "Action": [
-        "cloudfront:CreateDistribution",
-        "cloudfront:DeleteDistribution",
-        "cloudfront:GetDistribution",
-        "cloudfront:GetDistributionConfig",
-        "cloudfront:UpdateDistribution",
-        "cloudfront:ListDistributions",
+        "cloudfront:*Distribution*",
+        "cloudfront:*Invalidation*",
+        "cloudfront:*OriginAccessControl*",
+        "cloudfront:*OriginAccessIdentity*",
+        "cloudfront:Get*",
+        "cloudfront:List*",
         "cloudfront:TagResource",
-        "cloudfront:UntagResource",
-        "cloudfront:CreateInvalidation",
-        "cloudfront:GetInvalidation",
-        "cloudfront:ListInvalidations",
-        "cloudfront:CreateOriginAccessControl",
-        "cloudfront:DeleteOriginAccessControl",
-        "cloudfront:GetOriginAccessControl",
-        "cloudfront:UpdateOriginAccessControl"
+        "cloudfront:UntagResource"
       ],
       "Resource": "*"
     },
@@ -197,12 +186,11 @@ generate_deployment_policy() {
       "Sid": "ACMCertificateManagement",
       "Effect": "Allow",
       "Action": [
-        "acm:RequestCertificate",
-        "acm:DeleteCertificate",
-        "acm:DescribeCertificate",
-        "acm:ListCertificates",
-        "acm:AddTagsToCertificate",
-        "acm:RemoveTagsFromCertificate"
+        "acm:*Certificate*",
+        "acm:Get*",
+        "acm:List*",
+        "acm:Describe*",
+        "acm:*Tags*"
       ],
       "Resource": "*"
     },
@@ -210,15 +198,11 @@ generate_deployment_policy() {
       "Sid": "Route53Management",
       "Effect": "Allow",
       "Action": [
-        "route53:CreateHostedZone",
-        "route53:DeleteHostedZone",
-        "route53:GetHostedZone",
-        "route53:ListHostedZones",
-        "route53:ChangeResourceRecordSets",
-        "route53:GetChange",
-        "route53:ListResourceRecordSets",
-        "route53:ChangeTagsForResource",
-        "route53:ListTagsForResource"
+        "route53:*HostedZone*",
+        "route53:*ResourceRecordSets",
+        "route53:Get*",
+        "route53:List*",
+        "route53:*Tags*"
       ],
       "Resource": "*"
     },
@@ -226,20 +210,12 @@ generate_deployment_policy() {
       "Sid": "KMSKeyManagement",
       "Effect": "Allow",
       "Action": [
-        "kms:CreateKey",
-        "kms:CreateAlias",
-        "kms:DeleteAlias",
-        "kms:DescribeKey",
-        "kms:GetKeyPolicy",
-        "kms:GetKeyRotationStatus",
-        "kms:ListAliases",
-        "kms:ListKeys",
-        "kms:ListResourceTags",
-        "kms:PutKeyPolicy",
-        "kms:TagResource",
-        "kms:UntagResource",
-        "kms:EnableKeyRotation",
-        "kms:ScheduleKeyDeletion",
+        "kms:*Key*",
+        "kms:*Alias*",
+        "kms:Get*",
+        "kms:List*",
+        "kms:Describe*",
+        "kms:*Tag*",
         "kms:Decrypt",
         "kms:Encrypt",
         "kms:GenerateDataKey"
@@ -258,29 +234,22 @@ generate_deployment_policy() {
       "Resource": "*"
     },
     {
-      "Sid": "CloudWatchLogs",
+      "Sid": "CloudWatchManagement",
       "Effect": "Allow",
       "Action": [
-        "logs:CreateLogGroup",
-        "logs:DeleteLogGroup",
-        "logs:DescribeLogGroups",
-        "logs:PutRetentionPolicy",
-        "logs:TagResource",
-        "logs:UntagResource"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "CloudWatchAlarms",
-      "Effect": "Allow",
-      "Action": [
-        "cloudwatch:PutMetricAlarm",
-        "cloudwatch:DeleteAlarms",
-        "cloudwatch:DescribeAlarms",
-        "cloudwatch:PutMetricData",
-        "cloudwatch:ListTagsForResource",
-        "cloudwatch:TagResource",
-        "cloudwatch:UntagResource"
+        "logs:*LogGroup*",
+        "logs:*RetentionPolicy",
+        "logs:*Resource",
+        "logs:Get*",
+        "logs:Describe*",
+        "logs:List*",
+        "cloudwatch:*Alarm*",
+        "cloudwatch:*Dashboard*",
+        "cloudwatch:*MetricData",
+        "cloudwatch:Get*",
+        "cloudwatch:List*",
+        "cloudwatch:Describe*",
+        "cloudwatch:*Tag*"
       ],
       "Resource": "*"
     },
@@ -304,16 +273,11 @@ generate_deployment_policy() {
       "Sid": "SNSTopicManagement",
       "Effect": "Allow",
       "Action": [
-        "sns:CreateTopic",
-        "sns:DeleteTopic",
-        "sns:GetTopicAttributes",
-        "sns:SetTopicAttributes",
-        "sns:Subscribe",
-        "sns:Unsubscribe",
-        "sns:ListSubscriptionsByTopic",
-        "sns:ListTagsForResource",
-        "sns:TagResource",
-        "sns:UntagResource"
+        "sns:*Topic*",
+        "sns:*Subscription*",
+        "sns:Get*",
+        "sns:List*",
+        "sns:*Tag*"
       ],
       "Resource": "arn:aws:sns:*:*:static-website-*"
     },
@@ -321,12 +285,11 @@ generate_deployment_policy() {
       "Sid": "BudgetManagement",
       "Effect": "Allow",
       "Action": [
-        "budgets:CreateBudget",
-        "budgets:ModifyBudget",
-        "budgets:DeleteBudget",
-        "budgets:ViewBudget",
-        "budgets:DescribeBudget",
-        "budgets:TagResource"
+        "budgets:*Budget*",
+        "budgets:Get*",
+        "budgets:Describe*",
+        "budgets:View*",
+        "budgets:*Tag*"
       ],
       "Resource": "*"
     }

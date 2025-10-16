@@ -7,15 +7,10 @@
       "Action": [
         "s3:CreateBucket",
         "s3:DeleteBucket",
-        "s3:GetBucket*",
-        "s3:GetAccelerateConfiguration",
-        "s3:GetLifecycleConfiguration",
-        "s3:PutBucket*",
-        "s3:DeleteBucket*",
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:List*"
+        "s3:Get*",
+        "s3:Put*",
+        "s3:List*",
+        "s3:DeleteObject"
       ],
       "Resource": [
         "arn:aws:s3:::static-website-ENVIRONMENT-*",
@@ -26,15 +21,14 @@
       "Sid": "CloudFrontManagement",
       "Effect": "Allow",
       "Action": [
-        "cloudfront:CreateDistribution",
-        "cloudfront:GetDistribution*",
-        "cloudfront:UpdateDistribution",
-        "cloudfront:DeleteDistribution",
-        "cloudfront:*OriginAccessControl",
-        "cloudfront:*OriginAccessIdentity",
+        "cloudfront:*Distribution*",
+        "cloudfront:*Invalidation*",
+        "cloudfront:*OriginAccessControl*",
+        "cloudfront:*OriginAccessIdentity*",
+        "cloudfront:Get*",
+        "cloudfront:List*",
         "cloudfront:TagResource",
-        "cloudfront:UntagResource",
-        "cloudfront:ListTagsForResource"
+        "cloudfront:UntagResource"
       ],
       "Resource": "*",
       "Condition": {
@@ -47,14 +41,11 @@
       "Sid": "WAFManagement",
       "Effect": "Allow",
       "Action": [
-        "wafv2:CreateWebACL",
-        "wafv2:GetWebACL",
-        "wafv2:UpdateWebACL",
-        "wafv2:DeleteWebACL",
-        "wafv2:ListWebACLs",
-        "wafv2:*RuleGroup",
-        "wafv2:TagResource",
-        "wafv2:UntagResource"
+        "wafv2:*WebACL*",
+        "wafv2:*RuleGroup*",
+        "wafv2:Get*",
+        "wafv2:List*",
+        "wafv2:*Tag*"
       ],
       "Resource": "*",
       "Condition": {
@@ -64,42 +55,64 @@
       }
     },
     {
-      "Sid": "CloudWatchManagement",
+      "Sid": "ACMCertificateManagement",
       "Effect": "Allow",
       "Action": [
-        "cloudwatch:PutMetricAlarm",
-        "cloudwatch:DeleteAlarms",
-        "cloudwatch:PutDashboard",
-        "cloudwatch:DeleteDashboards",
-        "cloudwatch:Get*",
-        "cloudwatch:List*",
-        "cloudwatch:Describe*",
-        "logs:CreateLogGroup",
-        "logs:DeleteLogGroup",
-        "logs:PutRetentionPolicy",
-        "logs:TagLogGroup",
-        "logs:Get*",
-        "logs:List*"
+        "acm:*Certificate*",
+        "acm:Get*",
+        "acm:List*",
+        "acm:Describe*",
+        "acm:*Tags*"
       ],
       "Resource": "*"
     },
     {
-      "Sid": "KMSOperations",
+      "Sid": "Route53Management",
       "Effect": "Allow",
       "Action": [
-        "kms:Encrypt",
-        "kms:Decrypt",
-        "kms:ReEncrypt*",
-        "kms:GenerateDataKey*",
-        "kms:Get*",
-        "kms:Describe*",
-        "kms:ListResourceTags",
-        "kms:ListAliases",
-        "kms:ListKeys"
+        "route53:*HostedZone*",
+        "route53:*ResourceRecordSets",
+        "route53:Get*",
+        "route53:List*",
+        "route53:*Tags*"
       ],
-      "Resource": [
-        "arn:aws:kms:REGION:ACCOUNT_ID:key/*"
-      ]
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchManagement",
+      "Effect": "Allow",
+      "Action": [
+        "logs:*LogGroup*",
+        "logs:*RetentionPolicy",
+        "logs:*Resource",
+        "logs:Get*",
+        "logs:Describe*",
+        "logs:List*",
+        "cloudwatch:*Alarm*",
+        "cloudwatch:*Dashboard*",
+        "cloudwatch:*MetricData",
+        "cloudwatch:Get*",
+        "cloudwatch:List*",
+        "cloudwatch:Describe*",
+        "cloudwatch:*Tag*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "KMSKeyManagement",
+      "Effect": "Allow",
+      "Action": [
+        "kms:*Key*",
+        "kms:*Alias*",
+        "kms:Get*",
+        "kms:List*",
+        "kms:Describe*",
+        "kms:*Tag*",
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey"
+      ],
+      "Resource": "arn:aws:kms:REGION:ACCOUNT_ID:key/*"
     },
     {
       "Sid": "ReadOnlyPermissions",
@@ -133,16 +146,11 @@
       "Sid": "SNSTopicManagement",
       "Effect": "Allow",
       "Action": [
-        "sns:CreateTopic",
-        "sns:DeleteTopic",
-        "sns:GetTopicAttributes",
-        "sns:SetTopicAttributes",
-        "sns:Subscribe",
-        "sns:Unsubscribe",
-        "sns:ListSubscriptionsByTopic",
-        "sns:ListTagsForResource",
-        "sns:TagResource",
-        "sns:UntagResource"
+        "sns:*Topic*",
+        "sns:*Subscription*",
+        "sns:Get*",
+        "sns:List*",
+        "sns:*Tag*"
       ],
       "Resource": "arn:aws:sns:REGION:ACCOUNT_ID:static-website-*"
     },
@@ -150,11 +158,11 @@
       "Sid": "BudgetManagement",
       "Effect": "Allow",
       "Action": [
-        "budgets:CreateBudget",
-        "budgets:ModifyBudget",
-        "budgets:DeleteBudget",
-        "budgets:ViewBudget",
-        "budgets:DescribeBudget"
+        "budgets:*Budget*",
+        "budgets:Get*",
+        "budgets:Describe*",
+        "budgets:View*",
+        "budgets:*Tag*"
       ],
       "Resource": "*"
     }
