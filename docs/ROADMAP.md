@@ -11,6 +11,47 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 
 ## ✅ Recently Completed Milestones
 
+### Branch-Based Deployment Architecture & Release Automation
+**Status**: COMPLETED ✅ (October 2025)
+**Impact**: Progressive promotion model with manual semantic versioning and automated workflows
+
+**Completed Work**:
+- ✅ Implemented branch-based deployment routing
+  - `feature/*`, `bugfix/*`, `hotfix/*`, `develop` → dev environment
+  - `main` → staging environment (changed from dev)
+  - GitHub Releases → production with manual approval
+- ✅ Created comprehensive documentation:
+  - `CONTRIBUTING.md` - Development workflow, PR guidelines, commit standards
+  - `QUICK-START.md` - 10-minute deployment guide
+  - `RELEASE-PROCESS.md` - Production release workflow with semantic versioning
+  - Updated `MULTI-ACCOUNT-DEPLOYMENT.md` with new architecture
+- ✅ Implemented Conventional Commits enforcement:
+  - PR title validation using `amannn/action-semantic-pull-request`
+  - Helpful error messages and examples
+  - Zero NPM dependencies in project
+- ✅ Created production release workflow:
+  - `.github/workflows/release-prod.yml` - GitHub Release-triggered deployment
+  - Manual approval gate via GitHub Environments
+  - Full infrastructure + website deployment to prod
+- ✅ Documented with 5 comprehensive ADRs:
+  - ADR-001: IAM Permission Strategy (Middle-Way Approach)
+  - ADR-002: Branch-Based Deployment Routing Strategy
+  - ADR-003: Manual Semantic Versioning with GitHub Releases
+  - ADR-004: Conventional Commits Enforcement via PR Validation
+  - ADR-005: Deployment Documentation Architecture
+- ✅ Removed obsolete documentation:
+  - Deleted `PIPELINE-TEST-PLAN.md` (phase 1 complete)
+  - Consolidated deployment guidance into layered docs
+
+**Architectural Benefits**:
+- **Progressive Promotion**: Clear path from dev → staging → production
+- **Quality Gates**: PR validation, staging testing, production authorization
+- **Release Notes**: Auto-generated from PR titles using Conventional Commits
+- **Manual SemVer**: Engineer-controlled versioning without NPM complexity
+- **Documentation**: Layered guides for different user personas
+
+**Related Documentation**: `docs/architecture/ADR-002.md`, `RELEASE-PROCESS.md`
+
 ### Pipeline IAM Permissions & Full Pipeline Validation
 **Status**: COMPLETED ✅ (October 2025)
 **Impact**: Full CI/CD pipeline operational, dev environment deployed successfully
@@ -39,10 +80,9 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 **Architectural Benefits**:
 - **Pipeline Reliability**: Zero permission failures, proper error detection
 - **Security Balance**: Resource-scoped permissions with operational flexibility
-- **Documentation**: Comprehensive test plan and completion summary
 - **Multi-Account Ready**: Policies applied to dev/staging/prod accounts
 
-**See Also**: `PIPELINE-TEST-PLAN.md` for detailed implementation notes
+**Related Documentation**: `docs/architecture/ADR-001.md`
 
 ### Infrastructure Documentation Overhaul
 **Status**: COMPLETED ✅ (October 2025)
@@ -488,6 +528,8 @@ This roadmap is reviewed quarterly to:
 **Next Review**: January 2026
 
 **Recent Updates**:
+- October 16, 2025: Implemented branch-based deployment architecture with semantic versioning
+- October 16, 2025: Created comprehensive deployment documentation (CONTRIBUTING.md, QUICK-START.md, RELEASE-PROCESS.md)
 - October 16, 2025: Moved "Fix Pipeline IAM Permissions" from Immediate Actions to Recently Completed
 
 ---
