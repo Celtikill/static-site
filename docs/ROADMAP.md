@@ -1,7 +1,7 @@
 # Project Roadmap
 
 **Last Updated**: October 15, 2025
-**Project Status**: Infrastructure documentation complete, ready for deployment and scaling
+**Project Status**: BUILD/TEST workflows operational, RUN workflow pending IAM permission enhancement
 
 ## 🎯 Overview
 
@@ -104,6 +104,27 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 
 ## 🚀 Immediate Actions (Next 1-2 Weeks)
 
+### 0. Fix Pipeline IAM Permissions & Complete Full Pipeline Test
+**Priority**: URGENT 🔥
+**Status**: Ready to Execute
+**Effort**: 15 minutes
+**Value**: Enables full CI/CD pipeline operation
+
+**Objective**: Complete BUILD→TEST→RUN pipeline end-to-end
+- Enhance IAM deployment role with missing permissions (IAM, SNS, Budgets)
+- Re-run bootstrap script to update role policies
+- Test full pipeline with feature branch push
+- Verify infrastructure deployment to dev environment
+
+**Detailed Plan**: See `PIPELINE-TEST-PLAN.md` in repository root
+
+**Next Steps Tomorrow**:
+1. Edit `scripts/bootstrap/lib/roles.sh` - add 3 new policy statements
+2. Run `./scripts/bootstrap/bootstrap-foundation.sh --skip-verify`
+3. Create feature branch and trigger pipeline
+4. Monitor BUILD → TEST → RUN execution
+5. Verify successful deployment to dev account
+
 ### 1. Complete Documentation Examples
 **Priority**: HIGH ⭐
 **Status**: 30% COMPLETE 🚧
@@ -123,30 +144,18 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 
 ### 2. Complete Multi-Account Deployment
 **Priority**: HIGH ⭐
-**Status**: Ready to Execute
+**Status**: BLOCKED (Waiting for IAM permission fix)
 **Impact**: Enables full production readiness
 
-#### Bootstrap Remaining Environments
-```bash
-# Staging Environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+**Blocker**: RUN workflow needs enhanced IAM permissions before multi-environment deployment
 
-# Production Environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=prod \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
-```
-
-#### Deploy Infrastructure
-- Deploy to staging environment (15 minutes)
-- Deploy to production environment (15 minutes)
-- Validate multi-account deployment (30 minutes)
-- Test CloudFront invalidation across environments
-- Verify monitoring and alerting functionality
+**After IAM Fix Complete**:
+1. Test dev deployment (via pipeline test plan)
+2. Deploy to staging environment (15 minutes)
+3. Deploy to production environment (15 minutes)
+4. Validate multi-account deployment (30 minutes)
+5. Test CloudFront invalidation across environments
+6. Verify monitoring and alerting functionality
 
 ### 3. Variable Documentation Standardization
 **Priority**: MEDIUM ⭐⭐
