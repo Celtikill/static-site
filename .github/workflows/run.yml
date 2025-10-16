@@ -227,8 +227,11 @@ jobs:
         id: deploy
         working-directory: terraform/environments/${{ needs.info.outputs.target_environment }}
         run: |
-          # Enable strict error handling
+          # Enable strict error handling - any command failure will exit the script
           set -euo pipefail
+
+          # Trap errors and ensure they're logged
+          trap 'echo "::error::Script failed at line $LINENO with exit code $?"' ERR
 
           echo "🏗️ **Infrastructure Deployment**" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ needs.info.outputs.target_environment }}" >> $GITHUB_STEP_SUMMARY
@@ -246,6 +249,7 @@ jobs:
               echo "⏳ Attempt $attempt/$max_attempts..."
 
               if timeout ${timeout_duration}s "$@"; then
+                echo "✅ Command succeeded on attempt $attempt"
                 return 0
               fi
 
@@ -262,10 +266,13 @@ jobs:
                 delay=$((delay * 2))  # Exponential backoff
                 attempt=$((attempt + 1))
               else
-                echo "❌ All retry attempts exhausted"
+                echo "❌ All retry attempts exhausted, final exit code: $exit_code"
+                # Ensure we return non-zero on failure
                 return $exit_code
               fi
             done
+            # Should never reach here, but return failure if we do
+            return 1
           }
 
           # Check for distributed backend configuration
@@ -285,23 +292,38 @@ jobs:
           # Plan deployment with retry logic
           echo "📋 Creating deployment plan..."
           if ! retry_with_backoff 300 tofu plan -no-color -out=deployment.tfplan; then
-            echo "❌ Failed to create deployment plan" >> $GITHUB_STEP_SUMMARY
+            PLAN_EXIT_CODE=$?
+            echo "❌ Failed to create deployment plan (exit code: $PLAN_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
             echo "deployment_status=failed" >> $GITHUB_OUTPUT
+            echo "::error::Terraform plan failed with exit code $PLAN_EXIT_CODE"
             exit 1
           fi
+          echo "✅ Deployment plan created successfully" >> $GITHUB_STEP_SUMMARY
 
           # Apply deployment with retry logic
           echo "🚀 Applying infrastructure changes..."
           if ! retry_with_backoff 180 tofu apply -no-color -auto-approve deployment.tfplan; then
-            echo "❌ Failed to apply infrastructure changes" >> $GITHUB_STEP_SUMMARY
+            APPLY_EXIT_CODE=$?
+            echo "❌ Failed to apply infrastructure changes (exit code: $APPLY_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
             echo "deployment_status=failed" >> $GITHUB_OUTPUT
+            echo "::error::Terraform apply failed with exit code $APPLY_EXIT_CODE"
             exit 1
           fi
+          echo "✅ Infrastructure changes applied successfully" >> $GITHUB_STEP_SUMMARY
 
           # Get outputs (filter out warnings)
+          echo "📊 Retrieving infrastructure outputs..."
           BUCKET_NAME=$(tofu output -raw s3_bucket_name 2>&1 | grep -v "Warning:" | head -n1 || echo "")
           CLOUDFRONT_ID=$(tofu output -raw cloudfront_distribution_id 2>&1 | grep -v "Warning:" | head -n1 || echo "")
           WEBSITE_URL=$(tofu output -raw website_url 2>&1 | grep -v "Warning:" | head -n1 || echo "")
+
+          # Validate critical outputs exist
+          if [ -z "$BUCKET_NAME" ]; then
+            echo "::error::Critical output missing: s3_bucket_name is empty"
+            echo "❌ Infrastructure deployment incomplete - S3 bucket not created" >> $GITHUB_STEP_SUMMARY
+            echo "deployment_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
 
           echo "deployment_status=success" >> $GITHUB_OUTPUT
           echo "bucket_name=$BUCKET_NAME" >> $GITHUB_ENV
@@ -309,8 +331,12 @@ jobs:
           echo "website_url=$WEBSITE_URL" >> $GITHUB_ENV
 
           echo "✅ Infrastructure deployment completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           if [ -n "$WEBSITE_URL" ]; then
-            echo "🌐 **Website URL**: $WEBSITE_URL" >> $GITHUB_STEP_SUMMARY
+            echo "- **Website URL**: $WEBSITE_URL" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -n "$CLOUDFRONT_ID" ]; then
+            echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
           fi
 
   deploy_website:
