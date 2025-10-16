@@ -293,6 +293,7 @@ generate_deployment_policy() {
         "sns:Subscribe",
         "sns:Unsubscribe",
         "sns:ListSubscriptionsByTopic",
+        "sns:ListTagsForResource",
         "sns:TagResource",
         "sns:UntagResource"
       ],
