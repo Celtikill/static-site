@@ -48,6 +48,12 @@ This guide covers deploying the static website infrastructure to all three AWS a
 
 ### Method 1: GitHub Actions Workflow (Recommended)
 
+Our deployment strategy follows a progressive promotion model:
+
+```
+feature/* → dev → main → staging → release → production
+```
+
 #### Deploy to Dev
 
 Development branches automatically deploy to the dev environment:
