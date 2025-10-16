@@ -156,6 +156,7 @@ generate_deployment_policy() {
         "s3:CreateBucket",
         "s3:DeleteBucket",
         "s3:GetBucket*",
+        "s3:GetAccelerateConfiguration",
         "s3:PutBucket*",
         "s3:ListBucket",
         "s3:GetObject",
@@ -275,7 +276,10 @@ generate_deployment_policy() {
         "cloudwatch:PutMetricAlarm",
         "cloudwatch:DeleteAlarms",
         "cloudwatch:DescribeAlarms",
-        "cloudwatch:PutMetricData"
+        "cloudwatch:PutMetricData",
+        "cloudwatch:ListTagsForResource",
+        "cloudwatch:TagResource",
+        "cloudwatch:UntagResource"
       ],
       "Resource": "*"
     },
