@@ -40,8 +40,9 @@ env:
 
 concurrency:
   # Ensure per-environment serialization to prevent Terraform state lock conflicts
-  # Manual dispatches use selected environment, automatic runs default to 'dev'
-  group: deploy-${{ inputs.environment || 'dev' }}
+  # Manual dispatches use selected environment, automatic runs route by branch
+  # main → staging, feature/* → dev
+  group: deploy-${{ inputs.environment || github.event.workflow_run.head_branch || 'dev' }}
   cancel-in-progress: false
 
 jobs:
@@ -89,14 +90,14 @@ jobs:
             BRANCH="${{ github.event.workflow_run.head_branch }}"
             case "$BRANCH" in
               main)
-                # Main branch auto-deploys to dev environment
-                TARGET_ENV="dev"
-                echo "ℹ️ Main branch deployment to dev environment"
+                # Main branch auto-deploys to staging environment
+                TARGET_ENV="staging"
+                echo "ℹ️ Main branch deployment to staging environment"
                 ;;
-              feature/*|bugfix/*|hotfix/*)
-                # Feature branches deploy to dev environment
+              feature/*|bugfix/*|hotfix/*|develop)
+                # Development branches deploy to dev environment
                 TARGET_ENV="dev"
-                echo "ℹ️ Feature branch deployment to dev environment"
+                echo "ℹ️ Development branch deployment to dev environment"
                 ;;
               *)
                 # Default to dev for any other branch
