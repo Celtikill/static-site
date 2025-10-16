@@ -48,62 +48,113 @@ This guide covers deploying the static website infrastructure to all three AWS a
 
 ### Method 1: GitHub Actions Workflow (Recommended)
 
-#### Deploy to Staging
+#### Deploy to Dev
 
-**Option A: Via Main Branch Push** (Triggers TEST validation of staging)
+Development branches automatically deploy to the dev environment:
+
 ```bash
-# Main branch pushes trigger TEST workflow against staging
-git checkout main
-git pull origin main
+# Create feature branch
+git checkout -b feature/my-feature
 
-# Make a trivial change to trigger pipeline
-echo "<!-- Deploy to staging $(date) -->" >> src/index.html
+# Make changes
+echo "<!-- New feature $(date) -->" >> src/index.html
 
+# Commit and push
 git add src/index.html
-git commit -m "deploy: trigger staging validation and dev deployment"
-git push origin main
+git commit -m "feat: add new feature"
+git push origin feature/my-feature
 
-# Monitor workflow
+# Monitor deployment
 gh run watch
 ```
 
 **What happens**:
 - BUILD: Security scans (20s)
-- TEST: Validates staging account infrastructure (38s)
-- RUN: Deploys to **dev** account (not staging)
+- TEST: Validates dev infrastructure (30s)
+- RUN: Deploys to **dev** environment (822529998967)
 
-**Note**: Main branch currently deploys to dev, not staging. To deploy to staging, use Method 2 below.
+**Supported branches** that deploy to dev:
+- `feature/*`
+- `bugfix/*`
+- `hotfix/*`
+- `develop`
 
 ---
 
-**Option B: Manual Workflow Dispatch to Staging**
+#### Deploy to Staging
 
-Unfortunately, the current RUN workflow (`run.yml`) does not support manual environment selection. It derives the target environment from branch name.
+Staging deployments are triggered by pushes to the `main` branch (typically via PR merge):
 
-Current routing logic (`run.yml` lines 88-106):
-```yaml
-target_environment: ${{
-  github.ref == 'refs/heads/main' && 'dev' ||
-  startsWith(github.ref, 'refs/heads/feature/') && 'dev' ||
-  'dev'
-}}
+```bash
+# Create PR from feature branch
+gh pr create \
+  --title "feat: add new feature" \
+  --body "Adds new feature with XYZ capability"
+
+# Wait for PR checks to pass
+gh pr checks
+
+# Merge PR (this triggers staging deployment)
+gh pr merge --squash
+
+# Monitor staging deployment
+gh run watch
 ```
 
-**To deploy to staging**, you need to either:
-1. Modify the workflow to accept environment as input parameter
-2. Use terraform directly (Method 2 below)
-3. Create a staging-specific branch that triggers staging deployment
+**What happens**:
+- PR merge to `main` triggers RUN workflow
+- BUILD: Security scans (20s)
+- TEST: Validates staging infrastructure (38s)
+- RUN: Deploys to **staging** environment (927588814642)
+
+**Branch routing**:
+- `main` → **staging** environment
+- All changes are automatically promoted to staging after PR approval
 
 ---
 
 #### Deploy to Production
 
-Production deployments require:
-1. Manual authorization workflow (security gate)
-2. Comprehensive validation before deployment
-3. Approval from designated team members
+Production deployments require creating a GitHub Release with manual approval:
 
-Current workflow does not have production deployment path configured.
+**Step 1: Validate Staging**
+```bash
+# Ensure staging deployment successful
+gh run list --branch main --limit 1
+
+# Test staging website
+cd terraform/environments/staging
+tofu init -backend-config="../backend-configs/staging.hcl"
+STAGING_URL=$(tofu output -raw website_url)
+curl -I $STAGING_URL
+```
+
+**Step 2: Create GitHub Release**
+```bash
+# Create release from main branch
+gh release create v1.0.0 \
+  --title "Release v1.0.0" \
+  --generate-notes \
+  --target main
+
+# Or use GitHub UI: Releases → Draft new release → v1.0.0 → Publish
+```
+
+**Step 3: Approve Production Deployment**
+1. Navigate to Actions tab
+2. Click on "Production Release" workflow run
+3. Wait for "Production Authorization" job
+4. Click "Review deployments" button
+5. Select "production" environment
+6. Click "Approve and deploy"
+
+**What happens**:
+- GitHub Release triggers `.github/workflows/release-prod.yml`
+- Workflow pauses at authorization step (requires manual approval)
+- After approval, deploys to **prod** environment (546274483801)
+- Includes infrastructure deployment + website content sync
+
+**See detailed production release process**: [RELEASE-PROCESS.md](RELEASE-PROCESS.md)
 
 ---
 
@@ -429,4 +480,17 @@ Multi-account deployment complete when:
 ---
 
 **Last Updated**: 2025-10-16
-**Status**: Dev Complete, Staging/Prod Ready for Deployment
+**Status**: Branch-Based Routing Implemented, Multi-Account Deployment Ready
+
+## Deployment Architecture Summary
+
+**Branch → Environment Routing**:
+- `feature/*`, `bugfix/*`, `hotfix/*`, `develop` → **dev** (822529998967)
+- `main` → **staging** (927588814642)
+- GitHub Releases → **production** (546274483801) with manual approval
+
+**Related Documentation**:
+- [QUICK-START.md](QUICK-START.md) - 10-minute deployment guide
+- [RELEASE-PROCESS.md](RELEASE-PROCESS.md) - Production release workflow
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development workflow and PR guidelines
+- [docs/architecture/](docs/architecture/) - Architectural Decision Records (ADRs)
