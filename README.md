@@ -269,19 +269,53 @@ gh workflow run run.yml --field environment=dev --field deploy_infrastructure=tr
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
-- Code of conduct
-- Development setup
-- Contribution guidelines
-- Pull request process
+
+- **Development Workflow**: Branch strategy, feature development, PR process
+- **PR Guidelines**: Conventional Commits format (required), PR title validation
+- **Commit Standards**: How to write good commit messages
+- **Testing**: Local validation, security scanning, deployment testing
+- **Code Review**: Review process and merge strategy
+
+### Quick Contributing Guide
+
+1. **Fork and Clone**: Get the code
+2. **Create Feature Branch**: `git checkout -b feature/your-feature`
+3. **Make Changes**: Follow coding standards
+4. **Test Locally**: Run `tofu validate` and security scans
+5. **Commit with Convention**: `git commit -m "feat: your feature"`
+6. **Create PR**: Use Conventional Commits format for PR title
+7. **Pass CI Checks**: PR title validation, security scans, tests
+8. **Get Review**: At least one approval required
+9. **Squash Merge**: Maintainers will merge when ready
+
+**Important**: PR titles MUST follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+```
+<type>(<scope>): <description>
+
+Examples:
+- feat(s3): add bucket lifecycle policies
+- fix(iam): correct role trust policy
+- docs: update deployment guide
+```
 
 For security vulnerabilities, please read our [Security Policy](SECURITY.md).
 
 ## 📋 Project Roadmap
 
-See [ROADMAP.md](ROADMAP.md) for detailed project plans including:
-- ✅ Immediate deployment steps
-- 📈 Short-term enhancements
-- 🚀 Long-term strategic vision
+See [docs/ROADMAP.md](docs/ROADMAP.md) for detailed project plans including:
+
+### Recently Completed
+- ✅ **Branch-Based Deployment Architecture** - Progressive promotion (dev → staging → prod)
+- ✅ **Release Automation** - Manual semantic versioning with GitHub Releases
+- ✅ **Conventional Commits Enforcement** - PR title validation
+- ✅ **Pipeline IAM Permissions** - Middle-way approach with zero errors
+- ✅ **Infrastructure Documentation** - Comprehensive guides and ADRs
+
+### Coming Soon
+- 📈 Multi-account deployment to staging and production
+- 📈 Variable documentation standardization
+- 📈 Pre-commit hook configuration
+- 🚀 Long-term: Advanced deployment strategies, DR/BC, analytics
 
 ## 📞 Support
 
