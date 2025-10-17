@@ -16,7 +16,25 @@ variable "bucket_name" {
 }
 
 variable "force_destroy" {
-  description = "Allow deletion of non-empty bucket (use with caution in production)"
+  description = <<-EOT
+    Allow Terraform to delete S3 buckets even if they contain objects.
+
+    When enabled, Terraform will automatically empty buckets before deletion.
+    When disabled (default), Terraform will fail if the bucket is not empty,
+    requiring manual emptying or use of destroy scripts.
+
+    Security & Safety:
+    - Default: false (safe for production, prevents accidental data loss)
+    - Use case for 'true': Dev/test environments where data is disposable
+    - Production: Keep false and use scripts/destroy/destroy-environment.sh
+
+    Common values:
+    - false: Production environments (prevents accidental data loss)
+    - true: Development/testing environments (allows quick teardown)
+
+    Platform engineers: Enable this ONLY in non-production environments where
+    infrastructure is frequently created and destroyed for testing.
+  EOT
   type        = bool
   default     = false
 }
