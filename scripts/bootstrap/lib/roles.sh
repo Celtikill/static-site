@@ -267,7 +267,10 @@ generate_deployment_policy() {
         "iam:TagRole",
         "iam:UntagRole"
       ],
-      "Resource": "arn:aws:iam::*:role/static-site-*"
+      "Resource": [
+        "arn:aws:iam::*:role/static-site-*",
+        "arn:aws:iam::*:role/github-actions-workload-deployment"
+      ]
     },
     {
       "Sid": "SNSTopicManagement",
