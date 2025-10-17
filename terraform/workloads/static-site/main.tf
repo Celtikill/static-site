@@ -103,44 +103,26 @@ resource "aws_iam_role_policy" "s3_replication_policy" {
   })
 }
 
-# IAM Policy for GitHub Actions to pass the S3 replication role
-# Attaches policy to the environment-specific GitHub Actions role
-resource "aws_iam_role_policy" "github_actions_s3_replication_pass_role" {
-  count = var.enable_cross_region_replication ? 1 : 0
-  name  = "s3-replication-pass-role-policy"
-  role  = local.github_actions_role_name
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:PassRole"
-        ]
-        Resource = [
-          aws_iam_role.s3_replication[0].arn
-        ]
-        Condition = {
-          StringEquals = {
-            "iam:PassedToService" = "s3.amazonaws.com"
-          }
-        }
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:GetRole",
-          "iam:ListRolePolicies",
-          "iam:ListAttachedRolePolicies"
-        ]
-        Resource = [
-          aws_iam_role.s3_replication[0].arn
-        ]
-      }
-    ]
-  })
-}
+# REMOVED: IAM Policy for GitHub Actions to pass the S3 replication role
+#
+# This resource was creating a circular dependency - Terraform was trying to modify
+# the same IAM role it was running as, which violates AWS IAM permissions model.
+#
+# Error encountered:
+#   User: arn:aws:sts::xxx:assumed-role/GitHubActions-StaticSite-Staging-Role/xxx
+#   is not authorized to perform: iam:PutRolePolicy on resource: role GitHubActions-StaticSite-Staging-Role
+#
+# Architectural fix:
+#   The GitHub Actions role is provisioned by bootstrap scripts with all necessary
+#   permissions upfront, including iam:PassRole for S3 replication roles.
+#
+#   See: scripts/bootstrap/lib/roles.sh - generate_deployment_policy()
+#
+#   The IAMRoleManagement statement includes iam:PassRole action for:
+#   - arn:aws:iam::*:role/static-site-*
+#
+#   This allows GitHub Actions to pass the static-site-s3-replication role to S3
+#   without Terraform needing to modify its own role at runtime.
 
 # Random suffix for global resource names
 resource "random_id" "suffix" {
