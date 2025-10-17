@@ -56,8 +56,8 @@ output "cloudfront_billing_alarm_arn" {
 }
 
 output "budget_name" {
-  description = "Name of the AWS budget"
-  value       = aws_budgets_budget.monthly_cost.name
+  description = "Name of the AWS budget (if enabled)"
+  value       = var.enable_budget ? aws_budgets_budget.monthly_cost[0].name : null
 }
 
 output "github_actions_log_group_name" {
