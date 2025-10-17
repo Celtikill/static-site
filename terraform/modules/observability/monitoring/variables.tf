@@ -102,6 +102,12 @@ variable "enable_deployment_metrics" {
   default     = true
 }
 
+variable "enable_budget" {
+  description = "Enable AWS Budget for cost tracking (disable temporarily if orphaned)"
+  type        = bool
+  default     = true
+}
+
 variable "log_retention_days" {
   description = "Number of days to retain CloudWatch logs"
   type        = number

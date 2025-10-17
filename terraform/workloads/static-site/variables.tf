@@ -319,6 +319,12 @@ variable "enable_deployment_metrics" {
   default     = true
 }
 
+variable "enable_budget" {
+  description = "Enable AWS Budget for cost tracking (disable temporarily if orphaned)"
+  type        = bool
+  default     = true
+}
+
 # Security Configuration
 variable "create_kms_key" {
   description = "Create KMS key for encryption"

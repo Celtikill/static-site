@@ -292,6 +292,7 @@ module "monitoring" {
   cloudfront_billing_threshold    = var.cloudfront_billing_threshold
   monthly_budget_limit            = var.monthly_budget_limit
   enable_deployment_metrics       = var.enable_deployment_metrics
+  enable_budget                   = var.enable_budget
   log_retention_days              = var.log_retention_days
   common_tags                     = local.common_tags
 }

@@ -302,6 +302,8 @@ resource "aws_cloudwatch_metric_alarm" "cloudfront_billing" {
 
 # AWS Budget for Cost Control
 resource "aws_budgets_budget" "monthly_cost" {
+  count = var.enable_budget ? 1 : 0
+
   name              = "${var.project_name}-${var.environment}-monthly-budget-${substr(md5("${var.project_name}-${var.environment}-${var.aws_region}"), 0, 8)}"
   budget_type       = "COST"
   limit_amount      = var.monthly_budget_limit

@@ -91,6 +91,11 @@ module "static_website" {
   github_repository = var.github_repository
   replica_region    = "us-west-2"
 
+  # Temporary: Disable orphaned resources to allow deployment
+  # TODO: Re-enable after successful deployment and cleanup
+  enable_budget            = false
+  enable_deployment_metrics = false
+
   # Pass provider configurations to child module (2025 best practice)
   providers = {
     aws            = aws
