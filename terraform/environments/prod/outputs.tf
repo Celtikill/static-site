@@ -7,6 +7,11 @@ output "s3_bucket_id" {
   value       = module.static_website.s3_bucket_id
 }
 
+output "s3_bucket_name" {
+  description = "Name of the primary S3 bucket (alias for s3_bucket_id)"
+  value       = module.static_website.s3_bucket_id
+}
+
 output "s3_bucket_arn" {
   description = "ARN of the primary S3 bucket"
   value       = module.static_website.s3_bucket_arn
