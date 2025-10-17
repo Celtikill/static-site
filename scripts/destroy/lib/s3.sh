@@ -6,6 +6,37 @@
 # S3 BUCKET OPERATIONS
 # =============================================================================
 
+# Prepare bucket for deletion by suspending versioning and disabling logging
+# This prevents race conditions where new objects are created during deletion
+prepare_bucket_for_deletion() {
+    local bucket="$1"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        return 0
+    fi
+
+    log_info "  Preparing bucket $bucket for deletion..."
+
+    # 1. Suspend versioning to prevent new versions during deletion
+    aws s3api put-bucket-versioning \
+        --bucket "$bucket" \
+        --versioning-configuration Status=Suspended 2>/dev/null || true
+
+    # 2. Disable access logging to prevent new log files
+    aws s3api put-bucket-logging \
+        --bucket "$bucket" \
+        --bucket-logging-status {} 2>/dev/null || true
+
+    # 3. Remove lifecycle configuration (prevents transitions during deletion)
+    aws s3api delete-bucket-lifecycle \
+        --bucket "$bucket" 2>/dev/null || true
+
+    # 4. Wait briefly for AWS eventual consistency
+    sleep 2
+
+    log_info "  Bucket $bucket prepared (versioning suspended, logging disabled)"
+}
+
 # Empty and delete a single S3 bucket using efficient batch deletion
 empty_and_delete_bucket() {
     local bucket="$1"
@@ -15,6 +46,9 @@ empty_and_delete_bucket() {
     if [[ "$DRY_RUN" == "true" ]]; then
         return 0
     fi
+
+    # Prepare bucket to prevent race conditions
+    prepare_bucket_for_deletion "$bucket"
 
     # Remove replication configuration if exists
     aws s3api delete-bucket-replication --bucket "$bucket" 2>/dev/null || true
@@ -158,6 +192,9 @@ destroy_replica_s3_buckets() {
                     log_action "Empty and delete replica S3 bucket: $bucket"
 
                     if [[ "$DRY_RUN" != "true" ]]; then
+                        # Prepare replica bucket for deletion
+                        prepare_bucket_for_deletion "$bucket"
+
                         # Remove replication configuration if it exists
                         aws s3api delete-bucket-replication --bucket "$bucket" 2>/dev/null || true
 
@@ -292,6 +329,24 @@ destroy_cross_account_s3_buckets() {
                     log_action "Empty and delete S3 bucket in $env_name account: $bucket"
 
                     if [[ "$DRY_RUN" != "true" ]]; then
+                        # Prepare bucket for deletion (suspend versioning, disable logging)
+                        log_info "  Preparing bucket $bucket in $env_name account for deletion..."
+                        AWS_ACCESS_KEY_ID="$access_key" \
+                        AWS_SECRET_ACCESS_KEY="$secret_key" \
+                        AWS_SESSION_TOKEN="$session_token" \
+                        aws s3api put-bucket-versioning \
+                            --bucket "$bucket" \
+                            --versioning-configuration Status=Suspended 2>/dev/null || true
+
+                        AWS_ACCESS_KEY_ID="$access_key" \
+                        AWS_SECRET_ACCESS_KEY="$secret_key" \
+                        AWS_SESSION_TOKEN="$session_token" \
+                        aws s3api put-bucket-logging \
+                            --bucket "$bucket" \
+                            --bucket-logging-status {} 2>/dev/null || true
+
+                        sleep 2
+
                         # Remove replication configuration if exists
                         AWS_ACCESS_KEY_ID="$access_key" \
                         AWS_SECRET_ACCESS_KEY="$secret_key" \
