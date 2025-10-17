@@ -91,6 +91,11 @@ module "static_website" {
   github_repository = var.github_repository
   replica_region    = "us-west-2"
 
+  # Dev-specific configuration: Enable force_destroy for easy teardown
+  # This allows Terraform to automatically empty S3 buckets before deletion
+  # NEVER enable this in production - it prevents accidental data loss
+  force_destroy_bucket = true
+
   # Pass provider configurations to child module (2025 best practice)
   providers = {
     aws            = aws
