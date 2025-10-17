@@ -104,10 +104,11 @@ resource "aws_iam_role_policy" "s3_replication_policy" {
 }
 
 # IAM Policy for GitHub Actions to pass the S3 replication role
+# Attaches policy to the environment-specific GitHub Actions role
 resource "aws_iam_role_policy" "github_actions_s3_replication_pass_role" {
   count = var.enable_cross_region_replication ? 1 : 0
   name  = "s3-replication-pass-role-policy"
-  role  = "github-actions-workload-deployment"
+  role  = local.github_actions_role_name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -157,6 +158,11 @@ locals {
 
   # Validate feature flag dependencies
   validate_waf_dependency = var.enable_waf && !var.enable_cloudfront ? tobool("WAF requires CloudFront to be enabled. Set enable_cloudfront = true when enable_waf = true.") : true
+
+  # GitHub Actions role name (12-factor: derive from environment variable)
+  # Pattern: GitHubActions-StaticSite-${Environment}-Role
+  # Examples: GitHubActions-StaticSite-Dev-Role, GitHubActions-StaticSite-Staging-Role
+  github_actions_role_name = "GitHubActions-StaticSite-${title(local.environment)}-Role"
 
   # Common tags applied to all resources
   common_tags = merge(var.common_tags, {
