@@ -121,6 +121,36 @@ gh workflow list
 - Cost: ~$25-50/month
 ```
 
+### Required Terraform Outputs
+
+**Each environment directory must expose these outputs** (`terraform/environments/{dev,staging,prod}/outputs.tf`):
+
+```hcl
+# Core S3 Outputs
+output "s3_bucket_id" {}           # Primary bucket identifier
+output "s3_bucket_name" {}         # Alias for s3_bucket_id (workflow compatibility)
+output "s3_bucket_arn" {}          # Bucket ARN
+output "s3_bucket_domain_name" {}  # S3 domain name
+
+# CloudFront Outputs (if enabled)
+output "cloudfront_distribution_id" {}  # Distribution ID
+output "cloudfront_url" {}              # CloudFront URL
+
+# Website URLs
+output "website_url" {}  # Primary website URL (S3 or CloudFront)
+
+# Monitoring Outputs
+output "cloudwatch_dashboard_url" {}  # Dashboard URL
+
+# Deployment Information
+output "deployment_info" {}  # Structured deployment metadata
+```
+
+**Why `s3_bucket_name` is required:**
+- GitHub Actions workflows reference `s3_bucket_name` for bucket operations
+- Provides backward compatibility with existing automation
+- Should be an alias pointing to `s3_bucket_id` for consistency
+
 ---
 
 ## Monitoring & Validation

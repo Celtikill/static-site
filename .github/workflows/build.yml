@@ -141,6 +141,47 @@ jobs:
           # Restore backend file
           mv backend.tf.bak backend.tf 2>/dev/null || true
 
+      - name: Validate Environment Outputs
+        working-directory: terraform
+        run: |
+          echo "## 📋 Environment Outputs Validation" >> $GITHUB_STEP_SUMMARY
+
+          REQUIRED_OUTPUTS=("s3_bucket_id" "s3_bucket_name" "website_url" "cloudwatch_dashboard_url" "deployment_info")
+          VALIDATION_ERRORS=0
+
+          for env in dev staging prod; do
+            OUTPUTS_FILE="environments/${env}/outputs.tf"
+
+            if [ ! -f "$OUTPUTS_FILE" ]; then
+              echo "❌ Missing outputs.tf for ${env} environment" >> $GITHUB_STEP_SUMMARY
+              VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+              continue
+            fi
+
+            echo "**${env} environment:**" >> $GITHUB_STEP_SUMMARY
+
+            for output in "${REQUIRED_OUTPUTS[@]}"; do
+              if grep -q "output \"${output}\"" "$OUTPUTS_FILE"; then
+                echo "- ✅ ${output}" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- ❌ ${output} (missing)" >> $GITHUB_STEP_SUMMARY
+                VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+              fi
+            done
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
+
+          if [ $VALIDATION_ERRORS -gt 0 ]; then
+            echo "❌ **Output validation failed** - ${VALIDATION_ERRORS} errors found" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Required outputs:** s3_bucket_id, s3_bucket_name, website_url, cloudwatch_dashboard_url, deployment_info" >> $GITHUB_STEP_SUMMARY
+            echo "**Note:** s3_bucket_name must be an alias for s3_bucket_id for workflow compatibility" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ **All required outputs present** in all environments" >> $GITHUB_STEP_SUMMARY
+          fi
+
   security-checkov:
     name: "🔒 Checkov Security Scan"
     runs-on: ubuntu-latest
