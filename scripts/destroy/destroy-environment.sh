@@ -1,19 +1,134 @@
 #!/usr/bin/env bash
+#==============================================================================
+# Environment Workload Destroy Script
+#==============================================================================
+# Description:
+#   Destroys workload infrastructure in a specific environment while
+#   preserving bootstrap resources (Terraform state, IAM roles, KMS keys).
+#   Ideal for rapid environment reset during development without needing
+#   to re-bootstrap.
 #
-# Script: destroy-environment.sh
-# Purpose: Destroy workload infrastructure for a specific environment
+# Version: 1.0.0
+# Last Updated: 2025-10-20
+# Author: Platform Team
+# Repository: Celtikill/static-site
 #
-# Preserves: Bootstrap resources (S3 backend, DynamoDB locks, KMS, IAM roles)
-# Destroys: Workload resources (website buckets, CloudFront, monitoring, SNS)
+#==============================================================================
+# RESOURCES DESTROYED
+#==============================================================================
+# ✓ S3 website buckets (main, access logs, replicas)
+# ✓ CloudFront distributions (if enabled)
+# ✓ CloudWatch dashboards and alarms
+# ✓ SNS topics
+# ✓ Workload-specific KMS keys
+# ✓ Route53 records (if created)
 #
-# Usage:
-#   ./destroy-environment.sh [ENVIRONMENT] [OPTIONS]
+#==============================================================================
+# RESOURCES PRESERVED
+#==============================================================================
+# ✓ Terraform state S3 bucket
+# ✓ Terraform lock DynamoDB table
+# ✓ Bootstrap KMS keys
+# ✓ IAM roles (GitHubActions, cross-account)
+# ✓ OIDC providers
 #
-# Examples:
+#==============================================================================
+# KEY FEATURES
+#==============================================================================
+# • Terraform state validation before destroy
+# • S3 bucket preparation (suspend versioning, disable logging)
+# • Safe bucket emptying (all versions + delete markers)
+# • Account ID validation
+# • Dry-run mode for preview
+# • Force mode for automation
+# • Comprehensive error handling
+#
+#==============================================================================
+# USAGE
+#==============================================================================
+# Basic:
+#   ./destroy-environment.sh ENVIRONMENT [OPTIONS]
+#
+# Arguments:
+#   ENVIRONMENT    Environment to destroy: dev, staging, or prod
+#
+# Options:
+#   --dry-run      Preview destruction without making changes
+#   --force        Skip all confirmation prompts
+#   --verbose      Enable verbose output (set -x)
+#   -h, --help     Show help message
+#
+# Environment Variables:
+#   DRY_RUN        Set to "true" for dry-run mode
+#   FORCE          Set to "true" for force mode
+#   VERBOSE        Set to "true" for verbose mode
+#   AWS_PROFILE    AWS profile to use for credentials
+#
+#==============================================================================
+# EXAMPLES
+#==============================================================================
+# Preview dev environment destruction:
 #   ./destroy-environment.sh dev --dry-run
-#   ./destroy-environment.sh staging --force
+#
+# Destroy staging workload with confirmation:
+#   ./destroy-environment.sh staging
+#
+# Force destroy prod workload (no prompts):
+#   ./destroy-environment.sh prod --force
+#
+# Use specific AWS profile:
 #   AWS_PROFILE=dev-deploy ./destroy-environment.sh dev
 #
+# Combine options:
+#   AWS_PROFILE=dev-deploy ./destroy-environment.sh dev --dry-run --verbose
+#
+#==============================================================================
+# SAFETY FEATURES
+#==============================================================================
+# 1. Account validation - Warns if AWS account doesn't match environment
+# 2. State validation - Checks if Terraform state exists before destroy
+# 3. Confirmation prompt - Requires typing 'DESTROY' to confirm
+# 4. Bootstrap preservation - Never touches state backend or IAM
+# 5. Dry-run capability - Preview all changes before execution
+#
+#==============================================================================
+# TROUBLESHOOTING
+#==============================================================================
+# Error: "AWS credentials not configured"
+#   Solution: Set AWS_PROFILE or run `aws configure`
+#
+# Error: "Terraform directory not found"
+#   Solution: Ensure you're running from project root or script directory
+#
+# Error: "No Terraform state found"
+#   Solution: Infrastructure may not be deployed yet, or already destroyed
+#
+# Bucket preparation fails:
+#   Solution: Check AWS permissions, ensure bucket exists
+#
+# Terraform destroy fails:
+#   Solution: Review Terraform error output, may need manual intervention
+#
+#==============================================================================
+# RELATED DOCUMENTATION
+#==============================================================================
+# Full Documentation:  scripts/destroy/README.md
+# Testing Log:         scripts/destroy/TESTING.md
+# Destroy Runbook:     docs/destroy-runbook.md
+# Bootstrap Destroy:   scripts/bootstrap/destroy-foundation.sh
+# Infrastructure:      scripts/destroy/destroy-infrastructure.sh
+#
+#==============================================================================
+# NOTES
+#==============================================================================
+# • This script uses Terraform destroy after S3 bucket preparation
+# • Preparation prevents race conditions with versioning and logging
+# • Bootstrap resources must be destroyed separately using destroy-foundation.sh
+# • For full infrastructure teardown, use destroy-infrastructure.sh
+# • Tested environments: dev, staging, prod
+# • Requires: bash 4+, aws-cli, jq, terraform/opentofu
+#
+#==============================================================================
 
 set -euo pipefail
 

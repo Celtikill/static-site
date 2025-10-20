@@ -17,7 +17,8 @@ This framework provides safe, organized destruction of all AWS resources created
 ```
 scripts/destroy/
 ├── config.sh                      # Central configuration
-├── destroy-infrastructure.sh      # Main orchestrator
+├── destroy-infrastructure.sh      # Full infrastructure orchestrator
+├── destroy-environment.sh         # Environment-specific workload destroy
 ├── lib/                           # Service-specific libraries
 │   ├── common.sh                  # Logging, progress, user interaction
 │   ├── aws.sh                     # AWS CLI wrappers
@@ -49,22 +50,79 @@ scripts/destroy/
 1. **AWS CLI** installed and configured
 2. **jq** installed for JSON processing
 3. **AWS credentials** with appropriate permissions
-4. **Management account access** (for cross-account features)
+4. **Management account access** (for cross-account features, infrastructure script only)
 
-### Basic Usage
+### Scripts Overview
 
+This framework provides two destruction scripts for different use cases:
+
+#### destroy-infrastructure.sh - Full Infrastructure Teardown
+**Purpose**: Complete destruction of all AWS resources across all accounts and regions
+
+**Use cases**:
+- Complete cleanup before account closure
+- Multi-account infrastructure teardown
+- Full reset of all environments
+
+**Scope**:
+- ✅ All AWS services (15+ services)
+- ✅ Multi-region (scans all US regions)
+- ✅ Cross-account (dev, staging, prod)
+- ✅ Bootstrap + Workload resources
+
+**Example**:
 ```bash
-# ALWAYS run dry-run first to preview what will be destroyed
-cd scripts/destroy
+# Preview full destruction
 ./destroy-infrastructure.sh --dry-run
 
-# After reviewing, proceed with actual destruction
+# Execute full destruction
 ./destroy-infrastructure.sh --force
 ```
+
+#### destroy-environment.sh - Environment-Specific Workload Destroy
+**Purpose**: Destroy workload resources in a single environment while preserving bootstrap infrastructure
+
+**Use cases**:
+- Dev environment reset during development
+- Clean up test deployments
+- Environment-specific teardown without affecting state backend
+
+**Scope**:
+- ✅ S3 website buckets (main, access logs, replicas)
+- ✅ CloudFront distributions
+- ✅ CloudWatch dashboards and alarms
+- ✅ SNS topics
+- ✅ Workload KMS keys
+- ❌ Terraform state backend (PRESERVED)
+- ❌ DynamoDB lock table (PRESERVED)
+- ❌ IAM roles and OIDC providers (PRESERVED)
+- ❌ Bootstrap KMS keys (PRESERVED)
+
+**Example**:
+```bash
+# Preview dev environment workload destruction
+./destroy-environment.sh dev --dry-run
+
+# Execute dev environment workload destruction
+./destroy-environment.sh dev --force
+```
+
+### Decision Guide: Which Script to Use?
+
+| Scenario | Use Script | Reason |
+|----------|------------|--------|
+| Reset dev environment for testing | `destroy-environment.sh dev` | Preserves state backend, faster |
+| Clean up after feature development | `destroy-environment.sh dev` | Workload only, keeps bootstrap |
+| Prepare for account closure | `destroy-infrastructure.sh` | Full cleanup including bootstrap |
+| Multi-account teardown | `destroy-infrastructure.sh` | Cross-account support |
+| Emergency rollback | `destroy-environment.sh <env>` | Fast, preserves ability to redeploy |
+| Complete project shutdown | `destroy-infrastructure.sh --close-accounts` | Everything including accounts |
 
 ## 📖 Usage Guide
 
 ### Command-Line Options
+
+#### destroy-infrastructure.sh
 
 ```bash
 ./destroy-infrastructure.sh [OPTIONS]
@@ -78,6 +136,21 @@ OPTIONS:
   --close-accounts          Enable member account closure (PERMANENT)
   --no-terraform-cleanup    Disable Terraform state cleanup
   -h, --help               Show help message
+```
+
+#### destroy-environment.sh
+
+```bash
+./destroy-environment.sh ENVIRONMENT [OPTIONS]
+
+ARGUMENTS:
+  ENVIRONMENT              Environment to destroy: dev, staging, or prod
+
+OPTIONS:
+  --dry-run               Preview destruction without making changes
+  --force                 Skip all confirmation prompts
+  --verbose               Enable verbose output
+  -h, --help             Show help message
 ```
 
 ### Environment Variables
@@ -139,6 +212,27 @@ Destroys resources across all member accounts (dev, staging, prod).
 # PERMANENT - accounts cannot be recovered for 90 days!
 ./destroy-infrastructure.sh --force --close-accounts
 ```
+
+#### 6. Environment-Specific Workload Destroy (Recommended for Development)
+
+```bash
+# Preview dev environment workload destruction
+./destroy-environment.sh dev --dry-run
+
+# Destroy dev workload, preserve bootstrap
+./destroy-environment.sh dev --force
+
+# Destroy staging workload with confirmation
+./destroy-environment.sh staging
+```
+
+**Note**: `destroy-environment.sh` uses Terraform destroy after preparing S3 buckets. It preserves:
+- Terraform state S3 bucket
+- DynamoDB lock table
+- IAM roles and OIDC providers
+- Bootstrap KMS keys
+
+This allows rapid environment reset without needing to re-bootstrap.
 
 ## 🔧 Configuration
 
@@ -508,6 +602,7 @@ This framework mirrors the modular bootstrap framework:
 
 ---
 
-**Last Updated**: 2025-10-07
+**Last Updated**: 2025-10-20
 **Framework Version**: 1.0.0
 **Refactored**: Modular design following bootstrap pattern
+**Recent Changes**: Added destroy-environment.sh for workload-specific destruction
