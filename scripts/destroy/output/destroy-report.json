@@ -1,9 +1,0 @@
-{
-  "timestamp": "2025-10-09T09:56:13-04:00",
-  "status": "success",
-  "duration_seconds": 105,
-  "resources_destroyed": 0,
-  "resources_failed": 0,
-  "dry_run": false,
-  "force_mode": true
-}
