@@ -150,6 +150,24 @@ validate_environment() {
     fi
 }
 
+validate_terraform_state() {
+    local terraform_dir="$1"
+
+    # Check if state file exists and has resources
+    if ! tofu state list -chdir="$terraform_dir" &>/dev/null; then
+        return 1
+    fi
+
+    local resource_count
+    resource_count=$(tofu state list -chdir="$terraform_dir" 2>/dev/null | wc -l)
+
+    if [[ $resource_count -eq 0 ]]; then
+        return 1
+    fi
+
+    return 0
+}
+
 get_bucket_list() {
     local env="$1"
     local terraform_dir="${PROJECT_ROOT}/terraform/environments/${env}"
@@ -159,10 +177,13 @@ get_bucket_list() {
     # Get bucket names from Terraform outputs
     local buckets=()
 
-    # Main bucket
+    # Main bucket - with proper error filtering
     local main_bucket
-    main_bucket=$(tofu output -raw s3_bucket_id 2>/dev/null || echo "")
-    [[ -n "$main_bucket" ]] && buckets+=("$main_bucket")
+    main_bucket=$(tofu output -raw s3_bucket_id 2>&1)
+    # Filter out Terraform warnings/errors (they start with Warning:, Error:, or special chars)
+    if [[ $? -eq 0 ]] && [[ ! "$main_bucket" =~ ^(Warning:|Error:|╷|│|╵) ]] && [[ -n "$main_bucket" ]]; then
+        buckets+=("$main_bucket")
+    fi
 
     # Try to get access logs bucket (if it exists in state)
     local state_buckets
@@ -171,12 +192,14 @@ get_bucket_list() {
     for resource in $state_buckets; do
         local bucket_name
         bucket_name=$(tofu state show "$resource" 2>/dev/null | grep '^[[:space:]]*bucket[[:space:]]*=' | head -1 | awk '{print $3}' | tr -d '"' || true)
-        if [[ -n "$bucket_name" ]] && [[ ! " ${buckets[*]} " =~ " ${bucket_name} " ]]; then
+        # Validate bucket name format (3-63 chars, lowercase, alphanumeric + hyphens)
+        if [[ -n "$bucket_name" ]] && [[ "$bucket_name" =~ ^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$ ]] && [[ ! " ${buckets[*]} " =~ " ${bucket_name} " ]]; then
             buckets+=("$bucket_name")
         fi
     done
 
-    echo "${buckets[@]}"
+    # Return buckets one per line to avoid word splitting issues
+    printf '%s\n' "${buckets[@]}"
 }
 
 prepare_s3_buckets() {
@@ -184,6 +207,7 @@ prepare_s3_buckets() {
 
     log_info "Preparing S3 buckets for deletion..."
 
+    local bucket_count=0
     local buckets
     buckets=$(get_bucket_list "$env")
 
@@ -192,7 +216,13 @@ prepare_s3_buckets() {
         return 0
     fi
 
-    for bucket in $buckets; do
+    # Use while read loop to avoid word splitting issues
+    while IFS= read -r bucket; do
+        # Skip empty lines
+        [[ -z "$bucket" ]] && continue
+
+        bucket_count=$((bucket_count + 1))
+
         if [[ "$DRY_RUN" == "true" ]]; then
             log_info "  [DRY RUN] Would prepare bucket: $bucket"
             continue
@@ -265,7 +295,11 @@ prepare_s3_buckets() {
         sleep 2
 
         log_success "Bucket $bucket prepared and emptied"
-    done
+    done <<< "$buckets"
+
+    if [[ $bucket_count -gt 0 ]]; then
+        log_info "Prepared $bucket_count bucket(s) for deletion"
+    fi
 }
 
 destroy_workload() {
@@ -389,6 +423,24 @@ main() {
         if [[ "$confirmation" != "DESTROY" ]]; then
             log_warn "Operation cancelled"
             exit 0
+        fi
+    fi
+
+    # Validate Terraform state exists
+    local terraform_dir="${PROJECT_ROOT}/terraform/environments/${ENVIRONMENT}"
+    if ! validate_terraform_state "$terraform_dir"; then
+        log_warn "No Terraform state found or state is empty"
+        log_warn "Infrastructure may already be destroyed or was never deployed"
+
+        if [[ "$FORCE" != "true" ]]; then
+            echo
+            read -p "Continue anyway? (y/N): " response
+            if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                log_info "Operation cancelled"
+                exit 0
+            fi
+        else
+            log_info "Force mode enabled - continuing despite missing state"
         fi
     fi
 
