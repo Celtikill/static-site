@@ -14,9 +14,12 @@ validate_complete_destruction() {
     local regions
     regions=$(get_us_regions)
 
-    echo "" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
-    echo "## 🔍 Post-Destruction Validation" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
-    echo "" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
+    # Only write to GitHub summary if in GitHub Actions environment
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "## 🔍 Post-Destruction Validation" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+    fi
 
     for region in $regions; do
         log_info "Validating region: $region"
@@ -35,7 +38,7 @@ validate_complete_destruction() {
         # Check DynamoDB tables
         local dynamo_count=0
         local tables
-        tables=$(AWS_DEFAULT_REGION=$region aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true)
+        tables=$(AWS_REGION=$region aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true)
         for table in $tables; do
             if matches_project "$table"; then
                 ((dynamo_count++)) || true
@@ -46,7 +49,7 @@ validate_complete_destruction() {
         # Check CloudWatch log groups
         local log_count=0
         local log_groups
-        log_groups=$(AWS_DEFAULT_REGION=$region aws logs describe-log-groups --query 'logGroups[].logGroupName' --output text 2>/dev/null || true)
+        log_groups=$(AWS_REGION=$region aws logs describe-log-groups --query 'logGroups[].logGroupName' --output text 2>/dev/null || true)
         for log_group in $log_groups; do
             if matches_project "$log_group" || [[ "$log_group" == *"/aws/cloudtrail"* ]]; then
                 ((log_count++)) || true
@@ -61,10 +64,13 @@ validate_complete_destruction() {
     local cf_count=0
     local distributions
     distributions=$(aws cloudfront list-distributions --query 'DistributionList.Items[].Id' --output text 2>/dev/null || true)
-    for dist_id in $distributions; do
-        ((cf_count++)) || true
-        log_warn "Found remaining CloudFront distribution: $dist_id"
-    done
+    # Only count if distributions is non-empty and not "None" or "null"
+    if [[ -n "$distributions" ]] && [[ "$distributions" != "None" ]] && [[ "$distributions" != "null" ]]; then
+        for dist_id in $distributions; do
+            ((cf_count++)) || true
+            log_warn "Found remaining CloudFront distribution: $dist_id"
+        done
+    fi
 
     local iam_roles_count=0
     local roles
@@ -78,9 +84,12 @@ validate_complete_destruction() {
 
     remaining_resources=$((remaining_resources + cf_count + iam_roles_count))
 
-    echo "| Resource Type | Remaining Count |" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
-    echo "|--------------|----------------|" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
-    echo "| **Total** | **$remaining_resources** |" >> ${GITHUB_STEP_SUMMARY:-} 2>/dev/null || true
+    # Only write to GitHub summary if in GitHub Actions environment
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+        echo "| Resource Type | Remaining Count |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|--------------|----------------|" >> "$GITHUB_STEP_SUMMARY"
+        echo "| **Total** | **$remaining_resources** |" >> "$GITHUB_STEP_SUMMARY"
+    fi
 
     if [[ $remaining_resources -eq 0 ]]; then
         log_success "✅ Complete destruction validated - no remaining resources found"
