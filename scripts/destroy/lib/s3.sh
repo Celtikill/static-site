@@ -122,6 +122,134 @@ empty_and_delete_bucket() {
     fi
 }
 
+# Apply lifecycle policy for lazy deletion (for buckets with continuous writes)
+lazy_delete_bucket() {
+    local bucket="$1"
+
+    log_info "  Applying lazy-delete lifecycle policy to: $bucket"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        mkdir -p "$OUTPUT_DIR"
+        echo "$bucket" >> "${OUTPUT_DIR}/lazy-deleted-buckets-dryrun.txt"
+        return 0
+    fi
+
+    local lifecycle_config='{
+      "Rules": [{
+        "ID": "destroy-lazy-delete",
+        "Status": "Enabled",
+        "Filter": {},
+        "Expiration": {"Days": 1},
+        "NoncurrentVersionExpiration": {"NoncurrentDays": 1},
+        "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}
+      }]
+    }'
+
+    if aws s3api put-bucket-lifecycle-configuration \
+        --bucket "$bucket" \
+        --lifecycle-configuration "$lifecycle_config" 2>/dev/null; then
+        log_success "  ✓ Lazy-delete enabled: $bucket (auto-deletes in 1-2 days, billing stopped)"
+        mkdir -p "$OUTPUT_DIR"
+        echo "$bucket" >> "${OUTPUT_DIR}/lazy-deleted-buckets.txt"
+        return 0
+    else
+        log_error "  ✗ Failed to apply lazy-delete policy: $bucket"
+        return 1
+    fi
+}
+
+# Empty and delete bucket with lazy-delete fallback
+empty_and_delete_bucket_with_fallback() {
+    local bucket="$1"
+
+    log_action "Empty and delete S3 bucket: $bucket"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        return 0
+    fi
+
+    # Prepare bucket to prevent race conditions
+    prepare_bucket_for_deletion "$bucket"
+
+    # Remove replication configuration if exists
+    aws s3api delete-bucket-replication --bucket "$bucket" 2>/dev/null || true
+
+    # Remove intelligent tiering configuration if exists
+    aws s3api list-bucket-intelligent-tiering-configurations --bucket "$bucket" \
+        --query 'IntelligentTieringConfigurationList[].Id' --output text 2>/dev/null | \
+        while read -r config_id; do
+            [[ -n "$config_id" ]] && \
+                aws s3api delete-bucket-intelligent-tiering-configuration \
+                    --bucket "$bucket" --id "$config_id" 2>/dev/null || true
+        done
+
+    # Batch delete versions and delete markers (up to 1000 per API call)
+    log_info "  Emptying bucket $bucket (this may take a few minutes for large buckets)..."
+    local batch_count=0
+    local total_deleted=0
+
+    while true; do
+        # Get up to 1000 versions
+        local versions=$(aws s3api list-object-versions --bucket "$bucket" --max-items 1000 \
+            --query 'Versions[].{Key:Key,VersionId:VersionId}' --output json 2>/dev/null)
+
+        # Get up to 1000 delete markers
+        local markers=$(aws s3api list-object-versions --bucket "$bucket" --max-items 1000 \
+            --query 'DeleteMarkers[].{Key:Key,VersionId:VersionId}' --output json 2>/dev/null)
+
+        # Count objects in this batch
+        local version_count=$(echo "$versions" | jq 'length' 2>/dev/null || echo "0")
+        local marker_count=$(echo "$markers" | jq 'length' 2>/dev/null || echo "0")
+
+        # Exit if no objects left
+        [[ "$version_count" == "0" ]] && [[ "$marker_count" == "0" ]] && break
+
+        # Delete versions in batch
+        if [[ "$version_count" != "0" ]] && [[ "$versions" != "[]" ]] && [[ "$versions" != "null" ]]; then
+            local delete_payload="{\"Objects\": $versions, \"Quiet\": true}"
+            aws s3api delete-objects --bucket "$bucket" --delete "$delete_payload" 2>/dev/null || true
+            total_deleted=$((total_deleted + version_count))
+        fi
+
+        # Delete markers in batch
+        if [[ "$marker_count" != "0" ]] && [[ "$markers" != "[]" ]] && [[ "$markers" != "null" ]]; then
+            local delete_payload="{\"Objects\": $markers, \"Quiet\": true}"
+            aws s3api delete-objects --bucket "$bucket" --delete "$delete_payload" 2>/dev/null || true
+            total_deleted=$((total_deleted + marker_count))
+        fi
+
+        ((batch_count++)) || true
+        log_info "  Batch $batch_count: Deleted $version_count versions + $marker_count markers (total: $total_deleted)"
+
+        # Safety check: if we've done 500 batches (500k objects), break and warn
+        if [[ $batch_count -gt 500 ]]; then
+            log_warn "  Safety limit reached: 500 batches (500k+ objects). Bucket may not be fully empty."
+            break
+        fi
+    done
+
+    log_info "  Bucket emptied: $total_deleted total objects deleted in $batch_count batches"
+
+    # Final cleanup with s3 rm as backup
+    aws s3 rm "s3://$bucket" --recursive 2>/dev/null || true
+
+    # Delete bucket
+    if aws s3api delete-bucket --bucket "$bucket" 2>/dev/null; then
+        log_success "Deleted S3 bucket: $bucket"
+        return 0
+    else
+        local error_code=$?
+        log_warn "Immediate deletion failed: $bucket (likely has continuous writes from AWS services)"
+        log_info "  Attempting lazy-delete fallback..."
+
+        if lazy_delete_bucket "$bucket"; then
+            return 0  # Treat lazy-delete as success
+        else
+            return $error_code  # Return original error if lazy-delete also fails
+        fi
+    fi
+}
+
 # =============================================================================
 # DESTROY ALL S3 BUCKETS
 # =============================================================================
@@ -140,13 +268,19 @@ destroy_s3_buckets() {
     fi
 
     local destroyed=0
+    local lazy_deleted=0
     local failed=0
 
     for bucket in $buckets; do
         if matches_project "$bucket"; then
             if confirm_destruction "S3 Bucket" "$bucket"; then
-                if empty_and_delete_bucket "$bucket"; then
-                    ((destroyed++)) || true
+                if empty_and_delete_bucket_with_fallback "$bucket"; then
+                    # Check if it was lazy-deleted or immediately deleted
+                    if [[ -f "${OUTPUT_DIR}/lazy-deleted-buckets.txt" ]] && grep -q "^$bucket$" "${OUTPUT_DIR}/lazy-deleted-buckets.txt" 2>/dev/null; then
+                        ((lazy_deleted++)) || true
+                    else
+                        ((destroyed++)) || true
+                    fi
                 else
                     ((failed++)) || true
                 fi
@@ -154,7 +288,19 @@ destroy_s3_buckets() {
         fi
     done
 
-    log_info "S3 buckets: $destroyed destroyed, $failed failed"
+    log_info "S3 buckets: $destroyed immediately destroyed, $lazy_deleted lazy-deleted (auto-cleanup in 1-2 days), $failed failed"
+
+    # Report lazy-deleted buckets
+    if [[ $lazy_deleted -gt 0 ]] && [[ -f "${OUTPUT_DIR}/lazy-deleted-buckets.txt" ]]; then
+        log_info ""
+        log_info "📋 Lazy-deleted buckets (lifecycle policies applied):"
+        while IFS= read -r bucket; do
+            log_info "  - $bucket"
+        done < "${OUTPUT_DIR}/lazy-deleted-buckets.txt"
+        log_info ""
+        log_info "💡 These buckets will be automatically emptied and deleted within 1-2 days"
+        log_info "💡 Billing for these buckets has stopped immediately"
+    fi
 }
 
 # =============================================================================
@@ -279,6 +425,10 @@ destroy_cross_account_s3_buckets() {
     local total_destroyed=0
     local total_failed=0
 
+    # Get current account to avoid trying to assume role in same account
+    local current_account
+    current_account=$(get_current_account)
+
     for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
         if ! check_account_filter "$account_id"; then
             continue
@@ -286,6 +436,14 @@ destroy_cross_account_s3_buckets() {
 
         local env_name="${account_env_map[$account_id]}"
         log_info "🪣 Scanning for S3 buckets in $env_name account ($account_id)..."
+
+        # Skip cross-account role assumption if we're already in the target account
+        if [[ "$current_account" == "$account_id" ]]; then
+            log_info "Already in $env_name account ($account_id) - scanning directly without role assumption"
+            # Call destroy_s3_buckets directly for current account
+            destroy_s3_buckets
+            continue
+        fi
 
         # Assume role into member account
         local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
@@ -295,6 +453,7 @@ destroy_cross_account_s3_buckets() {
         credentials=$(aws sts assume-role \
             --role-arn "$role_arn" \
             --role-session-name "$session_name" \
+            --duration-seconds 3600 \
             --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
             --output text 2>/dev/null)
 

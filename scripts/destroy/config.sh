@@ -25,6 +25,7 @@ readonly AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 # Project-specific resource patterns
 readonly PROJECT_PATTERNS=(
     "static-site"
+    "static-website"
     "StaticSite"
     "terraform-state"
     "GitHubActions"

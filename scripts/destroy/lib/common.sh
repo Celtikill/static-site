@@ -196,3 +196,19 @@ add_to_github_summary() {
         echo "$*" >> "$GITHUB_STEP_SUMMARY"
     fi
 }
+
+# =============================================================================
+# AWS HELPER FUNCTIONS
+# =============================================================================
+
+# Get current AWS account ID
+get_current_account() {
+    aws sts get-caller-identity --query 'Account' --output text 2>/dev/null || echo ""
+}
+
+# Check if currently in management account
+is_management_account() {
+    local current_account
+    current_account=$(get_current_account)
+    [[ "$current_account" == "$MANAGEMENT_ACCOUNT_ID" ]]
+}

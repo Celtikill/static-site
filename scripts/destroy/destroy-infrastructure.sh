@@ -336,6 +336,19 @@ main() {
     echo "  Duration: ${duration}s"
     echo "  Log file: $LOG_FILE"
 
+    # Check for lazy-deleted buckets
+    if [[ -f "${OUTPUT_DIR}/lazy-deleted-buckets.txt" ]]; then
+        local lazy_bucket_count
+        lazy_bucket_count=$(wc -l < "${OUTPUT_DIR}/lazy-deleted-buckets.txt" 2>/dev/null || echo "0")
+        if [[ $lazy_bucket_count -gt 0 ]]; then
+            echo "  Lazy-deleted S3 buckets: $lazy_bucket_count (auto-cleanup in 1-2 days)"
+            echo "  Lazy-delete tracking: ${OUTPUT_DIR}/lazy-deleted-buckets.txt"
+            echo ""
+            echo -e "${YELLOW}💡 Note: $lazy_bucket_count S3 bucket(s) will be automatically emptied within 1-2 days${NC}"
+            echo -e "${YELLOW}💡 Billing for these buckets has stopped immediately${NC}"
+        fi
+    fi
+
     # Write final report
     write_report "success" "$duration" "$total_destroyed" "$total_failed"
 }
