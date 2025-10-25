@@ -15,7 +15,11 @@ This guide provides detailed cost analysis, optimization strategies, and managem
 ### Cost Philosophy
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Cost Management Philosophy and Three Pillars
+    accDescr: Three-pillar cost management framework balancing visibility, optimization, and control for sustainable cloud operations. The Visibility pillar implements comprehensive cost monitoring and measurement establishing baseline understanding of spending patterns across services, environments, and resource types, enabling data-driven decision making through AWS Cost Explorer, CloudWatch metrics, and budget reports tracking expenditures in real-time. The Optimization pillar focuses on spending efficiency through right-sizing resources to match actual workload requirements, leveraging AWS free tier maximizing complimentary resources, implementing environment-specific configurations with development using cost-optimized settings and production using performance-optimized resources, and applying cost-saving strategies like S3 lifecycle policies and CloudFront caching. The Control pillar prevents cost overruns through automated budget alerts triggering notifications before limits are reached, service quotas limiting maximum resource provisioning, environment-specific spending caps with development at lower thresholds, and approval workflows for infrastructure changes impacting costs. This framework ensures you know what you spend through visibility, spend efficiently through optimization, and prevent overruns through control. The three pillars work synergistically with visibility informing optimization decisions and control mechanisms preventing budget violations, creating sustainable cost management for long-term operational success.
+
     A["💰 Cost Management"] --> B["📊 Visibility"]
     A --> C["🎯 Optimization"]
     A --> D["🛡️ Control"]
@@ -28,6 +32,13 @@ graph LR
     style B fill:#c8e6c9
     style C fill:#e1f5fe
     style D fill:#ffccbc
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 **Key Principles:**

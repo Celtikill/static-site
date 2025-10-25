@@ -12,11 +12,15 @@ This system implements enterprise-grade static website hosting using AWS service
 
 > **💡 For detailed IAM permissions, security model, and migration roadmap**, see [IAM Deep Dive](iam-deep-dive.md).
 
-> **Note on Account IDs**: This diagram uses placeholder IDs (`MANAGEMENT_ACCOUNT_ID`, etc.) for fork-ready customization. The [README.md](../README.md) shows actual account IDs from the reference deployment. Per AWS guidance, account IDs are safe to expose publicly and do not present a security risk.
+> **Note on Account IDs**: This diagram uses placeholder IDs (`MANAGEMENT_ACCOUNT_ID`, `ORG_ID`, etc.) for fork-ready customization. Replace these placeholders with your actual AWS account IDs and organization ID during deployment. Per AWS guidance, account IDs are safe to expose publicly and do not present a security risk, but using placeholders makes this repository easily forkable.
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TB
-    subgraph Org["🏛️ AWS Organization<br/>o-0hh51yjgxw"]
+    accTitle: "Multi-Account AWS Architecture"
+    accDescr: "Diagram showing 3-tier IAM security model with GitHub Actions OIDC authentication. Management account hosts OIDC provider, bootstrap role, and central orchestration role. Central role coordinates deployments to Dev, Staging, and Production accounts. Each environment account contains deployment role, Terraform state backend, and infrastructure resources. Dev account is operational, Staging and Production are ready for deployment. Implements account isolation for security and blast radius containment following AWS Well-Architected multi-account strategy."
+
+    subgraph Org["🏛️ AWS Organization<br/>ORG_ID"]
         subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
             OIDC["🔐 OIDC Provider<br/>github.com/Celtikill/static-site"]
             Bootstrap["⚙️ Bootstrap Role<br/>GitHubActions-Bootstrap-Central"]
@@ -53,6 +57,17 @@ graph TB
     StagingRole --> StagingInfra
     ProdRole --> ProdState
     ProdRole --> ProdInfra
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
 ```
 
 ### Authentication Flow
@@ -80,7 +95,11 @@ For comprehensive IAM details, compromises, and migration roadmap, see [IAM Deep
 ### Core AWS Services
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: "AWS Static Website Core Services"
+    accDescr: "Architecture diagram of AWS services for static website hosting in us-east-1 region. Storage layer includes primary S3 bucket with website content using AES-256 and KMS encryption, access logs bucket for audit trails, and replica bucket in us-west-2 for cross-region replication. Content delivery network includes CloudFront distribution with global edge locations and origin access control, WAF v2 for OWASP Top 10 protection and rate limiting, and optional Route 53 for DNS management. Security services include KMS customer-managed key with envelope encryption and automatic rotation, plus IAM roles with least privilege access. Observability includes CloudWatch for metrics and logs with custom dashboards, SNS for alerts, and AWS Budgets for cost controls with threshold alerts."
+
     subgraph Region["🌍 AWS Region: us-east-1"]
         subgraph Storage["💾 Storage Layer"]
             S3Primary["🪣 Primary S3 Bucket<br/>Website Content<br/>AES-256 + KMS"]
@@ -119,7 +138,18 @@ graph TD
     SNS --> Budget
     Route53 --> CF
 
-
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
 ```
 
 ## CI/CD Pipeline Architecture
@@ -127,7 +157,11 @@ graph TD
 ### Pipeline Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: "CI/CD Pipeline Three-Phase Flow"
+    accDescr: "Three-phase CI/CD pipeline workflow showing BUILD, TEST, and RUN phases. Developer pushes code or infrastructure changes, triggering BUILD phase (~20 seconds) which includes Checkov infrastructure security scanning, Trivy vulnerability detection, artifact creation for website and Terraform archives, and environment-specific cost projections. TEST phase (~35 seconds) validates with OPA policy engine running 6 security deny rules, 5 compliance best practice warnings, and Terraform configuration validation. RUN phase (~1m49s) performs infrastructure deployment with OpenTofu apply, website deployment via S3 sync and CloudFront invalidation, and health validation with HTTP checks and monitoring setup. Total pipeline time approximately 2 minutes 44 seconds for secure, quality-gated deployments."
+
     A["📝 Developer Push<br/>Code/Infrastructure Changes"] --> B["🔨 BUILD Phase<br/>⏱️ ~20 seconds"]
     B --> C["🧪 TEST Phase<br/>⏱️ ~35 seconds"]
     C --> D["🚀 RUN Phase<br/>⏱️ ~1m49s"]
@@ -155,13 +189,22 @@ graph TD
     C --> TestPhase
     D --> RunPhase
 
-
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 ### Security Scanning Integration
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: "Security Quality Gates Decision Flow"
+    accDescr: "Security scanning and decision workflow showing three security quality gates feeding into decision engine. Checkov performs infrastructure-as-code security analysis, Trivy detects vulnerabilities and misconfigurations, and Open Policy Agent validates compliance and governance policies. All findings feed to security decision engine which evaluates for critical or high severity issues. If critical/high issues found, deployment is blocked and remediation required from developer. If no critical issues, deployment is allowed to proceed as secure release. Implements fail-fast security pattern preventing vulnerable code from reaching production."
+
     subgraph SecurityGates["🔒 Security Quality Gates"]
         Checkov["🛡️ Checkov<br/>Infrastructure as Code<br/>Security Analysis"]
         Trivy["🔍 Trivy<br/>Vulnerability & Misconfiguration<br/>Detection"]
@@ -184,7 +227,13 @@ graph LR
     Block --> Fix["🔧 Remediation Required<br/>Developer Action Needed"]
     Allow --> Deploy["🚀 Proceed to Deployment<br/>Secure Release"]
 
-
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
 ```
 
 ## Network Architecture
@@ -192,7 +241,11 @@ graph LR
 ### Content Delivery Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: "Global Content Delivery Network"
+    accDescr: "Content delivery flow showing global users accessing website through CloudFront edge locations. European users connect to EU edge locations in London and Frankfurt, American users connect to US edge locations in Northern Virginia and Oregon, Asia-Pacific users connect to APAC edge locations in Tokyo and Sydney. All edge locations route through WAF protection layer with application firewall and rate limiting before reaching origin S3 static website in us-east-1 with origin access control. Provides low-latency global access with security protection at CDN edge."
+
     subgraph Users["👥 Global Users"]
         User1["🌍 User (Europe)"]
         User2["🌎 User (Americas)"]
@@ -220,7 +273,13 @@ graph LR
 
     WAF --> S3
 
-
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
 ```
 
 ## Security Architecture
@@ -228,7 +287,11 @@ graph LR
 ### Defense in Depth
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: "Defense in Depth Security Layers"
+    accDescr: "Four-layer defense-in-depth security architecture protecting against external threats. Layer 1 (Edge Protection) uses AWS WAF v2 for OWASP Top 10 protection and rate limiting, plus CloudFront for DDoS protection and geo-blocking. Layer 2 (Access Control) implements Origin Access Control to block direct S3 access and IAM policies enforcing least privilege and service boundaries. Layer 3 (Data Protection) provides KMS encryption with customer-managed keys and envelope encryption, plus S3 server-side encryption using AES-256 with KMS and bucket policies. Layer 4 (Monitoring) uses CloudWatch for real-time logs and anomaly detection, with security alerts via SNS for automated response. Attack vectors including DDoS and injection attempts flow through all layers, with each layer providing independent security controls following defense-in-depth principle."
+
     subgraph External["🌐 External Threats"]
         Attacks["🚨 Attack Vectors<br/>DDoS, Injection, etc."]
     end
@@ -262,7 +325,14 @@ graph TD
     S3Encrypt --> CW
     CW --> Alerts
 
-
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
 ```
 
 ## Cost Optimization Strategy
@@ -281,7 +351,11 @@ graph TD
 ### Cost Control Mechanisms
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: "Cost Control and Optimization Framework"
+    accDescr: "Three-pillar cost management framework covering monitoring, optimization, and governance. Cost Monitoring includes AWS Budgets with environment-specific limits, Cost Explorer for usage analytics, and budget alerts at 80%, 100%, and 120% thresholds. Cost Optimization uses feature flags for conditional resource creation (enable CloudFront only in staging/prod), S3 lifecycle policies with intelligent tiering, and free tier optimization for CloudWatch and Lambda. Cost Governance implements resource tagging for environment, project, and owner attribution, cost allocation for chargeback and showback reporting, and monthly reviews with cost optimization reports. Alert thresholds trigger feature flag evaluation to prevent cost overruns. Provides proactive cost management following FinOps principles."
+
     subgraph Monitoring["💰 Cost Monitoring"]
         Budget["📊 AWS Budgets<br/>Environment-Specific Limits"]
         CostExplorer["📈 Cost Explorer<br/>Usage Analytics"]
@@ -306,7 +380,11 @@ graph TD
     Tagging --> Policies
     Alerts --> FeatureFlags
 
-
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
 ```
 
 ## Disaster Recovery & Business Continuity
@@ -314,7 +392,11 @@ graph TD
 ### Backup Strategy
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: "Disaster Recovery and Backup Strategy"
+    accDescr: "Multi-region disaster recovery architecture with cross-region replication. Primary region (us-east-1) contains primary S3 bucket with website content and versioning enabled, plus Terraform state with distributed backend and state locking. Backup region (us-west-2) maintains replica S3 bucket with cross-region replication and same encryption settings, plus state backup with point-in-time recovery and versioning. Recovery procedures define Recovery Time Objective under 1 hour and Recovery Point Objective under 15 minutes. Failover process supports both automated and manual failover between regions. S3 primary continuously replicates to replica bucket, Terraform state backs up to state backup. Both backup systems feed into failover process to meet RTO and RPO objectives. Provides business continuity and data protection following AWS Well-Architected reliability pillar."
+
     subgraph Primary["🏠 Primary Region: us-east-1"]
         S3Primary["🪣 Primary S3 Bucket<br/>Website Content<br/>Versioning Enabled"]
         StatePrimary["💾 Terraform State<br/>Distributed Backend<br/>State Locking"]
@@ -338,7 +420,12 @@ graph LR
     Failover --> RTO
     Failover --> RPO
 
-
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 ## Monitoring & Observability

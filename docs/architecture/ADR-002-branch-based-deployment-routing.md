@@ -45,7 +45,11 @@ We will implement a **Progressive Promotion Model** with branch-based automatic 
 ### Routing Strategy
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Branch-Based Deployment Routing Strategy
+    accDescr: Git branch-based deployment routing implementing progressive environment promotion with automated and manual gates. Feature, bugfix, and hotfix branches automatically deploy to the Development environment on push enabling rapid iteration and experimentation without manual intervention. Development serves as the sandbox for all work-in-progress changes with automatic deployments supporting continuous integration workflows. Manual promotion from development merges changes to the main branch after validation and code review. The main branch automatically deploys to the Staging environment on merge providing pre-production validation with production-equivalent infrastructure but without live user traffic. Staging validates changes in realistic conditions before production exposure. Manual promotion from staging creates GitHub Releases requiring explicit approval for production deployment. GitHub Releases trigger manual workflow dispatch deploying to the Production environment only after human authorization implementing change control requirements. This strategy balances automation velocity in lower environments with safety gates in production. Automatic deployments in dev enable rapid feedback while manual approvals for production ensure deliberate, controlled releases. The progressive promotion pattern implements blast radius containment validating changes at each stage before advancing to higher-risk environments.
+
     A["feature/* branches"] -->|"Automatic"| B["🧪 Dev Environment"]
     C["bugfix/* branches"] -->|"Automatic"| B
     D["hotfix/* branches"] -->|"Automatic"| B
@@ -58,6 +62,14 @@ graph TD
     style B fill:#e1f5fe
     style F fill:#fff9c4
     style H fill:#c8e6c9
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
 ```
 
 ### Branch-to-Environment Mapping

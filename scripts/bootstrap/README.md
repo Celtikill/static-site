@@ -120,7 +120,11 @@ cd scripts/bootstrap
 ### Typical Usage Pattern
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Bootstrap Path Decision and Workflow
+    accDescr: Two-path bootstrap strategy supporting both fresh AWS accounts and existing AWS Organizations with convergence to common workflow-based operations. Fresh AWS accounts start by running bootstrap-organization.sh creating a new AWS Organization with organizational units, service control policies, and account structure documented in the organizational design. The bootstrap-foundation.sh script then provisions foundational infrastructure including OIDC providers for GitHub Actions authentication, IAM roles for cross-account access, S3 state backends with encryption, and DynamoDB tables for state locking. The accounts.json file is committed to version control documenting account structure and enabling automated workflows. Existing AWS Organizations with established account structures can skip organization creation by manually updating accounts.json with existing account details then joining the common path at foundation bootstrap. After bootstrap completion, all infrastructure changes transition to workflow-based day-2 operations using GitHub Actions for consistency and audit trails. Infrastructure changes follow pull request workflows with peer review, automated testing, and approval gates before merge. Automated deployment via Actions executes after PR approval applying infrastructure changes through the BUILD-TEST-RUN pipeline ensuring security scanning, policy validation, and controlled deployment. This dual-path approach accommodates different starting points while converging to standardized operations enabling teams to adopt modern DevOps practices regardless of initial AWS configuration maturity.
+
     A[Fresh AWS Account] --> B[Run bootstrap-organization.sh]
     B --> C[Run bootstrap-foundation.sh]
     C --> D[Commit accounts.json]
@@ -130,6 +134,15 @@ graph TD
 
     H[Existing AWS Org] --> I[Update accounts.json manually]
     I --> C
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
 ```
 
 **Key Points:**

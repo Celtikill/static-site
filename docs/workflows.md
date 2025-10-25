@@ -19,7 +19,11 @@ GitHub Actions workflows implementing the BUILD → TEST → RUN pipeline for AW
 ## Pipeline Architecture
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: GitHub Actions Pipeline Architecture
+    accDescr: Three-phase GitHub Actions pipeline orchestrating secure infrastructure deployment through progressive quality gates. Code pushes trigger the BUILD phase executing in approximately 20 seconds performing security scanning with Checkov and Trivy validating infrastructure-as-code against security policies and vulnerability databases, while creating deployment artifacts packaging validated code for downstream phases. Successful BUILD completion advances to the TEST phase executing in approximately 35 seconds performing OPA policy validation ensuring compliance with organizational security and governance standards, combined with configuration checking validating Terraform syntax and logic correctness. Successful TEST completion advances to the RUN phase executing in approximately 1 minute 49 seconds orchestrating infrastructure provisioning through OpenTofu deploying AWS resources including S3 buckets, CloudFront distributions, WAF rules, CloudWatch dashboards, and KMS encryption keys, followed by website deployment syncing static content to S3 with cache invalidation. Each phase gates the next implementing fail-fast principles catching issues progressively earlier in the pipeline where remediation costs are lower. The total end-to-end execution time of approximately 2 minutes 44 seconds balances rapid feedback with comprehensive validation. This architecture implements continuous integration and deployment best practices with automated security scanning, policy-as-code validation, and infrastructure-as-code deployment ensuring consistent, secure, and repeatable infrastructure provisioning.
+
     A["📝 Code Push"] --> B["🔨 BUILD<br/>~20s"]
     B --> C["🧪 TEST<br/>~35s"]
     C --> D["🚀 RUN<br/>~1m49s"]
@@ -30,6 +34,16 @@ graph LR
     C2["🔍 Config Check"] --> C
     D1["🏗️ Infrastructure"] --> D
     D2["🌐 Website"] --> D
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
 ```
 
 ## Workflow Files

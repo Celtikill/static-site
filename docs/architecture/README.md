@@ -25,7 +25,11 @@ Architecture Decision Records capture important architectural decisions along wi
 ## ADR Relationships
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Architecture Decision Record Relationships and Dependencies
+    accDescr: Dependency graph showing relationships and influences between five architectural decision records documenting the evolution of the CI/CD and deployment architecture. ADR-001 establishes the IAM Permission Strategy using the middle-way approach with action-category wildcards balancing security with maintainability, forming the foundation for secure automation. ADR-001 enables ADR-002 which defines Branch-Based Deployment Routing implementing progressive promotion from feature branches to development, main branch to staging, and GitHub Releases to production. ADR-002 naturally leads to ADR-003 establishing Manual Semantic Versioning with GitHub Releases for production deployment control and change management. ADR-003 necessitates ADR-004 which enforces Conventional Commits via PR title validation ensuring consistent commit history and automated release note generation. All four implementation ADRs inform ADR-005 which consolidates the Deployment Documentation Architecture organizing guides in a layered information hierarchy from quick start through advanced topics. ADR-005 depends on understanding the decisions in ADRs 001-004 to properly document the resulting workflows and architectural patterns. This decision network shows the logical progression from security foundations through deployment automation to documentation, with each decision building upon and referencing earlier decisions while maintaining clear rationale and traceability for future evolution.
+
     ADR001["ADR-001<br/>IAM Permissions<br/>(Middle-Way)"] --> ADR002["ADR-002<br/>Branch Routing<br/>(main→staging)"]
     ADR002 --> ADR003["ADR-003<br/>Manual Versioning<br/>(GitHub Releases)"]
     ADR003 --> ADR004["ADR-004<br/>Conventional Commits<br/>(PR Validation)"]
@@ -39,6 +43,14 @@ graph TD
     style ADR003 fill:#c8e6c9
     style ADR004 fill:#f3e5f5
     style ADR005 fill:#ffe0b2
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
 ```
 
 ## Summary by Topic

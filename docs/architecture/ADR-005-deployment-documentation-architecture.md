@@ -143,7 +143,11 @@ Repository Root
 ### Information Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Documentation Navigation and Information Architecture
+    accDescr: Progressive documentation discovery flow designed for user journey from initial contact to successful deployment or contribution. New users arrive at README.md which provides project status, pipeline health badges, and quick navigation links establishing context and credibility. README directs users to QUICK-START.md for rapid 5-minute deployment enabling immediate value demonstration and hands-on experience. The quick start creates early success building confidence and engagement. After initial deployment, users encounter a decision point based on their goals and needs. Production deployment users navigate to RELEASE-PROCESS.md documenting semantic versioning, GitHub Releases workflow, and production promotion procedures. Contributors navigate to CONTRIBUTING.md covering PR workflow, conventional commits requirements, code review process, and merge strategies. Users seeking advanced deployment patterns access deployment.md for progressive promotion strategies, rollback procedures, and multi-environment orchestration. Pipeline architecture learners access ci-cd.md documenting the BUILD-TEST-RUN workflow, security gates, and automation patterns. Decision rationale seekers access ADR documents explaining architectural choices, tradeoffs evaluated, and context for major decisions. All paths converge to successful outcomes whether deployment completion, contribution submission, or deep understanding of system design. This architecture implements progressive disclosure revealing complexity gradually as users advance from quick start through advanced topics. The hub-and-spoke pattern from README provides clear entry points while decision-based routing matches content to user intent.
+
     A["👋 New User Arrives"] --> B["📖 README.md<br/>Status & Quick Links"]
     B --> C["⚡ QUICK-START.md<br/>Deploy in 5 minutes"]
     C --> D{"Need More?"}
@@ -163,6 +167,20 @@ graph TD
     style B fill:#e1f5fe
     style C fill:#c8e6c9
     style I fill:#fff9c4
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
+    linkStyle 12 stroke:#333333,stroke-width:2px
 ```
 
 ## Rationale

@@ -12,7 +12,11 @@
 The project implements a three-phase CI/CD pipeline that ensures security, quality, and reliable deployments:
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Three-Phase CI/CD Pipeline Overview
+    accDescr: High-level overview of the three-phase continuous integration and deployment pipeline with associated security and quality gates. Code pushes trigger the BUILD phase (~20 seconds) which performs security scanning with Checkov and Trivy while creating deployment artifacts. Upon BUILD success, the TEST phase (~35 seconds) executes OPA policy validation for security and compliance checks along with Terraform validation. After TEST passes, the RUN phase (~1m49s) orchestrates infrastructure deployment via OpenTofu and website deployment to S3 and CloudFront. This progressive pipeline architecture implements fail-fast principles with each phase gating the next, ensuring security vulnerabilities and policy violations are detected early before any infrastructure changes occur. The total end-to-end execution time of approximately 2 minutes 44 seconds provides rapid feedback while maintaining comprehensive security validation. This approach reduces remediation costs by catching issues early in the development lifecycle.
+
     A["📝 Code Push"] --> B["🔨 BUILD<br/>~20s"]
     B --> C["🧪 TEST<br/>~35s"]
     C --> D["🚀 RUN<br/>~1m49s"]
@@ -27,6 +31,16 @@ graph LR
     style B fill:#e1f5fe
     style C fill:#fff9c4
     style D fill:#c8e6c9
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
 ```
 
 **Total Pipeline Time**: ~2 minutes 44 seconds
@@ -59,7 +73,11 @@ graph LR
 ### Security Gates
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: CI/CD Security Gates and Decision Flow
+    accDescr: Progressive security validation flow with fail-fast decision gates protecting production deployments. Developer code pushes trigger the BUILD phase which performs Checkov and Trivy security scanning. Failed scans immediately block deployment requiring fixes, while passing scans advance to the TEST phase. The TEST phase validates OPA security and compliance policies. Policy violations block deployment and require remediation, while compliant code advances to the RUN phase for actual deployment. The RUN phase deploys infrastructure and website content with automated health validation. Deployment failures trigger automatic rollback to the last known good state preserving service availability, while successful deployments complete with the website going live. This multi-gate approach implements defense-in-depth validation with clear pass/fail decision points, creating comprehensive audit trails for security and compliance. Each gate reduces risk progressively, catching issues earlier in the pipeline where remediation costs are lower and blast radius is contained.
+
     A["📝 Developer Push"] --> B["🔨 BUILD Phase"]
     B --> C{"🛡️ Security Scan<br/>Pass?"}
     C -->|"❌ Fail"| D["🚫 Block Deployment<br/>Fix Required"]
@@ -73,6 +91,17 @@ graph TD
 
     style D fill:#ffcdd2
     style J fill:#c8e6c9
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
 ```
 
 ---
@@ -105,7 +134,11 @@ Located in `.github/workflows/`:
 ### What Happens
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: BUILD Phase Security Scanning Workflow
+    accDescr: Sequential security validation workflow in the BUILD phase ensuring infrastructure-as-code security before deployment. The workflow begins by checking out source code from the repository. Checkov performs infrastructure-as-code security scanning validating Terraform configurations against 50+ built-in security policies covering AWS security best practices, CIS benchmarks, and compliance frameworks. Trivy conducts vulnerability scanning of dependencies, container images, and infrastructure configurations detecting known CVEs and security misconfigurations. Cost estimation analyzes proposed infrastructure changes predicting AWS costs for budget validation and cost optimization. Artifact creation packages validated code and scan results for downstream pipeline phases. Report generation produces comprehensive security summaries with pass/fail status, vulnerability counts, and remediation guidance. The BUILD phase completes in approximately 20 seconds providing rapid security feedback. Failed security scans block the pipeline immediately preventing vulnerable code from advancing to deployment, implementing fail-fast security principles that reduce remediation costs.
+
     A["📥 Checkout Code"] --> B["🛡️ Checkov Scan"]
     B --> C["🔍 Trivy Scan"]
     C --> D["💰 Cost Estimation"]
@@ -115,6 +148,12 @@ graph LR
     style B fill:#ffecb3
     style C fill:#ffecb3
     style F fill:#c8e6c9
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
 ```
 
 ### Security Scanning
@@ -175,7 +214,11 @@ Production: $25-50/month (Full stack)
 ### What Happens
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: TEST Phase Policy Validation Workflow
+    accDescr: Comprehensive policy validation workflow ensuring security and compliance before infrastructure deployment. The workflow retrieves artifacts from the BUILD phase containing validated code and security scan results. OPA Security Policies evaluate infrastructure configurations using Rego policy language implementing 6 deny rules that block deployment for critical violations including unencrypted S3 buckets, non-HTTPS CloudFront distributions, wildcard IAM permissions, disabled KMS rotation, public access exposure, and missing audit logging. OPA Compliance Policies apply 5 warning rules for best practices including resource tagging, cost optimization, monitoring configuration, backup strategies, and documentation requirements that warn but allow deployment to continue. Terraform Validation performs syntax checking, logic validation, and generates execution plans exported as JSON for policy analysis ensuring infrastructure-as-code correctness. Summary generation produces comprehensive validation reports with policy evaluation results, compliance scores, and remediation recommendations. The TEST phase completes in approximately 35-50 seconds. Environment-specific enforcement varies from informational in development to strict blocking in production, balancing rapid iteration with production safety. Failed security policies block deployment requiring fixes while compliance warnings create audit trails without blocking.
+
     A["📥 Download Artifacts"] --> B["📜 OPA Security Policies"]
     B --> C["📋 OPA Compliance Policies"]
     C --> D["🔍 Terraform Validation"]
@@ -184,6 +227,11 @@ graph LR
     style B fill:#ffecb3
     style C fill:#fff9c4
     style E fill:#c8e6c9
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
 ```
 
 ### OPA Policy Validation
@@ -246,7 +294,11 @@ Steps:
 ### What Happens
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: RUN Phase Deployment Orchestration Workflow
+    accDescr: Flexible deployment orchestration supporting infrastructure-only, website-only, or combined deployments with comprehensive validation. The workflow retrieves validated artifacts from the TEST phase and determines deployment scope based on workflow inputs. Infrastructure deployment uses OpenTofu to provision AWS resources via OIDC authentication to the Management Account Central Role, then assumes environment-specific roles in target accounts for deployment. Resources deployed include S3 buckets with KMS encryption, CloudFront distributions with WAF protection when enabled, CloudWatch monitoring dashboards and alarms, SNS notification topics, and KMS encryption keys. Website deployment syncs static content to S3 with intelligent delta uploads transferring only changed files, gzip compression for text resources, proper cache-control headers for optimal CDN performance, and CloudFront cache invalidation when distributions are enabled. Combined deployments execute infrastructure provisioning first ensuring resources exist before website content deployment. Resource verification validates successful infrastructure provisioning checking resource states and outputs. Health checks validate website accessibility with HTTP 200 responses, security headers presence, CloudFront serving, active WAF rules, and monitoring dashboard availability. Monitoring setup configures observability with metrics collection and alerting. The RUN phase completes in approximately 1 minute 30 seconds to 2 minutes. Deployment failures trigger automatic rollback to the last known good state preserving service availability and implementing safe deployment practices.
+
     A["📥 Download Artifacts"] --> B{"Deploy What?"}
     B -->|"Infrastructure"| C["🏗️ Terraform Apply"]
     B -->|"Website"| D["🌐 S3 Sync"]
@@ -264,6 +316,18 @@ graph TD
     style C fill:#e1f5fe
     style D fill:#c8e6c9
     style J fill:#4caf50
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
 ```
 
 ### Infrastructure Deployment
@@ -318,7 +382,11 @@ Steps:
 ### Automatic Triggers
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Workflow Routing and Trigger Logic
+    accDescr: Branch-based workflow routing implementing progressive deployment strategy with environment-aware automation. Code pushes trigger branch-conditional routing where commits to the main branch execute the full BUILD-TEST-RUN pipeline deploying automatically to the development environment, while commits to feature branches execute only BUILD and TEST phases for validation without deployment allowing safe experimentation. Pull requests trigger BUILD and TEST phases for validation-only workflows ensuring proposed changes meet security and policy requirements before merge, providing quality gates in the code review process. Scheduled workflows execute nightly security scans performing regular vulnerability assessments and compliance checks independent of code changes. The main branch automatic deployment to development supports rapid iteration and testing in a safe sandbox environment. Feature branch validation without deployment prevents untested code from reaching any environment while still providing security feedback. This routing strategy implements branch-based deployment patterns following GitFlow principles with progressive promotion from development through staging to production. The architecture balances automation for efficiency with safety gates preventing unauthorized deployments, while maintaining comprehensive audit trails of all deployment decisions and workflow executions.
+
     A["📝 Code Push"] --> B{"Which Branch?"}
     B -->|"main"| C["🔨 BUILD → 🧪 TEST → 🚀 RUN<br/>Target: dev"]
     B -->|"feature/*"| D["🔨 BUILD → 🧪 TEST<br/>No deployment"]
@@ -330,6 +398,12 @@ graph TD
     style C fill:#c8e6c9
     style D fill:#fff9c4
     style F fill:#e1f5fe
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
 ```
 
 ### Manual Triggers

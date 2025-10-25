@@ -91,30 +91,37 @@ gh run watch
 ## 🏗️ Architecture Overview
 
 ### Multi-Account Architecture (Direct OIDC)
+
+> **Note on Account IDs**: This diagram uses placeholders for security and fork-friendliness. Replace `MANAGEMENT_ACCOUNT_ID`, `DEVELOPMENT_ACCOUNT_ID`, `STAGING_ACCOUNT_ID`, and `PRODUCTION_ACCOUNT_ID` with your actual AWS account IDs during deployment. Per AWS guidance, account IDs are safe to expose publicly, but using placeholders makes this repository easily forkable and customizable.
+
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TB
+    accTitle: Multi-Account AWS Architecture with Direct OIDC
+    accDescr: Multi-account AWS architecture implementing direct OIDC authentication from GitHub Actions to environment-specific roles. GitHub workflows authenticate directly to dedicated roles in each AWS account using AssumeRoleWithWebIdentity, eliminating stored credentials and centralized trust points. The Management Account hosts the central state bucket for foundation resources but does not participate in the authentication flow. Three environment accounts (Development, Staging, Production) each contain their own OIDC provider and GitHubActions role with repository-scoped trust policies. This architecture implements AWS 2025 best practices for multi-account security by providing account-level isolation, simpler audit trails with single-step authentication, reduced blast radius from environment segregation, and stronger security boundaries with per-account OIDC providers. Development infrastructure is operational, while Staging and Production are ready for deployment. The direct OIDC approach eliminates the security risks and complexity of role chaining while maintaining strict least-privilege access control.
+
     subgraph GitHub["🐙 GitHub Actions"]
         GH["GitHub Workflows<br/>Direct OIDC"]
     end
 
-    subgraph Management["🏢 Management Account<br/>223938610551"]
+    subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
         MgmtOIDC["🔐 OIDC Provider"]
         MgmtState["📦 Central State Bucket<br/>Foundation Resources"]
     end
 
-    subgraph Dev["🧪 Dev Account<br/>822529998967"]
+    subgraph Dev["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
         DevOIDC["🔐 OIDC Provider"]
         DevRole["🔧 GitHubActions Role<br/>Direct OIDC Trust"]
         DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
     end
 
-    subgraph Staging["🚀 Staging Account<br/>927588814642"]
+    subgraph Staging["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
         StagingOIDC["🔐 OIDC Provider"]
         StagingRole["🔧 GitHubActions Role<br/>Direct OIDC Trust"]
         StagingInfra["☁️ Staging Infrastructure<br/>✅ READY"]
     end
 
-    subgraph Prod["🏭 Production Account<br/>546274483801"]
+    subgraph Prod["🏭 Production Account<br/>PRODUCTION_ACCOUNT_ID"]
         ProdOIDC["🔐 OIDC Provider"]
         ProdRole["🔧 GitHubActions Role<br/>Direct OIDC Trust"]
         ProdInfra["☁️ Production Infrastructure<br/>✅ READY"]
@@ -126,13 +133,24 @@ graph TB
     DevRole --> DevInfra
     StagingRole --> StagingInfra
     ProdRole --> ProdInfra
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 **Key Change**: Workflows now authenticate **directly** to environment roles via OIDC. No centralized role needed.
 
 ### CI/CD Pipeline
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Three-Phase CI/CD Pipeline with Security Gates
+    accDescr: Automated three-phase CI/CD pipeline implementing security-first deployment workflow with progressive quality gates. Phase 1 (BUILD ~20s) performs security scanning using Checkov for infrastructure-as-code security validation and Trivy for vulnerability detection, failing fast on critical issues before any deployment. Phase 2 (TEST ~35s) validates policy compliance using OPA/Rego policies for HIPAA, GDPR, and organizational standards, ensuring 100% compliance before promotion. Phase 3 (RUN ~1m49s) orchestrates deployment through OpenTofu for infrastructure provisioning, S3 and CloudFront for website deployment, and comprehensive health check validation. The pipeline implements fail-fast principles with each phase gating the next, creating an audit trail of security decisions. Total end-to-end execution time of approximately 3 minutes provides rapid feedback while maintaining security rigor. This approach ensures vulnerabilities are caught early in development, reducing remediation costs and preventing security issues from reaching production environments.
+
     A["📝 Git Push<br/>Code Changes"] --> B["🔨 BUILD Phase<br/>🔒 Security Scan<br/>⏱️ ~20s"]
     B --> C["🧪 TEST Phase<br/>📋 Policy Validation<br/>⏱️ ~35s"]
     C --> D["🚀 RUN Phase<br/>☁️ Deployment<br/>⏱️ ~1m49s"]
@@ -143,11 +161,25 @@ graph LR
     D1["🏗️ Infrastructure<br/>OpenTofu"] --> D
     D2["🌐 Website<br/>S3 + CloudFront"] --> D
     D3["✅ Validation<br/>Health Checks"] --> D
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
 ```
 
 ### Infrastructure Components
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: AWS Static Website Infrastructure Components
+    accDescr: Layered AWS infrastructure architecture for secure static website hosting with comprehensive observability. The Storage Layer uses S3 buckets for static website hosting with server-side encryption using customer-managed KMS keys, implementing defense-in-depth with bucket policies and versioning enabled for disaster recovery. The Content Delivery Layer leverages CloudFront for global edge distribution with Origin Access Control preventing direct S3 access, protected by AWS WAF v2 implementing OWASP Top 10 protection and rate limiting to defend against common web attacks and DDoS attempts. The Observability Layer uses CloudWatch for centralized logging and metrics collection from both S3 and CloudFront, with SNS topics for real-time security and operational alerts, and AWS Budgets for cost control and anomaly detection. GitHub Actions workflows orchestrate the three-phase BUILD-TEST-RUN pipeline, deploying infrastructure via OpenTofu and website content to S3. This architecture implements AWS Well-Architected Framework pillars for security, reliability, and cost optimization while maintaining operational excellence through comprehensive monitoring and automated deployment workflows.
+
     subgraph GitHub["🐙 GitHub Actions"]
         GHA["🔄 Workflows<br/>BUILD → TEST → RUN"]
     end
@@ -178,6 +210,15 @@ graph TD
     CF --> CW
     CW --> SNS
     CW --> Budget
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
 ```
 
 ## 🔒 Security Architecture

@@ -39,7 +39,11 @@ The 3-tier model implements **defense in depth** through role separation:
 ### Intended Pure Architecture
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TB
+    accTitle: Intended Pure 3-Tier IAM Architecture
+    accDescr: Intended three-tier IAM security architecture with clear separation of concerns and role-based access control. GitHub Actions authenticates via OIDC without stored credentials providing secure, temporary access tokens. The Management Account hosts two distinct roles implementing the separation between infrastructure and orchestration. Tier 1 Bootstrap role handles infrastructure creation with high privileges for provisioning foundational resources like IAM roles, state buckets, and account configurations, used rarely with comprehensive audit trails. Tier 2 Central role manages cross-account orchestration with medium privileges for coordinating deployments across environments without direct resource provisioning capabilities. Environment accounts (Development and Staging) each contain two dedicated roles following the tier separation pattern. Account-specific Bootstrap roles handle environment infrastructure creation provisioning S3 buckets, CloudFront distributions, KMS keys, and monitoring resources with high privileges scoped to their respective accounts. Tier 3 Deploy roles handle application deployment only with low privileges restricted to S3 object uploads, cache invalidation, and read-only infrastructure access, used frequently for routine deployments. The Bootstrap role can only assume other Bootstrap roles enabling infrastructure operations while preventing deployment access. The Central role can only assume Deploy roles enabling application deployments while preventing infrastructure modifications. This separation implements defense-in-depth with distinct audit trails for infrastructure versus application changes following least privilege principles. Currently not implemented; see compromise architecture for MVP state.
+
     subgraph GitHub["🐙 GitHub Actions"]
         OIDC["🔐 OIDC Authentication<br/>No Stored Credentials"]
     end
@@ -65,6 +69,13 @@ graph TB
     Bootstrap --> StagingBootstrap
     Central --> DevDeploy
     Central --> StagingDeploy
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 #### Tier 1: Bootstrap Role (Infrastructure Creation)
@@ -558,7 +569,11 @@ Permission Policy:
 #### Current Compromise Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Current MVP Compromise Authentication Flow
+    accDescr: Current MVP authentication flow implementing a compromise pattern where environment roles contain combined bootstrap and deployment permissions violating separation of concerns. GitHub Actions authenticates via OIDC obtaining temporary credentials without stored secrets. Authentication can target either the Bootstrap role for infrastructure provisioning or the Central role for deployment orchestration, both residing in the Management Account. Both roles can assume the single Environment role in target accounts creating a convergence point that violates the intended tier separation. The Environment role contains mixed permissions combining high-privilege bootstrap capabilities for infrastructure creation with deployment permissions for application operations. This compromise enables rapid MVP delivery but creates security concerns including excessive permissions for routine deployments, lack of distinct audit trails between infrastructure and application changes, and violation of least privilege principles. Resources provisioned by this role include mixed bootstrap infrastructure like state backends and DynamoDB tables combined with deployment resources like S3 buckets and CloudFront distributions. The red highlighting indicates this is a temporary compromise requiring migration to the pure three-tier architecture for production use. This pattern was acceptable for MVP validation but should not be used long-term.
+
     A["🐙 GitHub Actions"] --> B["🔐 OIDC Authentication"]
     B --> C["🎯 Bootstrap Role<br/>Management Account"]
     B --> D["🌐 Central Role<br/>Management Account"]
@@ -570,12 +585,23 @@ graph LR
 
     style E fill:#ffcccc
     style F fill:#ffcccc
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 #### Intended Pure Architecture Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Intended Pure 3-Tier Architecture Authentication Flow
+    accDescr: Intended pure three-tier authentication flow implementing complete separation between infrastructure provisioning and application deployment with distinct roles and audit trails. GitHub Actions authenticates via OIDC obtaining temporary credentials without stored secrets. Authentication can target either the Bootstrap role for infrastructure operations or the Central role for deployment operations, both residing in the Management Account. The Bootstrap role can only assume account-specific Bootstrap roles in target accounts creating a dedicated infrastructure provisioning path. The Central role can only assume account-specific Environment deployment roles in target accounts creating a dedicated application deployment path. The two paths never converge ensuring complete separation of concerns. Bootstrap roles in target accounts provision infrastructure resources including Terraform state backends, DynamoDB tables for state locking, KMS keys for encryption, and foundational IAM roles with high privileges used rarely with comprehensive audit trails. Environment deployment roles provision application resources including S3 buckets for website content, CloudFront distributions for content delivery, WAF rules for security, and CloudWatch monitoring with low privileges restricted to deployment operations used frequently for routine releases. This separation implements defense-in-depth with distinct audit trails clearly differentiating infrastructure changes from application deployments. The Bootstrap path handles rare, high-privilege infrastructure operations while the Deployment path handles frequent, low-privilege application operations. Green highlighting indicates this is the target production architecture providing proper separation of concerns and least privilege enforcement.
+
     A["🐙 GitHub Actions"] --> B["🔐 OIDC Authentication"]
     B --> C["🎯 Bootstrap Role<br/>Management Account"]
     B --> D["🌐 Central Role<br/>Management Account"]
@@ -590,6 +616,15 @@ graph LR
     style F fill:#ccffcc
     style G fill:#ccffcc
     style H fill:#ccffcc
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
 ```
 
 ### Permission Boundaries

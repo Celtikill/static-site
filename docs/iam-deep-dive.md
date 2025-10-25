@@ -37,7 +37,11 @@ The 3-tier model implements **defense in depth** through role separation:
 ### Intended Pure Architecture
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TB
+    accTitle: "3-Tier IAM Pure Architecture Model"
+    accDescr: "Intended 3-tier IAM security architecture with clear separation of concerns. GitHub Actions authenticates via OIDC without stored credentials. Management account hosts two roles: Tier 1 Bootstrap role for infrastructure creation and Tier 2 Central role for cross-account orchestration. Dev and Staging accounts each contain two dedicated roles: account-specific Bootstrap role for infrastructure creation (Tier 1) and Deploy role for application deployment only (Tier 3). Bootstrap role can only assume other Bootstrap roles for infrastructure operations. Central role can only assume Deploy roles for application deployments. This separation implements defense-in-depth with distinct audit trails for infrastructure vs application changes, following least privilege principle. Currently not implemented - see compromise architecture for MVP state."
+
     subgraph GitHub["🐙 GitHub Actions"]
         OIDC["🔐 OIDC Authentication<br/>No Stored Credentials"]
     end
@@ -63,6 +67,13 @@ graph TB
     Bootstrap --> StagingBootstrap
     Central --> DevDeploy
     Central --> StagingDeploy
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 #### Tier 1: Bootstrap Role (Infrastructure Creation)
@@ -556,7 +567,11 @@ Permission Policy:
 #### Current Compromise Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: "Current MVP Compromise Authentication Flow"
+    accDescr: "Current compromised authentication flow showing MVP implementation with documented security trade-offs. GitHub Actions authenticates via OIDC to both Bootstrap role and Central role in Management account. Both roles can assume the same Environment role in target account. Environment role has elevated permissions including both bootstrap permissions (S3 bucket creation, DynamoDB table creation, KMS key creation) and deployment permissions (website deployment, CloudFront management). This creates mixed concerns where same role performs infrastructure creation and application deployment, making audit trails unclear. Highlighted in red to indicate this is a temporary compromise enabling rapid MVP delivery. Migration roadmap exists to transition to pure 3-tier architecture with separated roles."
+
     A["🐙 GitHub Actions"] --> B["🔐 OIDC Authentication"]
     B --> C["🎯 Bootstrap Role<br/>Management Account"]
     B --> D["🌐 Central Role<br/>Management Account"]
@@ -568,12 +583,22 @@ graph LR
 
     style E fill:#ffcccc
     style F fill:#ffcccc
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
 ```
 
 #### Intended Pure Architecture Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: "Intended Pure 3-Tier Architecture Flow"
+    accDescr: "Target pure 3-tier authentication flow with proper separation of concerns. GitHub Actions authenticates via OIDC to Bootstrap role and Central role in Management account. Bootstrap role assumes dedicated Bootstrap role in target account for infrastructure operations only, creating S3 backends, DynamoDB tables for state locking, and KMS keys for encryption. Central role assumes dedicated Environment deployment role in target account for application operations only, deploying website content, managing CloudFront CDN, and setting up monitoring. Clear separation provides distinct audit trails, follows least privilege principle, and reduces blast radius of compromised credentials. Green highlighting indicates this is the intended secure architecture. Migration roadmap defined with 4 phases to transition from current compromise to this pure model."
+
     A["🐙 GitHub Actions"] --> B["🔐 OIDC Authentication"]
     B --> C["🎯 Bootstrap Role<br/>Management Account"]
     B --> D["🌐 Central Role<br/>Management Account"]
@@ -588,6 +613,13 @@ graph LR
     style F fill:#ccffcc
     style G fill:#ccffcc
     style H fill:#ccffcc
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 ### Permission Boundaries

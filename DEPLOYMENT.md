@@ -596,12 +596,23 @@ gh workflow run run.yml \
 Deploy changes through environments progressively:
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Progressive Deployment Strategy
+    accDescr: Progressive multi-environment deployment workflow implementing safe promotion through development, staging, and production with automated testing gates. Changes deploy first to the Development environment for initial validation and rapid iteration. Automated tests execute in development including security scans, policy validation, and functional tests. Test passage gates promotion to Staging environment for pre-production validation with production-like configuration. Test failures trigger the fix cycle returning changes to development for remediation preventing flawed code from advancing. Staging validates changes in production-equivalent infrastructure without affecting live users. After staging validation succeeds, changes promote to Production environment for end-user delivery. This progressive strategy implements blast radius containment by validating changes in lower environments before production exposure. Each environment provides increasing confidence with development for experimentation, staging for final validation, and production for live traffic. The automated test gates implement fail-fast principles catching issues early where remediation costs are lower. This approach balances deployment velocity with safety, enabling rapid iteration while protecting production stability through systematic validation at each promotion stage.
+
     A[Dev] --> B[Staging] --> C[Production]
     A --> D{Tests Pass?}
     D -->|Yes| B
     D -->|No| E[Fix Issues]
     E --> A
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 **Process:**
