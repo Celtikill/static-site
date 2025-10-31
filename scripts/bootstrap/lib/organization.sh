@@ -37,20 +37,7 @@ get_root_ou_id() {
         return 0
     fi
 
-    local root_id
-    if ! root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>&1); then
-        log_error "Failed to get root OU ID"
-        log_error "AWS CLI error: $root_id"
-        return 1
-    fi
-
-    if [[ -z "$root_id" ]] || [[ "$root_id" == "None" ]]; then
-        log_error "No organization root found"
-        return 1
-    fi
-
-    echo "$root_id"
-    return 0
+    aws organizations list-roots --query 'Roots[0].Id' --output text 2>/dev/null
 }
 
 # =============================================================================
@@ -215,33 +202,22 @@ move_account_to_ou() {
 
     # Get current parent
     local current_parent
-    if ! current_parent=$(aws organizations list-parents --child-id "$account_id" \
-        --query 'Parents[0].Id' --output text 2>&1); then
-        log_error "Failed to get current parent for account $account_id"
-        log_error "AWS CLI error: $current_parent"
-        return 1
-    fi
-
-    if [[ -z "$current_parent" ]] || [[ "$current_parent" == "None" ]]; then
-        log_error "Could not determine current parent for account $account_id"
-        return 1
-    fi
+    current_parent=$(aws organizations list-parents --child-id "$account_id" \
+        --query 'Parents[0].Id' --output text 2>/dev/null)
 
     if [[ "$current_parent" == "$destination_ou_id" ]]; then
         log_success "Account already in target OU"
         return 0
     fi
 
-    local move_output
-    if move_output=$(aws organizations move-account \
+    if aws organizations move-account \
         --account-id "$account_id" \
         --source-parent-id "$current_parent" \
-        --destination-parent-id "$destination_ou_id" 2>&1); then
+        --destination-parent-id "$destination_ou_id" 2>&1; then
         log_success "Moved account to OU"
         return 0
     else
         log_error "Failed to move account to OU"
-        log_error "AWS CLI error: $move_output"
         return 1
     fi
 }
@@ -325,30 +301,24 @@ attach_scp_to_ou() {
 
     # Check if already attached
     local attached_policies
-    if ! attached_policies=$(aws organizations list-policies-for-target \
+    attached_policies=$(aws organizations list-policies-for-target \
         --target-id "$ou_id" \
         --filter SERVICE_CONTROL_POLICY \
         --query 'Policies[].Id' \
-        --output text 2>&1); then
-        log_error "Failed to list policies for OU: $ou_id"
-        log_error "AWS CLI error: $attached_policies"
-        return 1
-    fi
+        --output text 2>/dev/null)
 
     if echo "$attached_policies" | grep -q "$policy_id"; then
         log_success "SCP already attached to OU"
         return 0
     fi
 
-    local attach_output
-    if attach_output=$(aws organizations attach-policy \
+    if aws organizations attach-policy \
         --policy-id "$policy_id" \
-        --target-id "$ou_id" 2>&1); then
+        --target-id "$ou_id" 2>&1; then
         log_success "Attached SCP to OU"
         return 0
     else
         log_error "Failed to attach SCP to OU"
-        log_error "AWS CLI error: $attach_output"
         return 1
     fi
 }
