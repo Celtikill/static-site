@@ -113,3 +113,65 @@ destroy_cloudtrail_resources() {
 
     log_info "CloudTrail trails: $destroyed destroyed, $failed failed"
 }
+
+# =============================================================================
+# CLOUDTRAIL S3 BUCKET CLEANUP (FINAL PHASE)
+# =============================================================================
+
+# Destroy CloudTrail S3 buckets (called at the very end of destruction sequence)
+# This is deferred to Phase 12 because CloudTrail buckets contain many versioned objects
+# and can take a very long time to delete, blocking other resource destruction
+destroy_cloudtrail_s3_buckets() {
+    log_info "🪣 Destroying CloudTrail S3 buckets (final cleanup - this may take several minutes)..."
+
+    local buckets
+    buckets=$(AWS_REGION=us-east-1 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+
+    if [[ -z "$buckets" ]]; then
+        log_info "No S3 buckets found"
+        return 0
+    fi
+
+    local destroyed=0
+    local lazy_deleted=0
+    local failed=0
+
+    for bucket in $buckets; do
+        # Only process CloudTrail buckets
+        if is_cloudtrail_bucket "$bucket"; then
+            if confirm_destruction "CloudTrail S3 Bucket (final cleanup)" "$bucket"; then
+                log_info "Deleting CloudTrail bucket (this may take several minutes): $bucket"
+
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    # Use the standard S3 deletion function from s3.sh with lazy-delete fallback
+                    if empty_and_delete_bucket_with_fallback "$bucket"; then
+                        # Check if it was lazy-deleted or immediately deleted
+                        if [[ -f "${OUTPUT_DIR}/lazy-deleted-buckets.txt" ]] && grep -q "^$bucket$" "${OUTPUT_DIR}/lazy-deleted-buckets.txt" 2>/dev/null; then
+                            ((lazy_deleted++)) || true
+                        else
+                            ((destroyed++)) || true
+                        fi
+                    else
+                        ((failed++)) || true
+                    fi
+                fi
+            fi
+        fi
+    done
+
+    log_info "CloudTrail S3 buckets: $destroyed immediately destroyed, $lazy_deleted lazy-deleted, $failed failed"
+
+    # Report lazy-deleted buckets
+    if [[ $lazy_deleted -gt 0 ]] && [[ -f "${OUTPUT_DIR}/lazy-deleted-buckets.txt" ]]; then
+        log_info ""
+        log_info "📋 Lazy-deleted CloudTrail buckets (lifecycle policies applied):"
+        while IFS= read -r bucket; do
+            if is_cloudtrail_bucket "$bucket"; then
+                log_info "  - $bucket"
+            fi
+        done < "${OUTPUT_DIR}/lazy-deleted-buckets.txt"
+        log_info ""
+        log_info "💡 These buckets will be automatically emptied and deleted within 1-2 days"
+        log_info "💡 Billing for these buckets has stopped immediately"
+    fi
+}
