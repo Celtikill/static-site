@@ -11,6 +11,7 @@ set -euo pipefail
 readonly DESTROY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly LIB_DIR="${DESTROY_DIR}/lib"
 readonly OUTPUT_DIR="${OUTPUT_DIR:-${DESTROY_DIR}/output}"
+readonly PROJECT_ROOT="$(cd "${DESTROY_DIR}/../.." && pwd)"
 readonly LOG_FILE="${LOG_FILE:-/tmp/destroy-infrastructure-$(date +%Y%m%d-%H%M%S).log}"
 
 # =============================================================================

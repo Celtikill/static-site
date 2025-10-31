@@ -25,9 +25,11 @@ cleanup_terraform_state() {
     fi
 
     # Check if we're in the terraform directory
-    local terraform_dir="$SCRIPT_DIR/../terraform/foundations/org-management"
+    local terraform_dir="${PROJECT_ROOT}/terraform/foundations/org-management"
     if [[ ! -d "$terraform_dir" ]]; then
         log_warn "Terraform directory not found: $terraform_dir"
+        log_info "Attempted path: ${PROJECT_ROOT}/terraform/foundations/org-management"
+        log_info "PROJECT_ROOT resolves to: $PROJECT_ROOT"
         return 0
     fi
 
