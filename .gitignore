@@ -316,7 +316,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-# script outputs
+# Script outputs (local configuration and logs - never commit)
 scripts/destroy/output/*
 scripts/bootstrap/accounts.json
 scripts/bootstrap/output/*
+scripts/demo/demo-reference.txt
