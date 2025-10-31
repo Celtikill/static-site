@@ -353,6 +353,12 @@ destroy_replica_s3_buckets() {
             bucket_region=$(get_bucket_location "$bucket")
 
             if [[ "$bucket_region" == "$region" ]]; then
+                # Skip CloudTrail buckets - they will be deleted in Phase 12 (final cleanup)
+                if is_cloudtrail_bucket "$bucket"; then
+                    log_info "Skipping CloudTrail replica bucket in $region (will delete in Phase 12): $bucket"
+                    continue
+                fi
+
                 log_info "Found replica bucket $bucket in $region"
 
                 if confirm_destruction "Replica S3 Bucket" "$bucket (region: $region)"; then
