@@ -122,6 +122,21 @@ empty_and_delete_bucket() {
     fi
 }
 
+# =============================================================================
+# CLOUDTRAIL BUCKET DETECTION
+# =============================================================================
+
+# Check if a bucket is a CloudTrail bucket
+# CloudTrail buckets are deferred to Phase 12 (final cleanup) to avoid blocking other resources
+is_cloudtrail_bucket() {
+    local bucket="$1"
+    [[ "$bucket" == cloudtrail-logs-* ]] || [[ "$bucket" == *-cloudtrail-logs ]] || [[ "$bucket" == *cloudtrail* ]]
+}
+
+# =============================================================================
+# LAZY DELETION
+# =============================================================================
+
 # Apply lifecycle policy for lazy deletion (for buckets with continuous writes)
 lazy_delete_bucket() {
     local bucket="$1"
@@ -273,6 +288,12 @@ destroy_s3_buckets() {
 
     for bucket in $buckets; do
         if matches_project "$bucket"; then
+            # Skip CloudTrail buckets - they will be deleted in Phase 12 (final cleanup)
+            if is_cloudtrail_bucket "$bucket"; then
+                log_info "Skipping CloudTrail bucket (will delete in Phase 12): $bucket"
+                continue
+            fi
+
             if confirm_destruction "S3 Bucket" "$bucket"; then
                 if empty_and_delete_bucket_with_fallback "$bucket"; then
                     # Check if it was lazy-deleted or immediately deleted
@@ -332,6 +353,12 @@ destroy_replica_s3_buckets() {
             bucket_region=$(get_bucket_location "$bucket")
 
             if [[ "$bucket_region" == "$region" ]]; then
+                # Skip CloudTrail buckets - they will be deleted in Phase 12 (final cleanup)
+                if is_cloudtrail_bucket "$bucket"; then
+                    log_info "Skipping CloudTrail replica bucket in $region (will delete in Phase 12): $bucket"
+                    continue
+                fi
+
                 log_info "Found replica bucket $bucket in $region"
 
                 if confirm_destruction "Replica S3 Bucket" "$bucket (region: $region)"; then
@@ -484,6 +511,12 @@ destroy_cross_account_s3_buckets() {
 
         for bucket in $buckets; do
             if matches_project "$bucket"; then
+                # Skip CloudTrail buckets - they will be deleted in Phase 12 (final cleanup)
+                if is_cloudtrail_bucket "$bucket"; then
+                    log_info "Skipping CloudTrail bucket in $env_name account (will delete in Phase 12): $bucket"
+                    continue
+                fi
+
                 if confirm_destruction "S3 Bucket ($env_name account)" "$bucket"; then
                     log_action "Empty and delete S3 bucket in $env_name account: $bucket"
 
