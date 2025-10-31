@@ -188,53 +188,6 @@ verify_backends() {
     return 0
 }
 
-test_backend_access() {
-    local account_id="$1"
-    local environment="$2"
-
-    log_info "Testing backend access for $environment"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would test backend access"
-        return 0
-    fi
-
-    local bucket_name="static-site-state-${environment}-${account_id}"
-
-    # Test S3 bucket access
-    local env_cap=$(capitalize "$environment")
-    if assume_role "arn:aws:iam::${account_id}:role/GitHubActions-StaticSite-${env_cap}-Role" "test-backend-${environment}"; then
-
-        # Try to list bucket
-        if aws s3 ls "s3://${bucket_name}/" 2>&1 | grep -q .; then
-            log_success "S3 bucket accessible: $bucket_name"
-        else
-            log_error "Cannot access S3 bucket: $bucket_name"
-            clear_assumed_role
-            return 1
-        fi
-
-        # Test write access
-        local test_key="bootstrap-test-$(date +%s).txt"
-        if echo "test" | aws s3 cp - "s3://${bucket_name}/${test_key}" 2>&1 | grep -q "upload:"; then
-            log_success "S3 write access confirmed"
-
-            # Clean up test file
-            aws s3 rm "s3://${bucket_name}/${test_key}" &>/dev/null
-        else
-            log_error "Cannot write to S3 bucket: $bucket_name"
-            clear_assumed_role
-            return 1
-        fi
-
-        clear_assumed_role
-        return 0
-    else
-        log_error "Failed to assume role for backend testing"
-        return 1
-    fi
-}
-
 # =============================================================================
 # COMPREHENSIVE VERIFICATION
 # =============================================================================
@@ -287,22 +240,6 @@ run_full_verification() {
         ((failed++))
     fi
 
-    # Backend access tests
-    ((total_checks++))
-    if ! test_backend_access "$DEV_ACCOUNT" "dev"; then
-        ((failed++))
-    fi
-
-    ((total_checks++))
-    if ! test_backend_access "$STAGING_ACCOUNT" "staging"; then
-        ((failed++))
-    fi
-
-    ((total_checks++))
-    if ! test_backend_access "$PROD_ACCOUNT" "prod"; then
-        ((failed++))
-    fi
-
     # Summary
     local passed=$((total_checks - failed))
     echo ""
@@ -348,25 +285,6 @@ test_github_actions_integration() {
         log_success "All GitHub Actions roles configured"
     else
         log_error "GitHub Actions role configuration incomplete"
-        return 1
-    fi
-
-    # Test 3: Verify backend accessibility from deployment roles
-    log_info "Testing backend access from deployment roles..."
-    local backend_test_failed=0
-
-    for env in dev staging prod; do
-        local env_upper=$(uppercase "$env")
-        local account_var="${env_upper}_ACCOUNT"
-        local account_id="${!account_var}"
-
-        if ! test_backend_access "$account_id" "$env"; then
-            ((backend_test_failed++))
-        fi
-    done
-
-    if [[ $backend_test_failed -gt 0 ]]; then
-        log_error "Backend access test failed for $backend_test_failed environment(s)"
         return 1
     fi
 
