@@ -88,6 +88,22 @@ die() {
 }
 
 # =============================================================================
+# STRING UTILITIES
+# =============================================================================
+
+# Capitalize first letter of string (Bash 3.x compatible)
+# Usage: capitalize "hello" returns "Hello"
+capitalize() {
+    echo "$1" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}'
+}
+
+# Convert string to uppercase (Bash 3.x compatible)
+# Usage: uppercase "hello" returns "HELLO"
+uppercase() {
+    echo "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+# =============================================================================
 # USER INTERACTION
 # =============================================================================
 

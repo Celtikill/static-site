@@ -9,7 +9,8 @@
 create_github_actions_role() {
     local account_id="$1"
     local environment="$2"
-    local role_name="GitHubActions-StaticSite-${environment^}-Role"
+    local env_cap=$(capitalize "$environment")
+    local role_name="GitHubActions-StaticSite-${env_cap}-Role"
 
     log_info "Creating GitHub Actions role in account $account_id: $role_name"
 
@@ -346,7 +347,8 @@ create_all_github_actions_roles() {
 verify_github_actions_role() {
     local account_id="$1"
     local environment="$2"
-    local role_name="GitHubActions-StaticSite-${environment^}-Role"
+    local env_cap=$(capitalize "$environment")
+    local role_name="GitHubActions-StaticSite-${env_cap}-Role"
 
     log_info "Verifying role in account $account_id: $role_name"
 
@@ -407,7 +409,8 @@ verify_all_github_actions_roles() {
 delete_github_actions_role() {
     local account_id="$1"
     local environment="$2"
-    local role_name="GitHubActions-StaticSite-${environment^}-Role"
+    local env_cap=$(capitalize "$environment")
+    local role_name="GitHubActions-StaticSite-${env_cap}-Role"
 
     log_info "Deleting role in account $account_id: $role_name"
 
