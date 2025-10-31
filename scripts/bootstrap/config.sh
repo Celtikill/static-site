@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# Disable AWS CLI pager for non-interactive script execution
+export AWS_PAGER=""
+
 # =============================================================================
 # PATHS
 # =============================================================================
