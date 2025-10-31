@@ -23,9 +23,16 @@ create_oidc_provider() {
         return 0
     fi
 
+    # Switch to target account
+    if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-oidc-${environment}"; then
+        log_error "Failed to assume role in account $account_id"
+        return 1
+    fi
+
     # Check if OIDC provider already exists
     if oidc_provider_exists "token.actions.githubusercontent.com"; then
         log_success "OIDC provider already exists in account $account_id"
+        clear_assumed_role
         return 0
     fi
 
@@ -45,10 +52,12 @@ create_oidc_provider() {
         local provider_arn
         provider_arn=$(echo "$provider_output" | jq -r '.OpenIDConnectProviderArn')
         log_success "Created OIDC provider: $provider_arn"
+        clear_assumed_role
         echo "$provider_arn"
         return 0
     else
         log_error "Failed to create OIDC provider: $provider_output"
+        clear_assumed_role
         return 1
     fi
 }
