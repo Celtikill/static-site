@@ -15,7 +15,11 @@ This guide covers monitoring, logging, metrics, alerts, and observability for th
 ### What You'll Monitor
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Comprehensive Monitoring and Observability Architecture
+    accDescr: Multi-layer observability architecture collecting metrics, logs, and events from all infrastructure components for comprehensive system visibility. The Website layer generates CloudWatch metrics for request counts, latency, and error rates while producing S3 access logs capturing detailed request information for analysis and compliance. CloudFront distribution contributes CloudWatch metrics for global edge performance while tracking cache hit ratios, origin latency, and geographic distribution through dedicated cache performance metrics. WAF protection generates security event logs capturing blocked requests, attack patterns, and threat intelligence while contributing security metrics to CloudWatch for automated response. Cost monitoring tracks AWS spending generating budget alerts when thresholds approach limits enabling proactive cost management and anomaly detection. Infrastructure deployment generates deployment status metrics tracking provisioning success, configuration drift, and resource health through CloudWatch. All metrics converge in CloudWatch serving as the central observability platform aggregating data from all sources. SNS notification topics receive alerts from multiple sources including CloudWatch metrics alarms, WAF security events, budget warnings, and deployment status changes, distributing notifications to appropriate teams and systems. This architecture implements comprehensive observability with centralized metrics collection, multi-source log aggregation, proactive alerting, and automated notification delivery ensuring rapid issue detection and response across all operational domains.
+
     A["🌐 Website"] --> B["📊 CloudWatch Metrics"]
     A --> C["📝 Access Logs"]
 
@@ -37,6 +41,19 @@ graph TD
 
     style B fill:#e1f5fe
     style L fill:#fff9c4
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
 ```
 
 ---

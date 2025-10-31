@@ -15,7 +15,11 @@ This guide covers disaster recovery (DR) strategies, backup procedures, and reco
 ### DR Objectives
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Disaster Recovery Lifecycle and Key Objectives
+    accDescr: Disaster recovery lifecycle implementing comprehensive backup, recovery, validation, and reporting processes with defined RTO and RPO objectives. The Backup phase captures all critical data and configurations with RPO target of less than 15 minutes ensuring minimal data loss through S3 versioning for website content providing point-in-time recovery, cross-region replication for geographic redundancy protecting against regional failures, Git repository backups for infrastructure-as-code preserving configuration history, Terraform state file backups in S3 enabling infrastructure recreation, and CloudWatch log archival for forensic analysis and compliance. The Recovery phase restores services within RTO target of less than 1 hour through automated Terraform deployment recreating infrastructure from code, S3 object restoration from versioned backups or replicas, CloudFront cache invalidation ensuring fresh content delivery, and DNS failover redirecting traffic to recovered infrastructure. The Validation phase verifies recovery success through automated health checks confirming HTTP 200 responses and proper security headers, performance testing validating acceptable response times, security scanning ensuring no configuration drift introduced vulnerabilities, and functional testing confirming all features operate correctly. The Reporting phase documents incidents and recovery actions through incident timelines recording events and decisions, recovery metrics measuring actual RTO and RPO against targets, lessons learned identifying improvement opportunities, and compliance documentation satisfying audit requirements. This lifecycle ensures business continuity through rapid recovery capabilities with clear objectives balancing recovery speed with data preservation.
+
     A["💾 Backup"] --> B["🔄 Recovery"]
     B --> C["✅ Validation"]
     C --> D["📊 Reporting"]
@@ -27,6 +31,12 @@ graph LR
     style B fill:#c8e6c9
     style E fill:#fff9c4
     style F fill:#ffcdd2
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
 ```
 
 **Key Metrics:**
@@ -81,7 +91,11 @@ graph LR
 ### What Gets Backed Up
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Comprehensive Backup Strategy and Targets
+    accDescr: Multi-layer backup strategy protecting all critical assets required for complete disaster recovery including website content, infrastructure configuration, state management, and operational logs. Website Content backups utilize S3 Versioning providing point-in-time recovery for all objects with automatic version retention enabling rollback to any previous state, combined with Cross-Region Replication copying objects to geographically separate regions protecting against regional failures and providing low-latency access for disaster recovery scenarios. Infrastructure Configuration backups leverage Git Repository version control maintaining complete history of infrastructure-as-code changes with branches, tags, and commit history enabling recreation of any historical state, combined with Terraform Code backups preserving module definitions, variable configurations, and deployment scripts ensuring reproducible infrastructure provisioning. State Files backups protect Terraform state through S3 State Backend with versioning enabled allowing recovery of any state version and supporting concurrent operations safely, combined with DynamoDB Lock Table backups preserving state locking mechanism preventing concurrent modifications during recovery operations. Logs and Data backups capture operational intelligence through CloudWatch Logs archival preserving application logs, security events, and performance metrics for forensic analysis and compliance requirements, combined with Access Logs retention storing S3 and CloudFront request logs documenting all access patterns for security auditing and troubleshooting. This comprehensive strategy ensures no single point of failure with redundancy at multiple levels providing defense-in-depth for data protection and enabling complete infrastructure recreation from backups.
+
     A["💾 Backup Targets"] --> B["🌐 Website Content"]
     A --> C["🏗️ Infrastructure Config"]
     A --> D["📊 State Files"]
@@ -104,6 +118,19 @@ graph TD
     style C fill:#e1f5fe
     style D fill:#ffecb3
     style E fill:#d1c4e9
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
 ```
 
 ### 1. Website Content Backup
@@ -525,7 +552,11 @@ After any recovery:
 ### Incident Response Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Incident Response and Recovery Workflow
+    accDescr: Structured incident response workflow implementing severity-based escalation with continuous improvement feedback loop. Incident detection triggers through automated monitoring alerts from CloudWatch alarms, health check failures, security events, or user reports initiating the response process immediately. Team alerting uses PagerDuty, Slack, or email to notify on-call engineers and relevant stakeholders ensuring rapid mobilization. Severity assessment evaluates impact scope, affected users, data exposure risk, and business criticality classifying incidents as P1 Critical for total outages requiring less than 15-minute response, P2 High for major degradation requiring less than 1-hour response, P3 Medium for partial degradation requiring less than 4-hour response, or P4 Low for minor issues requiring less than 24-hour response. The severity classification determines response pathway with P1 Critical incidents triggering immediate response procedures including emergency escalation, all-hands mobilization, status page activation, and executive notification, while P2-P4 incidents follow standard response procedures with scheduled team assignments and normal communication channels. Recovery execution implements appropriate remediation strategies whether deploying fixes, restoring from backups, failing over to redundant infrastructure, or applying emergency patches. Recovery validation confirms resolution through automated health checks, performance testing, security scanning, and user acceptance testing. Unresolved issues loop back to recovery execution for additional remediation attempts. Successful resolution triggers comprehensive incident documentation capturing timeline, root cause analysis, impact assessment, and actions taken creating permanent records for compliance and learning. Post-mortem analysis reviews incident handling identifying what worked well and improvement opportunities. Procedure improvement implements lessons learned through runbook updates, automation enhancements, monitoring improvements, and team training ensuring continuous improvement of incident response capabilities reducing future MTTR.
+
     A["🚨 Incident Detected"] --> B["📞 Alert Team"]
     B --> C["🔍 Assess Severity"]
     C --> D{"Severity?"}
@@ -544,6 +575,20 @@ graph TD
 
     J --> K["📊 Post-Mortem"]
     K --> L["🎯 Improve Procedures"]
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
+    linkStyle 12 stroke:#333333,stroke-width:2px
 ```
 
 ### Response Procedures

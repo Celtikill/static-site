@@ -196,7 +196,11 @@ gh run watch
 ## 📊 Workflow Architecture
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: GitHub Actions Workflow Architecture and Routing
+    accDescr: GitHub Actions workflow orchestration implementing action-based routing with reusable components for authentication and infrastructure operations. Developer actions trigger different workflow paths based on action type. Push to main branch or manual deployment workflows invoke run.yml for automated deployment executing the full BUILD-TEST-RUN pipeline. Pull requests trigger build.yml and test.yml for validation-only workflows performing security scanning and policy validation without deployment. Emergency situations invoke emergency.yml enabling rapid response procedures. The run.yml workflow delegates to reusable-aws-auth.yml for AWS authentication via OIDC obtaining temporary credentials without stored secrets. Authentication success passes control to reusable-terraform-ops.yml orchestrating Terraform operations including initialization, planning, and application. Environment routing directs deployments to appropriate targets with dev for development environment rapid iteration, staging for pre-production validation, and prod for production releases with manual approval. Pull request validation provides security feedback without infrastructure changes. Emergency actions enable rapid recovery or hotfix deployments with expedited approval processes. This modular architecture promotes workflow reusability reducing duplication while maintaining clear separation of concerns between authentication, orchestration, and deployment logic.
+
     A[Developer] --> B{Action Type}
     B -->|Push to main| C[run.yml]
     B -->|Manual Deploy| C
@@ -213,6 +217,20 @@ graph TD
     D --> L[Validation Only]
 
     E --> M[Emergency Actions]
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
+    linkStyle 12 stroke:#333333,stroke-width:2px
 ```
 
 ## 🔐 Security

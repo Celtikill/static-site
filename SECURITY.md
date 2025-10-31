@@ -47,7 +47,11 @@ Our infrastructure implements multiple layers of security:
 
 #### Infrastructure Security
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Layered Infrastructure Security Architecture
+    accDescr: Defense-in-depth security architecture implementing multiple protection layers for AWS infrastructure. Authentication layer uses GitHub OIDC eliminating stored credentials and providing temporary access tokens with automatic expiration reducing credential exposure risk. The Central Role in Management Account orchestrates cross-account access enabling deployments while maintaining account boundaries. Environment roles implement least privilege access with permissions scoped to specific resources and operations required for deployment preventing privilege escalation. Multi-account isolation provides blast radius containment where compromise of one environment cannot affect others maintaining security boundaries at the AWS account level. KMS encryption protects data at rest using customer-managed keys with envelope encryption ensuring data confidentiality even if storage is compromised. WAF protection provides application-layer security implementing OWASP Top 10 defenses including SQL injection prevention, cross-site scripting blocking, and rate limiting for DDoS protection. CloudWatch monitoring enables real-time visibility with comprehensive logging, metrics collection, automated alerting, and security event correlation supporting rapid incident detection and response. This layered approach ensures multiple independent security controls protect infrastructure with no single point of failure implementing defense-in-depth security principles.
+
     A["🔐 GitHub OIDC<br/>No Stored Credentials"] --> B["🌐 Central Role<br/>Cross-Account Access"]
     B --> C["🔧 Environment Roles<br/>Least Privilege"]
     C --> D["☁️ AWS Resources<br/>Protected Infrastructure"]
@@ -56,6 +60,14 @@ graph TD
     F["🔐 KMS Encryption<br/>Data at Rest"] --> D
     G["🛡️ WAF Protection<br/>Application Security"] --> D
     H["📊 CloudWatch Monitoring<br/>Real-time Visibility"] --> D
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
 ```
 
 #### Security Controls
@@ -99,7 +111,11 @@ Our CI/CD pipeline includes automated security scanning:
 
 #### Scan Results
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph LR
+    accTitle: Security Scanning Decision Flow with Remediation Loop
+    accDescr: Automated security scanning workflow implementing fail-fast security gates with remediation feedback loop. Security scanning executes during BUILD phase using Checkov for infrastructure-as-code security validation checking 50+ built-in policies covering AWS security best practices, CIS benchmarks, HIPAA compliance, and organizational standards, combined with Trivy for vulnerability detection scanning infrastructure configurations and dependencies for known CVEs and security misconfigurations. Risk assessment evaluates scan results classifying findings by severity with CRITICAL issues requiring immediate remediation representing exploitable vulnerabilities or severe misconfigurations, HIGH issues indicating significant security risks requiring remediation before deployment, MEDIUM issues flagged as warnings for review and remediation in backlog, and LOW issues logged for awareness without blocking deployment. Critical or High findings immediately trigger deployment blocking through the security gate preventing vulnerable infrastructure from reaching any environment implementing fail-fast security principles. Security approval for deployments without critical or high findings allows progression to deployment phases ensuring only secure infrastructure configurations advance through the pipeline. Blocked deployments require issue remediation fixing security violations through code changes, configuration updates, or architectural improvements creating secure alternatives. After remediation, code returns to security scanning for validation ensuring fixes resolved vulnerabilities without introducing new issues. This continuous feedback loop prevents security debt accumulation while maintaining deployment velocity by catching vulnerabilities early where remediation costs are lowest and blast radius is contained to development environments.
+
     A["🔍 Security Scan<br/>Checkov + Trivy"] --> B{"❓ Critical/High Issues?<br/>Risk Assessment"}
     B -->|"❌ Yes"| C["🚫 Block Deployment<br/>Security Gate"]
     B -->|"✅ No"| D["🟢 Allow Deployment<br/>Security Approved"]
@@ -107,6 +123,13 @@ graph LR
     C --> E["🔧 Fix Issues<br/>Remediate Risks"]
     E --> A
     D --> F["🚀 Deploy Infrastructure<br/>Secure Release"]
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
 ```
 
 ### Vulnerability Disclosure Policy

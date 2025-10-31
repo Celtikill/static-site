@@ -73,7 +73,11 @@ gh release create v1.2.0 \
 ### Release Process Flow
 
 ```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
+    accTitle: Manual Semantic Versioning Release Process
+    accDescr: Comprehensive release workflow implementing manual semantic versioning with GitHub Releases for production deployment control. Development completion triggers automated test execution validating security scans, policy compliance, and functional requirements. Successful tests enable merge to the main branch initiating automatic deployment to the Staging environment for pre-production validation. Manual validation in staging verifies changes in production-equivalent infrastructure testing functionality, performance, and operational readiness. The readiness decision gate determines production promotion with failures triggering the fix cycle returning to development for remediation. Production-ready changes initiate GitHub Release creation with manual version number assignment following semantic versioning conventions (MAJOR.MINOR.PATCH). Release notes generation documents changes, breaking changes, and upgrade instructions providing transparency for stakeholders. Publishing the release triggers the production deployment workflow requiring explicit manual approval implementing change control requirements. Approved deployments execute to the Production environment with comprehensive verification validating deployment success, health checks, and operational metrics. This process implements deliberate release control balancing automation for efficiency with manual gates for safety. The semantic versioning provides clear communication of change significance while GitHub Releases create audit trails and deployment artifacts. The multi-stage validation from tests through staging to production verification ensures quality and stability before end-user exposure.
+
     A["Development Complete"] --> B["All Tests Pass"]
     B --> C["Merge to main"]
     C --> D["Auto-deploy to Staging"]
@@ -93,6 +97,22 @@ graph TD
     style G fill:#fff9c4
     style K fill:#c8e6c9
     style N fill:#4caf50
+
+    linkStyle 0 stroke:#333333,stroke-width:2px
+    linkStyle 1 stroke:#333333,stroke-width:2px
+    linkStyle 2 stroke:#333333,stroke-width:2px
+    linkStyle 3 stroke:#333333,stroke-width:2px
+    linkStyle 4 stroke:#333333,stroke-width:2px
+    linkStyle 5 stroke:#333333,stroke-width:2px
+    linkStyle 6 stroke:#333333,stroke-width:2px
+    linkStyle 7 stroke:#333333,stroke-width:2px
+    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
+    linkStyle 12 stroke:#333333,stroke-width:2px
+    linkStyle 13 stroke:#333333,stroke-width:2px
+    linkStyle 14 stroke:#333333,stroke-width:2px
 ```
 
 ### Workflow Implementation
