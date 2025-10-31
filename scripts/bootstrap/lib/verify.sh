@@ -202,10 +202,11 @@ test_backend_access() {
     local bucket_name="static-site-state-${environment}-${account_id}"
 
     # Test S3 bucket access
-    if assume_role "arn:aws:iam::${account_id}:role/GitHubActions-StaticSite-${environment^}-Role" "test-backend-${environment}"; then
+    local env_cap=$(capitalize "$environment")
+    if assume_role "arn:aws:iam::${account_id}:role/GitHubActions-StaticSite-${env_cap}-Role" "test-backend-${environment}"; then
 
         # Try to list bucket
-        if aws s3 ls "s3://${bucket_name}/" &>/dev/null; then
+        if aws s3 ls "s3://${bucket_name}/" 2>&1 | grep -q .; then
             log_success "S3 bucket accessible: $bucket_name"
         else
             log_error "Cannot access S3 bucket: $bucket_name"
@@ -215,7 +216,7 @@ test_backend_access() {
 
         # Test write access
         local test_key="bootstrap-test-$(date +%s).txt"
-        if echo "test" | aws s3 cp - "s3://${bucket_name}/${test_key}" &>/dev/null; then
+        if echo "test" | aws s3 cp - "s3://${bucket_name}/${test_key}" 2>&1 | grep -q "upload:"; then
             log_success "S3 write access confirmed"
 
             # Clean up test file
@@ -355,7 +356,8 @@ test_github_actions_integration() {
     local backend_test_failed=0
 
     for env in dev staging prod; do
-        local account_var="${env^^}_ACCOUNT"
+        local env_upper=$(uppercase "$env")
+        local account_var="${env_upper}_ACCOUNT"
         local account_id="${!account_var}"
 
         if ! test_backend_access "$account_id" "$env"; then

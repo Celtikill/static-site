@@ -7,7 +7,7 @@
 # =============================================================================
 
 verify_aws_cli() {
-    if ! command -v aws &> /dev/null; then
+    if ! command -v aws >/dev/null 2>&1; then
         die "AWS CLI not found. Please install: https://aws.amazon.com/cli/"
     fi
 
