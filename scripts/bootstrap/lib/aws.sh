@@ -17,26 +17,39 @@ verify_aws_cli() {
 }
 
 verify_aws_credentials() {
-    log_debug "Verifying AWS credentials..."
+    log_info "Verifying AWS credentials..."
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY-RUN] Would verify AWS credentials"
+        echo "123456789012"
         return 0
     fi
 
-    if ! aws sts get-caller-identity &> /dev/null; then
+    local caller_identity
+    if ! caller_identity=$(aws sts get-caller-identity 2>&1); then
+        log_error "Failed to verify AWS credentials"
+        log_error "AWS CLI error: $caller_identity"
         die "AWS credentials not configured. Run 'aws configure' or set environment variables."
     fi
 
-    local caller_identity
-    caller_identity=$(aws sts get-caller-identity 2>&1)
     local account_id
-    account_id=$(echo "$caller_identity" | jq -r '.Account')
-    local arn
-    arn=$(echo "$caller_identity" | jq -r '.Arn')
+    if ! account_id=$(echo "$caller_identity" | jq -r '.Account' 2>&1); then
+        log_error "Failed to parse account ID from AWS response"
+        log_error "Response was: $caller_identity"
+        die "Invalid AWS response format"
+    fi
 
-    log_debug "Authenticated as: $arn"
-    log_debug "Account ID: $account_id"
+    if [[ -z "$account_id" ]] || [[ "$account_id" == "null" ]]; then
+        log_error "Could not determine account ID"
+        log_error "AWS response: $caller_identity"
+        die "Failed to get AWS account ID"
+    fi
+
+    local arn
+    arn=$(echo "$caller_identity" | jq -r '.Arn' 2>/dev/null)
+
+    log_info "Authenticated as: $arn"
+    log_info "Account ID: $account_id"
 
     echo "$account_id"
 }
@@ -160,10 +173,21 @@ organization_exists() {
         return 1
     fi
 
-    if aws organizations describe-organization &>/dev/null; then
+    local output
+    if output=$(aws organizations describe-organization 2>&1); then
+        log_debug "Organization exists"
         return 0
     else
-        return 1
+        # Check if it's just a "not found" vs a real error
+        if echo "$output" | grep -q "AWSOrganizationsNotInUseException"; then
+            log_debug "Organization does not exist yet"
+            return 1
+        else
+            # Real error - log it
+            log_error "Failed to check organization status"
+            log_error "AWS CLI error: $output"
+            return 1
+        fi
     fi
 }
 
@@ -176,19 +200,29 @@ ou_exists() {
     fi
 
     local root_id
-    root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>/dev/null)
+    if ! root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>&1); then
+        log_error "Failed to list organization roots"
+        log_error "AWS CLI error: $root_id"
+        return 1
+    fi
 
-    if [[ -z "$root_id" ]]; then
+    if [[ -z "$root_id" ]] || [[ "$root_id" == "None" ]]; then
+        log_debug "No organization root found"
         return 1
     fi
 
     local ous
-    ous=$(aws organizations list-organizational-units-for-parent --parent-id "$root_id" --query "OrganizationalUnits[?Name=='$ou_name'].Id" --output text 2>/dev/null)
+    if ! ous=$(aws organizations list-organizational-units-for-parent --parent-id "$root_id" --query "OrganizationalUnits[?Name=='$ou_name'].Id" --output text 2>&1); then
+        log_error "Failed to list OUs for root: $root_id"
+        log_error "AWS CLI error: $ous"
+        return 1
+    fi
 
-    if [[ -n "$ous" ]]; then
+    if [[ -n "$ous" ]] && [[ "$ous" != "None" ]]; then
         echo "$ous"
         return 0
     else
+        log_debug "OU not found: $ou_name"
         return 1
     fi
 }
@@ -202,12 +236,17 @@ account_exists() {
     fi
 
     local account_id
-    account_id=$(aws organizations list-accounts --query "Accounts[?Email=='$account_email'].Id" --output text 2>/dev/null)
+    if ! account_id=$(aws organizations list-accounts --query "Accounts[?Email=='$account_email'].Id" --output text 2>&1); then
+        log_error "Failed to list accounts"
+        log_error "AWS CLI error: $account_id"
+        return 1
+    fi
 
-    if [[ -n "$account_id" ]]; then
+    if [[ -n "$account_id" ]] && [[ "$account_id" != "None" ]]; then
         echo "$account_id"
         return 0
     else
+        log_debug "Account not found: $account_email"
         return 1
     fi
 }
