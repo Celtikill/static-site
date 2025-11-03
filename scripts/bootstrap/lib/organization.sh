@@ -550,13 +550,6 @@ close_member_accounts() {
         # Skip if account ID is empty
         [[ -z "$account_id" ]] && continue
 
-        # Check account filter
-        if ! should_close_account "$account_id"; then
-            log_info "Skipping account $account_id - not in account filter"
-            ((skipped_count++))
-            continue
-        fi
-
         # Determine environment name
         local env_name env_name_lower
         case "$account_id" in
