@@ -158,9 +158,9 @@ create_account() {
         return 0
     fi
 
-    # Check if account already exists
+    # Check if account already exists (search by email first, then by name)
     local existing_account
-    if existing_account=$(account_exists "$account_email"); then
+    if existing_account=$(account_exists "$account_email" "$account_name"); then
         log_success "Account already exists: $account_name (ID: $existing_account)"
         echo "$existing_account"
         return 0
@@ -211,9 +211,9 @@ create_account() {
                 if echo "$failure_reason" | grep -qi "EMAIL_ALREADY_EXISTS\|DUPLICATE_ACCOUNT_NAME\|already exists\|email.*already.*use"; then
                     log_warn "Account creation failed due to existing email, attempting to find account..."
 
-                    # Try to find the account by email using fallback lookup
+                    # Try to find the account by email or name using fallback lookup
                     local found_account
-                    if found_account=$(account_exists "$account_email"); then
+                    if found_account=$(account_exists "$account_email" "$account_name"); then
                         log_success "Found existing account via fallback: $account_name (ID: $found_account)"
 
                         # Move to OU if specified and ensure it's in the correct location
@@ -247,9 +247,9 @@ create_account() {
         if echo "$create_output" | grep -qi "EMAIL_ALREADY_EXISTS\|DUPLICATE_ACCOUNT_NAME\|already exists\|email.*already.*use"; then
             log_warn "Account email already in use, attempting to find existing account..."
 
-            # Try to find the account by email using fallback lookup
+            # Try to find the account by email or name using fallback lookup
             local found_account
-            if found_account=$(account_exists "$account_email"); then
+            if found_account=$(account_exists "$account_email" "$account_name"); then
                 log_success "Found existing account via fallback: $account_name (ID: $found_account)"
 
                 # Move to OU if specified and ensure it's in the correct location

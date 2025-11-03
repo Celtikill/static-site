@@ -232,12 +232,14 @@ ou_exists() {
 
 account_exists() {
     local account_email="$1"
+    local account_name="${2:-}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if account exists: $account_email"
         return 1
     fi
 
+    # First try to find by email
     local account_id
     if ! account_id=$(aws organizations list-accounts --query "Accounts[?Email=='$account_email'].Id" --output text 2>&1); then
         log_error "Failed to list accounts"
@@ -246,12 +248,29 @@ account_exists() {
     fi
 
     if [[ -n "$account_id" ]] && [[ "$account_id" != "None" ]]; then
+        log_debug "Account found by email: $account_email (ID: $account_id)"
         echo "$account_id"
         return 0
-    else
-        log_debug "Account not found: $account_email"
-        return 1
     fi
+
+    # If not found by email and name provided, try to find by name
+    if [[ -n "$account_name" ]]; then
+        log_debug "Account not found by email, trying by name: $account_name"
+        if ! account_id=$(aws organizations list-accounts --query "Accounts[?Name=='$account_name'].Id" --output text 2>&1); then
+            log_error "Failed to list accounts by name"
+            log_error "AWS CLI error: $account_id"
+            return 1
+        fi
+
+        if [[ -n "$account_id" ]] && [[ "$account_id" != "None" ]]; then
+            log_debug "Account found by name: $account_name (ID: $account_id)"
+            echo "$account_id"
+            return 0
+        fi
+    fi
+
+    log_debug "Account not found: $account_email"
+    return 1
 }
 
 # =============================================================================
