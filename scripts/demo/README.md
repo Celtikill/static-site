@@ -1,14 +1,15 @@
 # Demo Scripts
 
-This directory contains scripts for preparing and executing live demonstrations of the AWS multi-account static site infrastructure.
+This directory contains demo-specific scripts for preparing and executing live demonstrations of the AWS multi-account static site infrastructure.
 
 ## Overview
 
-These scripts help presenters prepare for and execute professional technical demos by:
+These scripts help presenters prepare for professional technical demos by:
 - Validating that bootstrap infrastructure is ready
 - Generating presenter reference materials
-- Configuring GitHub secrets live during demos
 - Providing consistent, repeatable demo workflows
+
+**Note:** GitHub configuration has been moved to the bootstrap suite. See `../bootstrap/configure-github.sh` for Step 3 of the bootstrap process.
 
 ## Scripts
 
