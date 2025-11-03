@@ -29,9 +29,9 @@ ensure_central_state_bucket() {
     if bucket_output=$(aws s3 mb "s3://$bucket_name" --region "$AWS_DEFAULT_REGION" 2>&1); then
         log_success "Created bucket: $bucket_name"
     else
-        # Check if error is due to bucket already existing
-        if echo "$bucket_output" | grep -qi "BucketAlreadyOwnedByYou\|BucketAlreadyExists\|already.*own"; then
-            log_warn "Bucket already exists, verifying ownership..."
+        # Check if bucket already owned by us
+        if echo "$bucket_output" | grep -qi "BucketAlreadyOwnedByYou\|already.*own"; then
+            log_warn "Bucket already owned by you, verifying..."
 
             # Try to verify bucket exists and is accessible
             if s3_bucket_exists "$bucket_name"; then
@@ -41,6 +41,12 @@ ensure_central_state_bucket() {
                 log_error "AWS CLI error: $bucket_output"
                 return 1
             fi
+        # Check if bucket name taken globally by someone else
+        elif echo "$bucket_output" | grep -qi "BucketAlreadyExists"; then
+            log_error "Bucket name is globally taken by another AWS account"
+            log_error "Bucket name: $bucket_name"
+            log_error "Solution: Choose a different PROJECT_NAME in config.sh or add a unique suffix"
+            return 1
         else
             log_error "Failed to create central state bucket: $bucket_output"
             return 1
