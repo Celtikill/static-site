@@ -482,9 +482,13 @@ should_close_account() {
     # Check if account ID or environment name is in filter
     IFS=',' read -ra ACCOUNTS <<< "$ACCOUNT_FILTER"
     for filtered_account in "${ACCOUNTS[@]}"; do
-        # Match by account ID or environment name (case-insensitive)
-        if [[ "$filtered_account" == "$account_id" ]] || \
-           [[ "${filtered_account,,}" == "${env_name,,}" ]]; then
+        # Match by account ID
+        if [[ "$filtered_account" == "$account_id" ]]; then
+            return 0
+        fi
+
+        # Match by environment name (case-insensitive) if provided
+        if [[ -n "$env_name" ]] && [[ "${filtered_account,,}" == "${env_name,,}" ]]; then
             return 0
         fi
     done
