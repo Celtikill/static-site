@@ -170,20 +170,47 @@ confirm_destroy() {
     fi
 
     cat <<EOF
-${RED}${BOLD}WARNING: You are about to destroy all bootstrap infrastructure!${NC}
+${RED}${BOLD}WARNING: You are about to destroy bootstrap infrastructure!${NC}
 
 This will delete:
-  - Terraform backends (S3 buckets + DynamoDB tables) in all accounts
-  - GitHub Actions deployment roles in all accounts
-  - OIDC providers in all accounts
-  - Central foundation state bucket
+EOF
+
+    # Show what will be destroyed based on flags
+    [[ "$DESTROY_BACKENDS" == "true" ]] && echo "  - Terraform backends (S3 buckets + DynamoDB tables)"
+    [[ "$DESTROY_ROLES" == "true" ]] && echo "  - GitHub Actions deployment roles"
+    [[ "$DESTROY_OIDC" == "true" ]] && echo "  - OIDC providers"
+    [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]] && echo "  - Central foundation state bucket"
+
+    cat <<EOF
 
 ${YELLOW}You will need to re-run bootstrap-foundation.sh to recreate these resources.${NC}
 
 Accounts that will be affected:
-  - Dev:     ${DEV_ACCOUNT}
-  - Staging: ${STAGING_ACCOUNT}
-  - Prod:    ${PROD_ACCOUNT}
+EOF
+
+    # Show accounts based on filter
+    if [[ -n "$ACCOUNT_FILTER" ]]; then
+        IFS=',' read -ra ACCOUNTS <<< "$ACCOUNT_FILTER"
+        for account in "${ACCOUNTS[@]}"; do
+            case "$account" in
+                dev)
+                    echo "  - Dev:     ${DEV_ACCOUNT}"
+                    ;;
+                staging)
+                    echo "  - Staging: ${STAGING_ACCOUNT}"
+                    ;;
+                prod)
+                    echo "  - Prod:    ${PROD_ACCOUNT}"
+                    ;;
+            esac
+        done
+    else
+        echo "  - Dev:     ${DEV_ACCOUNT}"
+        echo "  - Staging: ${STAGING_ACCOUNT}"
+        echo "  - Prod:    ${PROD_ACCOUNT}"
+    fi
+
+    cat <<EOF
 
 Type 'destroy' to confirm:
 EOF
