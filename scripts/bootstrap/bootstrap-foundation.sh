@@ -135,6 +135,30 @@ main() {
     log_info "Staging Account: $STAGING_ACCOUNT"
     log_info "Prod Account: $PROD_ACCOUNT"
 
+    # Validate all accounts are ACTIVE
+    log_info "Validating account status..."
+    local validation_failed=false
+
+    if ! validate_account_active "$DEV_ACCOUNT" "dev"; then
+        validation_failed=true
+    fi
+
+    if ! validate_account_active "$STAGING_ACCOUNT" "staging"; then
+        validation_failed=true
+    fi
+
+    if ! validate_account_active "$PROD_ACCOUNT" "prod"; then
+        validation_failed=true
+    fi
+
+    if [[ "$validation_failed" == "true" ]]; then
+        log_error "One or more accounts are not ACTIVE"
+        log_error "Run bootstrap-organization.sh to create replacement accounts for closed/suspended accounts"
+        die "Account validation failed"
+    fi
+
+    log_success "All accounts are ACTIVE and ready"
+
     # Step 2: Ensure central foundation state bucket exists
     step "Ensuring central foundation state bucket"
     if ! ensure_central_state_bucket; then

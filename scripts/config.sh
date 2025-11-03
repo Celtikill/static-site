@@ -180,14 +180,42 @@ require_accounts() {
 save_accounts() {
     local accounts_file="${ACCOUNTS_FILE:-$(dirname "${BASH_SOURCE[0]}")/bootstrap/accounts.json}"
     mkdir -p "$(dirname "$accounts_file")"
-    cat > "$accounts_file" <<EOF
-{
-  "management": "$MGMT_ACCOUNT",
-  "dev": "$DEV_ACCOUNT",
-  "staging": "$STAGING_ACCOUNT",
-  "prod": "$PROD_ACCOUNT"
-}
-EOF
+
+    # Build JSON with jq to handle replacements properly
+    local json_content
+    json_content=$(jq -n \
+        --arg mgmt "$MGMT_ACCOUNT" \
+        --arg dev "$DEV_ACCOUNT" \
+        --arg staging "$STAGING_ACCOUNT" \
+        --arg prod "$PROD_ACCOUNT" \
+        '{
+            management: $mgmt,
+            dev: $dev,
+            staging: $staging,
+            prod: $prod
+        }')
+
+    # Add _replaced section if REPLACED_ACCOUNTS exists and has entries
+    if [[ -v REPLACED_ACCOUNTS ]] && [[ ${#REPLACED_ACCOUNTS[@]} -gt 0 ]]; then
+        local replaced_json="{}"
+        for env in "${!REPLACED_ACCOUNTS[@]}"; do
+            IFS='|' read -r old_id status timestamp <<< "${REPLACED_ACCOUNTS[$env]}"
+            replaced_json=$(echo "$replaced_json" | jq \
+                --arg env "$env" \
+                --arg old_id "$old_id" \
+                --arg status "$status" \
+                --arg timestamp "$timestamp" \
+                '.[$env] = {
+                    old_account_id: $old_id,
+                    old_status: $status,
+                    replaced_date: $timestamp,
+                    reason: "Account was \($status)"
+                }')
+        done
+        json_content=$(echo "$json_content" | jq --argjson replaced "$replaced_json" '. + {_replaced: $replaced}')
+    fi
+
+    echo "$json_content" > "$accounts_file"
 }
 
 # Check if resource matches project patterns
