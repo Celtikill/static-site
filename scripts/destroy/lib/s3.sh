@@ -63,11 +63,22 @@ empty_and_delete_bucket() {
         done
 
     # Batch delete versions and delete markers (up to 1000 per API call)
-    log_info "  Emptying bucket $bucket (this may take a few minutes for large buckets)..."
+    log_info "  Emptying bucket $bucket (timeout: ${S3_TIMEOUT}s, will switch to lazy-delete if exceeded)..."
     local batch_count=0
     local total_deleted=0
+    local start_time=$(date +%s)
+    local timeout="${S3_TIMEOUT:-180}"
 
     while true; do
+        # Check timeout
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+        if [[ $elapsed -gt $timeout ]]; then
+            log_warn "  Timeout reached (${timeout}s, emptied $total_deleted objects). Switching to lazy-delete for: $bucket"
+            lazy_delete_bucket "$bucket"
+            return 0
+        fi
+
         # Get up to 1000 versions
         local versions=$(aws s3api list-object-versions --bucket "$bucket" --max-items 1000 \
             --query 'Versions[].{Key:Key,VersionId:VersionId}' --output json 2>/dev/null)
@@ -199,11 +210,22 @@ empty_and_delete_bucket_with_fallback() {
         done
 
     # Batch delete versions and delete markers (up to 1000 per API call)
-    log_info "  Emptying bucket $bucket (this may take a few minutes for large buckets)..."
+    log_info "  Emptying bucket $bucket (timeout: ${S3_TIMEOUT}s, will switch to lazy-delete if exceeded)..."
     local batch_count=0
     local total_deleted=0
+    local start_time=$(date +%s)
+    local timeout="${S3_TIMEOUT:-180}"
 
     while true; do
+        # Check timeout
+        local current_time=$(date +%s)
+        local elapsed=$((current_time - start_time))
+        if [[ $elapsed -gt $timeout ]]; then
+            log_warn "  Timeout reached (${timeout}s, emptied $total_deleted objects). Switching to lazy-delete for: $bucket"
+            lazy_delete_bucket "$bucket"
+            return 0
+        fi
+
         # Get up to 1000 versions
         local versions=$(aws s3api list-object-versions --bucket "$bucket" --max-items 1000 \
             --query 'Versions[].{Key:Key,VersionId:VersionId}' --output json 2>/dev/null)
@@ -561,11 +583,23 @@ destroy_cross_account_s3_buckets() {
                             done
 
                         # Batch delete versions and delete markers
-                        log_info "  Emptying bucket $bucket in $env_name account (this may take a few minutes)..."
+                        log_info "  Emptying bucket $bucket in $env_name account (timeout: ${S3_TIMEOUT}s)..."
                         local batch_count=0
                         local total_deleted=0
+                        local start_time=$(date +%s)
+                        local timeout="${S3_TIMEOUT:-180}"
 
                         while true; do
+                            # Check timeout
+                            local current_time=$(date +%s)
+                            local elapsed=$((current_time - start_time))
+                            if [[ $elapsed -gt $timeout ]]; then
+                                log_warn "  Timeout reached (${timeout}s, emptied $total_deleted objects). Stopping for: $bucket"
+                                log_warn "  Consider increasing --s3-timeout or manually empty this bucket"
+                                ((failed++))
+                                break
+                            fi
+
                             # Get up to 1000 versions
                             local versions=$(AWS_ACCESS_KEY_ID="$access_key" \
                                            AWS_SECRET_ACCESS_KEY="$secret_key" \
