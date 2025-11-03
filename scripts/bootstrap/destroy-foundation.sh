@@ -107,6 +107,7 @@ DESTROY_BACKENDS=true
 DESTROY_ROLES=true
 DESTROY_OIDC=true
 DESTROY_CENTRAL_BUCKET=true
+CLOSE_MEMBER_ACCOUNTS=false
 ACCOUNT_FILTER=""
 
 while [[ $# -gt 0 ]]; do
@@ -158,6 +159,10 @@ while [[ $# -gt 0 ]]; do
         --s3-timeout)
             export S3_TIMEOUT="$2"
             shift 2
+            ;;
+        --close-accounts)
+            CLOSE_MEMBER_ACCOUNTS=true
+            shift
             ;;
         -h|--help)
             usage
