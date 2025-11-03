@@ -56,6 +56,30 @@ create_oidc_provider() {
         echo "$provider_arn"
         return 0
     else
+        # Check if error is due to provider already existing
+        if echo "$provider_output" | grep -qi "EntityAlreadyExists\|already exists"; then
+            log_warn "OIDC provider already exists, attempting to find it..."
+
+            # Try to find the existing provider
+            if oidc_provider_exists "token.actions.githubusercontent.com"; then
+                local provider_arn
+                provider_arn=$(aws iam list-open-id-connect-providers --output json 2>/dev/null | \
+                    jq -r '.OpenIDConnectProviderList[] | select(.Arn | contains("token.actions.githubusercontent.com")) | .Arn')
+
+                if [[ -n "$provider_arn" ]]; then
+                    log_success "Found existing OIDC provider via fallback: $provider_arn"
+                    clear_assumed_role
+                    echo "$provider_arn"
+                    return 0
+                fi
+            fi
+
+            log_error "OIDC provider conflict detected but could not find existing provider"
+            log_error "AWS CLI error: $provider_output"
+            clear_assumed_role
+            return 1
+        fi
+
         log_error "Failed to create OIDC provider: $provider_output"
         clear_assumed_role
         return 1
