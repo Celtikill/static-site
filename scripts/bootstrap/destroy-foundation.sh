@@ -51,6 +51,7 @@ GRANULAR DESTRUCTION OPTIONS:
     --central-bucket-only      Only destroy central foundation state bucket
     --accounts LIST            Comma-separated list of accounts (dev,staging,prod)
     --s3-timeout SECONDS       S3 bucket emptying timeout (default: 180)
+    --close-accounts           Close member AWS accounts (PERMANENT - 90 day recovery)
 
 ENVIRONMENT VARIABLES:
     DRY_RUN                   Set to 'true' for dry-run mode
@@ -87,6 +88,12 @@ EXAMPLES:
 
     # Destroy central bucket only
     $0 --central-bucket-only --force
+
+    # Destroy everything including closing member accounts (EXTREME)
+    $0 --force --close-accounts
+
+    # Close only dev account
+    $0 --close-accounts --accounts dev --force
 
 EOF
 }

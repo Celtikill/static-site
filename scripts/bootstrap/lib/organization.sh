@@ -466,3 +466,157 @@ enable_organization_account_access() {
         return 0
     fi
 }
+
+# =============================================================================
+# MEMBER ACCOUNT CLOSURE
+# =============================================================================
+
+# Helper function to check if account should be processed based on filter
+should_close_account() {
+    local account_id="$1"
+
+    # If no filter specified, allow all
+    [[ -z "$ACCOUNT_FILTER" ]] && return 0
+
+    # Check if account is in filter
+    IFS=',' read -ra ACCOUNTS <<< "$ACCOUNT_FILTER"
+    for filtered_account in "${ACCOUNTS[@]}"; do
+        if [[ "$filtered_account" == "$account_id" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+# Close member accounts (requires --close-accounts flag)
+close_member_accounts() {
+    log_step "Processing member account closure..."
+
+    if [[ "$CLOSE_MEMBER_ACCOUNTS" != "true" ]]; then
+        log_info "Member account closure disabled - skipping"
+        return 0
+    fi
+
+    local current_account
+    current_account=$(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null)
+
+    # Only run from management account
+    if [[ "$current_account" != "$MANAGEMENT_ACCOUNT_ID" ]]; then
+        log_warn "Account closure only supported from management account"
+        return 0
+    fi
+
+    # Verify we have organization access
+    if ! aws organizations describe-organization >/dev/null 2>&1; then
+        log_error "Unable to access AWS Organizations - cannot close member accounts"
+        return 1
+    fi
+
+    log_warn "⚠️  ACCOUNT CLOSURE LIMITATIONS:"
+    log_warn "   - Can only close 10% of member accounts within rolling 30-day period"
+    log_warn "   - Closed accounts remain in organization for 90 days"
+    log_warn "   - Outstanding fees and Reserved Instance charges still apply"
+    log_warn "   - AWS Marketplace subscriptions must be manually canceled first"
+
+    local closed_count=0
+    local failed_count=0
+    local skipped_count=0
+
+    # Process each member account
+    for account_id in "$DEV_ACCOUNT" "$STAGING_ACCOUNT" "$PROD_ACCOUNT"; do
+        # Skip if account ID is empty
+        [[ -z "$account_id" ]] && continue
+
+        # Check account filter
+        if ! should_close_account "$account_id"; then
+            log_info "Skipping account $account_id - not in account filter"
+            ((skipped_count++))
+            continue
+        fi
+
+        # Determine environment name
+        local env_name
+        case "$account_id" in
+            "$DEV_ACCOUNT") env_name="Dev" ;;
+            "$STAGING_ACCOUNT") env_name="Staging" ;;
+            "$PROD_ACCOUNT") env_name="Prod" ;;
+            *) env_name="Unknown" ;;
+        esac
+
+        # Check account status first
+        local account_status
+        account_status=$(aws organizations list-accounts \
+            --query "Accounts[?Id=='$account_id'].Status" \
+            --output text 2>/dev/null || echo "UNKNOWN")
+
+        if [[ "$account_status" == "SUSPENDED" ]]; then
+            log_warn "Account $account_id ($env_name) is SUSPENDED - cannot close"
+            ((skipped_count++))
+            continue
+        elif [[ "$account_status" == "PENDING_CLOSURE" ]]; then
+            log_info "Account $account_id ($env_name) is already pending closure"
+            ((closed_count++))
+            continue
+        elif [[ "$account_status" == "UNKNOWN" ]]; then
+            log_warn "Unable to determine status of account $account_id ($env_name) - skipping"
+            ((failed_count++))
+            continue
+        fi
+
+        log_warn "⚠️  About to close member account: $account_id ($env_name)"
+        log_warn "   This action cannot be undone for 90 days"
+        log_warn "   Ensure all critical resources have been backed up"
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[DRY-RUN] Would close account: $account_id ($env_name)"
+            ((closed_count++))
+        else
+            # Attempt to close the account using AWS CLI
+            local close_output
+            if close_output=$(aws organizations close-account --account-id "$account_id" 2>&1); then
+                log_success "Initiated closure of member account: $account_id ($env_name)"
+                ((closed_count++))
+            else
+                # Check for specific error conditions
+                if echo "$close_output" | grep -qi "TooManyRequestsException\\|10.*percent"; then
+                    log_error "Failed: 10% account closure limit exceeded (rolling 30-day period)"
+                    log_error "You can only close 10% of your member accounts within a 30-day period"
+                    ((failed_count++))
+                elif echo "$close_output" | grep -qi "ConflictException\\|marketplace"; then
+                    log_error "Failed: Account has active AWS Marketplace subscriptions"
+                    log_error "Cancel all marketplace subscriptions before closing account"
+                    log_error "Visit: https://console.aws.amazon.com/marketplace/home#/subscriptions"
+                    ((failed_count++))
+                elif echo "$close_output" | grep -qi "AccessDeniedException"; then
+                    log_error "Failed: Insufficient permissions to close account"
+                    log_error "Requires: organizations:CloseAccount permission"
+                    ((failed_count++))
+                else
+                    log_error "Failed to close member account: $account_id ($env_name)"
+                    log_error "Error: $close_output"
+                    ((failed_count++))
+                fi
+            fi
+        fi
+    done
+
+    # Summary
+    echo ""
+    log_info "Account Closure Summary:"
+    log_info "  - Successfully closed: $closed_count"
+    log_info "  - Failed: $failed_count"
+    log_info "  - Skipped: $skipped_count"
+
+    if [[ $closed_count -gt 0 ]]; then
+        echo ""
+        log_info "Post-closure information:"
+        log_info "  - Accounts will show 'PENDING_CLOSURE' status"
+        log_info "  - Closure completes within 90 days"
+        log_info "  - Final bills will be generated for services used before closure"
+        log_info "  - Reserved Instance charges will continue until expiration"
+        log_info "  - You can reopen accounts during the 90-day period via AWS Support"
+    fi
+
+    [[ $failed_count -eq 0 ]] && return 0 || return 1
+}
