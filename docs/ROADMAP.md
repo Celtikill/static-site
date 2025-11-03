@@ -1,6 +1,6 @@
 # Project Roadmap
 
-**Last Updated**: October 20, 2025
+**Last Updated**: November 3, 2025
 **Project Status**: Full BUILD→TEST→RUN pipeline operational across all environments (dev, staging, prod)
 
 ## 🎯 Overview
@@ -208,6 +208,39 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 ---
 
 ## 🚀 Immediate Actions (Next 1-2 Weeks)
+
+### 0. Test OIDC Workflow Fixes
+**Priority**: CRITICAL ⚠️
+**Status**: 95% COMPLETE 🚧 (Fixes committed, testing pending)
+**Effort**: 15-30 minutes remaining
+**Value**: Restore GitHub Actions OIDC authentication
+
+**Issue Identified**: IAM role naming mismatch between bootstrap scripts and workflows
+- Bootstrap created: `GitHubActions-Static-site-{Env}-Role` (hyphenated)
+- Workflows expected: `GitHubActions-StaticSite-{Env}-Role` (camelCase)
+- Result: OIDC authentication failures in TEST/RUN workflows
+
+**Completed Work** (November 3, 2025):
+- ✅ Identified root cause through workflow log analysis and AWS IAM inspection
+- ✅ Fixed `.github/workflows/test.yml` role names (line 123)
+- ✅ Fixed `.github/workflows/run.yml` role names (lines 171, 175, 179)
+- ✅ Fixed `.github/workflows/release-prod.yml` role name (line 75)
+- ✅ Changes committed and pushed to repository
+
+**Remaining Work**:
+1. Create separate PR to test workflow fixes (preserve current branch purpose)
+2. Trigger TEST workflow manually to verify OIDC authentication
+3. Validate all three environment roles (dev, staging, prod)
+4. Confirm workflow can assume roles and deploy infrastructure
+
+**Related Files**:
+- `.github/workflows/test.yml`
+- `.github/workflows/run.yml`
+- `.github/workflows/release-prod.yml`
+- `scripts/bootstrap/config.sh` (line 33: IAM_ROLE_PREFIX definition)
+- `scripts/bootstrap/lib/roles.sh` (role creation logic)
+
+
 
 ### 1. Complete Documentation Examples
 **Priority**: HIGH ⭐
