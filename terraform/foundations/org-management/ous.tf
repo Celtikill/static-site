@@ -28,17 +28,17 @@ resource "aws_organizations_organizational_unit" "workloads" {
   })
 }
 
-# Project OU under Workloads - For static-site project accounts
-# This creates a project-based structure: Workloads/static-site/[accounts]
+# Project OU under Workloads - For project accounts
+# This creates a project-based structure: Workloads/<project-name>/[accounts]
 # Allows for multiple projects to be organized under Workloads in the future
-resource "aws_organizations_organizational_unit" "static_site_project" {
-  name      = "static-site"
+resource "aws_organizations_organizational_unit" "project" {
+  name      = local.project_name
   parent_id = aws_organizations_organizational_unit.workloads.id
 
   tags = merge(var.tags, {
-    Purpose = "static-site-project"
+    Purpose = "${local.project_name}-project"
     Type    = "organizational-unit"
-    Project = "static-site"
+    Project = local.project_name
   })
 }
 

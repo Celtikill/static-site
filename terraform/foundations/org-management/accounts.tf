@@ -1,21 +1,26 @@
 # Account Management
 # Handles both importing existing accounts and creating new ones
 
+# Extract project name from GitHub repository (e.g., "celtikill/static-site" -> "static-site")
+locals {
+  project_name = split("/", var.github_repo)[1]
+}
+
 # Configuration for workload accounts
 locals {
   workload_accounts = {
     dev = {
-      name         = "static-site-dev"
+      name         = "${local.project_name}-dev"
       email_suffix = "+dev"
       environment  = "development"
     }
     staging = {
-      name         = "static-site-staging"
+      name         = "${local.project_name}-staging"
       email_suffix = "+staging"
       environment  = "staging"
     }
     prod = {
-      name         = "static-site-prod"
+      name         = "${local.project_name}-prod"
       email_suffix = "+prod"
       environment  = "production"
     }
@@ -33,7 +38,7 @@ resource "aws_organizations_account" "workload_accounts" {
 
   name      = each.value.name
   email     = "${var.email_prefix}${each.value.email_suffix}@${var.domain_suffix}"
-  parent_id = aws_organizations_organizational_unit.static_site_project.id
+  parent_id = aws_organizations_organizational_unit.project.id
 
   # Enable programmatic access
   iam_user_access_to_billing = "ALLOW"
