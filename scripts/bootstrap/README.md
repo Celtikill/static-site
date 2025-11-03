@@ -246,6 +246,48 @@ Backend Configurations: output/backend-config-*.hcl
 Verification Report: output/verification-report.json
 ```
 
+### Configure GitHub Repository (Optional)
+
+Configure GitHub repository secrets and variables for CI/CD workflows.
+
+```bash
+./configure-github.sh [OPTIONS]
+
+OPTIONS:
+  --dry-run              Preview what would be configured
+  -v, --verbose          Enable detailed output
+  -h, --help             Show help message
+
+EXAMPLES:
+  ./configure-github.sh                # Interactive configuration
+  ./configure-github.sh --dry-run      # Preview without making changes
+  ./configure-github.sh --verbose      # Detailed logging
+```
+
+**Prerequisites:**
+- GitHub CLI (`gh`) installed and authenticated
+- Repository permissions to set secrets/variables
+- Bootstrap scripts completed (accounts.json must exist)
+
+**What it configures:**
+
+1. **GitHub Secrets:**
+   - `AWS_ASSUME_ROLE_CENTRAL` - Central OIDC role ARN
+
+2. **GitHub Variables:**
+   - AWS account IDs (management, dev, staging, prod)
+   - AWS regions (us-east-1, us-west-2)
+   - Infrastructure settings (OpenTofu version, budget limits, etc.)
+
+**Interactive Flow:**
+1. Validates prerequisites (gh CLI, accounts.json)
+2. Shows current GitHub configuration
+3. Prompts for confirmation
+4. Configures all secrets and variables
+5. Verifies configuration
+
+**Note:** This step is optional. Skip if not using GitHub Actions, or configure variables manually for other CI/CD platforms.
+
 ### Destroy Bootstrap Resources
 
 Remove all or specific bootstrap resources. Optionally close member AWS accounts.
