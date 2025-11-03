@@ -107,6 +107,7 @@ ENVIRONMENT VARIABLES:
     FORCE_DESTROY            Set to 'true' to skip confirmations
     DRY_RUN                  Set to 'true' for dry run mode
     ACCOUNT_FILTER           Comma-separated AWS account IDs
+    S3_TIMEOUT               S3 bucket emptying timeout in seconds (default: 180)
     INCLUDE_CROSS_ACCOUNT    Set to 'false' to disable cross-account destruction
     CLOSE_MEMBER_ACCOUNTS    Set to 'true' to enable account closure
     CLEANUP_TERRAFORM_STATE  Set to 'false' to disable state cleanup
@@ -173,6 +174,10 @@ parse_arguments() {
                 ;;
             --region)
                 AWS_DEFAULT_REGION="$2"
+                shift 2
+                ;;
+            --s3-timeout)
+                S3_TIMEOUT="$2"
                 shift 2
                 ;;
             --no-cross-account)
