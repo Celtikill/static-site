@@ -178,7 +178,9 @@ EOF
         if [[ -f "$config_file" ]]; then
             local bucket=$(grep 'bucket' "$config_file" | awk -F'"' '{print $2}' 2>/dev/null || echo "N/A")
             local table=$(grep 'dynamodb_table' "$config_file" | awk -F'"' '{print $2}' 2>/dev/null || echo "N/A")
-            echo "✓ ${env^} Environment:" >> "$info_file"
+            # POSIX-compatible capitalization (works with Bash 3.x+)
+            local env_capitalized=$(echo "$env" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')
+            echo "✓ ${env_capitalized} Environment:" >> "$info_file"
             echo "  S3 Bucket:      $bucket" >> "$info_file"
             echo "  DynamoDB Table: $table" >> "$info_file"
         fi
