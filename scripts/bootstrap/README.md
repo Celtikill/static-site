@@ -242,7 +242,7 @@ Verification Report: output/verification-report.json
 
 ### Destroy Bootstrap Resources
 
-Remove all or specific bootstrap resources (does NOT delete accounts).
+Remove all or specific bootstrap resources. Optionally close member AWS accounts.
 
 ```bash
 ./destroy-foundation.sh [OPTIONS]
@@ -258,6 +258,7 @@ GRANULAR DESTRUCTION OPTIONS:
   --roles-only               Only destroy GitHub Actions IAM roles
   --oidc-only                Only destroy OIDC providers
   --central-bucket-only      Only destroy central foundation state bucket
+  --close-accounts           Close member AWS accounts (PERMANENT - 90 day recovery)
   --accounts LIST            Comma-separated list of accounts (dev,staging,prod)
   --s3-timeout SECONDS       S3 bucket emptying timeout (default: 180)
 
@@ -266,18 +267,30 @@ EXAMPLES:
   ./destroy-foundation.sh --force                          # Destroy all resources
   ./destroy-foundation.sh --backends-only --accounts dev   # Only dev backends
   ./destroy-foundation.sh --roles-only --s3-timeout 300    # Only roles (5min timeout)
+  ./destroy-foundation.sh --close-accounts --accounts dev --force  # Close dev account
+  ./destroy-foundation.sh --force --close-accounts         # Close ALL member accounts (EXTREME)
 ```
 
 **⚠️ WARNING:** This will prevent GitHub Actions from deploying until you re-run bootstrap.
 
-**What it destroys:**
+**What it destroys (by default):**
 - Terraform backends (S3, DynamoDB, KMS)
 - GitHub Actions roles
 - OIDC providers
+- Central foundation state bucket
 
-**What it preserves:**
+**What it can optionally destroy:**
+- **Member accounts** (with `--close-accounts` flag)
+  - ⚠️ **PERMANENT ACTION** - Accounts enter PENDING_CLOSURE for 90 days
+  - Accounts can be reopened via AWS Support during recovery period
+  - AWS limits: Can only close 10% of member accounts per rolling 30-day period
+  - All AWS Marketplace subscriptions must be canceled first
+  - Outstanding charges and Reserved Instance fees continue
+  - See: https://docs.aws.amazon.com/cli/latest/reference/organizations/close-account.html
+
+**What it preserves (by default):**
 - AWS Organization structure
-- Member accounts
+- Member accounts (unless `--close-accounts` is used)
 - Application infrastructure
 
 ## 🔧 Configuration

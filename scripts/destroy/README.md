@@ -116,7 +116,7 @@ This framework provides two destruction scripts for different use cases:
 | Prepare for account closure | `destroy-infrastructure.sh` | Full cleanup including bootstrap |
 | Multi-account teardown | `destroy-infrastructure.sh` | Cross-account support |
 | Emergency rollback | `destroy-environment.sh <env>` | Fast, preserves ability to redeploy |
-| Complete project shutdown | `destroy-infrastructure.sh --close-accounts` | Everything including accounts |
+| Complete project shutdown | `destroy-infrastructure.sh` then `../bootstrap/destroy-foundation.sh --close-accounts` | Everything including accounts |
 
 ## 📖 Usage Guide
 
@@ -133,9 +133,10 @@ OPTIONS:
   --account-filter IDS      Limit to specific AWS account IDs (comma-separated)
   --region REGION           AWS region (default: us-east-1)
   --no-cross-account        Disable cross-account role destruction
-  --close-accounts          Enable member account closure (PERMANENT)
   --no-terraform-cleanup    Disable Terraform state cleanup
   -h, --help               Show help message
+
+NOTE: To close AWS member accounts, use scripts/bootstrap/destroy-foundation.sh --close-accounts
 ```
 
 #### destroy-environment.sh
@@ -209,9 +210,15 @@ Destroys resources across all member accounts (dev, staging, prod).
 #### 5. Nuclear Option (Everything + Account Closure)
 
 ```bash
-# PERMANENT - accounts cannot be recovered for 90 days!
-./destroy-infrastructure.sh --force --close-accounts
+# Step 1: Destroy all infrastructure
+./destroy-infrastructure.sh --force
+
+# Step 2: Close member accounts (PERMANENT - 90 day recovery period!)
+cd ../bootstrap
+./destroy-foundation.sh --close-accounts --force
 ```
+
+**Note:** Account closure has been moved to `destroy-foundation.sh` for better architectural separation.
 
 #### 6. Environment-Specific Workload Destroy (Recommended for Development)
 
