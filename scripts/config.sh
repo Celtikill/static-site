@@ -66,28 +66,15 @@ readonly AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 readonly MANAGEMENT_ACCOUNT_ID="223938610551"
 
 # =============================================================================
-# PATHS (Bootstrap-specific)
+# PATHS (Context-aware - set by calling scripts)
 # =============================================================================
 
-if [[ "${BASH_SOURCE[0]}" == */bootstrap/* ]] || [[ -d "$(dirname "${BASH_SOURCE[0]}")/bootstrap" ]]; then
-    readonly BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/bootstrap" 2>/dev/null && pwd || dirname "${BASH_SOURCE[0]}")"
-    readonly LIB_DIR="${BOOTSTRAP_DIR}/lib"
-    readonly TEMPLATES_DIR="${BOOTSTRAP_DIR}/templates"
-    readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
-    readonly OUTPUT_DIR="${OUTPUT_DIR:-${BOOTSTRAP_DIR}/output}"
-fi
+# These paths are expected to be set by the calling script before sourcing config.sh
+# Bootstrap scripts should set: SCRIPT_DIR, and we derive paths from there
+# Destroy scripts should set: SCRIPT_DIR, and we derive paths from there
 
-# =============================================================================
-# PATHS (Destroy-specific)
-# =============================================================================
-
-if [[ "${BASH_SOURCE[0]}" == */destroy/* ]] || [[ -d "$(dirname "${BASH_SOURCE[0]}")/destroy" ]]; then
-    readonly DESTROY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/destroy" 2>/dev/null && pwd || dirname "${BASH_SOURCE[0]}")"
-    readonly LIB_DIR="${LIB_DIR:-${DESTROY_DIR}/lib}"
-    readonly OUTPUT_DIR="${OUTPUT_DIR:-${DESTROY_DIR}/output}"
-    readonly PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd ../.. && pwd)"
-    readonly LOG_FILE="${LOG_FILE:-/tmp/destroy-infrastructure-$(date +%Y%m%d-%H%M%S).log}"
-fi
+# Set default paths if not already set
+: "${ACCOUNTS_FILE:=$(dirname "${BASH_SOURCE[0]}")/bootstrap/accounts.json}"
 
 # =============================================================================
 # STATE MANAGEMENT DOCUMENTATION
