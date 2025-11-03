@@ -18,8 +18,8 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
-# Source configuration
-source "${SCRIPT_DIR}/config.sh"
+# Source unified configuration
+source "${SCRIPT_DIR}/../config.sh"
 
 # Source all libraries
 source "${SCRIPT_DIR}/lib/common.sh"

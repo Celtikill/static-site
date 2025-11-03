@@ -12,8 +12,8 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source configuration and libraries
-source "${SCRIPT_DIR}/config.sh"
+# Source unified configuration and libraries
+source "${SCRIPT_DIR}/../config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
 source "${SCRIPT_DIR}/lib/organization.sh"

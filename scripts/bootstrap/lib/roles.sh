@@ -10,7 +10,7 @@ create_github_actions_role() {
     local account_id="$1"
     local environment="$2"
     local env_cap=$(capitalize "$environment")
-    local role_name="GitHubActions-StaticSite-${env_cap}-Role"
+    local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
 
     log_info "Creating GitHub Actions role in account $account_id: $role_name"
 
@@ -41,7 +41,7 @@ create_github_actions_role() {
             --max-session-duration 3600 \
             --tags Key=Environment,Value="$environment" \
                    Key=ManagedBy,Value=bootstrap \
-                   Key=Project,Value=static-site 2>&1); then
+                   Key=Project,Value="${PROJECT_SHORT_NAME}" 2>&1); then
 
             local role_arn
             role_arn=$(echo "$role_output" | jq -r '.Role.Arn')

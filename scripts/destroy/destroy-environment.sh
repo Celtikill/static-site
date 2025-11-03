@@ -140,17 +140,23 @@ readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
+# Source unified configuration
+source "${SCRIPT_DIR}/../config.sh"
+
+# Load account IDs from config
+load_accounts
+
 # Default values
 ENVIRONMENT="${1:-}"
 DRY_RUN="${DRY_RUN:-false}"
 FORCE="${FORCE:-false}"
 VERBOSE="${VERBOSE:-false}"
 
-# Account mapping
+# Account mapping (populated from unified config)
 declare -A ACCOUNT_MAP=(
-    ["dev"]="822529998967"
-    ["staging"]="927588814642"
-    ["prod"]="546274483801"
+    ["dev"]="$DEV_ACCOUNT"
+    ["staging"]="$STAGING_ACCOUNT"
+    ["prod"]="$PROD_ACCOUNT"
 )
 
 # Colors
