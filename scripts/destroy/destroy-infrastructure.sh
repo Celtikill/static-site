@@ -182,10 +182,6 @@ parse_arguments() {
                 INCLUDE_CROSS_ACCOUNT=false
                 shift
                 ;;
-            --close-accounts)
-                CLOSE_MEMBER_ACCOUNTS=true
-                shift
-                ;;
             --no-terraform-cleanup)
                 CLEANUP_TERRAFORM_STATE=false
                 shift
