@@ -121,23 +121,19 @@ create_workloads_structure() {
         return 1
     fi
 
-    # Create environment OUs under Workloads
-    local dev_ou_id staging_ou_id prod_ou_id
+    # Extract project name from GitHub repo (e.g., "Celtikill/static-site" -> "static-site")
+    local project_name="${GITHUB_REPO##*/}"
+    log_info "Project name: $project_name"
 
-    if ! dev_ou_id=$(create_ou "Development" "$workloads_ou_id"); then
-        return 1
-    fi
-
-    if ! staging_ou_id=$(create_ou "Staging" "$workloads_ou_id"); then
-        return 1
-    fi
-
-    if ! prod_ou_id=$(create_ou "Production" "$workloads_ou_id"); then
+    # Create project OU under Workloads (one OU per project for scalability)
+    local project_ou_id
+    if ! project_ou_id=$(create_ou "$project_name" "$workloads_ou_id"); then
         return 1
     fi
 
     log_success "Created Workloads OU structure"
-    echo "$workloads_ou_id $dev_ou_id $staging_ou_id $prod_ou_id"
+    log_info "Project OU: $project_name (ID: $project_ou_id)"
+    echo "$workloads_ou_id $project_ou_id"
     return 0
 }
 
@@ -162,6 +158,17 @@ create_account() {
     local existing_account
     if existing_account=$(account_exists "$account_email" "$account_name"); then
         log_success "Account already exists: $account_name (ID: $existing_account)"
+
+        # Ensure account is in correct OU (if specified)
+        if [[ -n "$ou_id" ]]; then
+            log_info "Verifying account OU placement..."
+            if move_account_to_ou "$existing_account" "$ou_id"; then
+                log_success "Account is in correct OU"
+            else
+                log_warn "Could not verify OU placement, but account exists"
+            fi
+        fi
+
         echo "$existing_account"
         return 0
     fi
@@ -333,22 +340,25 @@ create_environment_accounts() {
         return 1
     fi
 
-    read -r workloads_ou_id dev_ou_id staging_ou_id prod_ou_id <<< "$ou_structure"
+    # Parse: workloads_ou_id and project_ou_id (all accounts go in project OU)
+    read -r workloads_ou_id project_ou_id <<< "$ou_structure"
 
-    # Create accounts
+    log_info "Accounts will be created in project OU: $project_ou_id"
+
+    # Create accounts (all in the same project OU)
     local dev_account staging_account prod_account
 
-    if ! dev_account=$(create_account "static-site-dev" "aws+static-site-dev@example.com" "$dev_ou_id"); then
+    if ! dev_account=$(create_account "static-site-dev" "aws+static-site-dev@example.com" "$project_ou_id"); then
         log_error "Failed to create dev account"
         return 1
     fi
 
-    if ! staging_account=$(create_account "static-site-staging" "aws+static-site-staging@example.com" "$staging_ou_id"); then
+    if ! staging_account=$(create_account "static-site-staging" "aws+static-site-staging@example.com" "$project_ou_id"); then
         log_error "Failed to create staging account"
         return 1
     fi
 
-    if ! prod_account=$(create_account "static-site-prod" "aws+static-site-prod@example.com" "$prod_ou_id"); then
+    if ! prod_account=$(create_account "static-site-prod" "aws+static-site-prod@example.com" "$project_ou_id"); then
         log_error "Failed to create prod account"
         return 1
     fi
