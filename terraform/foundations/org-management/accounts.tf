@@ -1,11 +1,6 @@
 # Account Management
 # Handles both importing existing accounts and creating new ones
 
-# Extract project name from GitHub repository (e.g., "celtikill/static-site" -> "static-site")
-locals {
-  project_name = split("/", var.github_repo)[1]
-}
-
 # Configuration for workload accounts
 locals {
   workload_accounts = {

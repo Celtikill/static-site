@@ -5,7 +5,7 @@
 data "terraform_remote_state" "iam_management" {
   backend = "s3"
   config = {
-    bucket = "static-site-terraform-state-us-east-1"
+    bucket = "${local.project_name}-terraform-state-us-east-1"
     key    = "iam-management/terraform.tfstate"
     region = "us-east-1"
   }

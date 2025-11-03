@@ -1,11 +1,6 @@
 # Organization Management Infrastructure
 # Sets up AWS Organizations, OUs, and foundational cross-account structure
 
-# Extract project name from GitHub repository
-locals {
-  project_name = split("/", var.github_repo)[1]
-}
-
 terraform {
   required_version = ">= 1.6.0"
 

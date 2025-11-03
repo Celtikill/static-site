@@ -1,11 +1,6 @@
 # Organizational Units Management
 # Separate file for OU structure following best practices
 
-# Extract project name from GitHub repository (e.g., "celtikill/static-site" -> "static-site")
-locals {
-  project_name = split("/", var.github_repo)[1]
-}
-
 # Security OU - For security and compliance accounts
 resource "aws_organizations_organizational_unit" "security" {
   name      = "Security"
