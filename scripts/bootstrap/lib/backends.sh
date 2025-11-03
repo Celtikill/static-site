@@ -25,9 +25,26 @@ ensure_central_state_bucket() {
     log_info "Creating central foundation state bucket: $bucket_name"
 
     # Create bucket
-    if ! aws s3 mb "s3://$bucket_name" --region "$AWS_DEFAULT_REGION" 2>&1; then
-        log_error "Failed to create central state bucket"
-        return 1
+    local bucket_output
+    if bucket_output=$(aws s3 mb "s3://$bucket_name" --region "$AWS_DEFAULT_REGION" 2>&1); then
+        log_success "Created bucket: $bucket_name"
+    else
+        # Check if error is due to bucket already existing
+        if echo "$bucket_output" | grep -qi "BucketAlreadyOwnedByYou\|BucketAlreadyExists\|already.*own"; then
+            log_warn "Bucket already exists, verifying ownership..."
+
+            # Try to verify bucket exists and is accessible
+            if s3_bucket_exists "$bucket_name"; then
+                log_success "Found existing bucket via fallback: $bucket_name"
+            else
+                log_error "Bucket conflict detected but could not verify ownership"
+                log_error "AWS CLI error: $bucket_output"
+                return 1
+            fi
+        else
+            log_error "Failed to create central state bucket: $bucket_output"
+            return 1
+        fi
     fi
 
     # Enable versioning
