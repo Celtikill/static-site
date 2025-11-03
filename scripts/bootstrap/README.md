@@ -49,7 +49,7 @@ scripts/bootstrap/
 │   └── verification-report.json  # Verification results
 ├── bootstrap-organization.sh      # Stage 1: Create org structure
 ├── bootstrap-foundation.sh        # Stage 2: Create OIDC/roles/backends
-├── bootstrap-destroy.sh           # Cleanup bootstrap resources
+├── destroy-foundation.sh          # Cleanup bootstrap resources (granular options)
 ├── accounts.json                  # Account IDs (auto-generated)
 └── accounts.json.example          # Template file
 
@@ -242,21 +242,30 @@ Verification Report: output/verification-report.json
 
 ### Destroy Bootstrap Resources
 
-Remove all bootstrap resources (does NOT delete accounts).
+Remove all or specific bootstrap resources (does NOT delete accounts).
 
 ```bash
-./bootstrap-destroy.sh [OPTIONS]
+./destroy-foundation.sh [OPTIONS]
 
 OPTIONS:
-  -d, --dry-run    Simulate without making changes
-  -v, --verbose    Enable detailed output
-  -f, --force      Skip confirmation prompts
-  -h, --help       Show help message
+  -d, --dry-run              Simulate without making changes
+  -v, --verbose              Enable detailed output
+  -f, --force                Skip confirmation prompts
+  -h, --help                 Show help message
+
+GRANULAR DESTRUCTION OPTIONS:
+  --backends-only            Only destroy Terraform backends (S3 + DynamoDB)
+  --roles-only               Only destroy GitHub Actions IAM roles
+  --oidc-only                Only destroy OIDC providers
+  --central-bucket-only      Only destroy central foundation state bucket
+  --accounts LIST            Comma-separated list of accounts (dev,staging,prod)
+  --s3-timeout SECONDS       S3 bucket emptying timeout (default: 180)
 
 EXAMPLES:
-  ./bootstrap-destroy.sh --dry-run    # Preview what will be deleted
-  ./bootstrap-destroy.sh              # Delete with confirmation
-  ./bootstrap-destroy.sh --force      # Delete without confirmation
+  ./destroy-foundation.sh --dry-run                        # Preview full destruction
+  ./destroy-foundation.sh --force                          # Destroy all resources
+  ./destroy-foundation.sh --backends-only --accounts dev   # Only dev backends
+  ./destroy-foundation.sh --roles-only --s3-timeout 300    # Only roles (5min timeout)
 ```
 
 **⚠️ WARNING:** This will prevent GitHub Actions from deploying until you re-run bootstrap.
@@ -453,7 +462,7 @@ Always test with dry-run first:
 ```bash
 ./bootstrap-organization.sh --dry-run
 ./bootstrap-foundation.sh --dry-run
-./bootstrap-destroy.sh --dry-run
+./destroy-foundation.sh --dry-run
 ```
 
 ### Debug Mode
