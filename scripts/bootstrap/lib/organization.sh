@@ -348,17 +348,17 @@ create_environment_accounts() {
     # Create accounts (all in the same project OU)
     local dev_account staging_account prod_account
 
-    if ! dev_account=$(create_account "static-site-dev" "aws+static-site-dev@example.com" "$project_ou_id"); then
+    if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
         log_error "Failed to create dev account"
         return 1
     fi
 
-    if ! staging_account=$(create_account "static-site-staging" "aws+static-site-staging@example.com" "$project_ou_id"); then
+    if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
         log_error "Failed to create staging account"
         return 1
     fi
 
-    if ! prod_account=$(create_account "static-site-prod" "aws+static-site-prod@example.com" "$project_ou_id"); then
+    if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
         log_error "Failed to create prod account"
         return 1
     fi
