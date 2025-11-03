@@ -513,11 +513,26 @@ close_member_accounts() {
         return 1
     fi
 
-    log_warn "⚠️  ACCOUNT CLOSURE LIMITATIONS:"
-    log_warn "   - Can only close 10% of member accounts within rolling 30-day period"
-    log_warn "   - Closed accounts remain in organization for 90 days"
-    log_warn "   - Outstanding fees and Reserved Instance charges still apply"
-    log_warn "   - AWS Marketplace subscriptions must be manually canceled first"
+    log_warn "⚠️  AWS ACCOUNT CLOSURE LIMITATIONS:"
+    log_warn "   Reference: https://docs.aws.amazon.com/cli/latest/reference/organizations/close-account.html"
+    log_warn ""
+    log_warn "   RESTRICTIONS:"
+    log_warn "   - Only management account can close member accounts"
+    log_warn "   - Can only close 10% of active member accounts within rolling 30-day period"
+    log_warn "   - Account must be in ACTIVE state (not SUSPENDED or PENDING_CLOSURE)"
+    log_warn "   - Cannot close the management account using this operation"
+    log_warn "   - All AWS Marketplace subscriptions must be canceled first"
+    log_warn ""
+    log_warn "   RECOVERY & BILLING:"
+    log_warn "   - Closed accounts remain in PENDING_CLOSURE status for up to 90 days"
+    log_warn "   - Accounts can be reopened during 90-day period via AWS Support"
+    log_warn "   - Outstanding charges and Reserved Instance fees still apply"
+    log_warn "   - Final bills generated for services used before closure"
+    log_warn ""
+    log_warn "   REQUIRED PERMISSIONS:"
+    log_warn "   - organizations:CloseAccount"
+    log_warn "   - organizations:DescribeOrganization"
+    log_warn "   - organizations:ListAccounts"
 
     local closed_count=0
     local failed_count=0

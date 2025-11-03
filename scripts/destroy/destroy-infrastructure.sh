@@ -107,7 +107,6 @@ ENVIRONMENT VARIABLES:
     ACCOUNT_FILTER           Comma-separated AWS account IDs
     S3_TIMEOUT               S3 bucket emptying timeout in seconds (default: 180)
     INCLUDE_CROSS_ACCOUNT    Set to 'false' to disable cross-account destruction
-    CLOSE_MEMBER_ACCOUNTS    Set to 'true' to enable account closure
     CLEANUP_TERRAFORM_STATE  Set to 'false' to disable state cleanup
 
 DESTRUCTION PHASES:
@@ -315,20 +314,15 @@ main() {
     log_info "Phase 9: AWS Organizations cleanup (if enabled)..."
     destroy_organizations_resources
 
-    log_info "Phase 10: Member account closure (if enabled)..."
-    if [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]]; then
-        close_member_accounts
-    fi
-
     # Generate cost savings estimate
     generate_cost_estimate
 
     # Validate complete destruction
-    log_info "Phase 11: Post-destruction validation..."
+    log_info "Phase 10: Post-destruction validation..."
     validate_complete_destruction
 
     # Final cleanup: CloudTrail buckets (deferred to end to avoid blocking other resources)
-    log_info "Phase 12: Final CloudTrail bucket cleanup..."
+    log_info "Phase 11: Final CloudTrail bucket cleanup..."
     destroy_cloudtrail_s3_buckets
 
     local end_time duration
