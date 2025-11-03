@@ -40,10 +40,10 @@ ENVIRONMENT VARIABLES:
 DESCRIPTION:
     This script performs Stage 1 of the bootstrap process:
     1. Creates AWS Organization (if not exists)
-    2. Creates Workloads OU structure
-    3. Creates Development, Staging, and Production OUs
-    4. Creates member accounts for each environment
-    5. Moves accounts to appropriate OUs
+    2. Creates Workloads OU
+    3. Creates project OU under Workloads (named from GITHUB_REPO)
+    4. Creates three member accounts (dev, staging, prod)
+    5. Places accounts in the project OU
     6. Saves account IDs to accounts.json
 
     Run this script FIRST on a fresh AWS account, then run

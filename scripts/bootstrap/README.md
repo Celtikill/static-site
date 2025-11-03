@@ -344,17 +344,17 @@ JSON report generated at `output/verification-report.json`:
   "timestamp": "2025-10-07T12:00:00Z",
   "organization": {
     "id": "o-abc123def456",
-    "master_account": "223938610551"
+    "master_account": "<management-account-id>"
   },
   "accounts": {
-    "dev": { "id": "210987654321", "status": "ACTIVE" },
-    "staging": { "id": "111222333444", "status": "ACTIVE" },
-    "prod": { "id": "555666777888", "status": "ACTIVE" }
+    "dev": { "id": "<dev-account-id>", "status": "ACTIVE" },
+    "staging": { "id": "<staging-account-id>", "status": "ACTIVE" },
+    "prod": { "id": "<prod-account-id>", "status": "ACTIVE" }
   },
   "backends": {
-    "dev": "static-site-state-dev-210987654321",
-    "staging": "static-site-state-staging-111222333444",
-    "prod": "static-site-state-prod-555666777888"
+    "dev": "<project-name>-state-dev-<dev-account-id>",
+    "staging": "<project-name>-state-staging-<staging-account-id>",
+    "prod": "<project-name>-state-prod-<prod-account-id>"
   }
 }
 ```
@@ -391,7 +391,7 @@ GitHub Actions roles trust the GitHub OIDC provider **directly** using `AssumeRo
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:Celtikill/static-site:*"
+          "token.actions.githubusercontent.com:sub": "repo:<org>/<repo>:*"
         }
       }
     }
