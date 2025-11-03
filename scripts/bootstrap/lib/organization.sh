@@ -206,6 +206,35 @@ create_account() {
             elif [[ "$status" == "FAILED" ]]; then
                 local failure_reason
                 failure_reason=$(echo "$status_output" | jq -r '.CreateAccountStatus.FailureReason // "Unknown"')
+
+                # Check if failure is due to email already existing
+                if echo "$failure_reason" | grep -qi "EMAIL_ALREADY_EXISTS\|DUPLICATE_ACCOUNT_NAME\|already exists\|email.*already.*use"; then
+                    log_warn "Account creation failed due to existing email, attempting to find account..."
+
+                    # Try to find the account by email using fallback lookup
+                    local found_account
+                    if found_account=$(account_exists "$account_email"); then
+                        log_success "Found existing account via fallback: $account_name (ID: $found_account)"
+
+                        # Move to OU if specified and ensure it's in the correct location
+                        if [[ -n "$ou_id" ]]; then
+                            log_info "Ensuring account is in correct OU..."
+                            if move_account_to_ou "$found_account" "$ou_id"; then
+                                log_success "Account is in correct OU"
+                            else
+                                log_warn "Could not verify OU placement, but account exists"
+                            fi
+                        fi
+
+                        echo "$found_account"
+                        return 0
+                    else
+                        log_error "Email conflict detected but could not find existing account"
+                        log_error "Failure reason: $failure_reason"
+                        return 1
+                    fi
+                fi
+
                 log_error "Account creation failed: $failure_reason"
                 return 1
             fi
