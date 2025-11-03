@@ -147,7 +147,7 @@ attach_deployment_policy() {
 
 generate_deployment_policy() {
     # Comprehensive deployment permissions for static site infrastructure
-    cat <<'EOF'
+    cat <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -163,8 +163,8 @@ generate_deployment_policy() {
         "s3:GetBucketLocation"
       ],
       "Resource": [
-        "arn:aws:s3:::static-site-state-*",
-        "arn:aws:s3:::static-site-state-*/*"
+        "arn:aws:s3:::${PROJECT_SHORT_NAME}-state-*",
+        "arn:aws:s3:::${PROJECT_SHORT_NAME}-state-*/*"
       ]
     },
     {
@@ -176,7 +176,7 @@ generate_deployment_policy() {
         "dynamodb:PutItem",
         "dynamodb:DeleteItem"
       ],
-      "Resource": "arn:aws:dynamodb:*:*:table/static-site-locks-*"
+      "Resource": "arn:aws:dynamodb:*:*:table/${PROJECT_SHORT_NAME}-locks-*"
     },
     {
       "Sid": "S3WebsiteBucketManagement",
@@ -190,10 +190,10 @@ generate_deployment_policy() {
         "s3:DeleteObject"
       ],
       "Resource": [
-        "arn:aws:s3:::static-site-*",
-        "arn:aws:s3:::static-site-*/*",
-        "arn:aws:s3:::static-website-*",
-        "arn:aws:s3:::static-website-*/*"
+        "arn:aws:s3:::${PROJECT_SHORT_NAME}-*",
+        "arn:aws:s3:::${PROJECT_SHORT_NAME}-*/*",
+        "arn:aws:s3:::${PROJECT_SHORT_NAME}-website-*",
+        "arn:aws:s3:::${PROJECT_SHORT_NAME}-website-*/*"
       ]
     },
     {
@@ -297,7 +297,7 @@ generate_deployment_policy() {
         "iam:UntagRole"
       ],
       "Resource": [
-        "arn:aws:iam::*:role/static-site-*",
+        "arn:aws:iam::*:role/${PROJECT_SHORT_NAME}-*",
         "arn:aws:iam::*:role/github-actions-workload-deployment"
       ]
     },
@@ -311,7 +311,7 @@ generate_deployment_policy() {
         "sns:List*",
         "sns:*Tag*"
       ],
-      "Resource": "arn:aws:sns:*:*:static-website-*"
+      "Resource": "arn:aws:sns:*:*:${PROJECT_SHORT_NAME}-website-*"
     },
     {
       "Sid": "BudgetManagement",
@@ -438,7 +438,7 @@ delete_github_actions_role() {
     local account_id="$1"
     local environment="$2"
     local env_cap=$(capitalize "$environment")
-    local role_name="GitHubActions-StaticSite-${env_cap}-Role"
+    local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
 
     log_info "Deleting role in account $account_id: $role_name"
 
