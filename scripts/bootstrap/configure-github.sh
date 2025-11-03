@@ -16,61 +16,30 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source shared configuration first (defines BOOTSTRAP_DIR)
+# Source shared configuration first (defines BOOTSTRAP_DIR, colors, etc.)
 if [[ -f "${SCRIPT_DIR}/config.sh" ]]; then
     source "${SCRIPT_DIR}/config.sh"
 fi
 
-# Set local paths using BOOTSTRAP_DIR from config.sh
-readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
-readonly OUTPUT_DIR="${BOOTSTRAP_DIR}/output"
+# Source common logging functions
+if [[ -f "${SCRIPT_DIR}/lib/common.sh" ]]; then
+    source "${SCRIPT_DIR}/lib/common.sh"
+fi
 
-# Execution modes
+# Execution modes (override if needed)
 DRY_RUN="${DRY_RUN:-false}"
 VERBOSE="${VERBOSE:-false}"
-
-# Color codes for output
-if [[ -t 1 ]]; then
-    readonly RED='\033[0;31m'
-    readonly GREEN='\033[0;32m'
-    readonly YELLOW='\033[1;33m'
-    readonly BLUE='\033[0;34m'
-    readonly BOLD='\033[1m'
-    readonly NC='\033[0m'
-else
-    readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
-fi
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
-
-log_info() {
-    echo -e "${BLUE}ℹ${NC} $*"
-}
-
-log_success() {
-    echo -e "${GREEN}✓${NC} $*"
-}
-
-log_warning() {
-    echo -e "${YELLOW}⚠${NC} $*"
-}
-
-log_error() {
-    echo -e "${RED}✗${NC} $*" >&2
-}
+# Note: log_info, log_success, log_error, log_warn provided by common.sh
+# Additional helpers specific to this script:
 
 log_section() {
     echo
     echo -e "${BOLD}$*${NC}"
     echo "============================================================"
-}
-
-log_debug() {
-    if [[ "$VERBOSE" == "true" ]]; then
-        echo -e "${BLUE}[DEBUG]${NC} $*"
-    fi
 }
 
 # =============================================================================
@@ -254,11 +223,11 @@ show_current_state() {
     log_section "Current GitHub Configuration"
 
     log_info "Current Secrets:"
-    gh secret list 2>&1 | head -10 || log_warning "Could not list secrets"
+    gh secret list 2>&1 | head -10 || log_warn "Could not list secrets"
 
     echo
     log_info "Current Variables:"
-    gh variable list 2>&1 | head -15 || log_warning "Could not list variables"
+    gh variable list 2>&1 | head -15 || log_warn "Could not list variables"
 
     echo
 }
@@ -415,7 +384,7 @@ main() {
 EOF
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_warning "DRY RUN MODE - No changes will be made"
+        log_warn "DRY RUN MODE - No changes will be made"
         echo
     fi
 
@@ -427,7 +396,7 @@ EOF
         log_info "Dry run mode - showing what would be configured"
     else
         echo
-        log_warning "This will configure GitHub secrets and variables using local account IDs"
+        log_warn "This will configure GitHub secrets and variables using local account IDs"
         log_info "Repository: $(gh repo view --json nameWithOwner -q .nameWithOwner)"
         echo
         read -p "Continue? (y/n) " -n 1 -r
