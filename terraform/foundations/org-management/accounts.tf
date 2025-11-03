@@ -33,7 +33,7 @@ resource "aws_organizations_account" "workload_accounts" {
 
   name      = each.value.name
   email     = "${var.email_prefix}${each.value.email_suffix}@${var.domain_suffix}"
-  parent_id = aws_organizations_organizational_unit.workloads.id
+  parent_id = aws_organizations_organizational_unit.static_site_project.id
 
   # Enable programmatic access
   iam_user_access_to_billing = "ALLOW"
