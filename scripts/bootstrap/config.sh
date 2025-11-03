@@ -21,7 +21,7 @@ readonly OUTPUT_DIR="${OUTPUT_DIR:-${BOOTSTRAP_DIR}/output}"
 # PROJECT CONFIGURATION
 # =============================================================================
 
-readonly PROJECT_NAME="static-site"
+readonly PROJECT_NAME="celtikill-static-site"
 readonly GITHUB_REPO="Celtikill/static-site"
 readonly EXTERNAL_ID="github-actions-static-site"
 readonly AWS_DEFAULT_REGION="us-east-1"
