@@ -193,27 +193,30 @@ organization_exists() {
 
 ou_exists() {
     local ou_name="$1"
+    local parent_id="${2:-}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if OU exists: $ou_name"
         return 1
     fi
 
-    local root_id
-    if ! root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>&1); then
-        log_error "Failed to list organization roots"
-        log_error "AWS CLI error: $root_id"
-        return 1
-    fi
+    # If no parent_id provided, use root
+    if [[ -z "$parent_id" ]]; then
+        if ! parent_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>&1); then
+            log_error "Failed to list organization roots"
+            log_error "AWS CLI error: $parent_id"
+            return 1
+        fi
 
-    if [[ -z "$root_id" ]] || [[ "$root_id" == "None" ]]; then
-        log_debug "No organization root found"
-        return 1
+        if [[ -z "$parent_id" ]] || [[ "$parent_id" == "None" ]]; then
+            log_debug "No organization root found"
+            return 1
+        fi
     fi
 
     local ous
-    if ! ous=$(aws organizations list-organizational-units-for-parent --parent-id "$root_id" --query "OrganizationalUnits[?Name=='$ou_name'].Id" --output text 2>&1); then
-        log_error "Failed to list OUs for root: $root_id"
+    if ! ous=$(aws organizations list-organizational-units-for-parent --parent-id "$parent_id" --query "OrganizationalUnits[?Name=='$ou_name'].Id" --output text 2>&1); then
+        log_error "Failed to list OUs for parent: $parent_id"
         log_error "AWS CLI error: $ous"
         return 1
     fi
@@ -222,7 +225,7 @@ ou_exists() {
         echo "$ous"
         return 0
     else
-        log_debug "OU not found: $ou_name"
+        log_debug "OU not found: $ou_name (parent: $parent_id)"
         return 1
     fi
 }
