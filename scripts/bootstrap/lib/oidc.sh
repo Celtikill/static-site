@@ -292,6 +292,14 @@ delete_oidc_provider() {
         return 0
     fi
 
+    # Check account status - if closed, resources are already inaccessible
+    local account_status
+    account_status=$(check_account_status "$account_id")
+    if [[ "$account_status" == "SUSPENDED" ]] || [[ "$account_status" == "PENDING_CLOSURE" ]]; then
+        log_warn "Account $account_id is $account_status - resources already inaccessible, skipping"
+        return 0
+    fi
+
     # Switch to target account
     if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "delete-oidc"; then
         log_warn "Failed to assume role in account $account_id, skipping"

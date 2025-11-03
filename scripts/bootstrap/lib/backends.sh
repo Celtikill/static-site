@@ -345,6 +345,14 @@ destroy_terraform_backend() {
         return 0
     fi
 
+    # Check account status - if closed, resources are already inaccessible
+    local account_status
+    account_status=$(check_account_status "$account_id")
+    if [[ "$account_status" == "SUSPENDED" ]] || [[ "$account_status" == "PENDING_CLOSURE" ]]; then
+        log_warn "Account $account_id is $account_status - resources already inaccessible, skipping"
+        return 0
+    fi
+
     local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
     local table_name="${PROJECT_NAME}-locks-${environment}"
 

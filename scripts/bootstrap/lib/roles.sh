@@ -453,6 +453,14 @@ delete_github_actions_role() {
         return 0
     fi
 
+    # Check account status - if closed, resources are already inaccessible
+    local account_status
+    account_status=$(check_account_status "$account_id")
+    if [[ "$account_status" == "SUSPENDED" ]] || [[ "$account_status" == "PENDING_CLOSURE" ]]; then
+        log_warn "Account $account_id is $account_status - resources already inaccessible, skipping"
+        return 0
+    fi
+
     if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "delete-role-${environment}"; then
 
         if iam_role_exists "$role_name"; then
