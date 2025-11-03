@@ -826,7 +826,7 @@ ensure_accounts_in_project_ou() {
     local failed_count=0
 
     # Process each account
-    echo "$project_accounts" | jq -r '.[] | "\(.Id)|\(.Name)|\(.Status)"' | while IFS='|' read -r account_id account_name account_status; do
+    while IFS='|' read -r account_id account_name account_status; do
         log_info "Checking account: $account_id ($account_name) [$account_status]"
 
         # Get current parent OU
