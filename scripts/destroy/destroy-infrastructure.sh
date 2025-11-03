@@ -65,9 +65,10 @@ OPTIONS:
     --region REGION           AWS region (default: us-east-1)
     --s3-timeout SECONDS      S3 bucket emptying timeout in seconds (default: 180)
     --no-cross-account        Disable cross-account role destruction
-    --close-accounts          Enable member account closure (PERMANENT)
     --no-terraform-cleanup    Disable Terraform state cleanup
     -h, --help               Show this help message
+
+NOTE: To close AWS member accounts, use scripts/bootstrap/destroy-foundation.sh --close-accounts
 
 CROSS-ACCOUNT FEATURES:
     • Destroys GitHub Actions roles across all member accounts
@@ -89,9 +90,6 @@ EXAMPLES:
 
     # Destroy only specific accounts
     $SCRIPT_NAME --account-filter "822529998967,927588814642" --dry-run
-
-    # Full destruction including member account closure (EXTREME)
-    $SCRIPT_NAME --force --close-accounts
 
     # Disable cross-account features
     $SCRIPT_NAME --dry-run --no-cross-account
@@ -122,8 +120,7 @@ DESTRUCTION PHASES:
     Phase 7:  Cost and configuration (Budgets, SSM Parameters)
     Phase 8:  Orphaned resources cleanup (Elastic IPs, etc.)
     Phase 9:  AWS Organizations cleanup (SCPs, OUs) - management account only
-    Phase 10: Member account closure (if enabled) - PERMANENT for 90 days
-    Phase 11: Post-destruction validation across all US regions
+    Phase 10: Post-destruction validation across all US regions
 
 SAFETY FEATURES:
     • Dry run mode shows complete destruction plan
@@ -146,10 +143,11 @@ WARNING - PERMANENT DATA LOSS:
     • All CloudTrail trails and organization trails
     • All AWS Organizations resources (SCPs, OUs) - management account only
     • Terraform state for cross-account modules
-    • Optionally: Member accounts (90-day closure period)
 
     MULTI-REGION: Scans all US regions (us-east-1, us-east-2, us-west-1, us-west-2)
     USE --dry-run FIRST to review the complete destruction plan.
+
+    NOTE: Member account closure has moved to destroy-foundation.sh --close-accounts
 EOF
 }
 

@@ -265,6 +265,7 @@ main() {
     [[ "$DESTROY_ROLES" == "true" ]] && ((total_steps++))
     [[ "$DESTROY_OIDC" == "true" ]] && ((total_steps++))
     [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]] && ((total_steps++))
+    [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]] && ((total_steps++))
 
     set_steps $total_steps
     start_timer
@@ -312,6 +313,14 @@ main() {
         fi
     fi
 
+    # Step 6: Close member accounts (if enabled)
+    if [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]]; then
+        step "Closing member AWS accounts"
+        if ! close_member_accounts; then
+            log_warn "Some accounts failed to close or were skipped"
+        fi
+    fi
+
     end_timer
 
     print_summary "Foundation Destroy Complete"
@@ -327,6 +336,7 @@ EOF
     [[ "$DESTROY_ROLES" == "true" ]] && echo "  ✓ GitHub Actions deployment roles"
     [[ "$DESTROY_OIDC" == "true" ]] && echo "  ✓ OIDC providers"
     [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]] && echo "  ✓ Central foundation state bucket"
+    [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]] && echo "  ✓ Member AWS accounts closed (90-day recovery period)"
 
     cat <<EOF
 
