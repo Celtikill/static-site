@@ -302,7 +302,7 @@ delete_all_oidc_providers() {
 }
 
 delete_central_state_bucket() {
-    local bucket_name="static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
+    local bucket_name="${PROJECT_NAME}-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
 
     log_info "Deleting central foundation state bucket: $bucket_name"
 
