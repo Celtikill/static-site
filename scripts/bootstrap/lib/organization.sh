@@ -838,14 +838,14 @@ ensure_accounts_in_project_ou() {
 
         if [[ "$current_parent" == "UNKNOWN" ]]; then
             log_error "Failed to get parent OU for account $account_id"
-            ((failed_count++))
+            ((failed_count++)) || true
             continue
         fi
 
         # Check if already in correct OU
         if [[ "$current_parent" == "$project_ou_id" ]]; then
             log_info "  Account $account_id already in correct OU"
-            ((skipped_count++))
+            ((skipped_count++)) || true
             continue
         fi
 
@@ -858,10 +858,10 @@ ensure_accounts_in_project_ou() {
             --destination-parent-id "$project_ou_id" 2>&1; then
 
             log_success "  Moved account $account_id to project OU"
-            ((moved_count++))
+            ((moved_count++)) || true
         else
             log_warn "  Failed to move account $account_id (may lack permissions or account locked)"
-            ((failed_count++))
+            ((failed_count++)) || true
         fi
     done < <(echo "$project_accounts" | jq -r '.[] | "\(.Id)|\(.Name)|\(.Status)"')
 
