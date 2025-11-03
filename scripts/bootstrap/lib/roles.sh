@@ -19,6 +19,12 @@ create_github_actions_role() {
         return 0
     fi
 
+    # Validate account is ACTIVE before proceeding
+    if ! validate_account_active "$account_id" "$environment"; then
+        log_error "Cannot create IAM role in non-ACTIVE account"
+        return 1
+    fi
+
     # Check if role already exists
     if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-role-${environment}"; then
 

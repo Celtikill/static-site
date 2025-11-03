@@ -23,6 +23,12 @@ create_oidc_provider() {
         return 0
     fi
 
+    # Validate account is ACTIVE before proceeding
+    if ! validate_account_active "$account_id" "$environment"; then
+        log_error "Cannot create OIDC provider in non-ACTIVE account"
+        return 1
+    fi
+
     # Switch to target account
     if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-oidc-${environment}"; then
         log_error "Failed to assume role in account $account_id"

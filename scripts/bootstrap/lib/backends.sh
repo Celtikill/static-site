@@ -105,6 +105,12 @@ create_terraform_backend() {
         return 0
     fi
 
+    # Validate account is ACTIVE before proceeding
+    if ! validate_account_active "$account_id" "$environment"; then
+        log_error "Cannot create Terraform backend in non-ACTIVE account"
+        return 1
+    fi
+
     local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
     local table_name="${PROJECT_NAME}-locks-${environment}"
 
