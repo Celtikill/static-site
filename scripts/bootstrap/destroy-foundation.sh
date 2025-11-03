@@ -35,14 +35,23 @@ ${RED}WARNING: This is a destructive operation!${NC}
 ${RED}All Terraform state and bootstrap infrastructure will be deleted.${NC}
 
 OPTIONS:
-    -d, --dry-run          Simulate actions without making changes
-    -v, --verbose          Enable verbose output
-    -f, --force            Skip confirmation prompt
-    -h, --help            Show this help message
+    -d, --dry-run              Simulate actions without making changes
+    -v, --verbose              Enable verbose output
+    -f, --force                Skip confirmation prompt
+    -h, --help                 Show this help message
+
+GRANULAR DESTRUCTION OPTIONS:
+    --backends-only            Only destroy Terraform backends (S3 + DynamoDB)
+    --roles-only               Only destroy GitHub Actions IAM roles
+    --oidc-only                Only destroy OIDC providers
+    --central-bucket-only      Only destroy central foundation state bucket
+    --accounts LIST            Comma-separated list of accounts (dev,staging,prod)
+    --s3-timeout SECONDS       S3 bucket emptying timeout (default: 180)
 
 ENVIRONMENT VARIABLES:
-    DRY_RUN               Set to 'true' for dry-run mode
-    VERBOSE               Set to 'true' for verbose output
+    DRY_RUN                   Set to 'true' for dry-run mode
+    VERBOSE                   Set to 'true' for verbose output
+    S3_TIMEOUT                S3 bucket emptying timeout in seconds
 
 DESCRIPTION:
     This script performs the inverse of bootstrap-foundation.sh:
@@ -57,7 +66,7 @@ DESCRIPTION:
     - OrganizationAccountAccessRole must exist in target accounts
 
 EXAMPLES:
-    # Normal execution (with confirmation)
+    # Destroy all bootstrap infrastructure (with confirmation)
     $0
 
     # Force destroy without confirmation
@@ -66,8 +75,14 @@ EXAMPLES:
     # Dry-run mode
     $0 --dry-run
 
-    # Verbose mode
-    $0 --verbose
+    # Only destroy backends in dev and staging
+    $0 --backends-only --accounts dev,staging
+
+    # Only destroy roles with custom S3 timeout
+    $0 --roles-only --s3-timeout 300 --force
+
+    # Destroy central bucket only
+    $0 --central-bucket-only --force
 
 EOF
 }
@@ -77,6 +92,11 @@ EOF
 # =============================================================================
 
 FORCE_DESTROY=false
+DESTROY_BACKENDS=true
+DESTROY_ROLES=true
+DESTROY_OIDC=true
+DESTROY_CENTRAL_BUCKET=true
+ACCOUNT_FILTER=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -91,6 +111,42 @@ while [[ $# -gt 0 ]]; do
         -f|--force)
             FORCE_DESTROY=true
             shift
+            ;;
+        --backends-only)
+            DESTROY_BACKENDS=true
+            DESTROY_ROLES=false
+            DESTROY_OIDC=false
+            DESTROY_CENTRAL_BUCKET=false
+            shift
+            ;;
+        --roles-only)
+            DESTROY_BACKENDS=false
+            DESTROY_ROLES=true
+            DESTROY_OIDC=false
+            DESTROY_CENTRAL_BUCKET=false
+            shift
+            ;;
+        --oidc-only)
+            DESTROY_BACKENDS=false
+            DESTROY_ROLES=false
+            DESTROY_OIDC=true
+            DESTROY_CENTRAL_BUCKET=false
+            shift
+            ;;
+        --central-bucket-only)
+            DESTROY_BACKENDS=false
+            DESTROY_ROLES=false
+            DESTROY_OIDC=false
+            DESTROY_CENTRAL_BUCKET=true
+            shift
+            ;;
+        --accounts)
+            ACCOUNT_FILTER="$2"
+            shift 2
+            ;;
+        --s3-timeout)
+            export S3_TIMEOUT="$2"
+            shift 2
             ;;
         -h|--help)
             usage
