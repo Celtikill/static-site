@@ -47,8 +47,9 @@ scripts/bootstrap/
 │   ├── backend-config-*.hcl      # Backend configurations
 │   ├── terraform-*.log           # Terraform logs
 │   └── verification-report.json  # Verification results
-├── bootstrap-organization.sh      # Stage 1: Create org structure
-├── bootstrap-foundation.sh        # Stage 2: Create OIDC/roles/backends
+├── bootstrap-organization.sh      # Step 1: Create org structure
+├── bootstrap-foundation.sh        # Step 2: Create OIDC/roles/backends
+├── configure-github.sh            # Step 3: Configure GitHub repository (optional)
 ├── destroy-foundation.sh          # Cleanup bootstrap resources (granular options)
 ├── accounts.json                  # Account IDs (auto-generated)
 └── accounts.json.example          # Template file
@@ -62,16 +63,21 @@ scripts/bootstrap/
 3. **AWS credentials** for management account (admin access)
 4. **jq** installed for JSON processing
 
-### Fresh AWS Account (Two-Stage Bootstrap)
+### Fresh AWS Account (Three-Step Bootstrap)
 
 ```bash
-# Stage 1: Create organization and member accounts
+# Step 1: Create organization and member accounts
 cd scripts/bootstrap
 ./bootstrap-organization.sh
 
-# Stage 2: Create OIDC, roles, and backends
+# Step 2: Create OIDC, roles, and backends
 ./bootstrap-foundation.sh
+
+# Step 3 (Optional): Configure GitHub repository for CI/CD
+./configure-github.sh
 ```
+
+**Note:** Step 3 requires GitHub CLI (`gh`) and repository permissions. Skip if not using GitHub Actions.
 
 ### Existing Organization (Single-Stage Bootstrap)
 
