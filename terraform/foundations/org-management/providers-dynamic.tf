@@ -12,18 +12,18 @@ provider "aws" {
   assume_role {
     role_arn     = "arn:aws:iam::${local.account_ids["dev"]}:role/OrganizationAccountAccessRole"
     session_name = "terraform-cross-account-dev"
-    external_id  = try(var.cross_account_external_id, "github-actions-static-site")
+    external_id  = var.cross_account_external_id
   }
 
   default_tags {
     tags = {
-      Project            = "static-site"
+      Project            = local.project_name
       Component          = "cross-account-admin"
       ManagedBy          = "terraform"
       Environment        = "dev"
       SourceAccount      = data.aws_caller_identity.current.account_id
       CrossAccountAccess = "true"
-      Repository         = "github.com/celtikill/static-site"
+      Repository         = "github.com/${var.github_repo}"
     }
   }
 }
@@ -35,18 +35,18 @@ provider "aws" {
   assume_role {
     role_arn     = "arn:aws:iam::${local.account_ids["staging"]}:role/OrganizationAccountAccessRole"
     session_name = "terraform-cross-account-staging"
-    external_id  = try(var.cross_account_external_id, "github-actions-static-site")
+    external_id  = var.cross_account_external_id
   }
 
   default_tags {
     tags = {
-      Project            = "static-site"
+      Project            = local.project_name
       Component          = "cross-account-admin"
       ManagedBy          = "terraform"
       Environment        = "staging"
       SourceAccount      = data.aws_caller_identity.current.account_id
       CrossAccountAccess = "true"
-      Repository         = "github.com/celtikill/static-site"
+      Repository         = "github.com/${var.github_repo}"
     }
   }
 }
@@ -58,18 +58,18 @@ provider "aws" {
   assume_role {
     role_arn     = "arn:aws:iam::${local.account_ids["prod"]}:role/OrganizationAccountAccessRole"
     session_name = "terraform-cross-account-prod"
-    external_id  = try(var.cross_account_external_id, "github-actions-static-site")
+    external_id  = var.cross_account_external_id
   }
 
   default_tags {
     tags = {
-      Project            = "static-site"
+      Project            = local.project_name
       Component          = "cross-account-admin"
       ManagedBy          = "terraform"
       Environment        = "prod"
       SourceAccount      = data.aws_caller_identity.current.account_id
       CrossAccountAccess = "true"
-      Repository         = "github.com/celtikill/static-site"
+      Repository         = "github.com/${var.github_repo}"
     }
   }
 }
