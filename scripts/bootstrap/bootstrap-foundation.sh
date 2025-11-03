@@ -242,17 +242,29 @@ The following roles are available:
 
 ${BOLD}Next Steps:${NC}
 
-1. Update GitHub Actions secrets/variables (if needed):
-   - AWS_ACCOUNT_ID_DEV: ${DEV_ACCOUNT}
-   - AWS_ACCOUNT_ID_STAGING: ${STAGING_ACCOUNT}
-   - AWS_ACCOUNT_ID_PROD: ${PROD_ACCOUNT}
+1. Review bootstrap outputs:
+   - Account IDs: ${OUTPUT_DIR}/accounts.json
+   - Backend configs: ${OUTPUT_DIR}/backend-config-*.hcl
+   - Verification: ${OUTPUT_DIR}/verification-report.json
 
-2. Update workflow files to use the new account IDs
+2. Configure CI/CD (optional):
 
-3. Test your deployment pipeline:
+   ${BOLD}For GitHub Actions:${NC}
+   ${BLUE}./configure-github.sh${NC}
+
+   This will configure your repository with:
+   - AWS account IDs as GitHub variables
+   - OIDC role ARNs as GitHub secrets
+   - Infrastructure settings (regions, versions, budgets)
+
+   ${YELLOW}Note: Requires GitHub CLI (gh) and repository permissions${NC}
+
+   ${BOLD}For other CI/CD platforms:${NC}
+   See account IDs in: ${OUTPUT_DIR}/accounts.json
+   IAM Role format: arn:aws:iam::{ACCOUNT_ID}:role/${IAM_ROLE_PREFIX}-{Env}-Role
+
+3. Test your deployment:
    ${BLUE}git push${NC}
-
-4. Monitor the workflow run in GitHub Actions
 
 ${BOLD}Automated Deployments:${NC}
 
