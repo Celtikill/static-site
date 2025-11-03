@@ -122,8 +122,8 @@ All these paths are in `.gitignore` to prevent accidental commits of sensitive d
 
 1. **Configure GitHub (minute 30-32)**:
    ```bash
-   # Run interactively during demo
-   ./scripts/demo/configure-github-secrets.sh
+   # Run interactively during demo (Step 3 of bootstrap)
+   ./scripts/bootstrap/configure-github.sh
    ```
 
 2. **Create feature branch (minute 32-34)**:
