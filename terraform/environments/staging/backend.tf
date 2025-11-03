@@ -8,7 +8,7 @@ terraform {
     # Falls back to centralized backend if backend-configs/staging.hcl doesn't exist
 
     # Legacy centralized configuration (fallback)
-    bucket         = "static-site-terraform-state-223938610551"
+    bucket         = "celtikill-static-site-terraform-state-223938610551"
     key            = "environments/staging/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true

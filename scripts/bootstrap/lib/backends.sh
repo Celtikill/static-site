@@ -7,7 +7,7 @@
 # =============================================================================
 
 ensure_central_state_bucket() {
-    local bucket_name="static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
+    local bucket_name="${PROJECT_NAME}-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
 
     log_info "Checking for central foundation state bucket..."
 
@@ -105,8 +105,8 @@ create_terraform_backend() {
         return 0
     fi
 
-    local bucket_name="static-site-state-${environment}-${account_id}"
-    local table_name="static-site-locks-${environment}"
+    local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
+    local table_name="${PROJECT_NAME}-locks-${environment}"
 
     # Assume role for all operations
     if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-backend-${environment}"; then
@@ -265,8 +265,8 @@ verify_terraform_backend() {
         return 0
     fi
 
-    local bucket_name="static-site-state-${environment}-${account_id}"
-    local table_name="static-site-locks-${environment}"
+    local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
+    local table_name="${PROJECT_NAME}-locks-${environment}"
 
     if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "verify-backend-${environment}"; then
 
@@ -339,8 +339,8 @@ destroy_terraform_backend() {
         return 0
     fi
 
-    local bucket_name="static-site-state-${environment}-${account_id}"
-    local table_name="static-site-locks-${environment}"
+    local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
+    local table_name="${PROJECT_NAME}-locks-${environment}"
 
     if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "destroy-backend-${environment}"; then
 
@@ -392,7 +392,7 @@ destroy_terraform_backend() {
         fi
 
         # Delete KMS alias and key (if exists)
-        local kms_alias="alias/static-site-state-${environment}-${account_id}"
+        local kms_alias="alias/${PROJECT_NAME}-state-${environment}-${account_id}"
         local kms_key_id
         kms_key_id=$(aws kms describe-key --key-id "$kms_alias" --query 'KeyMetadata.KeyId' --output text 2>/dev/null || echo "")
 
