@@ -57,6 +57,34 @@ create_github_actions_role() {
             clear_assumed_role
             return 0
         else
+            # Check if error is due to role already existing
+            if echo "$role_output" | grep -qi "EntityAlreadyExists\|already exists"; then
+                log_warn "Role already exists, attempting to find it..."
+
+                # Try to find the existing role
+                if iam_role_exists "$role_name"; then
+                    local role_arn
+                    role_arn=$(aws iam get-role --role-name "$role_name" --query 'Role.Arn' --output text 2>/dev/null)
+
+                    if [[ -n "$role_arn" ]]; then
+                        log_success "Found existing role via fallback: $role_arn"
+
+                        # Ensure deployment policy is attached
+                        if ! attach_deployment_policy "$role_name"; then
+                            log_warn "Could not verify/attach deployment policy, but role exists"
+                        fi
+
+                        clear_assumed_role
+                        return 0
+                    fi
+                fi
+
+                log_error "Role conflict detected but could not find existing role"
+                log_error "AWS CLI error: $role_output"
+                clear_assumed_role
+                return 1
+            fi
+
             log_error "Failed to create role: $role_output"
             clear_assumed_role
             return 1
