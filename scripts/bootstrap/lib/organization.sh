@@ -345,22 +345,113 @@ create_environment_accounts() {
 
     log_info "Accounts will be created in project OU: $project_ou_id"
 
-    # Create accounts (all in the same project OU)
-    local dev_account staging_account prod_account
-
-    if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
-        log_error "Failed to create dev account"
-        return 1
+    # Load existing accounts if accounts.json exists
+    local existing_dev="" existing_staging="" existing_prod=""
+    if [[ -f "$ACCOUNTS_FILE" ]]; then
+        log_info "Checking for existing accounts in $ACCOUNTS_FILE..."
+        existing_dev=$(jq -r '.dev // ""' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+        existing_staging=$(jq -r '.staging // ""' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+        existing_prod=$(jq -r '.prod // ""' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
     fi
 
-    if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
-        log_error "Failed to create staging account"
-        return 1
+    # Initialize replacement tracking
+    declare -g -A REPLACED_ACCOUNTS=()
+    local timestamp=$(date +%Y%m%d)
+
+    # Create or reuse dev account
+    local dev_account
+    if [[ -n "$existing_dev" ]]; then
+        local dev_status
+        dev_status=$(check_account_status "$existing_dev")
+
+        if [[ "$dev_status" == "ACTIVE" ]]; then
+            log_info "Dev account already exists and is ACTIVE: $existing_dev"
+            dev_account="$existing_dev"
+        elif [[ "$dev_status" == "SUSPENDED" ]] || [[ "$dev_status" == "PENDING_CLOSURE" ]]; then
+            log_warn "Dev account $existing_dev is $dev_status - creating replacement"
+            REPLACED_ACCOUNTS["dev"]="$existing_dev|$dev_status|$(date -Iseconds)"
+
+            if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
+                log_error "Failed to create replacement dev account"
+                return 1
+            fi
+            log_success "Created replacement dev account: $dev_account"
+        else
+            log_info "Dev account not found or invalid, creating new account"
+            if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
+                log_error "Failed to create dev account"
+                return 1
+            fi
+        fi
+    else
+        if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
+            log_error "Failed to create dev account"
+            return 1
+        fi
     fi
 
-    if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
-        log_error "Failed to create prod account"
-        return 1
+    # Create or reuse staging account
+    local staging_account
+    if [[ -n "$existing_staging" ]]; then
+        local staging_status
+        staging_status=$(check_account_status "$existing_staging")
+
+        if [[ "$staging_status" == "ACTIVE" ]]; then
+            log_info "Staging account already exists and is ACTIVE: $existing_staging"
+            staging_account="$existing_staging"
+        elif [[ "$staging_status" == "SUSPENDED" ]] || [[ "$staging_status" == "PENDING_CLOSURE" ]]; then
+            log_warn "Staging account $existing_staging is $staging_status - creating replacement"
+            REPLACED_ACCOUNTS["staging"]="$existing_staging|$staging_status|$(date -Iseconds)"
+
+            if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
+                log_error "Failed to create replacement staging account"
+                return 1
+            fi
+            log_success "Created replacement staging account: $staging_account"
+        else
+            log_info "Staging account not found or invalid, creating new account"
+            if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
+                log_error "Failed to create staging account"
+                return 1
+            fi
+        fi
+    else
+        if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
+            log_error "Failed to create staging account"
+            return 1
+        fi
+    fi
+
+    # Create or reuse prod account
+    local prod_account
+    if [[ -n "$existing_prod" ]]; then
+        local prod_status
+        prod_status=$(check_account_status "$existing_prod")
+
+        if [[ "$prod_status" == "ACTIVE" ]]; then
+            log_info "Prod account already exists and is ACTIVE: $existing_prod"
+            prod_account="$existing_prod"
+        elif [[ "$prod_status" == "SUSPENDED" ]] || [[ "$prod_status" == "PENDING_CLOSURE" ]]; then
+            log_warn "Prod account $existing_prod is $prod_status - creating replacement"
+            REPLACED_ACCOUNTS["prod"]="$existing_prod|$prod_status|$(date -Iseconds)"
+
+            if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
+                log_error "Failed to create replacement prod account"
+                return 1
+            fi
+            log_success "Created replacement prod account: $prod_account"
+        else
+            log_info "Prod account not found or invalid, creating new account"
+            if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
+                log_error "Failed to create prod account"
+                return 1
+            fi
+        fi
+    else
+        if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
+            log_error "Failed to create prod account"
+            return 1
+        fi
     fi
 
     # Wait for accounts to be fully active
