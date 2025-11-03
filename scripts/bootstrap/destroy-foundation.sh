@@ -196,6 +196,7 @@ EOF
     [[ "$DESTROY_ROLES" == "true" ]] && echo "  - GitHub Actions deployment roles"
     [[ "$DESTROY_OIDC" == "true" ]] && echo "  - OIDC providers"
     [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]] && echo "  - Central foundation state bucket"
+    [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]] && echo "  - ${RED}Member AWS accounts (PERMANENT - 90 day recovery)${NC}"
 
     cat <<EOF
 
