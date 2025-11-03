@@ -1,6 +1,11 @@
 # Organization Management Infrastructure
 # Sets up AWS Organizations, OUs, and foundational cross-account structure
 
+# Extract project name from GitHub repository
+locals {
+  project_name = split("/", var.github_repo)[1]
+}
+
 terraform {
   required_version = ">= 1.6.0"
 
@@ -24,11 +29,11 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "static-site"
+      Project     = local.project_name
       Component   = "organization"
       ManagedBy   = "terraform"
       Environment = "management"
-      Repository  = "github.com/celtikill/static-site"
+      Repository  = "github.com/${var.github_repo}"
     }
   }
 }
@@ -310,8 +315,8 @@ resource "aws_iam_policy" "github_actions_org_management" {
           "s3:*"
         ]
         Resource = [
-          "arn:aws:s3:::static-site-terraform-state-*",
-          "arn:aws:s3:::static-site-terraform-state-*/*",
+          "arn:aws:s3:::${local.project_name}-terraform-state-*",
+          "arn:aws:s3:::${local.project_name}-terraform-state-*/*",
           "arn:aws:s3:::cloudtrail-logs-*",
           "arn:aws:s3:::cloudtrail-logs-*/*"
         ]
@@ -337,8 +342,8 @@ resource "aws_iam_policy" "github_actions_org_management" {
           "s3:PutBucketTagging"
         ]
         Resource = [
-          "arn:aws:s3:::static-site-terraform-state-us-east-1",
-          "arn:aws:s3:::static-site-terraform-state-us-east-1/*"
+          "arn:aws:s3:::${local.project_name}-terraform-state-us-east-1",
+          "arn:aws:s3:::${local.project_name}-terraform-state-us-east-1/*"
         ]
       },
       {
