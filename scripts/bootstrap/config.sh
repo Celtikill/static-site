@@ -27,6 +27,12 @@ readonly EXTERNAL_ID="github-actions-static-site"
 readonly AWS_DEFAULT_REGION="us-east-1"
 readonly MANAGEMENT_ACCOUNT_ID="223938610551"
 
+# Derived configuration
+readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from "Celtikill/static-site"
+readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "static-site"
+readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+static-site"
+readonly IAM_ROLE_PREFIX="GitHubActions-${PROJECT_SHORT_NAME^}"  # "GitHubActions-Static-site" (capitalize first letter)
+
 # =============================================================================
 # STATE MANAGEMENT
 # =============================================================================
