@@ -863,7 +863,7 @@ ensure_accounts_in_project_ou() {
             log_warn "  Failed to move account $account_id (may lack permissions or account locked)"
             ((failed_count++))
         fi
-    done
+    done < <(echo "$project_accounts" | jq -r '.[] | "\(.Id)|\(.Name)|\(.Status)"')
 
     # Summary
     echo ""
