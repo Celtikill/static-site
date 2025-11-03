@@ -14,19 +14,19 @@ This framework automates the creation of foundational AWS infrastructure require
 ## 🏗️ Architecture
 
 ```
-Management Account (223938610551)
+Management Account
 ├── Workloads OU
-│   ├── Development OU
-│   │   └── static-site-dev (Account)
-│   ├── Staging OU
-│   │   └── static-site-staging (Account)
-│   └── Production OU
-│       └── static-site-prod (Account)
+│   └── <project-name> OU (derived from GITHUB_REPO)
+│       ├── <project-name>-dev (Account)
+│       ├── <project-name>-staging (Account)
+│       └── <project-name>-prod (Account)
 └── Bootstrap Resources
     ├── OIDC Providers (per account)
     ├── GitHub Actions Roles (per account)
     └── Terraform Backends (per account)
 ```
+
+**Note**: The project OU and account names are dynamically derived from the `GITHUB_REPO` variable in `config.sh`. For example, `GITHUB_REPO="Celtikill/static-site"` creates an OU named "static-site" with accounts "static-site-dev", "static-site-staging", and "static-site-prod".
 
 ## 📁 Directory Structure
 
@@ -174,9 +174,9 @@ EXAMPLES:
 
 **What it creates:**
 - AWS Organization (if not exists)
-- Workloads OU structure
-- Development, Staging, Production OUs
-- Three member accounts
+- Workloads OU
+- Project OU under Workloads (named from GITHUB_REPO)
+- Three member accounts (dev, staging, prod)
 - `accounts.json` file with account IDs
 
 **Output:**
