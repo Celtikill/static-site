@@ -216,15 +216,19 @@ EXAMPLES:
    - Configured for GitHub Actions authentication
 
 2. **GitHub Actions Roles** (per account):
-   - `GitHubActions-StaticSite-Dev-Role`
-   - `GitHubActions-StaticSite-Staging-Role`
-   - `GitHubActions-StaticSite-Prod-Role`
+   - `GitHubActions-<ProjectName>-Dev-Role`
+   - `GitHubActions-<ProjectName>-Staging-Role`
+   - `GitHubActions-<ProjectName>-Prod-Role`
+
+   (Role names are derived from PROJECT_NAME in config.sh)
 
 3. **Terraform Backends** (per account):
-   - S3 bucket: `static-site-state-{env}-{account-id}`
-   - DynamoDB table: `static-site-locks-{env}`
+   - S3 bucket: `<project-name>-state-{env}-{account-id}`
+   - DynamoDB table: `<project-name>-locks-{env}`
    - KMS key for encryption
    - Backend config files: `output/backend-config-{env}.hcl`
+
+   (Bucket/table names use PROJECT_NAME from config.sh)
 
 **Output:**
 ```
@@ -286,20 +290,23 @@ export OUTPUT_DIR=/path/to/output
 Edit `config.sh` to customize:
 
 ```bash
-readonly PROJECT_NAME="static-site"
-readonly GITHUB_REPO="Celtikill/static-site"
-readonly EXTERNAL_ID="github-actions-static-site"
-readonly AWS_DEFAULT_REGION="us-east-1"
-readonly MANAGEMENT_ACCOUNT_ID="223938610551"
+readonly PROJECT_NAME="<your-project-name>"     # Used for resource naming
+readonly GITHUB_REPO="<org>/<repo>"            # GitHub repository (e.g., "Celtikill/static-site")
+readonly EXTERNAL_ID="github-actions-<project>" # External ID for IAM roles
+readonly AWS_DEFAULT_REGION="us-east-1"         # AWS region
+readonly MANAGEMENT_ACCOUNT_ID="<account-id>"   # Management account ID
 ```
+
+**Important**: PROJECT_NAME should match your repository name for consistency. The project OU and account names will be derived from GITHUB_REPO.
 
 ### Account Emails
 
 Default account creation emails (modify in `lib/organization.sh`):
 ```bash
-Dev:     aws+static-site-dev@example.com
-Staging: aws+static-site-staging@example.com
-Prod:    aws+static-site-prod@example.com
+# Pattern: aws+<project-name>-<env>@example.com
+Dev:     aws+<project-name>-dev@example.com
+Staging: aws+<project-name>-staging@example.com
+Prod:    aws+<project-name>-prod@example.com
 ```
 
 ## 🧪 Verification
