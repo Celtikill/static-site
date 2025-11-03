@@ -63,6 +63,7 @@ OPTIONS:
     --force                   Skip all confirmation prompts (use with extreme caution)
     --account-filter IDS      Comma-separated list of AWS account IDs to limit destruction
     --region REGION           AWS region (default: us-east-1)
+    --s3-timeout SECONDS      S3 bucket emptying timeout in seconds (default: 180)
     --no-cross-account        Disable cross-account role destruction
     --close-accounts          Enable member account closure (PERMANENT)
     --no-terraform-cleanup    Disable Terraform state cleanup
@@ -97,6 +98,9 @@ EXAMPLES:
 
     # Cleanup current account only, no state cleanup
     $SCRIPT_NAME --no-cross-account --no-terraform-cleanup
+
+    # Use custom S3 timeout (5 minutes)
+    $SCRIPT_NAME --force --s3-timeout 300
 
 ENVIRONMENT VARIABLES:
     AWS_DEFAULT_REGION        AWS region (default: us-east-1)
