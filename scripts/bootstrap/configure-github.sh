@@ -15,14 +15,15 @@ set -euo pipefail
 # =============================================================================
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly BOOTSTRAP_DIR="${SCRIPT_DIR}"
-readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
-readonly OUTPUT_DIR="${BOOTSTRAP_DIR}/output"
 
-# Source shared configuration
+# Source shared configuration first (defines BOOTSTRAP_DIR)
 if [[ -f "${SCRIPT_DIR}/config.sh" ]]; then
     source "${SCRIPT_DIR}/config.sh"
 fi
+
+# Set local paths using BOOTSTRAP_DIR from config.sh
+readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
+readonly OUTPUT_DIR="${BOOTSTRAP_DIR}/output"
 
 # Execution modes
 DRY_RUN="${DRY_RUN:-false}"
