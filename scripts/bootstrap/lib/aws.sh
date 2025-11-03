@@ -358,6 +358,67 @@ wait_for_account() {
     return 1
 }
 
+# Check account status and return the status string
+# Returns: ACTIVE, SUSPENDED, PENDING_CLOSURE, or NOT_FOUND
+# Usage: status=$(check_account_status "$account_id")
+check_account_status() {
+    local account_id="$1"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "ACTIVE"
+        return 0
+    fi
+
+    local status
+    status=$(aws organizations describe-account \
+        --account-id "$account_id" \
+        --query 'Account.Status' \
+        --output text 2>/dev/null || echo "NOT_FOUND")
+
+    echo "$status"
+    return 0
+}
+
+# Validate account is in ACTIVE state
+# Returns 0 if ACTIVE, 1 otherwise
+# Usage: if validate_account_active "$account_id" "$env_name"; then ...
+validate_account_active() {
+    local account_id="$1"
+    local env_name="${2:-unknown}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would validate account status for: $account_id"
+        return 0
+    fi
+
+    local status
+    status=$(check_account_status "$account_id")
+
+    case "$status" in
+        ACTIVE)
+            return 0
+            ;;
+        SUSPENDED)
+            log_error "Account $account_id ($env_name) is SUSPENDED"
+            log_error "Suspended accounts cannot be used for bootstrap operations"
+            return 1
+            ;;
+        PENDING_CLOSURE)
+            log_error "Account $account_id ($env_name) is PENDING_CLOSURE"
+            log_error "Closed accounts cannot be used for bootstrap operations"
+            return 1
+            ;;
+        NOT_FOUND)
+            log_error "Account $account_id ($env_name) not found in organization"
+            return 1
+            ;;
+        *)
+            log_error "Account $account_id ($env_name) has unknown status: $status"
+            return 1
+            ;;
+    esac
+}
+
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
