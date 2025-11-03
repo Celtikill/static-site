@@ -474,14 +474,17 @@ enable_organization_account_access() {
 # Helper function to check if account should be processed based on filter
 should_close_account() {
     local account_id="$1"
+    local env_name="$2"  # Optional environment name (dev, staging, prod)
 
     # If no filter specified, allow all
     [[ -z "$ACCOUNT_FILTER" ]] && return 0
 
-    # Check if account is in filter
+    # Check if account ID or environment name is in filter
     IFS=',' read -ra ACCOUNTS <<< "$ACCOUNT_FILTER"
     for filtered_account in "${ACCOUNTS[@]}"; do
-        if [[ "$filtered_account" == "$account_id" ]]; then
+        # Match by account ID or environment name (case-insensitive)
+        if [[ "$filtered_account" == "$account_id" ]] || \
+           [[ "${filtered_account,,}" == "${env_name,,}" ]]; then
             return 0
         fi
     done
@@ -551,13 +554,32 @@ close_member_accounts() {
         fi
 
         # Determine environment name
-        local env_name
+        local env_name env_name_lower
         case "$account_id" in
-            "$DEV_ACCOUNT") env_name="Dev" ;;
-            "$STAGING_ACCOUNT") env_name="Staging" ;;
-            "$PROD_ACCOUNT") env_name="Prod" ;;
-            *) env_name="Unknown" ;;
+            "$DEV_ACCOUNT")
+                env_name="Dev"
+                env_name_lower="dev"
+                ;;
+            "$STAGING_ACCOUNT")
+                env_name="Staging"
+                env_name_lower="staging"
+                ;;
+            "$PROD_ACCOUNT")
+                env_name="Prod"
+                env_name_lower="prod"
+                ;;
+            *)
+                env_name="Unknown"
+                env_name_lower="unknown"
+                ;;
         esac
+
+        # Check account filter (pass both account ID and environment name)
+        if ! should_close_account "$account_id" "$env_name_lower"; then
+            log_info "Skipping account $account_id ($env_name) - not in account filter"
+            ((skipped_count++))
+            continue
+        fi
 
         # Check account status first
         local account_status
