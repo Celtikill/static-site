@@ -69,9 +69,9 @@ create_ou() {
         return 0
     fi
 
-    # Check if OU already exists
+    # Check if OU already exists (pass parent_id to search in correct location)
     local existing_ou
-    if existing_ou=$(ou_exists "$ou_name"); then
+    if existing_ou=$(ou_exists "$ou_name" "$parent_id"); then
         log_success "OU already exists: $ou_name (ID: $existing_ou)"
         echo "$existing_ou"
         return 0
@@ -87,6 +87,23 @@ create_ou() {
         echo "$ou_id"
         return 0
     else
+        # Check if error is due to OU already existing
+        if echo "$ou_output" | grep -qi "DuplicateOrganizationalUnitException\|already exists"; then
+            log_warn "OU already exists, attempting to find it..."
+
+            # Try to find the OU using fallback lookup
+            local found_ou
+            if found_ou=$(ou_exists "$ou_name" "$parent_id"); then
+                log_success "Found existing OU via fallback: $ou_name (ID: $found_ou)"
+                echo "$found_ou"
+                return 0
+            else
+                log_error "OU conflict detected but could not find existing OU"
+                log_error "AWS CLI error: $ou_output"
+                return 1
+            fi
+        fi
+
         log_error "Failed to create OU: $ou_output"
         return 1
     fi
