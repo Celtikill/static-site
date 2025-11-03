@@ -23,6 +23,20 @@ resource "aws_organizations_organizational_unit" "workloads" {
   })
 }
 
+# Project OU under Workloads - For static-site project accounts
+# This creates a project-based structure: Workloads/static-site/[accounts]
+# Allows for multiple projects to be organized under Workloads in the future
+resource "aws_organizations_organizational_unit" "static_site_project" {
+  name      = "static-site"
+  parent_id = aws_organizations_organizational_unit.workloads.id
+
+  tags = merge(var.tags, {
+    Purpose = "static-site-project"
+    Type    = "organizational-unit"
+    Project = "static-site"
+  })
+}
+
 # Sandbox OU - For experimentation and development
 resource "aws_organizations_organizational_unit" "sandbox" {
   name      = "Sandbox"
