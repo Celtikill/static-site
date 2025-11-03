@@ -284,8 +284,9 @@ The framework executes destruction in a specific order to handle dependencies:
 | 7 | Cost & configuration | Budgets, SSM Parameters |
 | 8 | Orphaned resources | Elastic IPs |
 | 9 | Organizations | SCPs, OUs (management account only) |
-| 10 | Account closure | Member accounts (if enabled) |
-| 11 | Validation | Multi-region verification |
+| 10 | Validation | Multi-region verification |
+
+**Note:** For member account closure, use `scripts/bootstrap/destroy-foundation.sh --close-accounts`
 
 ## 🔐 Security & Safety
 
