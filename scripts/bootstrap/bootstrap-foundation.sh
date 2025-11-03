@@ -220,9 +220,9 @@ OIDC Providers:
   ✓ Prod Account:    ${PROD_ACCOUNT}
 
 GitHub Actions Roles:
-  ✓ GitHubActions-StaticSite-Dev-Role
-  ✓ GitHubActions-StaticSite-Staging-Role
-  ✓ GitHubActions-StaticSite-Prod-Role
+  ✓ ${IAM_ROLE_PREFIX}-Dev-Role
+  ✓ ${IAM_ROLE_PREFIX}-Staging-Role
+  ✓ ${IAM_ROLE_PREFIX}-Prod-Role
 
 Terraform Backends:
   ✓ static-site-state-dev-${DEV_ACCOUNT}
@@ -236,9 +236,9 @@ ${BOLD}GitHub Actions Integration:${NC}
 Your GitHub Actions workflows can now authenticate using OIDC.
 The following roles are available:
 
-  Dev:     arn:aws:iam::${DEV_ACCOUNT}:role/GitHubActions-StaticSite-Dev-Role
-  Staging: arn:aws:iam::${STAGING_ACCOUNT}:role/GitHubActions-StaticSite-Staging-Role
-  Prod:    arn:aws:iam::${PROD_ACCOUNT}:role/GitHubActions-StaticSite-Prod-Role
+  Dev:     arn:aws:iam::${DEV_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Dev-Role
+  Staging: arn:aws:iam::${STAGING_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Staging-Role
+  Prod:    arn:aws:iam::${PROD_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Prod-Role
 
 ${BOLD}Next Steps:${NC}
 

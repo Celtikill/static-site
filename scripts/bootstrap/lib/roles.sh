@@ -382,7 +382,7 @@ verify_github_actions_role() {
     local account_id="$1"
     local environment="$2"
     local env_cap=$(capitalize "$environment")
-    local role_name="GitHubActions-StaticSite-${env_cap}-Role"
+    local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
 
     log_info "Verifying role in account $account_id: $role_name"
 
