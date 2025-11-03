@@ -47,7 +47,7 @@ create_oidc_provider() {
         --thumbprint-list "$thumbprint" \
         --tags Key=Environment,Value="$environment" \
               Key=ManagedBy,Value=bootstrap \
-              Key=Project,Value=static-site 2>&1); then
+              Key=Project,Value="${PROJECT_SHORT_NAME}" 2>&1); then
 
         local provider_arn
         provider_arn=$(echo "$provider_output" | jq -r '.OpenIDConnectProviderArn')
@@ -119,7 +119,7 @@ create_oidc_via_stackset() {
             --capabilities CAPABILITY_NAMED_IAM \
             --permission-model SERVICE_MANAGED \
             --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false \
-            --tags Key=ManagedBy,Value=bootstrap Key=Project,Value=static-site 2>&1; then
+            --tags Key=ManagedBy,Value=bootstrap Key=Project,Value="${PROJECT_SHORT_NAME}" 2>&1; then
             log_success "Created StackSet: $stackset_name"
         else
             log_error "Failed to create StackSet"
