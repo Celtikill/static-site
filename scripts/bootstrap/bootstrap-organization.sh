@@ -96,7 +96,7 @@ main() {
     print_header "AWS Organizations Bootstrap - Stage 1"
 
     # Set total steps for progress tracking
-    set_steps 6
+    set_steps 7
     start_timer
 
     # Step 1: Verify prerequisites
@@ -128,7 +128,13 @@ main() {
     save_accounts
     log_success "Account IDs saved to: $ACCOUNTS_FILE"
 
-    # Step 5: Verify cross-account access
+    # Step 5: Organize accounts in project OU
+    step "Organizing project accounts in OU"
+    if ! ensure_accounts_in_project_ou; then
+        log_warn "Some accounts could not be moved (this is non-critical)"
+    fi
+
+    # Step 6: Verify cross-account access
     step "Verifying cross-account access"
     log_info "Waiting 30 seconds for OrganizationAccountAccessRole to be available..."
     sleep 30
@@ -137,7 +143,7 @@ main() {
     enable_organization_account_access "$STAGING_ACCOUNT"
     enable_organization_account_access "$PROD_ACCOUNT"
 
-    # Step 6: Generate summary
+    # Step 7: Generate summary
     step "Generating summary"
     end_timer
 

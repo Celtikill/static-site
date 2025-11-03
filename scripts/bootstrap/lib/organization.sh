@@ -745,3 +745,132 @@ close_member_accounts() {
 
     [[ $failed_count -eq 0 ]] && return 0 || return 1
 }
+
+# =============================================================================
+# OU ACCOUNT PLACEMENT
+# =============================================================================
+
+# Discover all accounts matching the project name pattern
+# Returns: JSON array of accounts with Id, Name, Status, Email
+discover_all_project_accounts() {
+    log_info "Discovering all accounts matching project: $PROJECT_SHORT_NAME"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would discover project accounts"
+        echo "[]"
+        return 0
+    fi
+
+    # Get all organization accounts
+    local all_accounts
+    all_accounts=$(aws organizations list-accounts --output json 2>/dev/null || echo '{"Accounts":[]}')
+
+    # Filter accounts by name pattern or email pattern
+    local project_accounts
+    project_accounts=$(echo "$all_accounts" | jq -r --arg project "$PROJECT_SHORT_NAME" \
+        '.Accounts[] |
+        select(
+            (.Name | contains($project)) or
+            (.Email | contains($project))
+        ) |
+        {Id, Name, Status, Email}' | jq -s '.')
+
+    local account_count=$(echo "$project_accounts" | jq 'length')
+    log_info "Found $account_count account(s) matching project pattern"
+
+    # Log discovered accounts
+    if [[ $account_count -gt 0 ]]; then
+        echo "$project_accounts" | jq -r '.[] | "  - \(.Id) (\(.Name)) [\(.Status)]"' | while read -r line; do
+            log_info "$line"
+        done
+    fi
+
+    echo "$project_accounts"
+    return 0
+}
+
+# Ensure all project accounts are in the correct project OU
+# Includes ACTIVE, SUSPENDED, and PENDING_CLOSURE accounts
+ensure_accounts_in_project_ou() {
+    log_step "Ensuring all project accounts are in correct OU..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would verify OU placement"
+        return 0
+    fi
+
+    # Get project OU structure
+    local ou_structure
+    if ! ou_structure=$(create_workloads_structure); then
+        log_error "Failed to get OU structure"
+        return 1
+    fi
+
+    # Parse: workloads_ou_id and project_ou_id
+    read -r workloads_ou_id project_ou_id <<< "$ou_structure"
+
+    log_info "Target project OU: $project_ou_id"
+
+    # Discover all project accounts (including closed)
+    local project_accounts
+    project_accounts=$(discover_all_project_accounts)
+
+    local account_count=$(echo "$project_accounts" | jq 'length')
+    if [[ $account_count -eq 0 ]]; then
+        log_warn "No project accounts found"
+        return 0
+    fi
+
+    local moved_count=0
+    local skipped_count=0
+    local failed_count=0
+
+    # Process each account
+    echo "$project_accounts" | jq -r '.[] | "\(.Id)|\(.Name)|\(.Status)"' | while IFS='|' read -r account_id account_name account_status; do
+        log_info "Checking account: $account_id ($account_name) [$account_status]"
+
+        # Get current parent OU
+        local current_parent
+        current_parent=$(aws organizations list-parents \
+            --child-id "$account_id" \
+            --query 'Parents[0].Id' \
+            --output text 2>/dev/null || echo "UNKNOWN")
+
+        if [[ "$current_parent" == "UNKNOWN" ]]; then
+            log_error "Failed to get parent OU for account $account_id"
+            ((failed_count++))
+            continue
+        fi
+
+        # Check if already in correct OU
+        if [[ "$current_parent" == "$project_ou_id" ]]; then
+            log_info "  Account $account_id already in correct OU"
+            ((skipped_count++))
+            continue
+        fi
+
+        # Move account to project OU
+        log_info "  Moving account $account_id from $current_parent to $project_ou_id"
+
+        if aws organizations move-account \
+            --account-id "$account_id" \
+            --source-parent-id "$current_parent" \
+            --destination-parent-id "$project_ou_id" 2>&1; then
+
+            log_success "  Moved account $account_id to project OU"
+            ((moved_count++))
+        else
+            log_warn "  Failed to move account $account_id (may lack permissions or account locked)"
+            ((failed_count++))
+        fi
+    done
+
+    # Summary
+    echo ""
+    log_info "OU Placement Summary:"
+    log_info "  - Moved: $moved_count"
+    log_info "  - Already in correct OU: $skipped_count"
+    log_info "  - Failed: $failed_count"
+
+    return 0
+}
