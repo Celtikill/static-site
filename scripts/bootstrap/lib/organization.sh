@@ -474,7 +474,7 @@ enable_organization_account_access() {
 # Helper function to check if account should be processed based on filter
 should_close_account() {
     local account_id="$1"
-    local env_name="$2"  # Optional environment name (dev, staging, prod)
+    local env_name="${2:-}"  # Optional environment name (dev, staging, prod), defaults to empty
 
     # If no filter specified, allow all
     [[ -z "$ACCOUNT_FILTER" ]] && return 0
