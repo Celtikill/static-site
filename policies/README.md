@@ -52,17 +52,21 @@ This directory contains policy examples and templates used throughout the AWS St
 
 ### 3. IAM Policies (`.json`)
 **Purpose**: Identity and access management policies
-**Deployment**: ✅ Automated via Terraform (deployment-role module)
+**Deployment**: ✅ Automated via Terraform (IAM role modules)
 **Location**: `policies/iam-*.json`
 
 | File | Attached To | Purpose |
 |------|-------------|---------|
+| `iam-github-actions-oidc-trust.json` | GitHub Actions roles | OIDC trust policy template |
+| `iam-github-actions-deployment.json` | GitHub Actions roles | Infrastructure deployment permissions |
+| `iam-readonly-console-trust.json` | Read-only console roles | Cross-account console access trust |
 | `iam-terraform-state.json` | Deployment roles | S3/DynamoDB state access |
 | `iam-static-website.json` | Deployment roles | Infrastructure management |
 
-**Deployed IAM Policies** (per environment):
-- ✅ `GitHubActions-TerraformState-{Environment}` - State bucket access
-- ✅ `GitHubActions-StaticWebsite-{Environment}` - Infrastructure permissions
+**Deployed IAM Roles** (per environment):
+- ✅ `GitHubActions-static-site-{Env}-Role` - GitHub Actions OIDC deployment role
+- ✅ `static-site-ReadOnly-{env}` - Read-only console access role
+- ✅ AWS ReadOnlyAccess (managed policy) - Attached to console access roles
 
 ### 4. S3 Bucket Policies (`.json`)
 **Purpose**: S3 bucket access control
@@ -83,6 +87,9 @@ This directory contains policy examples and templates used throughout the AWS St
 - `conftest.yaml` - Configuration for Conftest policy runner
 - `scp-workload-guardrails.json` - Example SCP for workload accounts
 - `scp-sandbox-restrictions.json` - Example SCP for sandbox accounts
+- `iam-github-actions-oidc-trust.json` - OIDC trust policy for GitHub Actions roles
+- `iam-github-actions-deployment.json` - Deployment permissions for GitHub Actions roles
+- `iam-readonly-console-trust.json` - Trust policy for read-only console access roles
 - `iam-terraform-state.json` - Example IAM policy for state management
 - `iam-static-website.json` - Example IAM policy for infrastructure
 - `s3-state-bucket-policy.json` - Template for state bucket access
@@ -122,13 +129,24 @@ vim terraform/foundations/org-management/scps.tf
 gh workflow run organization-management.yml --field action=apply
 ```
 
-**IAM Policies** (Automatic with deployment):
+**IAM Policies** (Managed via Terraform modules):
 ```bash
-# Edit deployment role module
-vim terraform/modules/iam/deployment-role/main.tf
+# GitHub Actions OIDC Role policies
+vim terraform/modules/iam/github-actions-oidc-role/main.tf
 
-# Changes apply automatically on next environment deployment
-gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
+# Read-Only Console Role policies
+vim terraform/modules/iam/readonly-console-role/main.tf
+
+# Deploy changes via bootstrap script
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+
+# Or apply directly via Terraform
+cd terraform/foundations/iam-roles
+tofu apply \
+  -var="dev_account_id=..." \
+  -var="staging_account_id=..." \
+  -var="prod_account_id=..."
 ```
 
 **S3 Bucket Policies** (Automatic with bootstrap):

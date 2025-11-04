@@ -29,7 +29,7 @@ readonly TERRAFORM_MODULES_DIR="${TERRAFORM_ROOT}/modules"
 readonly PROJECT_NAME="celtikill-static-site"
 readonly GITHUB_REPO="Celtikill/static-site"
 readonly EXTERNAL_ID="github-actions-static-site"
-readonly AWS_DEFAULT_REGION="us-east-1"
+readonly AWS_DEFAULT_REGION="us-east-2"
 readonly MANAGEMENT_ACCOUNT_ID="223938610551"
 
 # Derived configuration
@@ -55,7 +55,7 @@ readonly GITHUB_ACTIONS_ROLE_NAME_PREFIX="GitHubActions"
 #     - IAM management roles (foundations/iam-management/)
 #     - Organization management (foundations/org-management/)
 #   Access: All engineers with management account credentials
-#   Region: us-east-1
+#   Region: us-east-2
 #
 # Per-Account State Buckets:
 #   Name: static-site-state-{env}-{account-id}

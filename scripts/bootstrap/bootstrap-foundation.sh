@@ -250,16 +250,16 @@ The following roles are available:
 
 ${BOLD}AWS Console Access URLs:${NC}
 
-Engineers can use these pre-configured URLs to switch roles and access environments:
+Engineers can click these URLs to switch roles and access environments:
 
 ${GREEN}Dev Environment:${NC}
-  ${CONSOLE_URL_DEV}
+${CONSOLE_URL_DEV}
 
 ${GREEN}Staging Environment:${NC}
-  ${CONSOLE_URL_STAGING}
+${CONSOLE_URL_STAGING}
 
 ${GREEN}Production Environment:${NC}
-  ${CONSOLE_URL_PROD}
+${CONSOLE_URL_PROD}
 
 ${YELLOW}Note: These URLs work when logged into the Management Account (${MANAGEMENT_ACCOUNT_ID})${NC}
 ${YELLOW}Bookmark these URLs in your browser for quick access${NC}

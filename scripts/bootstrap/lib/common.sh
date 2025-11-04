@@ -8,6 +8,7 @@
 
 log_debug() {
     [[ "$VERBOSE" == "true" ]] && echo -e "${BLUE}[DEBUG]${NC} $*" >&2
+    return 0
 }
 
 log_info() {
@@ -162,17 +163,20 @@ READ-ONLY CONSOLE ACCESS:
 Dev Environment:
   Account: ${DEV_ACCOUNT}
   Role: ${READONLY_ROLE_PREFIX}-dev
-  Console URL: ${CONSOLE_URL_DEV}
+  URL:
+${CONSOLE_URL_DEV}
 
 Staging Environment:
   Account: ${STAGING_ACCOUNT}
   Role: ${READONLY_ROLE_PREFIX}-staging
-  Console URL: ${CONSOLE_URL_STAGING}
+  URL:
+${CONSOLE_URL_STAGING}
 
 Production Environment:
   Account: ${PROD_ACCOUNT}
   Role: ${READONLY_ROLE_PREFIX}-prod
-  Console URL: ${CONSOLE_URL_PROD}
+  URL:
+${CONSOLE_URL_PROD}
 
 ========================================================================
 USAGE INSTRUCTIONS:

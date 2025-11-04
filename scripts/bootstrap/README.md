@@ -363,7 +363,7 @@ Edit `config.sh` to customize:
 readonly PROJECT_NAME="<your-project-name>"     # Used for resource naming
 readonly GITHUB_REPO="<org>/<repo>"            # GitHub repository (e.g., "Celtikill/static-site")
 readonly EXTERNAL_ID="github-actions-<project>" # External ID for IAM roles
-readonly AWS_DEFAULT_REGION="us-east-1"         # AWS region
+readonly AWS_DEFAULT_REGION="us-east-2"         # AWS region (authoritative source for all scripts)
 readonly MANAGEMENT_ACCOUNT_ID="<account-id>"   # Management account ID
 ```
 
@@ -627,11 +627,11 @@ After bootstrap, your GitHub Actions workflows can authenticate **directly** to 
 Set up repository **variables** (not secrets, as account IDs are not sensitive):
 
 ```bash
-# Using GitHub CLI
+# Using GitHub CLI (or use ./configure-github.sh to set from config.sh)
 gh variable set AWS_ACCOUNT_ID_DEV --body "210987654321"
 gh variable set AWS_ACCOUNT_ID_STAGING --body "111222333444"
 gh variable set AWS_ACCOUNT_ID_PROD --body "555666777888"
-gh variable set AWS_DEFAULT_REGION --body "us-east-1"
+gh variable set AWS_DEFAULT_REGION --body "us-east-2"  # Should match config.sh AWS_DEFAULT_REGION
 gh variable set OPENTOFU_VERSION --body "1.8.8"
 ```
 

@@ -121,13 +121,14 @@ s3_bucket_exists() {
 
 dynamodb_table_exists() {
     local table_name="$1"
+    local region="${2:-$AWS_DEFAULT_REGION}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if DynamoDB table exists: $table_name"
         return 1
     fi
 
-    if aws dynamodb describe-table --table-name "$table_name" &>/dev/null; then
+    if aws dynamodb describe-table --table-name "$table_name" --region "$region" &>/dev/null; then
         return 0
     else
         return 1

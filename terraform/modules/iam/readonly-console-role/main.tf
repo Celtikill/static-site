@@ -24,11 +24,6 @@ resource "aws_iam_role" "readonly_console" {
           AWS = "arn:aws:iam::${var.management_account_id}:root"
         }
         Action = "sts:AssumeRole"
-        Condition = {
-          StringEquals = {
-            "aws:PrincipalType" = "AssumedRole"
-          }
-        }
       }
     ]
   })

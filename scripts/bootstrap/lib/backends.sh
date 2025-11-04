@@ -121,7 +121,7 @@ create_terraform_backend() {
     fi
 
     # Check if backend already exists
-    if s3_bucket_exists "$bucket_name" && dynamodb_table_exists "$table_name"; then
+    if s3_bucket_exists "$bucket_name" && dynamodb_table_exists "$table_name" "$region"; then
         log_success "Terraform backend already exists for $environment"
         clear_assumed_role
         return 0

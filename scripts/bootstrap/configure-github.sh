@@ -263,7 +263,7 @@ configure_variables() {
         echo "  AWS_ACCOUNT_ID_DEV:        $DEV_ACCOUNT"
         echo "  AWS_ACCOUNT_ID_STAGING:    $STAGING_ACCOUNT"
         echo "  AWS_ACCOUNT_ID_PROD:       $PROD_ACCOUNT"
-        echo "  AWS_DEFAULT_REGION:        us-east-1"
+        echo "  AWS_DEFAULT_REGION:        $AWS_DEFAULT_REGION"
         echo "  REPLICA_REGION:            us-west-2"
         echo "  OPENTOFU_VERSION:          1.6.1"
         echo "  DEFAULT_ENVIRONMENT:       dev"
@@ -286,8 +286,8 @@ configure_variables() {
 
         echo
         log_info "Setting AWS region variables..."
-        gh variable set AWS_DEFAULT_REGION --body "us-east-1"
-        log_success "AWS_DEFAULT_REGION set to us-east-1"
+        gh variable set AWS_DEFAULT_REGION --body "$AWS_DEFAULT_REGION"
+        log_success "AWS_DEFAULT_REGION set to $AWS_DEFAULT_REGION"
 
         gh variable set REPLICA_REGION --body "us-west-2"
         log_success "REPLICA_REGION set to us-west-2"
