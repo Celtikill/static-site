@@ -33,7 +33,11 @@ This module creates an environment-specific IAM role that can be assumed by a ce
 ### Role Assumption Flow
 
 ```mermaid
+%%{init: {'theme':'default'}}%%
 graph LR
+    accTitle: Two-Step Cross-Account Authentication Flow
+    accDescr: Deprecated authentication pattern showing GitHub Actions authenticating to central management role via OIDC, then assuming deployment role in workload account via AssumeRole with external ID. This two-hop pattern has been superseded by direct OIDC authentication for improved security and simplicity.
+
     A[👤 GitHub Actions] -->|OIDC Auth| B[Central Role<br/>Management Account]
     B -->|AssumeRole +<br/>ExternalID| C[Deployment Role<br/>Workload Account]
     C -->|Deploy| D[📦 S3 + ☁️ CloudFront<br/>+ 🛡️ WAF]

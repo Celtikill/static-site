@@ -124,7 +124,7 @@ graph TB
         GH["GitHub Workflows<br/>Direct OIDC"]
     end
 
-    subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
+    subgraph Management["🏢 Management<br/>MANAGEMENT_ACCOUNT_ID"]
         MgmtOIDC["🔐 OIDC Provider<br/>(Not used for deployments)"]
         MgmtState["📦 Central State Bucket<br/>Foundation Resources Only"]
     end

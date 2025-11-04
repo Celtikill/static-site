@@ -25,7 +25,7 @@ graph TB
     end
 
     subgraph Org["🏛️ AWS Organization<br/>ORG_ID"]
-        subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
+        subgraph Management["🏢 Management<br/>MANAGEMENT_ACCOUNT_ID"]
             MgmtState["📦 Foundation State Bucket<br/>Terraform Foundation State Only"]
         end
 

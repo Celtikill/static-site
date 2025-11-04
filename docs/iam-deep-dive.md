@@ -47,7 +47,7 @@ graph TB
     accTitle: "Direct OIDC Authentication Architecture"
     accDescr: "Direct OIDC architecture showing GitHub Actions authenticating directly to environment-specific roles via OIDC without stored credentials. Each environment account (Dev, Staging, Prod) has its own OIDC provider and two dedicated roles: GitHubActions role for CI/CD deployments and ReadOnly role for human console access. GitHub Actions workflows authenticate via OIDC AssumeRoleWithWebIdentity action directly to target environment role. No central orchestration role needed. Trust policies scope access to specific GitHub repository. This implements AWS 2025 best practice for GitHub Actions authentication, eliminating role chaining complexity and reducing attack surface."
 
-    subgraph GitHub["🐙 GitHub Actions Repository<br/>Celtikill/static-site"]
+    subgraph GitHub["🐙 GitHub Actions<br/>Celtikill/static-site"]
         Workflow["🔄 Workflow Run<br/>No Stored Credentials"]
     end
 
