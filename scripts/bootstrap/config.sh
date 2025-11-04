@@ -17,6 +17,11 @@ readonly TEMPLATES_DIR="${BOOTSTRAP_DIR}/templates"
 readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
 readonly OUTPUT_DIR="${OUTPUT_DIR:-${BOOTSTRAP_DIR}/output}"
 
+# Terraform paths
+readonly TERRAFORM_ROOT="${BOOTSTRAP_DIR}/../../terraform"
+readonly TERRAFORM_IAM_DIR="${TERRAFORM_ROOT}/foundations/iam-roles"
+readonly TERRAFORM_MODULES_DIR="${TERRAFORM_ROOT}/modules"
+
 # =============================================================================
 # PROJECT CONFIGURATION
 # =============================================================================
@@ -32,6 +37,10 @@ readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from 
 readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "static-site"
 readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+static-site"
 readonly IAM_ROLE_PREFIX="GitHubActions-${PROJECT_SHORT_NAME^}"  # "GitHubActions-Static-site" (capitalize first letter)
+
+# IAM role configuration
+readonly READONLY_ROLE_PREFIX="${PROJECT_SHORT_NAME}-ReadOnly"  # "static-site-ReadOnly"
+readonly GITHUB_ACTIONS_ROLE_NAME_PREFIX="GitHubActions"
 
 # =============================================================================
 # STATE MANAGEMENT

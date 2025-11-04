@@ -413,40 +413,24 @@ destroy_all_terraform_backends() {
     return 0
 }
 
-delete_all_github_actions_roles() {
-    log_step "Deleting GitHub Actions roles in filtered accounts..."
+delete_all_iam_roles() {
+    log_step "Destroying IAM roles via Terraform..."
 
-    local failed=0
-    local processed=0
+    # Note: Terraform destroy handles all roles (GitHub Actions + Read-Only) in all accounts
+    # The account filter logic doesn't apply here - Terraform manages state as a unit
 
-    # Delete roles in reverse order (prod -> staging -> dev)
-    if should_process_account "prod"; then
-        if ! delete_github_actions_role "$PROD_ACCOUNT" "prod"; then
-            ((failed++))
-        fi
-        ((processed++))
+    if ! destroy_iam_roles_via_terraform; then
+        log_warn "Failed to destroy IAM roles via Terraform (may not exist)"
+        return 1
     fi
 
-    if should_process_account "staging"; then
-        if ! delete_github_actions_role "$STAGING_ACCOUNT" "staging"; then
-            ((failed++))
-        fi
-        ((processed++))
-    fi
-
-    if should_process_account "dev"; then
-        if ! delete_github_actions_role "$DEV_ACCOUNT" "dev"; then
-            ((failed++))
-        fi
-        ((processed++))
-    fi
-
-    if [[ $failed -gt 0 ]]; then
-        log_warn "Failed to delete $failed role(s) out of $processed (may not exist)"
-    fi
-
-    log_success "All GitHub Actions roles deleted ($processed accounts)"
+    log_success "All IAM roles destroyed via Terraform"
     return 0
+}
+
+# Alias for backward compatibility
+delete_all_github_actions_roles() {
+    delete_all_iam_roles
 }
 
 delete_all_oidc_providers() {

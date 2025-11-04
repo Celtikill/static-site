@@ -1,104 +1,169 @@
 #!/bin/bash
 # IAM Role Management Functions
-# Handles GitHub Actions deployment role creation
+# Uses Terraform for IAM role creation
 
 # =============================================================================
-# ROLE CREATION
+# TERRAFORM-BASED ROLE CREATION
 # =============================================================================
 
-create_github_actions_role() {
+create_iam_roles_via_terraform() {
+    log_step "Creating IAM roles via Terraform..."
+
+    local terraform_dir="${TERRAFORM_IAM_DIR}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would create IAM roles via Terraform"
+        return 0
+    fi
+
+    # Validation
+    if [[ ! -d "$terraform_dir" ]]; then
+        log_error "Terraform IAM directory not found: $terraform_dir"
+        return 1
+    fi
+
+    # Validate accounts are ACTIVE
+    if ! validate_account_active "$DEV_ACCOUNT" "dev"; then
+        log_error "Dev account is not ACTIVE"
+        return 1
+    fi
+
+    if ! validate_account_active "$STAGING_ACCOUNT" "staging"; then
+        log_error "Staging account is not ACTIVE"
+        return 1
+    fi
+
+    if ! validate_account_active "$PROD_ACCOUNT" "prod"; then
+        log_error "Prod account is not ACTIVE"
+        return 1
+    fi
+
+    pushd "$terraform_dir" > /dev/null || return 1
+
+    # Clean previous state
+    log_info "Cleaning previous Terraform state..."
+    rm -rf .terraform .terraform.lock.hcl 2>/dev/null || true
+
+    # Initialize with backend in management account
+    log_info "Initializing Terraform..."
+    local backend_bucket="${PROJECT_NAME}-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
+
+    if ! tofu init -upgrade \
+        -backend-config="bucket=${backend_bucket}" \
+        -backend-config="key=foundations/iam-roles/terraform.tfstate" \
+        -backend-config="region=${AWS_DEFAULT_REGION}" \
+        -backend-config="encrypt=true" \
+        > "$OUTPUT_DIR/terraform-iam-init.log" 2>&1; then
+        log_error "Terraform init failed. See: $OUTPUT_DIR/terraform-iam-init.log"
+        cat "$OUTPUT_DIR/terraform-iam-init.log" >&2
+        popd > /dev/null
+        return 1
+    fi
+
+    log_success "Terraform initialized"
+
+    # Run validation (best practice)
+    log_info "Validating Terraform configuration..."
+    if ! tofu validate > "$OUTPUT_DIR/terraform-iam-validate.log" 2>&1; then
+        log_error "Terraform validation failed. See: $OUTPUT_DIR/terraform-iam-validate.log"
+        cat "$OUTPUT_DIR/terraform-iam-validate.log" >&2
+        popd > /dev/null
+        return 1
+    fi
+
+    log_success "Terraform configuration valid"
+
+    # Plan for all environments
+    log_info "Planning IAM role changes..."
+    if ! tofu plan \
+        -var="dev_account_id=$DEV_ACCOUNT" \
+        -var="staging_account_id=$STAGING_ACCOUNT" \
+        -var="prod_account_id=$PROD_ACCOUNT" \
+        -out="$OUTPUT_DIR/iam-roles.tfplan" \
+        > "$OUTPUT_DIR/terraform-iam-plan.log" 2>&1; then
+        log_error "Terraform plan failed. See: $OUTPUT_DIR/terraform-iam-plan.log"
+        cat "$OUTPUT_DIR/terraform-iam-plan.log" >&2
+        popd > /dev/null
+        return 1
+    fi
+
+    log_success "Terraform plan complete"
+    log_info "Creating 6 IAM roles (3 GitHub Actions + 3 Read-Only Console) across dev, staging, prod"
+
+    # Apply
+    log_info "Applying Terraform changes..."
+    if tofu apply -auto-approve "$OUTPUT_DIR/iam-roles.tfplan" \
+        > "$OUTPUT_DIR/terraform-iam-apply.log" 2>&1; then
+        log_success "IAM roles created successfully"
+
+        # Extract outputs
+        if extract_terraform_outputs; then
+            log_success "Terraform outputs extracted"
+        else
+            log_warn "Failed to extract some Terraform outputs"
+        fi
+
+        popd > /dev/null
+        return 0
+    else
+        log_error "Terraform apply failed. See: $OUTPUT_DIR/terraform-iam-apply.log"
+        cat "$OUTPUT_DIR/terraform-iam-apply.log" >&2
+        popd > /dev/null
+        return 1
+    fi
+}
+
+extract_terraform_outputs() {
+    log_info "Extracting Terraform outputs..."
+
+    # Export GitHub Actions role ARNs
+    export GITHUB_ACTIONS_DEV_ROLE_ARN=$(tofu output -raw github_actions_role_arns_dev 2>/dev/null || echo "")
+    export GITHUB_ACTIONS_STAGING_ROLE_ARN=$(tofu output -raw github_actions_role_arns_staging 2>/dev/null || echo "")
+    export GITHUB_ACTIONS_PROD_ROLE_ARN=$(tofu output -raw github_actions_role_arns_prod 2>/dev/null || echo "")
+
+    # Export read-only console role ARNs
+    export READONLY_DEV_ROLE_ARN=$(tofu output -json readonly_console_role_arns 2>/dev/null | jq -r '.dev // ""' || echo "")
+    export READONLY_STAGING_ROLE_ARN=$(tofu output -json readonly_console_role_arns 2>/dev/null | jq -r '.staging // ""' || echo "")
+    export READONLY_PROD_ROLE_ARN=$(tofu output -json readonly_console_role_arns 2>/dev/null | jq -r '.prod // ""' || echo "")
+
+    # Export console URLs
+    export CONSOLE_URL_DEV=$(tofu output -raw console_urls_dev 2>/dev/null || echo "")
+    export CONSOLE_URL_STAGING=$(tofu output -raw console_urls_staging 2>/dev/null || echo "")
+    export CONSOLE_URL_PROD=$(tofu output -raw console_urls_prod 2>/dev/null || echo "")
+
+    # Validate critical outputs
+    if [[ -z "$GITHUB_ACTIONS_DEV_ROLE_ARN" ]] || [[ -z "$CONSOLE_URL_DEV" ]]; then
+        log_error "Failed to extract dev environment outputs"
+        return 1
+    fi
+
+    if [[ -z "$GITHUB_ACTIONS_STAGING_ROLE_ARN" ]] || [[ -z "$CONSOLE_URL_STAGING" ]]; then
+        log_error "Failed to extract staging environment outputs"
+        return 1
+    fi
+
+    if [[ -z "$GITHUB_ACTIONS_PROD_ROLE_ARN" ]] || [[ -z "$CONSOLE_URL_PROD" ]]; then
+        log_error "Failed to extract prod environment outputs"
+        return 1
+    fi
+
+    log_info "Extracted outputs for all environments"
+    return 0
+}
+
+# =============================================================================
+# LEGACY FUNCTIONS (Kept for reference, not used)
+# =============================================================================
+
+# Old bash-based role creation - replaced by Terraform
+create_github_actions_role_legacy() {
     local account_id="$1"
     local environment="$2"
     local env_cap=$(capitalize "$environment")
     local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
 
-    log_info "Creating GitHub Actions role in account $account_id: $role_name"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would create role: $role_name"
-        return 0
-    fi
-
-    # Validate account is ACTIVE before proceeding
-    if ! validate_account_active "$account_id" "$environment"; then
-        log_error "Cannot create IAM role in non-ACTIVE account"
-        return 1
-    fi
-
-    # Check if role already exists
-    if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-role-${environment}"; then
-
-        if iam_role_exists "$role_name"; then
-            log_success "Role already exists: $role_name"
-            clear_assumed_role
-            return 0
-        fi
-
-        # Load trust policy template
-        local trust_policy
-        trust_policy=$(generate_oidc_trust_policy "$account_id" "$environment")
-
-        # Create role
-        local role_output
-        if role_output=$(aws iam create-role \
-            --role-name "$role_name" \
-            --assume-role-policy-document "$trust_policy" \
-            --description "GitHub Actions deployment role for ${environment} environment" \
-            --max-session-duration 3600 \
-            --tags Key=Environment,Value="$environment" \
-                   Key=ManagedBy,Value=bootstrap \
-                   Key=Project,Value="${PROJECT_SHORT_NAME}" 2>&1); then
-
-            local role_arn
-            role_arn=$(echo "$role_output" | jq -r '.Role.Arn')
-            log_success "Created role: $role_arn"
-
-            # Attach deployment policy
-            if ! attach_deployment_policy "$role_name"; then
-                log_error "Failed to attach deployment policy to $role_name"
-                clear_assumed_role
-                return 1
-            fi
-
-            clear_assumed_role
-            return 0
-        else
-            # Check if error is due to role already existing
-            if echo "$role_output" | grep -qi "EntityAlreadyExists\|already exists"; then
-                log_warn "Role already exists, attempting to find it..."
-
-                # Try to find the existing role
-                if iam_role_exists "$role_name"; then
-                    local role_arn
-                    role_arn=$(aws iam get-role --role-name "$role_name" --query 'Role.Arn' --output text 2>/dev/null)
-
-                    if [[ -n "$role_arn" ]]; then
-                        log_success "Found existing role via fallback: $role_arn"
-
-                        # Ensure deployment policy is attached
-                        if ! attach_deployment_policy "$role_name"; then
-                            log_warn "Could not verify/attach deployment policy, but role exists"
-                        fi
-
-                        clear_assumed_role
-                        return 0
-                    fi
-                fi
-
-                log_error "Role conflict detected but could not find existing role"
-                log_error "AWS CLI error: $role_output"
-                clear_assumed_role
-                return 1
-            fi
-
-            log_error "Failed to create role: $role_output"
-            clear_assumed_role
-            return 1
-        fi
-    else
-        log_error "Failed to assume OrganizationAccountAccessRole in account $account_id"
-        return 1
-    fi
+    log_warn "Legacy function - use create_iam_roles_via_terraform instead"
+    return 1
 }
 
 generate_oidc_trust_policy() {
@@ -340,170 +405,142 @@ EOF
 # ROLE CREATION FOR ALL ENVIRONMENTS
 # =============================================================================
 
-create_all_github_actions_roles() {
-    log_step "Creating GitHub Actions roles for all environments..."
-
+create_all_iam_roles() {
     require_accounts || return 1
 
-    local failed=0
-
-    # Create Dev role
-    if ! create_github_actions_role "$DEV_ACCOUNT" "dev"; then
-        log_error "Failed to create dev role"
-        ((failed++))
-    fi
-
-    # Create Staging role
-    if ! create_github_actions_role "$STAGING_ACCOUNT" "staging"; then
-        log_error "Failed to create staging role"
-        ((failed++))
-    fi
-
-    # Create Prod role
-    if ! create_github_actions_role "$PROD_ACCOUNT" "prod"; then
-        log_error "Failed to create prod role"
-        ((failed++))
-    fi
-
-    if [[ $failed -gt 0 ]]; then
-        log_error "Failed to create $failed role(s)"
+    # Use Terraform to create all roles at once
+    if ! create_iam_roles_via_terraform; then
+        log_error "Failed to create IAM roles via Terraform"
         return 1
     fi
 
-    log_success "All GitHub Actions roles created"
+    log_success "All IAM roles created via Terraform"
     return 0
+}
+
+# Alias for backward compatibility
+create_all_github_actions_roles() {
+    create_all_iam_roles
 }
 
 # =============================================================================
 # ROLE VERIFICATION
 # =============================================================================
 
-verify_github_actions_role() {
-    local account_id="$1"
-    local environment="$2"
-    local env_cap=$(capitalize "$environment")
-    local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
+verify_iam_roles_via_terraform() {
+    log_step "Verifying IAM roles via Terraform state..."
 
-    log_info "Verifying role in account $account_id: $role_name"
+    local terraform_dir="${TERRAFORM_IAM_DIR}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would verify role: $role_name"
+        log_info "[DRY-RUN] Would verify IAM roles"
         return 0
     fi
 
-    if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "verify-role-${environment}"; then
-
-        if iam_role_exists "$role_name"; then
-            log_success "Role verified: $role_name"
-            clear_assumed_role
-            return 0
-        else
-            log_error "Role not found: $role_name"
-            clear_assumed_role
-            return 1
-        fi
-    else
-        log_error "Failed to assume OrganizationAccountAccessRole in account $account_id"
+    if [[ ! -d "$terraform_dir" ]]; then
+        log_error "Terraform IAM directory not found: $terraform_dir"
         return 1
     fi
+
+    pushd "$terraform_dir" > /dev/null || return 1
+
+    # Check if Terraform state exists
+    if ! tofu state list > /dev/null 2>&1; then
+        log_error "No Terraform state found - roles may not be created yet"
+        popd > /dev/null
+        return 1
+    fi
+
+    # Check GitHub Actions roles exist in state
+    local dev_role_arn=$(tofu output -raw github_actions_role_arns_dev 2>/dev/null || echo "")
+    local staging_role_arn=$(tofu output -raw github_actions_role_arns_staging 2>/dev/null || echo "")
+    local prod_role_arn=$(tofu output -raw github_actions_role_arns_prod 2>/dev/null || echo "")
+
+    if [[ -z "$dev_role_arn" ]]; then
+        log_error "Dev GitHub Actions role not found in Terraform state"
+        popd > /dev/null
+        return 1
+    fi
+
+    if [[ -z "$staging_role_arn" ]]; then
+        log_error "Staging GitHub Actions role not found in Terraform state"
+        popd > /dev/null
+        return 1
+    fi
+
+    if [[ -z "$prod_role_arn" ]]; then
+        log_error "Prod GitHub Actions role not found in Terraform state"
+        popd > /dev/null
+        return 1
+    fi
+
+    log_success "All GitHub Actions roles verified in Terraform state"
+
+    # Check read-only console roles
+    local readonly_roles=$(tofu output -json readonly_console_role_arns 2>/dev/null || echo "{}")
+    local dev_readonly=$(echo "$readonly_roles" | jq -r '.dev // ""')
+    local staging_readonly=$(echo "$readonly_roles" | jq -r '.staging // ""')
+    local prod_readonly=$(echo "$readonly_roles" | jq -r '.prod // ""')
+
+    if [[ -z "$dev_readonly" ]] || [[ -z "$staging_readonly" ]] || [[ -z "$prod_readonly" ]]; then
+        log_error "Read-only console roles not found in Terraform state"
+        popd > /dev/null
+        return 1
+    fi
+
+    log_success "All read-only console roles verified in Terraform state"
+
+    popd > /dev/null
+    return 0
 }
 
+# Alias for backward compatibility
 verify_all_github_actions_roles() {
-    log_step "Verifying GitHub Actions roles in all accounts..."
-
-    require_accounts || return 1
-
-    local failed=0
-
-    if ! verify_github_actions_role "$DEV_ACCOUNT" "dev"; then
-        ((failed++))
-    fi
-
-    if ! verify_github_actions_role "$STAGING_ACCOUNT" "staging"; then
-        ((failed++))
-    fi
-
-    if ! verify_github_actions_role "$PROD_ACCOUNT" "prod"; then
-        ((failed++))
-    fi
-
-    if [[ $failed -gt 0 ]]; then
-        log_error "Role verification failed for $failed account(s)"
-        return 1
-    fi
-
-    log_success "All GitHub Actions roles verified"
-    return 0
+    verify_iam_roles_via_terraform
 }
 
 # =============================================================================
 # ROLE CLEANUP
 # =============================================================================
 
-delete_github_actions_role() {
-    local account_id="$1"
-    local environment="$2"
-    local env_cap=$(capitalize "$environment")
-    local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
+destroy_iam_roles_via_terraform() {
+    log_step "Destroying IAM roles via Terraform..."
 
-    log_info "Deleting role in account $account_id: $role_name"
+    local terraform_dir="${TERRAFORM_IAM_DIR}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would delete role: $role_name"
+        log_info "[DRY-RUN] Would destroy IAM roles via Terraform"
         return 0
     fi
 
-    # Check account status - if closed, resources are already inaccessible
-    local account_status
-    account_status=$(check_account_status "$account_id")
-    if [[ "$account_status" == "SUSPENDED" ]] || [[ "$account_status" == "PENDING_CLOSURE" ]]; then
-        log_warn "Account $account_id is $account_status - resources already inaccessible, skipping"
+    if [[ ! -d "$terraform_dir" ]]; then
+        log_warn "Terraform IAM directory not found, skipping: $terraform_dir"
         return 0
     fi
 
-    if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "delete-role-${environment}"; then
+    pushd "$terraform_dir" > /dev/null || return 1
 
-        if iam_role_exists "$role_name"; then
-            # Detach managed policies first
-            local attached_policies
-            attached_policies=$(aws iam list-attached-role-policies --role-name "$role_name" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null)
+    # Check if state exists
+    if ! tofu state list > /dev/null 2>&1; then
+        log_warn "No Terraform state found, roles may have been manually deleted"
+        popd > /dev/null
+        return 0
+    fi
 
-            for policy_arn in $attached_policies; do
-                if aws iam detach-role-policy --role-name "$role_name" --policy-arn "$policy_arn" 2>&1; then
-                    log_info "Detached managed policy: $policy_arn"
+    log_info "Destroying IAM roles..."
 
-                    # If it's a customer-managed policy (not AWS managed), delete it
-                    if [[ "$policy_arn" == *":policy/"* ]] && [[ "$policy_arn" != "arn:aws:iam::aws:policy/"* ]]; then
-                        if aws iam delete-policy --policy-arn "$policy_arn" 2>&1; then
-                            log_info "Deleted customer-managed policy: $policy_arn"
-                        fi
-                    fi
-                fi
-            done
-
-            # Delete inline policies
-            local inline_policies
-            inline_policies=$(aws iam list-role-policies --role-name "$role_name" --query 'PolicyNames[]' --output text 2>/dev/null)
-
-            for policy in $inline_policies; do
-                aws iam delete-role-policy --role-name "$role_name" --policy-name "$policy" 2>&1
-                log_info "Deleted inline policy: $policy"
-            done
-
-            # Delete role
-            if aws iam delete-role --role-name "$role_name" 2>&1; then
-                log_success "Deleted role: $role_name"
-            else
-                log_error "Failed to delete role: $role_name"
-            fi
-        else
-            log_info "Role not found: $role_name (already deleted)"
-        fi
-
-        clear_assumed_role
+    if tofu destroy -auto-approve \
+        -var="dev_account_id=$DEV_ACCOUNT" \
+        -var="staging_account_id=$STAGING_ACCOUNT" \
+        -var="prod_account_id=$PROD_ACCOUNT" \
+        > "$OUTPUT_DIR/terraform-iam-destroy.log" 2>&1; then
+        log_success "IAM roles destroyed successfully"
+        popd > /dev/null
         return 0
     else
-        log_warn "Failed to assume OrganizationAccountAccessRole in account $account_id, skipping"
-        return 0
+        log_error "Terraform destroy failed. See: $OUTPUT_DIR/terraform-iam-destroy.log"
+        cat "$OUTPUT_DIR/terraform-iam-destroy.log" >&2
+        popd > /dev/null
+        return 1
     fi
 }

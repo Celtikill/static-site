@@ -112,9 +112,9 @@ main() {
     print_header "AWS Bootstrap Foundation - Stage 2"
 
     # Set total steps for progress tracking
-    local total_steps=7
+    local total_steps=8
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        total_steps=9
+        total_steps=10
     fi
     set_steps $total_steps
     start_timer
@@ -171,10 +171,10 @@ main() {
         die "Failed to create OIDC providers"
     fi
 
-    # Step 4: Create GitHub Actions roles
-    step "Creating GitHub Actions roles"
-    if ! create_all_github_actions_roles; then
-        die "Failed to create GitHub Actions roles"
+    # Step 4: Create IAM roles via Terraform
+    step "Creating IAM roles via Terraform"
+    if ! create_all_iam_roles; then
+        die "Failed to create IAM roles"
     fi
 
     # Step 5: Create Terraform backends
@@ -187,9 +187,14 @@ main() {
     step "Generating backend configurations"
     log_success "Backend configurations saved to: $OUTPUT_DIR/backend-config-*.hcl"
 
-    # Step 7: Summary
+    # Step 7: Generate console URLs
+    step "Generating console URLs"
+    generate_console_urls_file
+
+    # Step 8: Summary
     step "Generating summary"
     end_timer
+    enhance_bootstrap_report
 
     # Optional verification steps
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
@@ -219,10 +224,13 @@ OIDC Providers:
   ✓ Staging Account: ${STAGING_ACCOUNT}
   ✓ Prod Account:    ${PROD_ACCOUNT}
 
-GitHub Actions Roles:
-  ✓ ${IAM_ROLE_PREFIX}-Dev-Role
-  ✓ ${IAM_ROLE_PREFIX}-Staging-Role
-  ✓ ${IAM_ROLE_PREFIX}-Prod-Role
+IAM Roles (Created via Terraform):
+  ✓ ${IAM_ROLE_PREFIX}-Dev-Role (GitHub Actions)
+  ✓ ${IAM_ROLE_PREFIX}-Staging-Role (GitHub Actions)
+  ✓ ${IAM_ROLE_PREFIX}-Prod-Role (GitHub Actions)
+  ✓ ${READONLY_ROLE_PREFIX}-dev (Read-Only Console)
+  ✓ ${READONLY_ROLE_PREFIX}-staging (Read-Only Console)
+  ✓ ${READONLY_ROLE_PREFIX}-prod (Read-Only Console)
 
 Terraform Backends:
   ✓ static-site-state-dev-${DEV_ACCOUNT}
@@ -236,9 +244,27 @@ ${BOLD}GitHub Actions Integration:${NC}
 Your GitHub Actions workflows can now authenticate using OIDC.
 The following roles are available:
 
-  Dev:     arn:aws:iam::${DEV_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Dev-Role
-  Staging: arn:aws:iam::${STAGING_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Staging-Role
-  Prod:    arn:aws:iam::${PROD_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Prod-Role
+  Dev:     ${GITHUB_ACTIONS_DEV_ROLE_ARN}
+  Staging: ${GITHUB_ACTIONS_STAGING_ROLE_ARN}
+  Prod:    ${GITHUB_ACTIONS_PROD_ROLE_ARN}
+
+${BOLD}AWS Console Access URLs:${NC}
+
+Engineers can use these pre-configured URLs to switch roles and access environments:
+
+${GREEN}Dev Environment:${NC}
+  ${CONSOLE_URL_DEV}
+
+${GREEN}Staging Environment:${NC}
+  ${CONSOLE_URL_STAGING}
+
+${GREEN}Production Environment:${NC}
+  ${CONSOLE_URL_PROD}
+
+${YELLOW}Note: These URLs work when logged into the Management Account (${MANAGEMENT_ACCOUNT_ID})${NC}
+${YELLOW}Bookmark these URLs in your browser for quick access${NC}
+
+Console URLs also saved to: ${OUTPUT_DIR}/console-urls.txt
 
 ${BOLD}Next Steps:${NC}
 
