@@ -336,13 +336,12 @@ graph TD
 
 ```yaml
 Steps:
-1. Configure AWS credentials (OIDC)
-2. Assume Central Role (Management Account)
-3. Assume Environment Role (Target Account)
-4. Initialize Terraform backend
-5. Generate execution plan
-6. Apply infrastructure changes
-7. Extract outputs (URLs, ARNs)
+1. Configure AWS credentials (Direct OIDC)
+2. Assume environment role via AssumeRoleWithWebIdentity
+3. Initialize Terraform backend
+4. Generate execution plan
+5. Apply infrastructure changes
+6. Extract outputs (URLs, ARNs)
 ```
 
 **Resources deployed:**

@@ -76,7 +76,7 @@ Add AWS account IDs to GitHub repository variables:
 AWS_ACCOUNT_ID_DEV: 822529998967
 AWS_ACCOUNT_ID_STAGING: 927588814642
 AWS_ACCOUNT_ID_PROD: 546274483801
-AWS_DEFAULT_REGION: us-east-1
+AWS_DEFAULT_REGION: us-east-2
 OPENTOFU_VERSION: 1.8.6
 ```
 
@@ -86,7 +86,7 @@ Or via GitHub CLI:
 gh variable set AWS_ACCOUNT_ID_DEV --body "822529998967"
 gh variable set AWS_ACCOUNT_ID_STAGING --body "927588814642"
 gh variable set AWS_ACCOUNT_ID_PROD --body "546274483801"
-gh variable set AWS_DEFAULT_REGION --body "us-east-1"
+gh variable set AWS_DEFAULT_REGION --body "us-east-2"
 gh variable set OPENTOFU_VERSION --body "1.8.6"
 ```
 
@@ -135,7 +135,7 @@ Or check the GitHub Actions summary for the deployment URL.
 
 **Open in browser**:
 ```
-http://static-website-dev-<unique-id>.s3-website-us-east-1.amazonaws.com
+http://static-website-dev-<unique-id>.s3-website-us-east-2.amazonaws.com
 ```
 
 ---
@@ -218,7 +218,7 @@ Ensure staging is fully validated before promoting to production:
 curl -I https://staging.example.com  # Or S3 endpoint
 
 # Check CloudWatch alarms
-aws cloudwatch describe-alarms --region us-east-1
+aws cloudwatch describe-alarms --region us-east-2
 
 # Review terraform state
 cd terraform/environments/staging
@@ -381,7 +381,7 @@ tofu apply
 ```bash
 # Configure SNS email subscriptions
 aws sns subscribe \
-  --topic-arn arn:aws:sns:us-east-1:822529998967:static-site-alerts-dev \
+  --topic-arn arn:aws:sns:us-east-2:822529998967:static-site-alerts-dev \
   --protocol email \
   --notification-endpoint your-email@example.com
 

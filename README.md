@@ -105,8 +105,8 @@ graph TB
     end
 
     subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
-        MgmtOIDC["🔐 OIDC Provider"]
-        MgmtState["📦 Central State Bucket<br/>Foundation Resources"]
+        MgmtOIDC["🔐 OIDC Provider<br/>(Not used for deployments)"]
+        MgmtState["📦 Central State Bucket<br/>Foundation Resources Only"]
     end
 
     subgraph Dev["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
