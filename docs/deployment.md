@@ -72,22 +72,31 @@ graph TD
 
 > **📘 Detailed Bootstrap Instructions**: See [Phase 2: Bootstrap Infrastructure](../DEPLOYMENT_GUIDE.md#phase-2-bootstrap-infrastructure) in the Complete Deployment Guide for step-by-step bootstrap procedures including OIDC setup, state storage, and IAM roles.
 
-**Quick Bootstrap Command**:
+**Bootstrap Command**:
 ```bash
-# Bootstrap staging environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Bootstrap all environments (dev, staging, prod)
+cd scripts/bootstrap
 
-# Bootstrap production environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=prod \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# If you haven't created AWS accounts yet:
+./bootstrap-organization.sh  # Creates AWS Organization and member accounts
+
+# Bootstrap foundation infrastructure (OIDC, roles, backends)
+./bootstrap-foundation.sh    # Creates OIDC providers, IAM roles, S3/DynamoDB backends
+
+# Optionally configure GitHub variables
+./configure-github.sh        # Sets up GitHub repository variables
 ```
 
-**⏱️ Bootstrap Time**: ~2-3 minutes per environment
+**What Gets Created**:
+- OIDC providers in each environment account
+- Deployment roles: `GitHubActions-Static-site-{env}`
+- Console roles: `static-site-ReadOnly-{env}`
+- S3 state buckets and DynamoDB lock tables
+- Console switchrole URLs for easy access
+
+**⏱️ Bootstrap Time**: ~5-10 minutes for complete setup
+
+**See**: [Bootstrap Scripts Documentation](../scripts/bootstrap/README.md) for detailed instructions
 
 ### 2. Infrastructure-Only Deployment
 

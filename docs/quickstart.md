@@ -20,13 +20,16 @@ gh workflow run run.yml --field environment=dev --field deploy_infrastructure=tr
 
 ### Staging (With Bootstrap)
 ```bash
-# Bootstrap staging (one-time)
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Bootstrap staging infrastructure (one-time)
+# Note: Dev is already bootstrapped; staging/prod need bootstrap before deployment
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+
+# The script creates OIDC providers, IAM roles, and Terraform backends for all environments
+# See scripts/bootstrap/README.md for details
 
 # Deploy to staging
+cd ../..
 gh workflow run run.yml \
   --field environment=staging \
   --field deploy_infrastructure=true \
@@ -35,13 +38,14 @@ gh workflow run run.yml \
 
 ### Production (With Bootstrap)
 ```bash
-# Bootstrap production (one-time)
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=prod \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Bootstrap production infrastructure (one-time)
+# If you ran bootstrap-foundation.sh above, production is already bootstrapped
+# Otherwise, run the bootstrap script first:
+cd scripts/bootstrap
+./bootstrap-foundation.sh
 
 # Deploy to production
+cd ../..
 gh workflow run run.yml \
   --field environment=prod \
   --field deploy_infrastructure=true \
