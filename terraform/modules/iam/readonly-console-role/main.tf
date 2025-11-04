@@ -6,7 +6,7 @@ locals {
   role_name       = "${var.project_short_name}-ReadOnly-${var.environment}"
 
   # Pre-configured console switchrole URL
-  console_url = "https://signin.aws.amazon.com/switchrole?account=${var.account_id}&roleName=${local.role_name}&displayName=${local.env_capitalized}-ReadOnly"
+  console_url = "https://signin.aws.amazon.com/switchrole?account=${var.account_id}&roleName=${local.role_name}&displayName=${replace(title(var.project_short_name), "-", "")}-${local.env_capitalized}-ReadOnly"
 }
 
 # IAM Role with cross-account trust policy

@@ -6,7 +6,7 @@ locals {
   role_name       = "${var.role_name_prefix}-${var.project_short_name}-${local.env_capitalized}-Role"
 
   # Console URL for human access via OrganizationAccountAccessRole
-  console_url = "https://signin.aws.amazon.com/switchrole?account=${var.account_id}&roleName=${local.role_name}&displayName=${local.env_capitalized}-Deploy"
+  console_url = "https://signin.aws.amazon.com/switchrole?account=${var.account_id}&roleName=${local.role_name}&displayName=${replace(title(var.project_short_name), "-", "")}-${local.env_capitalized}-Deploy"
 }
 
 # IAM Role with OIDC trust policy
