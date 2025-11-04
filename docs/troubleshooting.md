@@ -696,7 +696,7 @@ tofu force-unlock [LOCK_ID]
 
 ### Emergency Rollback
 
-> **See also**: [Rollback Procedures](../DEPLOYMENT_GUIDE.md#rollback-procedures) in the Complete Deployment Guide for detailed rollback strategies.
+> **See also**: [Rollback Procedures](../DEPLOYMENT.md#rollback-procedures) in the Complete Deployment Guide for detailed rollback strategies.
 
 ```bash
 # Quick emergency rollback
