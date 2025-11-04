@@ -1,9 +1,11 @@
 # ADR-005: Deployment Documentation Architecture
 
-**Status**: Accepted
+**Status**: Accepted (Implementation Evolved)
 **Date**: 2025-10-16
 **Deciders**: Infrastructure Team
 **Related**: ADR-001, ADR-002, ADR-003, ADR-004
+
+> **📝 Implementation Note**: The proposed structure in this ADR was implemented with modifications. The `deployment.md` file was merged into `DEPLOYMENT.md` along with `QUICK-START.md` as a single unified deployment guide with progressive disclosure. See [docs/README.md](../README.md) for current documentation structure (Phase 3 updates, 2025-11-04).
 
 ---
 

@@ -184,9 +184,9 @@ When proposing a new architectural decision:
 
 ## Related Documentation
 
-- **[Complete Deployment Guide](../../DEPLOYMENT.md)** - Step-by-step deployment instructions
+- **[Complete Deployment Guide](../../DEPLOYMENT.md)** - Step-by-step deployment instructions (includes advanced patterns)
+- **[Deployment Reference](../deployment-reference.md)** - Quick command reference and troubleshooting
 - **[CI/CD Pipeline Guide](../ci-cd.md)** - Pipeline architecture and workflows
-- **[Advanced Deployment](../deployment.md)** - Deployment strategies and patterns
 - **[IAM Deep Dive](../iam-deep-dive.md)** - Detailed IAM permission architecture
 - **[Contributing Guide](../../CONTRIBUTING.md)** - Development workflow
 
