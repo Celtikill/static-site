@@ -16,10 +16,16 @@ set -euo pipefail
 
 # Get script directory
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
-# Source configuration
-source "${SCRIPT_DIR}/config.sh"
+# Source unified configuration
+source "${SCRIPT_DIR}/../config.sh"
+
+# Initialize destroy-specific paths
+readonly OUTPUT_DIR="${SCRIPT_DIR}/output"
+readonly LOG_FILE="${OUTPUT_DIR}/destroy-$(date +%Y%m%d-%H%M%S).log"
+mkdir -p "${OUTPUT_DIR}"
 
 # Source all libraries
 source "${SCRIPT_DIR}/lib/common.sh"
@@ -57,10 +63,12 @@ OPTIONS:
     --force                   Skip all confirmation prompts (use with extreme caution)
     --account-filter IDS      Comma-separated list of AWS account IDs to limit destruction
     --region REGION           AWS region (default: us-east-1)
+    --s3-timeout SECONDS      S3 bucket emptying timeout in seconds (default: 180)
     --no-cross-account        Disable cross-account role destruction
-    --close-accounts          Enable member account closure (PERMANENT)
     --no-terraform-cleanup    Disable Terraform state cleanup
     -h, --help               Show this help message
+
+NOTE: To close AWS member accounts, use scripts/bootstrap/destroy-foundation.sh --close-accounts
 
 CROSS-ACCOUNT FEATURES:
     • Destroys GitHub Actions roles across all member accounts
@@ -83,22 +91,22 @@ EXAMPLES:
     # Destroy only specific accounts
     $SCRIPT_NAME --account-filter "822529998967,927588814642" --dry-run
 
-    # Full destruction including member account closure (EXTREME)
-    $SCRIPT_NAME --force --close-accounts
-
     # Disable cross-account features
     $SCRIPT_NAME --dry-run --no-cross-account
 
     # Cleanup current account only, no state cleanup
     $SCRIPT_NAME --no-cross-account --no-terraform-cleanup
 
+    # Use custom S3 timeout (5 minutes)
+    $SCRIPT_NAME --force --s3-timeout 300
+
 ENVIRONMENT VARIABLES:
     AWS_DEFAULT_REGION        AWS region (default: us-east-1)
     FORCE_DESTROY            Set to 'true' to skip confirmations
     DRY_RUN                  Set to 'true' for dry run mode
     ACCOUNT_FILTER           Comma-separated AWS account IDs
+    S3_TIMEOUT               S3 bucket emptying timeout in seconds (default: 180)
     INCLUDE_CROSS_ACCOUNT    Set to 'false' to disable cross-account destruction
-    CLOSE_MEMBER_ACCOUNTS    Set to 'true' to enable account closure
     CLEANUP_TERRAFORM_STATE  Set to 'false' to disable state cleanup
 
 DESTRUCTION PHASES:
@@ -111,8 +119,7 @@ DESTRUCTION PHASES:
     Phase 7:  Cost and configuration (Budgets, SSM Parameters)
     Phase 8:  Orphaned resources cleanup (Elastic IPs, etc.)
     Phase 9:  AWS Organizations cleanup (SCPs, OUs) - management account only
-    Phase 10: Member account closure (if enabled) - PERMANENT for 90 days
-    Phase 11: Post-destruction validation across all US regions
+    Phase 10: Post-destruction validation across all US regions
 
 SAFETY FEATURES:
     • Dry run mode shows complete destruction plan
@@ -135,10 +142,11 @@ WARNING - PERMANENT DATA LOSS:
     • All CloudTrail trails and organization trails
     • All AWS Organizations resources (SCPs, OUs) - management account only
     • Terraform state for cross-account modules
-    • Optionally: Member accounts (90-day closure period)
 
     MULTI-REGION: Scans all US regions (us-east-1, us-east-2, us-west-1, us-west-2)
     USE --dry-run FIRST to review the complete destruction plan.
+
+    NOTE: Member account closure has moved to destroy-foundation.sh --close-accounts
 EOF
 }
 
@@ -165,12 +173,12 @@ parse_arguments() {
                 AWS_DEFAULT_REGION="$2"
                 shift 2
                 ;;
+            --s3-timeout)
+                S3_TIMEOUT="$2"
+                shift 2
+                ;;
             --no-cross-account)
                 INCLUDE_CROSS_ACCOUNT=false
-                shift
-                ;;
-            --close-accounts)
-                CLOSE_MEMBER_ACCOUNTS=true
                 shift
                 ;;
             --no-terraform-cleanup)
@@ -306,20 +314,15 @@ main() {
     log_info "Phase 9: AWS Organizations cleanup (if enabled)..."
     destroy_organizations_resources
 
-    log_info "Phase 10: Member account closure (if enabled)..."
-    if [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]]; then
-        close_member_accounts
-    fi
-
     # Generate cost savings estimate
     generate_cost_estimate
 
     # Validate complete destruction
-    log_info "Phase 11: Post-destruction validation..."
+    log_info "Phase 10: Post-destruction validation..."
     validate_complete_destruction
 
     # Final cleanup: CloudTrail buckets (deferred to end to avoid blocking other resources)
-    log_info "Phase 12: Final CloudTrail bucket cleanup..."
+    log_info "Phase 11: Final CloudTrail bucket cleanup..."
     destroy_cloudtrail_s3_buckets
 
     local end_time duration

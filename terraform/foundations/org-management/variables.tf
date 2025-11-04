@@ -14,7 +14,7 @@ variable "aws_region" {
 variable "organization_name" {
   description = "Name of the AWS Organization"
   type        = string
-  default     = "static-site-org"
+  default     = "main-org" # Override with your organization name
 }
 
 # Account management configuration
@@ -54,7 +54,7 @@ variable "domain_suffix" {
 }
 
 variable "workload_accounts" {
-  description = "Map of workload accounts to create"
+  description = "Map of workload accounts to create (deprecated - using computed locals instead)"
   type = map(object({
     name         = string
     ou           = string
@@ -62,17 +62,17 @@ variable "workload_accounts" {
   }))
   default = {
     dev = {
-      name         = "static-site-dev"
+      name         = "project-dev" # Dynamically computed from github_repo in accounts.tf
       ou           = "workloads"
       email_suffix = "+dev"
     }
     staging = {
-      name         = "static-site-staging"
+      name         = "project-staging" # Dynamically computed from github_repo in accounts.tf
       ou           = "workloads"
       email_suffix = "+staging"
     }
     prod = {
-      name         = "static-site-prod"
+      name         = "project-prod" # Dynamically computed from github_repo in accounts.tf
       ou           = "workloads"
       email_suffix = "+prod"
     }
@@ -104,10 +104,9 @@ variable "enable_config" {
 }
 
 variable "tags" {
-  description = "Common tags for all resources"
+  description = "Common tags for all resources (Project tag is overridden by provider default_tags)"
   type        = map(string)
   default = {
-    Project   = "static-site"
     Component = "organization"
     ManagedBy = "terraform"
   }
@@ -115,9 +114,9 @@ variable "tags" {
 
 # Cross-account access configuration
 variable "cross_account_external_id" {
-  description = "External ID for cross-account role assumption"
+  description = "External ID for cross-account role assumption (dynamically constructed from github_repo if needed)"
   type        = string
-  default     = "github-actions-static-site"
+  default     = "github-actions-cross-account"
   sensitive   = true
 }
 

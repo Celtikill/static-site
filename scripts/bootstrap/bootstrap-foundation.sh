@@ -12,7 +12,7 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source configuration and libraries
+# Source unified configuration and libraries
 source "${SCRIPT_DIR}/config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
@@ -112,9 +112,9 @@ main() {
     print_header "AWS Bootstrap Foundation - Stage 2"
 
     # Set total steps for progress tracking
-    local total_steps=7
+    local total_steps=8
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        total_steps=9
+        total_steps=10
     fi
     set_steps $total_steps
     start_timer
@@ -135,6 +135,30 @@ main() {
     log_info "Staging Account: $STAGING_ACCOUNT"
     log_info "Prod Account: $PROD_ACCOUNT"
 
+    # Validate all accounts are ACTIVE
+    log_info "Validating account status..."
+    local validation_failed=false
+
+    if ! validate_account_active "$DEV_ACCOUNT" "dev"; then
+        validation_failed=true
+    fi
+
+    if ! validate_account_active "$STAGING_ACCOUNT" "staging"; then
+        validation_failed=true
+    fi
+
+    if ! validate_account_active "$PROD_ACCOUNT" "prod"; then
+        validation_failed=true
+    fi
+
+    if [[ "$validation_failed" == "true" ]]; then
+        log_error "One or more accounts are not ACTIVE"
+        log_error "Run bootstrap-organization.sh to create replacement accounts for closed/suspended accounts"
+        die "Account validation failed"
+    fi
+
+    log_success "All accounts are ACTIVE and ready"
+
     # Step 2: Ensure central foundation state bucket exists
     step "Ensuring central foundation state bucket"
     if ! ensure_central_state_bucket; then
@@ -147,10 +171,10 @@ main() {
         die "Failed to create OIDC providers"
     fi
 
-    # Step 4: Create GitHub Actions roles
-    step "Creating GitHub Actions roles"
-    if ! create_all_github_actions_roles; then
-        die "Failed to create GitHub Actions roles"
+    # Step 4: Create IAM roles via Terraform
+    step "Creating IAM roles via Terraform"
+    if ! create_all_iam_roles; then
+        die "Failed to create IAM roles"
     fi
 
     # Step 5: Create Terraform backends
@@ -163,9 +187,14 @@ main() {
     step "Generating backend configurations"
     log_success "Backend configurations saved to: $OUTPUT_DIR/backend-config-*.hcl"
 
-    # Step 7: Summary
+    # Step 7: Generate console URLs
+    step "Generating console URLs"
+    generate_console_urls_file
+
+    # Step 8: Summary
     step "Generating summary"
     end_timer
+    enhance_bootstrap_report
 
     # Optional verification steps
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
@@ -195,10 +224,13 @@ OIDC Providers:
   ✓ Staging Account: ${STAGING_ACCOUNT}
   ✓ Prod Account:    ${PROD_ACCOUNT}
 
-GitHub Actions Roles:
-  ✓ GitHubActions-StaticSite-Dev-Role
-  ✓ GitHubActions-StaticSite-Staging-Role
-  ✓ GitHubActions-StaticSite-Prod-Role
+IAM Roles (Created via Terraform):
+  ✓ ${IAM_ROLE_PREFIX}-Dev-Role (GitHub Actions)
+  ✓ ${IAM_ROLE_PREFIX}-Staging-Role (GitHub Actions)
+  ✓ ${IAM_ROLE_PREFIX}-Prod-Role (GitHub Actions)
+  ✓ ${READONLY_ROLE_PREFIX}-dev (Read-Only Console)
+  ✓ ${READONLY_ROLE_PREFIX}-staging (Read-Only Console)
+  ✓ ${READONLY_ROLE_PREFIX}-prod (Read-Only Console)
 
 Terraform Backends:
   ✓ static-site-state-dev-${DEV_ACCOUNT}
@@ -212,23 +244,53 @@ ${BOLD}GitHub Actions Integration:${NC}
 Your GitHub Actions workflows can now authenticate using OIDC.
 The following roles are available:
 
-  Dev:     arn:aws:iam::${DEV_ACCOUNT}:role/GitHubActions-StaticSite-Dev-Role
-  Staging: arn:aws:iam::${STAGING_ACCOUNT}:role/GitHubActions-StaticSite-Staging-Role
-  Prod:    arn:aws:iam::${PROD_ACCOUNT}:role/GitHubActions-StaticSite-Prod-Role
+  Dev:     ${GITHUB_ACTIONS_DEV_ROLE_ARN}
+  Staging: ${GITHUB_ACTIONS_STAGING_ROLE_ARN}
+  Prod:    ${GITHUB_ACTIONS_PROD_ROLE_ARN}
+
+${BOLD}AWS Console Access URLs:${NC}
+
+Engineers can click these URLs to switch roles and access environments:
+
+${GREEN}Dev Environment:${NC}
+${CONSOLE_URL_DEV}
+
+${GREEN}Staging Environment:${NC}
+${CONSOLE_URL_STAGING}
+
+${GREEN}Production Environment:${NC}
+${CONSOLE_URL_PROD}
+
+${YELLOW}Note: These URLs work when logged into the Management Account (${MANAGEMENT_ACCOUNT_ID})${NC}
+${YELLOW}Bookmark these URLs in your browser for quick access${NC}
+
+Console URLs also saved to: ${OUTPUT_DIR}/console-urls.txt
 
 ${BOLD}Next Steps:${NC}
 
-1. Update GitHub Actions secrets/variables (if needed):
-   - AWS_ACCOUNT_ID_DEV: ${DEV_ACCOUNT}
-   - AWS_ACCOUNT_ID_STAGING: ${STAGING_ACCOUNT}
-   - AWS_ACCOUNT_ID_PROD: ${PROD_ACCOUNT}
+1. Review bootstrap outputs:
+   - Account IDs: ${OUTPUT_DIR}/accounts.json
+   - Backend configs: ${OUTPUT_DIR}/backend-config-*.hcl
+   - Verification: ${OUTPUT_DIR}/verification-report.json
 
-2. Update workflow files to use the new account IDs
+2. Configure CI/CD (optional):
 
-3. Test your deployment pipeline:
+   ${BOLD}For GitHub Actions:${NC}
+   ${BLUE}./configure-github.sh${NC}
+
+   This will configure your repository with:
+   - AWS account IDs as GitHub variables
+   - OIDC role ARNs as GitHub secrets
+   - Infrastructure settings (regions, versions, budgets)
+
+   ${YELLOW}Note: Requires GitHub CLI (gh) and repository permissions${NC}
+
+   ${BOLD}For other CI/CD platforms:${NC}
+   See account IDs in: ${OUTPUT_DIR}/accounts.json
+   IAM Role format: arn:aws:iam::{ACCOUNT_ID}:role/${IAM_ROLE_PREFIX}-{Env}-Role
+
+3. Test your deployment:
    ${BLUE}git push${NC}
-
-4. Monitor the workflow run in GitHub Actions
 
 ${BOLD}Automated Deployments:${NC}
 

@@ -23,6 +23,12 @@ create_oidc_provider() {
         return 0
     fi
 
+    # Validate account is ACTIVE before proceeding
+    if ! validate_account_active "$account_id" "$environment"; then
+        log_error "Cannot create OIDC provider in non-ACTIVE account"
+        return 1
+    fi
+
     # Switch to target account
     if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-oidc-${environment}"; then
         log_error "Failed to assume role in account $account_id"
@@ -47,7 +53,7 @@ create_oidc_provider() {
         --thumbprint-list "$thumbprint" \
         --tags Key=Environment,Value="$environment" \
               Key=ManagedBy,Value=bootstrap \
-              Key=Project,Value=static-site 2>&1); then
+              Key=Project,Value="${PROJECT_SHORT_NAME}" 2>&1); then
 
         local provider_arn
         provider_arn=$(echo "$provider_output" | jq -r '.OpenIDConnectProviderArn')
@@ -56,6 +62,30 @@ create_oidc_provider() {
         echo "$provider_arn"
         return 0
     else
+        # Check if error is due to provider already existing
+        if echo "$provider_output" | grep -qi "EntityAlreadyExists\|already exists"; then
+            log_warn "OIDC provider already exists, attempting to find it..."
+
+            # Try to find the existing provider
+            if oidc_provider_exists "token.actions.githubusercontent.com"; then
+                local provider_arn
+                provider_arn=$(aws iam list-open-id-connect-providers --output json 2>/dev/null | \
+                    jq -r '.OpenIDConnectProviderList[] | select(.Arn | contains("token.actions.githubusercontent.com")) | .Arn')
+
+                if [[ -n "$provider_arn" ]]; then
+                    log_success "Found existing OIDC provider via fallback: $provider_arn"
+                    clear_assumed_role
+                    echo "$provider_arn"
+                    return 0
+                fi
+            fi
+
+            log_error "OIDC provider conflict detected but could not find existing provider"
+            log_error "AWS CLI error: $provider_output"
+            clear_assumed_role
+            return 1
+        fi
+
         log_error "Failed to create OIDC provider: $provider_output"
         clear_assumed_role
         return 1
@@ -95,7 +125,7 @@ create_oidc_via_stackset() {
             --capabilities CAPABILITY_NAMED_IAM \
             --permission-model SERVICE_MANAGED \
             --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false \
-            --tags Key=ManagedBy,Value=bootstrap Key=Project,Value=static-site 2>&1; then
+            --tags Key=ManagedBy,Value=bootstrap Key=Project,Value="${PROJECT_SHORT_NAME}" 2>&1; then
             log_success "Created StackSet: $stackset_name"
         else
             log_error "Failed to create StackSet"
@@ -259,6 +289,14 @@ delete_oidc_provider() {
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY-RUN] Would delete OIDC provider"
+        return 0
+    fi
+
+    # Check account status - if closed, resources are already inaccessible
+    local account_status
+    account_status=$(check_account_status "$account_id")
+    if [[ "$account_status" == "SUSPENDED" ]] || [[ "$account_status" == "PENDING_CLOSURE" ]]; then
+        log_warn "Account $account_id is $account_status - resources already inaccessible, skipping"
         return 0
     fi
 

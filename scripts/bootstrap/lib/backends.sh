@@ -7,7 +7,7 @@
 # =============================================================================
 
 ensure_central_state_bucket() {
-    local bucket_name="static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
+    local bucket_name="${PROJECT_NAME}-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
 
     log_info "Checking for central foundation state bucket..."
 
@@ -25,9 +25,32 @@ ensure_central_state_bucket() {
     log_info "Creating central foundation state bucket: $bucket_name"
 
     # Create bucket
-    if ! aws s3 mb "s3://$bucket_name" --region "$AWS_DEFAULT_REGION" 2>&1; then
-        log_error "Failed to create central state bucket"
-        return 1
+    local bucket_output
+    if bucket_output=$(aws s3 mb "s3://$bucket_name" --region "$AWS_DEFAULT_REGION" 2>&1); then
+        log_success "Created bucket: $bucket_name"
+    else
+        # Check if bucket already owned by us
+        if echo "$bucket_output" | grep -qi "BucketAlreadyOwnedByYou\|already.*own"; then
+            log_warn "Bucket already owned by you, verifying..."
+
+            # Try to verify bucket exists and is accessible
+            if s3_bucket_exists "$bucket_name"; then
+                log_success "Found existing bucket via fallback: $bucket_name"
+            else
+                log_error "Bucket conflict detected but could not verify ownership"
+                log_error "AWS CLI error: $bucket_output"
+                return 1
+            fi
+        # Check if bucket name taken globally by someone else
+        elif echo "$bucket_output" | grep -qi "BucketAlreadyExists"; then
+            log_error "Bucket name is globally taken by another AWS account"
+            log_error "Bucket name: $bucket_name"
+            log_error "Solution: Choose a different PROJECT_NAME in config.sh or add a unique suffix"
+            return 1
+        else
+            log_error "Failed to create central state bucket: $bucket_output"
+            return 1
+        fi
     fi
 
     # Enable versioning
@@ -82,8 +105,14 @@ create_terraform_backend() {
         return 0
     fi
 
-    local bucket_name="static-site-state-${environment}-${account_id}"
-    local table_name="static-site-locks-${environment}"
+    # Validate account is ACTIVE before proceeding
+    if ! validate_account_active "$account_id" "$environment"; then
+        log_error "Cannot create Terraform backend in non-ACTIVE account"
+        return 1
+    fi
+
+    local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
+    local table_name="${PROJECT_NAME}-locks-${environment}"
 
     # Assume role for all operations
     if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "create-backend-${environment}"; then
@@ -92,7 +121,7 @@ create_terraform_backend() {
     fi
 
     # Check if backend already exists
-    if s3_bucket_exists "$bucket_name" && dynamodb_table_exists "$table_name"; then
+    if s3_bucket_exists "$bucket_name" && dynamodb_table_exists "$table_name" "$region"; then
         log_success "Terraform backend already exists for $environment"
         clear_assumed_role
         return 0
@@ -242,8 +271,8 @@ verify_terraform_backend() {
         return 0
     fi
 
-    local bucket_name="static-site-state-${environment}-${account_id}"
-    local table_name="static-site-locks-${environment}"
+    local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
+    local table_name="${PROJECT_NAME}-locks-${environment}"
 
     if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "verify-backend-${environment}"; then
 
@@ -316,8 +345,16 @@ destroy_terraform_backend() {
         return 0
     fi
 
-    local bucket_name="static-site-state-${environment}-${account_id}"
-    local table_name="static-site-locks-${environment}"
+    # Check account status - if closed, resources are already inaccessible
+    local account_status
+    account_status=$(check_account_status "$account_id")
+    if [[ "$account_status" == "SUSPENDED" ]] || [[ "$account_status" == "PENDING_CLOSURE" ]]; then
+        log_warn "Account $account_id is $account_status - resources already inaccessible, skipping"
+        return 0
+    fi
+
+    local bucket_name="${PROJECT_NAME}-state-${environment}-${account_id}"
+    local table_name="${PROJECT_NAME}-locks-${environment}"
 
     if assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "destroy-backend-${environment}"; then
 
@@ -369,7 +406,7 @@ destroy_terraform_backend() {
         fi
 
         # Delete KMS alias and key (if exists)
-        local kms_alias="alias/static-site-state-${environment}-${account_id}"
+        local kms_alias="alias/${PROJECT_NAME}-state-${environment}-${account_id}"
         local kms_key_id
         kms_key_id=$(aws kms describe-key --key-id "$kms_alias" --query 'KeyMetadata.KeyId' --output text 2>/dev/null || echo "")
 

@@ -69,9 +69,9 @@ create_ou() {
         return 0
     fi
 
-    # Check if OU already exists
+    # Check if OU already exists (pass parent_id to search in correct location)
     local existing_ou
-    if existing_ou=$(ou_exists "$ou_name"); then
+    if existing_ou=$(ou_exists "$ou_name" "$parent_id"); then
         log_success "OU already exists: $ou_name (ID: $existing_ou)"
         echo "$existing_ou"
         return 0
@@ -87,6 +87,23 @@ create_ou() {
         echo "$ou_id"
         return 0
     else
+        # Check if error is due to OU already existing
+        if echo "$ou_output" | grep -qi "DuplicateOrganizationalUnitException\|already exists"; then
+            log_warn "OU already exists, attempting to find it..."
+
+            # Try to find the OU using fallback lookup
+            local found_ou
+            if found_ou=$(ou_exists "$ou_name" "$parent_id"); then
+                log_success "Found existing OU via fallback: $ou_name (ID: $found_ou)"
+                echo "$found_ou"
+                return 0
+            else
+                log_error "OU conflict detected but could not find existing OU"
+                log_error "AWS CLI error: $ou_output"
+                return 1
+            fi
+        fi
+
         log_error "Failed to create OU: $ou_output"
         return 1
     fi
@@ -104,23 +121,19 @@ create_workloads_structure() {
         return 1
     fi
 
-    # Create environment OUs under Workloads
-    local dev_ou_id staging_ou_id prod_ou_id
+    # Extract project name from GitHub repo (e.g., "Celtikill/static-site" -> "static-site")
+    local project_name="${GITHUB_REPO##*/}"
+    log_info "Project name: $project_name"
 
-    if ! dev_ou_id=$(create_ou "Development" "$workloads_ou_id"); then
-        return 1
-    fi
-
-    if ! staging_ou_id=$(create_ou "Staging" "$workloads_ou_id"); then
-        return 1
-    fi
-
-    if ! prod_ou_id=$(create_ou "Production" "$workloads_ou_id"); then
+    # Create project OU under Workloads (one OU per project for scalability)
+    local project_ou_id
+    if ! project_ou_id=$(create_ou "$project_name" "$workloads_ou_id"); then
         return 1
     fi
 
     log_success "Created Workloads OU structure"
-    echo "$workloads_ou_id $dev_ou_id $staging_ou_id $prod_ou_id"
+    log_info "Project OU: $project_name (ID: $project_ou_id)"
+    echo "$workloads_ou_id $project_ou_id"
     return 0
 }
 
@@ -141,10 +154,21 @@ create_account() {
         return 0
     fi
 
-    # Check if account already exists
+    # Check if account already exists (search by email first, then by name)
     local existing_account
-    if existing_account=$(account_exists "$account_email"); then
+    if existing_account=$(account_exists "$account_email" "$account_name"); then
         log_success "Account already exists: $account_name (ID: $existing_account)"
+
+        # Ensure account is in correct OU (if specified)
+        if [[ -n "$ou_id" ]]; then
+            log_info "Verifying account OU placement..."
+            if move_account_to_ou "$existing_account" "$ou_id"; then
+                log_success "Account is in correct OU"
+            else
+                log_warn "Could not verify OU placement, but account exists"
+            fi
+        fi
+
         echo "$existing_account"
         return 0
     fi
@@ -189,6 +213,35 @@ create_account() {
             elif [[ "$status" == "FAILED" ]]; then
                 local failure_reason
                 failure_reason=$(echo "$status_output" | jq -r '.CreateAccountStatus.FailureReason // "Unknown"')
+
+                # Check if failure is due to email already existing
+                if echo "$failure_reason" | grep -qi "EMAIL_ALREADY_EXISTS\|DUPLICATE_ACCOUNT_NAME\|already exists\|email.*already.*use"; then
+                    log_warn "Account creation failed due to existing email, attempting to find account..."
+
+                    # Try to find the account by email or name using fallback lookup
+                    local found_account
+                    if found_account=$(account_exists "$account_email" "$account_name"); then
+                        log_success "Found existing account via fallback: $account_name (ID: $found_account)"
+
+                        # Move to OU if specified and ensure it's in the correct location
+                        if [[ -n "$ou_id" ]]; then
+                            log_info "Ensuring account is in correct OU..."
+                            if move_account_to_ou "$found_account" "$ou_id"; then
+                                log_success "Account is in correct OU"
+                            else
+                                log_warn "Could not verify OU placement, but account exists"
+                            fi
+                        fi
+
+                        echo "$found_account"
+                        return 0
+                    else
+                        log_error "Email conflict detected but could not find existing account"
+                        log_error "Failure reason: $failure_reason"
+                        return 1
+                    fi
+                fi
+
                 log_error "Account creation failed: $failure_reason"
                 return 1
             fi
@@ -197,6 +250,34 @@ create_account() {
         log_error "Timeout waiting for account creation"
         return 1
     else
+        # Check if error is due to email already existing
+        if echo "$create_output" | grep -qi "EMAIL_ALREADY_EXISTS\|DUPLICATE_ACCOUNT_NAME\|already exists\|email.*already.*use"; then
+            log_warn "Account email already in use, attempting to find existing account..."
+
+            # Try to find the account by email or name using fallback lookup
+            local found_account
+            if found_account=$(account_exists "$account_email" "$account_name"); then
+                log_success "Found existing account via fallback: $account_name (ID: $found_account)"
+
+                # Move to OU if specified and ensure it's in the correct location
+                if [[ -n "$ou_id" ]]; then
+                    log_info "Ensuring account is in correct OU..."
+                    if move_account_to_ou "$found_account" "$ou_id"; then
+                        log_success "Account is in correct OU"
+                    else
+                        log_warn "Could not verify OU placement, but account exists"
+                    fi
+                fi
+
+                echo "$found_account"
+                return 0
+            else
+                log_error "Email conflict detected but could not find existing account"
+                log_error "AWS CLI error: $create_output"
+                return 1
+            fi
+        fi
+
         log_error "Failed to initiate account creation: $create_output"
         return 1
     fi
@@ -259,24 +340,118 @@ create_environment_accounts() {
         return 1
     fi
 
-    read -r workloads_ou_id dev_ou_id staging_ou_id prod_ou_id <<< "$ou_structure"
+    # Parse: workloads_ou_id and project_ou_id (all accounts go in project OU)
+    read -r workloads_ou_id project_ou_id <<< "$ou_structure"
 
-    # Create accounts
-    local dev_account staging_account prod_account
+    log_info "Accounts will be created in project OU: $project_ou_id"
 
-    if ! dev_account=$(create_account "static-site-dev" "aws+static-site-dev@example.com" "$dev_ou_id"); then
-        log_error "Failed to create dev account"
-        return 1
+    # Load existing accounts if accounts.json exists
+    local existing_dev="" existing_staging="" existing_prod=""
+    if [[ -f "$ACCOUNTS_FILE" ]]; then
+        log_info "Checking for existing accounts in $ACCOUNTS_FILE..."
+        existing_dev=$(jq -r '.dev // ""' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+        existing_staging=$(jq -r '.staging // ""' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+        existing_prod=$(jq -r '.prod // ""' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
     fi
 
-    if ! staging_account=$(create_account "static-site-staging" "aws+static-site-staging@example.com" "$staging_ou_id"); then
-        log_error "Failed to create staging account"
-        return 1
+    # Initialize replacement tracking
+    declare -g -A REPLACED_ACCOUNTS=()
+    local timestamp=$(date +%Y%m%d)
+
+    # Create or reuse dev account
+    local dev_account
+    if [[ -n "$existing_dev" ]]; then
+        local dev_status
+        dev_status=$(check_account_status "$existing_dev")
+
+        if [[ "$dev_status" == "ACTIVE" ]]; then
+            log_info "Dev account already exists and is ACTIVE: $existing_dev"
+            dev_account="$existing_dev"
+        elif [[ "$dev_status" == "SUSPENDED" ]] || [[ "$dev_status" == "PENDING_CLOSURE" ]]; then
+            log_warn "Dev account $existing_dev is $dev_status - creating replacement"
+            REPLACED_ACCOUNTS["dev"]="$existing_dev|$dev_status|$(date -Iseconds)"
+
+            if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
+                log_error "Failed to create replacement dev account"
+                return 1
+            fi
+            log_success "Created replacement dev account: $dev_account"
+        else
+            log_info "Dev account not found or invalid, creating new account"
+            if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
+                log_error "Failed to create dev account"
+                return 1
+            fi
+        fi
+    else
+        if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
+            log_error "Failed to create dev account"
+            return 1
+        fi
     fi
 
-    if ! prod_account=$(create_account "static-site-prod" "aws+static-site-prod@example.com" "$prod_ou_id"); then
-        log_error "Failed to create prod account"
-        return 1
+    # Create or reuse staging account
+    local staging_account
+    if [[ -n "$existing_staging" ]]; then
+        local staging_status
+        staging_status=$(check_account_status "$existing_staging")
+
+        if [[ "$staging_status" == "ACTIVE" ]]; then
+            log_info "Staging account already exists and is ACTIVE: $existing_staging"
+            staging_account="$existing_staging"
+        elif [[ "$staging_status" == "SUSPENDED" ]] || [[ "$staging_status" == "PENDING_CLOSURE" ]]; then
+            log_warn "Staging account $existing_staging is $staging_status - creating replacement"
+            REPLACED_ACCOUNTS["staging"]="$existing_staging|$staging_status|$(date -Iseconds)"
+
+            if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
+                log_error "Failed to create replacement staging account"
+                return 1
+            fi
+            log_success "Created replacement staging account: $staging_account"
+        else
+            log_info "Staging account not found or invalid, creating new account"
+            if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
+                log_error "Failed to create staging account"
+                return 1
+            fi
+        fi
+    else
+        if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
+            log_error "Failed to create staging account"
+            return 1
+        fi
+    fi
+
+    # Create or reuse prod account
+    local prod_account
+    if [[ -n "$existing_prod" ]]; then
+        local prod_status
+        prod_status=$(check_account_status "$existing_prod")
+
+        if [[ "$prod_status" == "ACTIVE" ]]; then
+            log_info "Prod account already exists and is ACTIVE: $existing_prod"
+            prod_account="$existing_prod"
+        elif [[ "$prod_status" == "SUSPENDED" ]] || [[ "$prod_status" == "PENDING_CLOSURE" ]]; then
+            log_warn "Prod account $existing_prod is $prod_status - creating replacement"
+            REPLACED_ACCOUNTS["prod"]="$existing_prod|$prod_status|$(date -Iseconds)"
+
+            if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
+                log_error "Failed to create replacement prod account"
+                return 1
+            fi
+            log_success "Created replacement prod account: $prod_account"
+        else
+            log_info "Prod account not found or invalid, creating new account"
+            if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
+                log_error "Failed to create prod account"
+                return 1
+            fi
+        fi
+    else
+        if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
+            log_error "Failed to create prod account"
+            return 1
+        fi
     fi
 
     # Wait for accounts to be fully active
@@ -381,4 +556,321 @@ enable_organization_account_access() {
         log_warn "This is normal for newly created accounts. Will be available shortly."
         return 0
     fi
+}
+
+# =============================================================================
+# MEMBER ACCOUNT CLOSURE
+# =============================================================================
+
+# Helper function to check if account should be processed based on filter
+should_close_account() {
+    local account_id="$1"
+    local env_name="${2:-}"  # Optional environment name (dev, staging, prod), defaults to empty
+
+    # If no filter specified, allow all
+    [[ -z "$ACCOUNT_FILTER" ]] && return 0
+
+    # Check if account ID or environment name is in filter
+    IFS=',' read -ra ACCOUNTS <<< "$ACCOUNT_FILTER"
+    for filtered_account in "${ACCOUNTS[@]}"; do
+        # Match by account ID
+        if [[ "$filtered_account" == "$account_id" ]]; then
+            return 0
+        fi
+
+        # Match by environment name (case-insensitive) if provided
+        if [[ -n "$env_name" ]] && [[ "${filtered_account,,}" == "${env_name,,}" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+# Close member accounts (requires --close-accounts flag)
+close_member_accounts() {
+    log_step "Processing member account closure..."
+
+    if [[ "$CLOSE_MEMBER_ACCOUNTS" != "true" ]]; then
+        log_info "Member account closure disabled - skipping"
+        return 0
+    fi
+
+    local current_account
+    current_account=$(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null)
+
+    # Only run from management account
+    if [[ "$current_account" != "$MANAGEMENT_ACCOUNT_ID" ]]; then
+        log_warn "Account closure only supported from management account"
+        return 0
+    fi
+
+    # Verify we have organization access
+    if ! aws organizations describe-organization >/dev/null 2>&1; then
+        log_error "Unable to access AWS Organizations - cannot close member accounts"
+        return 1
+    fi
+
+    log_warn "⚠️  AWS ACCOUNT CLOSURE LIMITATIONS:"
+    log_warn "   Reference: https://docs.aws.amazon.com/cli/latest/reference/organizations/close-account.html"
+    log_warn ""
+    log_warn "   RESTRICTIONS:"
+    log_warn "   - Only management account can close member accounts"
+    log_warn "   - Can only close 10% of active member accounts within rolling 30-day period"
+    log_warn "   - Account must be in ACTIVE state (not SUSPENDED or PENDING_CLOSURE)"
+    log_warn "   - Cannot close the management account using this operation"
+    log_warn "   - All AWS Marketplace subscriptions must be canceled first"
+    log_warn ""
+    log_warn "   RECOVERY & BILLING:"
+    log_warn "   - Closed accounts remain in PENDING_CLOSURE status for up to 90 days"
+    log_warn "   - Accounts can be reopened during 90-day period via AWS Support"
+    log_warn "   - Outstanding charges and Reserved Instance fees still apply"
+    log_warn "   - Final bills generated for services used before closure"
+    log_warn ""
+    log_warn "   REQUIRED PERMISSIONS:"
+    log_warn "   - organizations:CloseAccount"
+    log_warn "   - organizations:DescribeOrganization"
+    log_warn "   - organizations:ListAccounts"
+
+    local closed_count=0
+    local failed_count=0
+    local skipped_count=0
+
+    # Process each member account
+    for account_id in "$DEV_ACCOUNT" "$STAGING_ACCOUNT" "$PROD_ACCOUNT"; do
+        # Skip if account ID is empty
+        [[ -z "$account_id" ]] && continue
+
+        # Determine environment name
+        local env_name env_name_lower
+        case "$account_id" in
+            "$DEV_ACCOUNT")
+                env_name="Dev"
+                env_name_lower="dev"
+                ;;
+            "$STAGING_ACCOUNT")
+                env_name="Staging"
+                env_name_lower="staging"
+                ;;
+            "$PROD_ACCOUNT")
+                env_name="Prod"
+                env_name_lower="prod"
+                ;;
+            *)
+                env_name="Unknown"
+                env_name_lower="unknown"
+                ;;
+        esac
+
+        # Check account filter (pass both account ID and environment name)
+        if ! should_close_account "$account_id" "$env_name_lower"; then
+            log_info "Skipping account $account_id ($env_name) - not in account filter"
+            ((skipped_count++))
+            continue
+        fi
+
+        # Check account status first
+        local account_status
+        account_status=$(aws organizations list-accounts \
+            --query "Accounts[?Id=='$account_id'].Status" \
+            --output text 2>/dev/null || echo "UNKNOWN")
+
+        if [[ "$account_status" == "SUSPENDED" ]]; then
+            log_warn "Account $account_id ($env_name) is SUSPENDED - cannot close"
+            ((skipped_count++))
+            continue
+        elif [[ "$account_status" == "PENDING_CLOSURE" ]]; then
+            log_info "Account $account_id ($env_name) is already pending closure"
+            ((closed_count++))
+            continue
+        elif [[ "$account_status" == "UNKNOWN" ]]; then
+            log_warn "Unable to determine status of account $account_id ($env_name) - skipping"
+            ((failed_count++))
+            continue
+        fi
+
+        log_warn "⚠️  About to close member account: $account_id ($env_name)"
+        log_warn "   This action cannot be undone for 90 days"
+        log_warn "   Ensure all critical resources have been backed up"
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[DRY-RUN] Would close account: $account_id ($env_name)"
+            ((closed_count++))
+        else
+            # Attempt to close the account using AWS CLI
+            local close_output
+            if close_output=$(aws organizations close-account --account-id "$account_id" 2>&1); then
+                log_success "Initiated closure of member account: $account_id ($env_name)"
+                ((closed_count++))
+            else
+                # Check for specific error conditions
+                if echo "$close_output" | grep -qi "TooManyRequestsException\\|10.*percent"; then
+                    log_error "Failed: 10% account closure limit exceeded (rolling 30-day period)"
+                    log_error "You can only close 10% of your member accounts within a 30-day period"
+                    ((failed_count++))
+                elif echo "$close_output" | grep -qi "ConflictException\\|marketplace"; then
+                    log_error "Failed: Account has active AWS Marketplace subscriptions"
+                    log_error "Cancel all marketplace subscriptions before closing account"
+                    log_error "Visit: https://console.aws.amazon.com/marketplace/home#/subscriptions"
+                    ((failed_count++))
+                elif echo "$close_output" | grep -qi "AccessDeniedException"; then
+                    log_error "Failed: Insufficient permissions to close account"
+                    log_error "Requires: organizations:CloseAccount permission"
+                    ((failed_count++))
+                else
+                    log_error "Failed to close member account: $account_id ($env_name)"
+                    log_error "Error: $close_output"
+                    ((failed_count++))
+                fi
+            fi
+        fi
+    done
+
+    # Summary
+    echo ""
+    log_info "Account Closure Summary:"
+    log_info "  - Successfully closed: $closed_count"
+    log_info "  - Failed: $failed_count"
+    log_info "  - Skipped: $skipped_count"
+
+    if [[ $closed_count -gt 0 ]]; then
+        echo ""
+        log_info "Post-closure information:"
+        log_info "  - Accounts will show 'PENDING_CLOSURE' status"
+        log_info "  - Closure completes within 90 days"
+        log_info "  - Final bills will be generated for services used before closure"
+        log_info "  - Reserved Instance charges will continue until expiration"
+        log_info "  - You can reopen accounts during the 90-day period via AWS Support"
+    fi
+
+    [[ $failed_count -eq 0 ]] && return 0 || return 1
+}
+
+# =============================================================================
+# OU ACCOUNT PLACEMENT
+# =============================================================================
+
+# Discover all accounts matching the project name pattern
+# Returns: JSON array of accounts with Id, Name, Status, Email
+discover_all_project_accounts() {
+    log_info "Discovering all accounts matching project: $PROJECT_SHORT_NAME"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would discover project accounts"
+        echo "[]"
+        return 0
+    fi
+
+    # Get all organization accounts
+    local all_accounts
+    all_accounts=$(aws organizations list-accounts --output json 2>/dev/null || echo '{"Accounts":[]}')
+
+    # Filter accounts by name pattern or email pattern
+    local project_accounts
+    project_accounts=$(echo "$all_accounts" | jq -r --arg project "$PROJECT_SHORT_NAME" \
+        '.Accounts[] |
+        select(
+            (.Name | contains($project)) or
+            (.Email | contains($project))
+        ) |
+        {Id, Name, Status, Email}' | jq -s '.')
+
+    local account_count=$(echo "$project_accounts" | jq 'length')
+    log_info "Found $account_count account(s) matching project pattern"
+
+    # Log discovered accounts
+    if [[ $account_count -gt 0 ]]; then
+        echo "$project_accounts" | jq -r '.[] | "  - \(.Id) (\(.Name)) [\(.Status)]"' | while read -r line; do
+            log_info "$line"
+        done
+    fi
+
+    echo "$project_accounts"
+    return 0
+}
+
+# Ensure all project accounts are in the correct project OU
+# Includes ACTIVE, SUSPENDED, and PENDING_CLOSURE accounts
+ensure_accounts_in_project_ou() {
+    log_step "Ensuring all project accounts are in correct OU..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would verify OU placement"
+        return 0
+    fi
+
+    # Get project OU structure
+    local ou_structure
+    if ! ou_structure=$(create_workloads_structure); then
+        log_error "Failed to get OU structure"
+        return 1
+    fi
+
+    # Parse: workloads_ou_id and project_ou_id
+    read -r workloads_ou_id project_ou_id <<< "$ou_structure"
+
+    log_info "Target project OU: $project_ou_id"
+
+    # Discover all project accounts (including closed)
+    local project_accounts
+    project_accounts=$(discover_all_project_accounts)
+
+    local account_count=$(echo "$project_accounts" | jq 'length')
+    if [[ $account_count -eq 0 ]]; then
+        log_warn "No project accounts found"
+        return 0
+    fi
+
+    local moved_count=0
+    local skipped_count=0
+    local failed_count=0
+
+    # Process each account
+    while IFS='|' read -r account_id account_name account_status; do
+        log_info "Checking account: $account_id ($account_name) [$account_status]"
+
+        # Get current parent OU
+        local current_parent
+        current_parent=$(aws organizations list-parents \
+            --child-id "$account_id" \
+            --query 'Parents[0].Id' \
+            --output text 2>/dev/null || echo "UNKNOWN")
+
+        if [[ "$current_parent" == "UNKNOWN" ]]; then
+            log_error "Failed to get parent OU for account $account_id"
+            ((failed_count++)) || true
+            continue
+        fi
+
+        # Check if already in correct OU
+        if [[ "$current_parent" == "$project_ou_id" ]]; then
+            log_info "  Account $account_id already in correct OU"
+            ((skipped_count++)) || true
+            continue
+        fi
+
+        # Move account to project OU
+        log_info "  Moving account $account_id from $current_parent to $project_ou_id"
+
+        if aws organizations move-account \
+            --account-id "$account_id" \
+            --source-parent-id "$current_parent" \
+            --destination-parent-id "$project_ou_id" 2>&1; then
+
+            log_success "  Moved account $account_id to project OU"
+            ((moved_count++)) || true
+        else
+            log_warn "  Failed to move account $account_id (may lack permissions or account locked)"
+            ((failed_count++)) || true
+        fi
+    done < <(echo "$project_accounts" | jq -r '.[] | "\(.Id)|\(.Name)|\(.Status)"')
+
+    # Summary
+    echo ""
+    log_info "OU Placement Summary:"
+    log_info "  - Moved: $moved_count"
+    log_info "  - Already in correct OU: $skipped_count"
+    log_info "  - Failed: $failed_count"
+
+    return 0
 }

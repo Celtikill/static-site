@@ -10,11 +10,14 @@ This module establishes the AWS Organizations structure and management account i
 AWS Organization (Management Account)
 ├── Security OU
 ├── Workloads OU
-│   ├── Development Account
-│   ├── Staging Account
-│   └── Production Account
+│   └── <project-name> OU (extracted from github_repo)
+│       ├── <project-name>-dev Account
+│       ├── <project-name>-staging Account
+│       └── <project-name>-prod Account
 └── Sandbox OU
 ```
+
+**Note**: Project name is dynamically derived from the `github_repo` variable (e.g., "celtikill/static-site" → "static-site"). This enables a scalable multi-project structure where each project has its own OU under Workloads.
 
 ## Components
 
@@ -39,20 +42,22 @@ This infrastructure uses a **dual backend pattern** for Terraform state manageme
 
 #### Centralized Backend (Management Account)
 Used by foundation infrastructure in the management account:
-- **Bucket**: `static-site-terraform-state-us-east-1`
+- **Bucket**: `<project-name>-terraform-state-us-east-1`
 - **Components**: `org-management`, `iam-management`
 - **Location**: Management account only
 - **Purpose**: Organization-level resources that span accounts
 
 #### Distributed Backend (Per-Environment)
 Used by environment-specific infrastructure in workload accounts:
-- **Pattern**: `static-site-state-{environment}-{account-id}`
-- **Examples**:
+- **Pattern**: `<project-name>-state-{environment}-{account-id}`
+- **Examples** (for project "static-site"):
   - Dev: `static-site-state-dev-822529998967`
   - Staging: `static-site-state-staging-927588814642`
   - Prod: `static-site-state-prod-546274483801`
 - **Components**: Website infrastructure, CloudFront, WAF
 - **Purpose**: Environment isolation and account-level resource management
+
+**Note**: All bucket names use the project name extracted from `github_repo` variable, ensuring unique naming across projects.
 
 **Important**: IAM policies for deployment roles must grant access to both backend patterns to support the full infrastructure lifecycle.
 

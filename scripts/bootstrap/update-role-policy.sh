@@ -12,7 +12,7 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source configuration and libraries
+# Source unified configuration and libraries
 source "${SCRIPT_DIR}/config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
@@ -107,7 +107,7 @@ update_role_policy() {
     local account_id="$1"
     local environment="$2"
     local env_cap=$(capitalize "$environment")
-    local role_name="GitHubActions-StaticSite-${env_cap}-Role"
+    local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
 
     log_info "Updating policy for role: $role_name in account $account_id"
 

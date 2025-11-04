@@ -14,19 +14,19 @@ This framework automates the creation of foundational AWS infrastructure require
 ## 🏗️ Architecture
 
 ```
-Management Account (223938610551)
+Management Account
 ├── Workloads OU
-│   ├── Development OU
-│   │   └── static-site-dev (Account)
-│   ├── Staging OU
-│   │   └── static-site-staging (Account)
-│   └── Production OU
-│       └── static-site-prod (Account)
+│   └── <project-name> OU (derived from GITHUB_REPO)
+│       ├── <project-name>-dev (Account)
+│       ├── <project-name>-staging (Account)
+│       └── <project-name>-prod (Account)
 └── Bootstrap Resources
     ├── OIDC Providers (per account)
     ├── GitHub Actions Roles (per account)
     └── Terraform Backends (per account)
 ```
+
+**Note**: The project OU and account names are dynamically derived from the `GITHUB_REPO` variable in `config.sh`. For example, `GITHUB_REPO="Celtikill/static-site"` creates an OU named "static-site" with accounts "static-site-dev", "static-site-staging", and "static-site-prod".
 
 ## 📁 Directory Structure
 
@@ -47,9 +47,10 @@ scripts/bootstrap/
 │   ├── backend-config-*.hcl      # Backend configurations
 │   ├── terraform-*.log           # Terraform logs
 │   └── verification-report.json  # Verification results
-├── bootstrap-organization.sh      # Stage 1: Create org structure
-├── bootstrap-foundation.sh        # Stage 2: Create OIDC/roles/backends
-├── bootstrap-destroy.sh           # Cleanup bootstrap resources
+├── bootstrap-organization.sh      # Step 1: Create org structure
+├── bootstrap-foundation.sh        # Step 2: Create OIDC/roles/backends
+├── configure-github.sh            # Step 3: Configure GitHub repository (optional)
+├── destroy-foundation.sh          # Cleanup bootstrap resources (granular options)
 ├── accounts.json                  # Account IDs (auto-generated)
 └── accounts.json.example          # Template file
 
@@ -62,16 +63,21 @@ scripts/bootstrap/
 3. **AWS credentials** for management account (admin access)
 4. **jq** installed for JSON processing
 
-### Fresh AWS Account (Two-Stage Bootstrap)
+### Fresh AWS Account (Three-Step Bootstrap)
 
 ```bash
-# Stage 1: Create organization and member accounts
+# Step 1: Create organization and member accounts
 cd scripts/bootstrap
 ./bootstrap-organization.sh
 
-# Stage 2: Create OIDC, roles, and backends
+# Step 2: Create OIDC, roles, and backends
 ./bootstrap-foundation.sh
+
+# Step 3 (Optional): Configure GitHub repository for CI/CD
+./configure-github.sh
 ```
+
+**Note:** Step 3 requires GitHub CLI (`gh`) and repository permissions. Skip if not using GitHub Actions.
 
 ### Existing Organization (Single-Stage Bootstrap)
 
@@ -174,9 +180,9 @@ EXAMPLES:
 
 **What it creates:**
 - AWS Organization (if not exists)
-- Workloads OU structure
-- Development, Staging, Production OUs
-- Three member accounts
+- Workloads OU
+- Project OU under Workloads (named from GITHUB_REPO)
+- Three member accounts (dev, staging, prod)
 - `accounts.json` file with account IDs
 
 **Output:**
@@ -216,15 +222,19 @@ EXAMPLES:
    - Configured for GitHub Actions authentication
 
 2. **GitHub Actions Roles** (per account):
-   - `GitHubActions-StaticSite-Dev-Role`
-   - `GitHubActions-StaticSite-Staging-Role`
-   - `GitHubActions-StaticSite-Prod-Role`
+   - `GitHubActions-<ProjectName>-Dev-Role`
+   - `GitHubActions-<ProjectName>-Staging-Role`
+   - `GitHubActions-<ProjectName>-Prod-Role`
+
+   (Role names are derived from PROJECT_NAME in config.sh)
 
 3. **Terraform Backends** (per account):
-   - S3 bucket: `static-site-state-{env}-{account-id}`
-   - DynamoDB table: `static-site-locks-{env}`
+   - S3 bucket: `<project-name>-state-{env}-{account-id}`
+   - DynamoDB table: `<project-name>-locks-{env}`
    - KMS key for encryption
    - Backend config files: `output/backend-config-{env}.hcl`
+
+   (Bucket/table names use PROJECT_NAME from config.sh)
 
 **Output:**
 ```
@@ -236,35 +246,99 @@ Backend Configurations: output/backend-config-*.hcl
 Verification Report: output/verification-report.json
 ```
 
-### Destroy Bootstrap Resources
+### Configure GitHub Repository (Optional)
 
-Remove all bootstrap resources (does NOT delete accounts).
+Configure GitHub repository secrets and variables for CI/CD workflows.
 
 ```bash
-./bootstrap-destroy.sh [OPTIONS]
+./configure-github.sh [OPTIONS]
 
 OPTIONS:
-  -d, --dry-run    Simulate without making changes
-  -v, --verbose    Enable detailed output
-  -f, --force      Skip confirmation prompts
-  -h, --help       Show help message
+  --dry-run              Preview what would be configured
+  -v, --verbose          Enable detailed output
+  -h, --help             Show help message
 
 EXAMPLES:
-  ./bootstrap-destroy.sh --dry-run    # Preview what will be deleted
-  ./bootstrap-destroy.sh              # Delete with confirmation
-  ./bootstrap-destroy.sh --force      # Delete without confirmation
+  ./configure-github.sh                # Interactive configuration
+  ./configure-github.sh --dry-run      # Preview without making changes
+  ./configure-github.sh --verbose      # Detailed logging
+```
+
+**Prerequisites:**
+- GitHub CLI (`gh`) installed and authenticated
+- Repository permissions to set secrets/variables
+- Bootstrap scripts completed (accounts.json must exist)
+
+**What it configures:**
+
+1. **GitHub Secrets:**
+   - `AWS_ASSUME_ROLE_CENTRAL` - Central OIDC role ARN
+
+2. **GitHub Variables:**
+   - AWS account IDs (management, dev, staging, prod)
+   - AWS regions (us-east-1, us-west-2)
+   - Infrastructure settings (OpenTofu version, budget limits, etc.)
+
+**Interactive Flow:**
+1. Validates prerequisites (gh CLI, accounts.json)
+2. Shows current GitHub configuration
+3. Prompts for confirmation
+4. Configures all secrets and variables
+5. Verifies configuration
+
+**Note:** This step is optional. Skip if not using GitHub Actions, or configure variables manually for other CI/CD platforms.
+
+### Destroy Bootstrap Resources
+
+Remove all or specific bootstrap resources. Optionally close member AWS accounts.
+
+```bash
+./destroy-foundation.sh [OPTIONS]
+
+OPTIONS:
+  -d, --dry-run              Simulate without making changes
+  -v, --verbose              Enable detailed output
+  -f, --force                Skip confirmation prompts
+  -h, --help                 Show help message
+
+GRANULAR DESTRUCTION OPTIONS:
+  --backends-only            Only destroy Terraform backends (S3 + DynamoDB)
+  --roles-only               Only destroy GitHub Actions IAM roles
+  --oidc-only                Only destroy OIDC providers
+  --central-bucket-only      Only destroy central foundation state bucket
+  --close-accounts           Close member AWS accounts (PERMANENT - 90 day recovery)
+  --accounts LIST            Comma-separated list of accounts (dev,staging,prod)
+  --s3-timeout SECONDS       S3 bucket emptying timeout (default: 180)
+
+EXAMPLES:
+  ./destroy-foundation.sh --dry-run                        # Preview full destruction
+  ./destroy-foundation.sh --force                          # Destroy all resources
+  ./destroy-foundation.sh --backends-only --accounts dev   # Only dev backends
+  ./destroy-foundation.sh --roles-only --s3-timeout 300    # Only roles (5min timeout)
+  ./destroy-foundation.sh --close-accounts --accounts dev --force  # Close dev account
+  ./destroy-foundation.sh --force --close-accounts         # Close ALL member accounts (EXTREME)
 ```
 
 **⚠️ WARNING:** This will prevent GitHub Actions from deploying until you re-run bootstrap.
 
-**What it destroys:**
+**What it destroys (by default):**
 - Terraform backends (S3, DynamoDB, KMS)
 - GitHub Actions roles
 - OIDC providers
+- Central foundation state bucket
 
-**What it preserves:**
+**What it can optionally destroy:**
+- **Member accounts** (with `--close-accounts` flag)
+  - ⚠️ **PERMANENT ACTION** - Accounts enter PENDING_CLOSURE for 90 days
+  - Accounts can be reopened via AWS Support during recovery period
+  - AWS limits: Can only close 10% of member accounts per rolling 30-day period
+  - All AWS Marketplace subscriptions must be canceled first
+  - Outstanding charges and Reserved Instance fees continue
+  - See: https://docs.aws.amazon.com/cli/latest/reference/organizations/close-account.html
+
+**What it preserves (by default):**
 - AWS Organization structure
-- Member accounts
+- Member accounts (unless `--close-accounts` is used)
 - Application infrastructure
 
 ## 🔧 Configuration
@@ -286,20 +360,23 @@ export OUTPUT_DIR=/path/to/output
 Edit `config.sh` to customize:
 
 ```bash
-readonly PROJECT_NAME="static-site"
-readonly GITHUB_REPO="Celtikill/static-site"
-readonly EXTERNAL_ID="github-actions-static-site"
-readonly AWS_DEFAULT_REGION="us-east-1"
-readonly MANAGEMENT_ACCOUNT_ID="223938610551"
+readonly PROJECT_NAME="<your-project-name>"     # Used for resource naming
+readonly GITHUB_REPO="<org>/<repo>"            # GitHub repository (e.g., "Celtikill/static-site")
+readonly EXTERNAL_ID="github-actions-<project>" # External ID for IAM roles
+readonly AWS_DEFAULT_REGION="us-east-2"         # AWS region (authoritative source for all scripts)
+readonly MANAGEMENT_ACCOUNT_ID="<account-id>"   # Management account ID
 ```
+
+**Important**: PROJECT_NAME should match your repository name for consistency. The project OU and account names will be derived from GITHUB_REPO.
 
 ### Account Emails
 
 Default account creation emails (modify in `lib/organization.sh`):
 ```bash
-Dev:     aws+static-site-dev@example.com
-Staging: aws+static-site-staging@example.com
-Prod:    aws+static-site-prod@example.com
+# Pattern: aws+<project-name>-<env>@example.com
+Dev:     aws+<project-name>-dev@example.com
+Staging: aws+<project-name>-staging@example.com
+Prod:    aws+<project-name>-prod@example.com
 ```
 
 ## 🧪 Verification
@@ -337,17 +414,17 @@ JSON report generated at `output/verification-report.json`:
   "timestamp": "2025-10-07T12:00:00Z",
   "organization": {
     "id": "o-abc123def456",
-    "master_account": "223938610551"
+    "master_account": "<management-account-id>"
   },
   "accounts": {
-    "dev": { "id": "210987654321", "status": "ACTIVE" },
-    "staging": { "id": "111222333444", "status": "ACTIVE" },
-    "prod": { "id": "555666777888", "status": "ACTIVE" }
+    "dev": { "id": "<dev-account-id>", "status": "ACTIVE" },
+    "staging": { "id": "<staging-account-id>", "status": "ACTIVE" },
+    "prod": { "id": "<prod-account-id>", "status": "ACTIVE" }
   },
   "backends": {
-    "dev": "static-site-state-dev-210987654321",
-    "staging": "static-site-state-staging-111222333444",
-    "prod": "static-site-state-prod-555666777888"
+    "dev": "<project-name>-state-dev-<dev-account-id>",
+    "staging": "<project-name>-state-staging-<staging-account-id>",
+    "prod": "<project-name>-state-prod-<prod-account-id>"
   }
 }
 ```
@@ -384,7 +461,7 @@ GitHub Actions roles trust the GitHub OIDC provider **directly** using `AssumeRo
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:Celtikill/static-site:*"
+          "token.actions.githubusercontent.com:sub": "repo:<org>/<repo>:*"
         }
       }
     }
@@ -446,7 +523,7 @@ Always test with dry-run first:
 ```bash
 ./bootstrap-organization.sh --dry-run
 ./bootstrap-foundation.sh --dry-run
-./bootstrap-destroy.sh --dry-run
+./destroy-foundation.sh --dry-run
 ```
 
 ### Debug Mode
@@ -550,11 +627,11 @@ After bootstrap, your GitHub Actions workflows can authenticate **directly** to 
 Set up repository **variables** (not secrets, as account IDs are not sensitive):
 
 ```bash
-# Using GitHub CLI
+# Using GitHub CLI (or use ./configure-github.sh to set from config.sh)
 gh variable set AWS_ACCOUNT_ID_DEV --body "210987654321"
 gh variable set AWS_ACCOUNT_ID_STAGING --body "111222333444"
 gh variable set AWS_ACCOUNT_ID_PROD --body "555666777888"
-gh variable set AWS_DEFAULT_REGION --body "us-east-1"
+gh variable set AWS_DEFAULT_REGION --body "us-east-2"  # Should match config.sh AWS_DEFAULT_REGION
 gh variable set OPENTOFU_VERSION --body "1.8.8"
 ```
 

@@ -1,14 +1,15 @@
 # Demo Scripts
 
-This directory contains scripts for preparing and executing live demonstrations of the AWS multi-account static site infrastructure.
+This directory contains demo-specific scripts for preparing and executing live demonstrations of the AWS multi-account static site infrastructure.
 
 ## Overview
 
-These scripts help presenters prepare for and execute professional technical demos by:
+These scripts help presenters prepare for professional technical demos by:
 - Validating that bootstrap infrastructure is ready
 - Generating presenter reference materials
-- Configuring GitHub secrets live during demos
 - Providing consistent, repeatable demo workflows
+
+**Note:** GitHub configuration has been moved to the bootstrap suite. See `../bootstrap/configure-github.sh` for Step 3 of the bootstrap process.
 
 ## Scripts
 
@@ -44,47 +45,30 @@ These scripts help presenters prepare for and execute professional technical dem
 
 ---
 
-### `configure-github-secrets.sh`
+## GitHub Configuration (Moved to Bootstrap Suite)
 
-**Purpose**: Live configuration of GitHub secrets and variables
+**GitHub configuration is now part of the bootstrap process** and has been relocated to:
 
-**When to run**: During the demo (typically at minute 30-32)
-
-**What it does**:
-- Reads account IDs from local `accounts.json`
-- Displays current GitHub configuration
-- Sets AWS_ASSUME_ROLE_CENTRAL secret
-- Sets all required GitHub variables (account IDs, regions, etc.)
-- Verifies configuration completed successfully
-
-**Usage**:
 ```bash
-./scripts/demo/configure-github-secrets.sh
+../bootstrap/configure-github.sh
 ```
 
-**Interactive flow**:
-1. Validates prerequisites (gh CLI, jq, accounts.json)
-2. Shows current secrets/variables state
-3. Prompts for confirmation
-4. Configures all secrets and variables
-5. Verifies configuration
+This script is now Step 3 of the bootstrap suite:
+1. `bootstrap-organization.sh` - Create AWS Organization and accounts
+2. `bootstrap-foundation.sh` - Create OIDC providers, IAM roles, and Terraform backends
+3. **`configure-github.sh`** - Configure GitHub repository for CI/CD workflows
 
-**What it configures**:
+**For demo presentations**, use the relocated script:
+```bash
+./scripts/bootstrap/configure-github.sh
+```
 
-**Secrets:**
-- `AWS_ASSUME_ROLE_CENTRAL` - Central OIDC role ARN for cross-account access
+**What it configures:**
+- AWS account IDs as GitHub variables
+- OIDC role ARNs as GitHub secrets
+- Infrastructure settings (regions, versions, budgets)
 
-**Variables:**
-- `AWS_ACCOUNT_ID_MANAGEMENT` - Management account ID
-- `AWS_ACCOUNT_ID_DEV` - Development account ID
-- `AWS_ACCOUNT_ID_STAGING` - Staging account ID
-- `AWS_ACCOUNT_ID_PROD` - Production account ID
-- `AWS_DEFAULT_REGION` - Primary AWS region (us-east-1)
-- `REPLICA_REGION` - Backup region (us-west-2)
-- `OPENTOFU_VERSION` - OpenTofu version (1.6.1)
-- `DEFAULT_ENVIRONMENT` - Default deployment target (dev)
-- `MONTHLY_BUDGET_LIMIT` - Budget alert threshold ($40)
-- `ALERT_EMAIL_ADDRESSES` - Alert email addresses
+See `../bootstrap/configure-github.sh --help` for full documentation.
 
 ---
 
@@ -138,8 +122,8 @@ All these paths are in `.gitignore` to prevent accidental commits of sensitive d
 
 1. **Configure GitHub (minute 30-32)**:
    ```bash
-   # Run interactively during demo
-   ./scripts/demo/configure-github-secrets.sh
+   # Run interactively during demo (Step 3 of bootstrap)
+   ./scripts/bootstrap/configure-github.sh
    ```
 
 2. **Create feature branch (minute 32-34)**:

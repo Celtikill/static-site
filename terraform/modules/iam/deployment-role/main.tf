@@ -69,11 +69,11 @@ resource "aws_iam_policy" "terraform_state" {
         ]
         Resource = [
           # Legacy centralized backend (org-management, iam-management in management account)
-          "arn:aws:s3:::static-site-terraform-state-us-east-1",
-          "arn:aws:s3:::static-site-terraform-state-us-east-1/*",
+          "arn:aws:s3:::celtikill-static-site-terraform-state-*",
+          "arn:aws:s3:::celtikill-static-site-terraform-state-*/*",
           # Modern distributed backend (per-environment buckets in respective accounts)
-          "arn:aws:s3:::static-site-state-${var.environment}-*",
-          "arn:aws:s3:::static-site-state-${var.environment}-*/*"
+          "arn:aws:s3:::celtikill-static-site-state-${var.environment}-*",
+          "arn:aws:s3:::celtikill-static-site-state-${var.environment}-*/*"
         ]
       },
       {
@@ -83,7 +83,7 @@ resource "aws_iam_policy" "terraform_state" {
           "dynamodb:PutItem",
           "dynamodb:DeleteItem"
         ]
-        Resource = "arn:aws:dynamodb:${var.state_bucket_region}:${var.state_bucket_account_id}:table/static-site-locks-${var.environment}"
+        Resource = "arn:aws:dynamodb:${var.state_bucket_region}:${var.state_bucket_account_id}:table/celtikill-static-site-locks-${var.environment}"
       }
     ]
   })

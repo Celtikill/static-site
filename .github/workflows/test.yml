@@ -120,7 +120,7 @@ jobs:
         id: auth
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ steps.account.outputs.account_id }}:role/GitHubActions-StaticSite-${{ steps.account.outputs.environment_cap }}-Role
+          role-to-assume: arn:aws:iam::${{ steps.account.outputs.account_id }}:role/GitHubActions-Static-site-${{ steps.account.outputs.environment_cap }}-Role
           role-session-name: github-actions-test-${{ needs.info.outputs.target_environment }}-${{ github.run_id }}
           aws-region: ${{ vars.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com

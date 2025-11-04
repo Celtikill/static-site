@@ -12,7 +12,11 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source configuration and libraries
+# Initialize bootstrap-specific paths
+readonly OUTPUT_DIR="${SCRIPT_DIR}/output"
+mkdir -p "${OUTPUT_DIR}"
+
+# Source unified configuration and libraries
 source "${SCRIPT_DIR}/config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
@@ -35,14 +39,24 @@ ${RED}WARNING: This is a destructive operation!${NC}
 ${RED}All Terraform state and bootstrap infrastructure will be deleted.${NC}
 
 OPTIONS:
-    -d, --dry-run          Simulate actions without making changes
-    -v, --verbose          Enable verbose output
-    -f, --force            Skip confirmation prompt
-    -h, --help            Show this help message
+    -d, --dry-run              Simulate actions without making changes
+    -v, --verbose              Enable verbose output
+    -f, --force                Skip confirmation prompt
+    -h, --help                 Show this help message
+
+GRANULAR DESTRUCTION OPTIONS:
+    --backends-only            Only destroy Terraform backends (S3 + DynamoDB)
+    --roles-only               Only destroy GitHub Actions IAM roles
+    --oidc-only                Only destroy OIDC providers
+    --central-bucket-only      Only destroy central foundation state bucket
+    --accounts LIST            Comma-separated list of accounts (dev,staging,prod)
+    --s3-timeout SECONDS       S3 bucket emptying timeout (default: 180)
+    --close-accounts           Close member AWS accounts (PERMANENT - 90 day recovery)
 
 ENVIRONMENT VARIABLES:
-    DRY_RUN               Set to 'true' for dry-run mode
-    VERBOSE               Set to 'true' for verbose output
+    DRY_RUN                   Set to 'true' for dry-run mode
+    VERBOSE                   Set to 'true' for verbose output
+    S3_TIMEOUT                S3 bucket emptying timeout in seconds
 
 DESCRIPTION:
     This script performs the inverse of bootstrap-foundation.sh:
@@ -57,7 +71,7 @@ DESCRIPTION:
     - OrganizationAccountAccessRole must exist in target accounts
 
 EXAMPLES:
-    # Normal execution (with confirmation)
+    # Destroy all bootstrap infrastructure (with confirmation)
     $0
 
     # Force destroy without confirmation
@@ -66,8 +80,20 @@ EXAMPLES:
     # Dry-run mode
     $0 --dry-run
 
-    # Verbose mode
-    $0 --verbose
+    # Only destroy backends in dev and staging
+    $0 --backends-only --accounts dev,staging
+
+    # Only destroy roles with custom S3 timeout
+    $0 --roles-only --s3-timeout 300 --force
+
+    # Destroy central bucket only
+    $0 --central-bucket-only --force
+
+    # Destroy everything including closing member accounts (EXTREME)
+    $0 --force --close-accounts
+
+    # Close only dev account
+    $0 --close-accounts --accounts dev --force
 
 EOF
 }
@@ -77,6 +103,12 @@ EOF
 # =============================================================================
 
 FORCE_DESTROY=false
+DESTROY_BACKENDS=true
+DESTROY_ROLES=true
+DESTROY_OIDC=true
+DESTROY_CENTRAL_BUCKET=true
+CLOSE_MEMBER_ACCOUNTS=false
+ACCOUNT_FILTER=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -90,6 +122,46 @@ while [[ $# -gt 0 ]]; do
             ;;
         -f|--force)
             FORCE_DESTROY=true
+            shift
+            ;;
+        --backends-only)
+            DESTROY_BACKENDS=true
+            DESTROY_ROLES=false
+            DESTROY_OIDC=false
+            DESTROY_CENTRAL_BUCKET=false
+            shift
+            ;;
+        --roles-only)
+            DESTROY_BACKENDS=false
+            DESTROY_ROLES=true
+            DESTROY_OIDC=false
+            DESTROY_CENTRAL_BUCKET=false
+            shift
+            ;;
+        --oidc-only)
+            DESTROY_BACKENDS=false
+            DESTROY_ROLES=false
+            DESTROY_OIDC=true
+            DESTROY_CENTRAL_BUCKET=false
+            shift
+            ;;
+        --central-bucket-only)
+            DESTROY_BACKENDS=false
+            DESTROY_ROLES=false
+            DESTROY_OIDC=false
+            DESTROY_CENTRAL_BUCKET=true
+            shift
+            ;;
+        --accounts)
+            ACCOUNT_FILTER="$2"
+            shift 2
+            ;;
+        --s3-timeout)
+            export S3_TIMEOUT="$2"
+            shift 2
+            ;;
+        --close-accounts)
+            CLOSE_MEMBER_ACCOUNTS=true
             shift
             ;;
         -h|--help)
@@ -114,20 +186,48 @@ confirm_destroy() {
     fi
 
     cat <<EOF
-${RED}${BOLD}WARNING: You are about to destroy all bootstrap infrastructure!${NC}
+${RED}${BOLD}WARNING: You are about to destroy bootstrap infrastructure!${NC}
 
 This will delete:
-  - Terraform backends (S3 buckets + DynamoDB tables) in all accounts
-  - GitHub Actions deployment roles in all accounts
-  - OIDC providers in all accounts
-  - Central foundation state bucket
+EOF
+
+    # Show what will be destroyed based on flags
+    [[ "$DESTROY_BACKENDS" == "true" ]] && echo "  - Terraform backends (S3 buckets + DynamoDB tables)"
+    [[ "$DESTROY_ROLES" == "true" ]] && echo "  - GitHub Actions deployment roles"
+    [[ "$DESTROY_OIDC" == "true" ]] && echo "  - OIDC providers"
+    [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]] && echo "  - Central foundation state bucket"
+    [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]] && echo "  - ${RED}Member AWS accounts (PERMANENT - 90 day recovery)${NC}"
+
+    cat <<EOF
 
 ${YELLOW}You will need to re-run bootstrap-foundation.sh to recreate these resources.${NC}
 
 Accounts that will be affected:
-  - Dev:     ${DEV_ACCOUNT}
-  - Staging: ${STAGING_ACCOUNT}
-  - Prod:    ${PROD_ACCOUNT}
+EOF
+
+    # Show accounts based on filter
+    if [[ -n "$ACCOUNT_FILTER" ]]; then
+        IFS=',' read -ra ACCOUNTS <<< "$ACCOUNT_FILTER"
+        for account in "${ACCOUNTS[@]}"; do
+            case "$account" in
+                dev)
+                    echo "  - Dev:     ${DEV_ACCOUNT}"
+                    ;;
+                staging)
+                    echo "  - Staging: ${STAGING_ACCOUNT}"
+                    ;;
+                prod)
+                    echo "  - Prod:    ${PROD_ACCOUNT}"
+                    ;;
+            esac
+        done
+    else
+        echo "  - Dev:     ${DEV_ACCOUNT}"
+        echo "  - Staging: ${STAGING_ACCOUNT}"
+        echo "  - Prod:    ${PROD_ACCOUNT}"
+    fi
+
+    cat <<EOF
 
 Type 'destroy' to confirm:
 EOF
@@ -159,8 +259,14 @@ main() {
     # Confirm destruction
     confirm_destroy
 
-    # Set total steps for progress tracking
-    local total_steps=5
+    # Calculate total steps based on what's being destroyed
+    local total_steps=1  # Prerequisites
+    [[ "$DESTROY_BACKENDS" == "true" ]] && ((total_steps++))
+    [[ "$DESTROY_ROLES" == "true" ]] && ((total_steps++))
+    [[ "$DESTROY_OIDC" == "true" ]] && ((total_steps++))
+    [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]] && ((total_steps++))
+    [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]] && ((total_steps++))
+
     set_steps $total_steps
     start_timer
 
@@ -172,29 +278,47 @@ main() {
     log_info "Dev Account: $DEV_ACCOUNT"
     log_info "Staging Account: $STAGING_ACCOUNT"
     log_info "Prod Account: $PROD_ACCOUNT"
+    [[ -n "$ACCOUNT_FILTER" ]] && log_info "Account filter: $ACCOUNT_FILTER"
+    log_info "S3 timeout: ${S3_TIMEOUT}s"
 
-    # Step 2: Destroy Terraform backends
-    step "Destroying Terraform backends"
-    if ! destroy_all_terraform_backends; then
-        log_warn "Some backends failed to destroy (may not exist)"
+    # Step 2: Destroy Terraform backends (if enabled)
+    if [[ "$DESTROY_BACKENDS" == "true" ]]; then
+        step "Destroying Terraform backends"
+        if ! destroy_all_terraform_backends; then
+            log_warn "Some backends failed to destroy (may not exist)"
+        fi
     fi
 
-    # Step 3: Delete GitHub Actions roles
-    step "Deleting GitHub Actions roles"
-    if ! delete_all_github_actions_roles; then
-        log_warn "Some roles failed to delete (may not exist)"
+    # Step 3: Delete GitHub Actions roles (if enabled)
+    if [[ "$DESTROY_ROLES" == "true" ]]; then
+        step "Deleting GitHub Actions roles"
+        if ! delete_all_github_actions_roles; then
+            log_warn "Some roles failed to delete (may not exist)"
+        fi
     fi
 
-    # Step 4: Delete OIDC providers
-    step "Deleting OIDC providers"
-    if ! delete_all_oidc_providers; then
-        log_warn "Some OIDC providers failed to delete (may not exist)"
+    # Step 4: Delete OIDC providers (if enabled)
+    if [[ "$DESTROY_OIDC" == "true" ]]; then
+        step "Deleting OIDC providers"
+        if ! delete_all_oidc_providers; then
+            log_warn "Some OIDC providers failed to delete (may not exist)"
+        fi
     fi
 
-    # Step 5: Delete central foundation bucket
-    step "Deleting central foundation state bucket"
-    if ! delete_central_state_bucket; then
-        log_warn "Central bucket failed to delete (may not exist)"
+    # Step 5: Delete central foundation bucket (if enabled)
+    if [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]]; then
+        step "Deleting central foundation state bucket"
+        if ! delete_central_state_bucket; then
+            log_warn "Central bucket failed to delete (may not exist)"
+        fi
+    fi
+
+    # Step 6: Close member accounts (if enabled)
+    if [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]]; then
+        step "Closing member AWS accounts"
+        if ! close_member_accounts; then
+            log_warn "Some accounts failed to close or were skipped"
+        fi
     fi
 
     end_timer
@@ -205,18 +329,24 @@ main() {
 ${BOLD}Bootstrap Foundation Destroyed:${NC}
 
 Deleted Resources:
-  ✓ Terraform backends (S3 + DynamoDB) in dev, staging, prod
-  ✓ GitHub Actions deployment roles in all accounts
-  ✓ OIDC providers in all accounts
-  ✓ Central foundation state bucket
+EOF
+
+    # Show what was destroyed
+    [[ "$DESTROY_BACKENDS" == "true" ]] && echo "  ✓ Terraform backends (S3 + DynamoDB)"
+    [[ "$DESTROY_ROLES" == "true" ]] && echo "  ✓ GitHub Actions deployment roles"
+    [[ "$DESTROY_OIDC" == "true" ]] && echo "  ✓ OIDC providers"
+    [[ "$DESTROY_CENTRAL_BUCKET" == "true" ]] && echo "  ✓ Central foundation state bucket"
+    [[ "$CLOSE_MEMBER_ACCOUNTS" == "true" ]] && echo "  ✓ Member AWS accounts closed (90-day recovery period)"
+
+    cat <<EOF
 
 ${BOLD}Next Steps:${NC}
 
 To recreate the bootstrap infrastructure:
   ${BLUE}./bootstrap-foundation.sh${NC}
 
-To recreate just specific components, edit the script or
-run individual functions from the lib/ directory.
+To recreate just specific components, use the granular options:
+  ${BLUE}./bootstrap-foundation.sh --help${NC}
 
 EOF
 
@@ -224,85 +354,123 @@ EOF
     local duration=$(($(date +%s) - START_TIME))
     write_report "success" "$duration" $total_steps 0
 
-    log_success "Destroy complete! All bootstrap resources removed."
+    log_success "Destroy complete! Selected bootstrap resources removed."
 }
 
 # =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
+should_process_account() {
+    local env="$1"
+
+    # If no filter, process all accounts
+    [[ -z "$ACCOUNT_FILTER" ]] && return 0
+
+    # Check if account is in filter
+    IFS=',' read -ra ACCOUNTS <<< "$ACCOUNT_FILTER"
+    for account in "${ACCOUNTS[@]}"; do
+        [[ "$account" == "$env" ]] && return 0
+    done
+
+    return 1
+}
+
 destroy_all_terraform_backends() {
-    log_step "Destroying Terraform backends in all accounts..."
+    log_step "Destroying Terraform backends in filtered accounts..."
 
     local failed=0
+    local processed=0
 
     # Destroy backends in reverse order (prod -> staging -> dev)
-    if ! destroy_terraform_backend "$PROD_ACCOUNT" "prod"; then
-        ((failed++))
+    if should_process_account "prod"; then
+        if ! destroy_terraform_backend "$PROD_ACCOUNT" "prod"; then
+            ((failed++))
+        fi
+        ((processed++))
     fi
 
-    if ! destroy_terraform_backend "$STAGING_ACCOUNT" "staging"; then
-        ((failed++))
+    if should_process_account "staging"; then
+        if ! destroy_terraform_backend "$STAGING_ACCOUNT" "staging"; then
+            ((failed++))
+        fi
+        ((processed++))
     fi
 
-    if ! destroy_terraform_backend "$DEV_ACCOUNT" "dev"; then
-        ((failed++))
+    if should_process_account "dev"; then
+        if ! destroy_terraform_backend "$DEV_ACCOUNT" "dev"; then
+            ((failed++))
+        fi
+        ((processed++))
     fi
 
     if [[ $failed -gt 0 ]]; then
-        log_error "Failed to destroy $failed backend(s)"
+        log_error "Failed to destroy $failed backend(s) out of $processed"
         return 1
     fi
 
-    log_success "All Terraform backends destroyed"
+    log_success "All Terraform backends destroyed ($processed accounts)"
     return 0
 }
 
-delete_all_github_actions_roles() {
-    log_step "Deleting GitHub Actions roles in all accounts..."
+delete_all_iam_roles() {
+    log_step "Destroying IAM roles via Terraform..."
 
-    local failed=0
+    # Note: Terraform destroy handles all roles (GitHub Actions + Read-Only) in all accounts
+    # The account filter logic doesn't apply here - Terraform manages state as a unit
 
-    # Delete roles in reverse order (prod -> staging -> dev)
-    if ! delete_github_actions_role "$PROD_ACCOUNT" "prod"; then
-        ((failed++))
+    if ! destroy_iam_roles_via_terraform; then
+        log_warn "Failed to destroy IAM roles via Terraform (may not exist)"
+        return 1
     fi
 
-    if ! delete_github_actions_role "$STAGING_ACCOUNT" "staging"; then
-        ((failed++))
-    fi
-
-    if ! delete_github_actions_role "$DEV_ACCOUNT" "dev"; then
-        ((failed++))
-    fi
-
-    if [[ $failed -gt 0 ]]; then
-        log_warn "Failed to delete $failed role(s) (may not exist)"
-    fi
-
-    log_success "All GitHub Actions roles deleted"
+    log_success "All IAM roles destroyed via Terraform"
     return 0
+}
+
+# Alias for backward compatibility
+delete_all_github_actions_roles() {
+    delete_all_iam_roles
 }
 
 delete_all_oidc_providers() {
-    log_step "Deleting OIDC providers in all accounts..."
+    log_step "Deleting OIDC providers in filtered accounts..."
 
-    local oidc_arn="arn:aws:iam::${MANAGEMENT_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+    local failed=0
+    local processed=0
 
-    log_info "Deleting OIDC provider: $oidc_arn"
-
-    if aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$oidc_arn" 2>&1; then
-        log_success "Deleted OIDC provider"
-    else
-        log_warn "Failed to delete OIDC provider (may not exist)"
+    # Delete OIDC providers in reverse order (prod -> staging -> dev)
+    if should_process_account "prod"; then
+        if ! delete_oidc_provider "$PROD_ACCOUNT"; then
+            ((failed++))
+        fi
+        ((processed++))
     fi
 
-    log_success "All OIDC providers deleted"
+    if should_process_account "staging"; then
+        if ! delete_oidc_provider "$STAGING_ACCOUNT"; then
+            ((failed++))
+        fi
+        ((processed++))
+    fi
+
+    if should_process_account "dev"; then
+        if ! delete_oidc_provider "$DEV_ACCOUNT"; then
+            ((failed++))
+        fi
+        ((processed++))
+    fi
+
+    if [[ $failed -gt 0 ]]; then
+        log_warn "Failed to delete $failed OIDC provider(s) out of $processed (may not exist)"
+    fi
+
+    log_success "All OIDC providers deleted ($processed accounts)"
     return 0
 }
 
 delete_central_state_bucket() {
-    local bucket_name="static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
+    local bucket_name="${PROJECT_NAME}-terraform-state-${MANAGEMENT_ACCOUNT_ID}"
 
     log_info "Deleting central foundation state bucket: $bucket_name"
 

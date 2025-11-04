@@ -314,8 +314,8 @@ Each environment has:
 # Make sure you're in the repository root
 cd /home/user0/workspace/github/celtikill/static-site
 
-# Run the secrets configuration script
-./scripts/demo/configure-github-secrets.sh
+# Run the GitHub configuration script (Step 3 of bootstrap)
+./scripts/bootstrap/configure-github.sh
 ```
 
 **While script runs, narrate**:
@@ -643,7 +643,7 @@ A: "The patterns are production-ready. This specific implementation is MVP - sho
 cat scripts/demo/demo-reference.txt
 
 # Live demo commands
-./scripts/demo/configure-github-secrets.sh
+./scripts/bootstrap/configure-github.sh
 git checkout -b feature/demo-$(date +%Y%m%d-%H%M)
 echo "<!-- Demo: $(date) -->" >> src/index.html
 git add src/index.html && git commit -m "demo: live deployment"

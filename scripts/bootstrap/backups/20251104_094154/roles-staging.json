@@ -1,0 +1,6 @@
+[
+    {
+        "RoleName": "GitHubActions-Static-site-Staging-Role",
+        "Arn": "arn:aws:iam::927588814642:role/GitHubActions-Static-site-Staging-Role"
+    }
+]

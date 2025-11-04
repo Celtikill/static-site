@@ -12,7 +12,7 @@ set -euo pipefail
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source configuration and libraries
+# Source unified configuration and libraries
 source "${SCRIPT_DIR}/config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
@@ -40,10 +40,10 @@ ENVIRONMENT VARIABLES:
 DESCRIPTION:
     This script performs Stage 1 of the bootstrap process:
     1. Creates AWS Organization (if not exists)
-    2. Creates Workloads OU structure
-    3. Creates Development, Staging, and Production OUs
-    4. Creates member accounts for each environment
-    5. Moves accounts to appropriate OUs
+    2. Creates Workloads OU
+    3. Creates project OU under Workloads (named from GITHUB_REPO)
+    4. Creates three member accounts (dev, staging, prod)
+    5. Places accounts in the project OU
     6. Saves account IDs to accounts.json
 
     Run this script FIRST on a fresh AWS account, then run
@@ -96,7 +96,7 @@ main() {
     print_header "AWS Organizations Bootstrap - Stage 1"
 
     # Set total steps for progress tracking
-    set_steps 6
+    set_steps 7
     start_timer
 
     # Step 1: Verify prerequisites
@@ -128,7 +128,13 @@ main() {
     save_accounts
     log_success "Account IDs saved to: $ACCOUNTS_FILE"
 
-    # Step 5: Verify cross-account access
+    # Step 5: Organize accounts in project OU
+    step "Organizing project accounts in OU"
+    if ! ensure_accounts_in_project_ou; then
+        log_warn "Some accounts could not be moved (this is non-critical)"
+    fi
+
+    # Step 6: Verify cross-account access
     step "Verifying cross-account access"
     log_info "Waiting 30 seconds for OrganizationAccountAccessRole to be available..."
     sleep 30
@@ -137,7 +143,7 @@ main() {
     enable_organization_account_access "$STAGING_ACCOUNT"
     enable_organization_account_access "$PROD_ACCOUNT"
 
-    # Step 6: Generate summary
+    # Step 7: Generate summary
     step "Generating summary"
     end_timer
 

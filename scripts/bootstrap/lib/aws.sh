@@ -121,13 +121,14 @@ s3_bucket_exists() {
 
 dynamodb_table_exists() {
     local table_name="$1"
+    local region="${2:-$AWS_DEFAULT_REGION}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if DynamoDB table exists: $table_name"
         return 1
     fi
 
-    if aws dynamodb describe-table --table-name "$table_name" &>/dev/null; then
+    if aws dynamodb describe-table --table-name "$table_name" --region "$region" &>/dev/null; then
         return 0
     else
         return 1
@@ -193,27 +194,30 @@ organization_exists() {
 
 ou_exists() {
     local ou_name="$1"
+    local parent_id="${2:-}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if OU exists: $ou_name"
         return 1
     fi
 
-    local root_id
-    if ! root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>&1); then
-        log_error "Failed to list organization roots"
-        log_error "AWS CLI error: $root_id"
-        return 1
-    fi
+    # If no parent_id provided, use root
+    if [[ -z "$parent_id" ]]; then
+        if ! parent_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>&1); then
+            log_error "Failed to list organization roots"
+            log_error "AWS CLI error: $parent_id"
+            return 1
+        fi
 
-    if [[ -z "$root_id" ]] || [[ "$root_id" == "None" ]]; then
-        log_debug "No organization root found"
-        return 1
+        if [[ -z "$parent_id" ]] || [[ "$parent_id" == "None" ]]; then
+            log_debug "No organization root found"
+            return 1
+        fi
     fi
 
     local ous
-    if ! ous=$(aws organizations list-organizational-units-for-parent --parent-id "$root_id" --query "OrganizationalUnits[?Name=='$ou_name'].Id" --output text 2>&1); then
-        log_error "Failed to list OUs for root: $root_id"
+    if ! ous=$(aws organizations list-organizational-units-for-parent --parent-id "$parent_id" --query "OrganizationalUnits[?Name=='$ou_name'].Id" --output text 2>&1); then
+        log_error "Failed to list OUs for parent: $parent_id"
         log_error "AWS CLI error: $ous"
         return 1
     fi
@@ -222,19 +226,21 @@ ou_exists() {
         echo "$ous"
         return 0
     else
-        log_debug "OU not found: $ou_name"
+        log_debug "OU not found: $ou_name (parent: $parent_id)"
         return 1
     fi
 }
 
 account_exists() {
     local account_email="$1"
+    local account_name="${2:-}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if account exists: $account_email"
         return 1
     fi
 
+    # First try to find by email
     local account_id
     if ! account_id=$(aws organizations list-accounts --query "Accounts[?Email=='$account_email'].Id" --output text 2>&1); then
         log_error "Failed to list accounts"
@@ -243,12 +249,29 @@ account_exists() {
     fi
 
     if [[ -n "$account_id" ]] && [[ "$account_id" != "None" ]]; then
+        log_debug "Account found by email: $account_email (ID: $account_id)"
         echo "$account_id"
         return 0
-    else
-        log_debug "Account not found: $account_email"
-        return 1
     fi
+
+    # If not found by email and name provided, try to find by name
+    if [[ -n "$account_name" ]]; then
+        log_debug "Account not found by email, trying by name: $account_name"
+        if ! account_id=$(aws organizations list-accounts --query "Accounts[?Name=='$account_name'].Id" --output text 2>&1); then
+            log_error "Failed to list accounts by name"
+            log_error "AWS CLI error: $account_id"
+            return 1
+        fi
+
+        if [[ -n "$account_id" ]] && [[ "$account_id" != "None" ]]; then
+            log_debug "Account found by name: $account_name (ID: $account_id)"
+            echo "$account_id"
+            return 0
+        fi
+    fi
+
+    log_debug "Account not found: $account_email"
+    return 1
 }
 
 # =============================================================================
@@ -334,6 +357,67 @@ wait_for_account() {
 
     log_error "Timeout waiting for account: $account_id"
     return 1
+}
+
+# Check account status and return the status string
+# Returns: ACTIVE, SUSPENDED, PENDING_CLOSURE, or NOT_FOUND
+# Usage: status=$(check_account_status "$account_id")
+check_account_status() {
+    local account_id="$1"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "ACTIVE"
+        return 0
+    fi
+
+    local status
+    status=$(aws organizations describe-account \
+        --account-id "$account_id" \
+        --query 'Account.Status' \
+        --output text 2>/dev/null || echo "NOT_FOUND")
+
+    echo "$status"
+    return 0
+}
+
+# Validate account is in ACTIVE state
+# Returns 0 if ACTIVE, 1 otherwise
+# Usage: if validate_account_active "$account_id" "$env_name"; then ...
+validate_account_active() {
+    local account_id="$1"
+    local env_name="${2:-unknown}"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would validate account status for: $account_id"
+        return 0
+    fi
+
+    local status
+    status=$(check_account_status "$account_id")
+
+    case "$status" in
+        ACTIVE)
+            return 0
+            ;;
+        SUSPENDED)
+            log_error "Account $account_id ($env_name) is SUSPENDED"
+            log_error "Suspended accounts cannot be used for bootstrap operations"
+            return 1
+            ;;
+        PENDING_CLOSURE)
+            log_error "Account $account_id ($env_name) is PENDING_CLOSURE"
+            log_error "Closed accounts cannot be used for bootstrap operations"
+            return 1
+            ;;
+        NOT_FOUND)
+            log_error "Account $account_id ($env_name) not found in organization"
+            return 1
+            ;;
+        *)
+            log_error "Account $account_id ($env_name) has unknown status: $status"
+            return 1
+            ;;
+    esac
 }
 
 # =============================================================================

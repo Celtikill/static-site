@@ -58,8 +58,8 @@ variable "aws_region" {
 
 # Local values for resource naming
 locals {
-  bucket_name = "static-site-state-${var.environment}-${var.aws_account_id}"
-  table_name  = "static-site-locks-${var.environment}"
+  bucket_name = "celtikill-static-site-state-${var.environment}-${var.aws_account_id}"
+  table_name  = "celtikill-static-site-locks-${var.environment}"
 
   common_tags = {
     Environment = var.environment
@@ -186,7 +186,7 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         Sid    = "AllowDeploymentRole"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
+          AWS = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-Static-site-${title(var.environment)}-Role"
         }
         Action = [
           "s3:ListBucket",

@@ -17,15 +17,30 @@ readonly TEMPLATES_DIR="${BOOTSTRAP_DIR}/templates"
 readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
 readonly OUTPUT_DIR="${OUTPUT_DIR:-${BOOTSTRAP_DIR}/output}"
 
+# Terraform paths
+readonly TERRAFORM_ROOT="${BOOTSTRAP_DIR}/../../terraform"
+readonly TERRAFORM_IAM_DIR="${TERRAFORM_ROOT}/foundations/iam-roles"
+readonly TERRAFORM_MODULES_DIR="${TERRAFORM_ROOT}/modules"
+
 # =============================================================================
 # PROJECT CONFIGURATION
 # =============================================================================
 
-readonly PROJECT_NAME="static-site"
+readonly PROJECT_NAME="celtikill-static-site"
 readonly GITHUB_REPO="Celtikill/static-site"
 readonly EXTERNAL_ID="github-actions-static-site"
-readonly AWS_DEFAULT_REGION="us-east-1"
+readonly AWS_DEFAULT_REGION="us-east-2"
 readonly MANAGEMENT_ACCOUNT_ID="223938610551"
+
+# Derived configuration
+readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from "Celtikill/static-site"
+readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "static-site"
+readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+static-site"
+readonly IAM_ROLE_PREFIX="GitHubActions-${PROJECT_SHORT_NAME^}"  # "GitHubActions-Static-site" (capitalize first letter)
+
+# IAM role configuration
+readonly READONLY_ROLE_PREFIX="${PROJECT_SHORT_NAME}-ReadOnly"  # "static-site-ReadOnly"
+readonly GITHUB_ACTIONS_ROLE_NAME_PREFIX="GitHubActions"
 
 # =============================================================================
 # STATE MANAGEMENT
@@ -40,7 +55,7 @@ readonly MANAGEMENT_ACCOUNT_ID="223938610551"
 #     - IAM management roles (foundations/iam-management/)
 #     - Organization management (foundations/org-management/)
 #   Access: All engineers with management account credentials
-#   Region: us-east-1
+#   Region: us-east-2
 #
 # Per-Account State Buckets:
 #   Name: static-site-state-{env}-{account-id}

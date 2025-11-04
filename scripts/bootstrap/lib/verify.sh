@@ -36,38 +36,36 @@ verify_organization_structure() {
         return 1
     fi
 
-    # Verify environment OUs
-    local dev_ou staging_ou prod_ou
+    # Verify project OU under Workloads (project-based structure)
+    local project_name="${GITHUB_REPO##*/}"
+    local project_ou
 
-    if dev_ou=$(aws organizations list-organizational-units-for-parent \
+    if project_ou=$(aws organizations list-organizational-units-for-parent \
         --parent-id "$workloads_ou" \
-        --query "OrganizationalUnits[?Name=='Development'].Id" \
-        --output text 2>/dev/null) && [[ -n "$dev_ou" ]]; then
-        log_success "Development OU exists: $dev_ou"
+        --query "OrganizationalUnits[?Name=='$project_name'].Id" \
+        --output text 2>/dev/null) && [[ -n "$project_ou" ]]; then
+        log_success "Project OU exists: $project_name ($project_ou)"
     else
-        log_error "Development OU not found"
+        log_error "Project OU not found: $project_name"
+        log_error "Expected structure: Workloads/$project_name/[accounts]"
         return 1
     fi
 
-    if staging_ou=$(aws organizations list-organizational-units-for-parent \
-        --parent-id "$workloads_ou" \
-        --query "OrganizationalUnits[?Name=='Staging'].Id" \
-        --output text 2>/dev/null) && [[ -n "$staging_ou" ]]; then
-        log_success "Staging OU exists: $staging_ou"
-    else
-        log_error "Staging OU not found"
-        return 1
-    fi
+    # Verify accounts are placed in project OU
+    require_accounts || return 1
 
-    if prod_ou=$(aws organizations list-organizational-units-for-parent \
-        --parent-id "$workloads_ou" \
-        --query "OrganizationalUnits[?Name=='Production'].Id" \
-        --output text 2>/dev/null) && [[ -n "$prod_ou" ]]; then
-        log_success "Production OU exists: $prod_ou"
-    else
-        log_error "Production OU not found"
-        return 1
-    fi
+    for account_id in "$DEV_ACCOUNT" "$STAGING_ACCOUNT" "$PROD_ACCOUNT"; do
+        local account_parent
+        account_parent=$(aws organizations list-parents --child-id "$account_id" \
+            --query 'Parents[0].Id' --output text 2>/dev/null || echo "NOT_FOUND")
+
+        if [[ "$account_parent" == "$project_ou" ]]; then
+            log_success "Account $account_id is in correct project OU"
+        else
+            log_error "Account $account_id parent is $account_parent, expected $project_ou"
+            return 1
+        fi
+    done
 
     log_success "Organization structure verified"
     return 0
