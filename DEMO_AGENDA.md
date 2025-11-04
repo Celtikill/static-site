@@ -320,16 +320,16 @@ cd /home/user0/workspace/github/celtikill/static-site
 
 **While script runs, narrate**:
 - "Reading account IDs from local accounts.json file"
-- "Setting AWS_ASSUME_ROLE_CENTRAL secret for OIDC authentication"
 - "Configuring environment-specific account variables"
-- "No AWS credentials stored in GitHub - only OIDC trust relationship"
+- "Setting up AWS regions (us-east-2 primary, us-west-2 replica)"
+- "No AWS credentials stored in GitHub - Direct OIDC handles authentication automatically"
 
 **Expected output**:
 ```
 ✓ GitHub CLI authenticated
 ✓ accounts.json found
-✓ AWS_ASSUME_ROLE_CENTRAL configured
 ✓ All secrets and variables configured successfully!
+✓ No AWS secrets needed - OIDC authentication enabled
 ```
 
 **If prompted for confirmation**: Type `y` and press Enter

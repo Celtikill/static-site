@@ -272,12 +272,12 @@ EXAMPLES:
 **What it configures:**
 
 1. **GitHub Secrets:**
-   - `AWS_ASSUME_ROLE_CENTRAL` - Central OIDC role ARN
+   - None required! Direct OIDC authentication eliminates the need for stored AWS credentials
 
 2. **GitHub Variables:**
    - AWS account IDs (management, dev, staging, prod)
-   - AWS regions (us-east-1, us-west-2)
-   - Infrastructure settings (OpenTofu version, budget limits, etc.)
+   - AWS regions (configured in config.sh - default: us-east-2 primary, us-west-2 replica)
+   - Infrastructure settings (OpenTofu version, budget limits, alert emails, etc.)
 
 **Interactive Flow:**
 1. Validates prerequisites (gh CLI, accounts.json)
@@ -614,9 +614,9 @@ After bootstrap, your GitHub Actions workflows can authenticate **directly** to 
 - name: Configure AWS Credentials (Direct OIDC)
   uses: aws-actions/configure-aws-credentials@v4
   with:
-    role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-StaticSite-Dev-Role
+    role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-Static-site-dev
     role-session-name: github-actions-dev-${{ github.run_id }}
-    aws-region: us-east-1
+    aws-region: us-east-2  # See config.sh for region configuration
     audience: sts.amazonaws.com
 ```
 
