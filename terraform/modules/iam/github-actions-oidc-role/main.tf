@@ -11,8 +11,8 @@ locals {
 
 # IAM Role with OIDC trust policy
 resource "aws_iam_role" "github_actions" {
-  name               = local.role_name
-  description        = "GitHub Actions deployment role for ${var.environment} environment"
+  name                 = local.role_name
+  description          = "GitHub Actions deployment role for ${var.environment} environment"
   max_session_duration = var.max_session_duration
 
   assume_role_policy = jsonencode({
