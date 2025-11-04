@@ -12,7 +12,15 @@ This directory contains CI/CD pipeline workflows for automated deployment and va
 | **release-prod.yml** | Production deployment | GitHub Release |
 | **emergency.yml** | Hotfix and rollback operations | Manual only |
 
-**Reusable workflows**: `reusable-aws-auth.yml`, `reusable-cross-account-roles.yml`, `reusable-terraform-ops.yml`
+## Reusable Workflow Examples
+
+This repository includes example reusable workflows in [`.github/workflow-examples/`](../workflow-examples/). These are **templates demonstrating organizational workflow sharing patterns** but are **not currently integrated** into active workflows.
+
+See [workflow-examples/README.md](../workflow-examples/README.md) for:
+- Organizational workflow sharing best practices (2025)
+- Implementation roadmap for centralized workflow libraries
+- OIDC authentication patterns
+- Usage examples and documentation
 
 ## Quick Commands
 

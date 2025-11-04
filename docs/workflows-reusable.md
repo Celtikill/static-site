@@ -1,5 +1,9 @@
 # Reusable GitHub Actions Workflows
 
+> **📍 LOCATION**: The reusable workflows described in this document are located in [`.github/workflow-examples/`](../.github/workflow-examples/) as **examples and templates**. They are **not currently integrated** into this repository's active workflows.
+>
+> See [workflow-examples/README.md](../.github/workflow-examples/README.md) for organizational workflow sharing patterns, implementation guidance, and 2025 best practices.
+
 > **💡 For current authentication patterns**, see [IAM Deep Dive](./iam-deep-dive.md)
 >
 > **Last Updated**: 2025-11-04
@@ -18,7 +22,7 @@ The static-site project uses GitHub's `workflow_call` pattern for modular CI/CD 
 ## Available Reusable Workflows
 
 ### 1. AWS OIDC Authentication
-**File**: `.github/workflows/reusable-aws-auth.yml`
+**File**: `.github/workflow-examples/reusable-aws-auth.yml`
 
 Provides standardized AWS OIDC authentication with validation and identity verification.
 
@@ -26,7 +30,7 @@ Provides standardized AWS OIDC authentication with validation and identity verif
 ```yaml
 jobs:
   authenticate:
-    uses: ./.github/workflows/reusable-aws-auth.yml
+    uses: ./.github/workflow-examples/reusable-aws-auth.yml
     with:
       aws_region: "us-east-2"
       session_name: "my-deployment"
@@ -48,7 +52,7 @@ jobs:
 | `role_arn` | Assumed role ARN |
 
 ### 2. Cross-Account Role Management
-**File**: `.github/workflows/reusable-cross-account-roles.yml`
+**File**: `.github/workflow-examples/reusable-cross-account-roles.yml`
 
 Creates and manages GitHub Actions deployment roles across multiple AWS accounts using Terraform.
 
@@ -56,7 +60,7 @@ Creates and manages GitHub Actions deployment roles across multiple AWS accounts
 ```yaml
 jobs:
   manage-roles:
-    uses: ./.github/workflows/reusable-cross-account-roles.yml
+    uses: ./.github/workflow-examples/reusable-cross-account-roles.yml
     with:
       account_mapping: |
         {
@@ -87,7 +91,7 @@ jobs:
 | `role_arns` | JSON object of created role ARNs by environment |
 
 ### 3. Terraform Operations
-**File**: `.github/workflows/reusable-terraform-ops.yml`
+**File**: `.github/workflow-examples/reusable-terraform-ops.yml`
 
 Standardized Terraform operations with validation, planning, and execution capabilities.
 
@@ -95,7 +99,7 @@ Standardized Terraform operations with validation, planning, and execution capab
 ```yaml
 jobs:
   terraform:
-    uses: ./.github/workflows/reusable-terraform-ops.yml
+    uses: ./.github/workflow-examples/reusable-terraform-ops.yml
     with:
       working_directory: "terraform/environments/dev"
       action: "apply"
@@ -133,13 +137,13 @@ Use selective targeting for environment-specific operations:
 
 ```yaml
 # Create only staging roles
-- uses: ./.github/workflows/reusable-cross-account-roles.yml
+- uses: ./.github/workflow-examples/reusable-cross-account-roles.yml
   with:
     target_environments: "staging"
     action: "apply"
 
 # Plan changes for dev and staging
-- uses: ./.github/workflows/reusable-cross-account-roles.yml
+- uses: ./.github/workflow-examples/reusable-cross-account-roles.yml
   with:
     target_environments: "dev,staging"
     action: "plan"
