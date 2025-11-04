@@ -1,5 +1,13 @@
 # Reusable GitHub Actions Workflows
 
+> **⚠️ NOTE**: This documentation describes reusable workflow patterns. The examples reference `AWS_ASSUME_ROLE_CENTRAL`, but the current project implementation uses **Direct OIDC authentication** without a central role.
+>
+> **For current authentication patterns, see:**
+> - [IAM Deep Dive](./iam-deep-dive.md) - Direct OIDC architecture
+> - [Secrets and Variables](./secrets-and-variables.md) - GitHub configuration
+>
+> **Last Updated**: 2025-11-04
+
 This documentation covers the reusable workflow components created to enable organization-wide CI/CD standardization and reduce workflow maintenance overhead.
 
 ## Overview

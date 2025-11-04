@@ -89,14 +89,17 @@ gh workflow list
 | `AWS_ACCOUNT_ID_DEV` | 12-digit account ID | Development account |
 | `AWS_ACCOUNT_ID_STAGING` | 12-digit account ID | Staging account |
 | `AWS_ACCOUNT_ID_PROD` | 12-digit account ID | Production account |
-| `AWS_DEFAULT_REGION` | `us-east-1` | Primary AWS region |
-| `OPENTOFU_VERSION` | `1.6.0` | OpenTofu version |
+| `AWS_ACCOUNT_ID_MANAGEMENT` | 12-digit account ID | Management account |
+| `AWS_DEFAULT_REGION` | `us-east-2` | Primary AWS region (see config.sh) |
+| `REPLICA_REGION` | `us-west-2` | Cross-region replication target |
+| `OPENTOFU_VERSION` | `1.6.1` | OpenTofu version |
+| `DEFAULT_ENVIRONMENT` | `dev` | Default deployment environment |
+| `MONTHLY_BUDGET_LIMIT` | `40` | Budget alert threshold |
+| `ALERT_EMAIL_ADDRESSES` | JSON array | Budget alert email addresses |
 
-**GitHub Repository Secrets** (Settings → Secrets and variables → Actions → Secrets):
+**GitHub Repository Secrets**:
 
-| Secret | Value | Purpose |
-|--------|-------|---------|
-| `AWS_ASSUME_ROLE_CENTRAL` | ARN of central role | Cross-account access |
+> **No AWS secrets required!** With Direct OIDC authentication, GitHub Actions uses short-lived OIDC tokens to authenticate directly to AWS. No stored credentials needed.
 
 ### Environment-Specific Configuration
 

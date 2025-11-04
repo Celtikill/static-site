@@ -243,44 +243,66 @@ aws iam get-group --group-name CrossAccountAdmins
 
 These steps must be done manually through web interfaces.
 
-### Step 1.1: Configure GitHub Secrets
+### Step 1.1: Configure GitHub Variables
 
-**What this does:** Allows GitHub Actions to authenticate with AWS without storing credentials.
+**What this does:** Configures repository variables for AWS account IDs and deployment settings. With Direct OIDC authentication, no AWS credentials need to be stored in GitHub!
+
+**Automated Configuration (Recommended):**
+```bash
+# After running bootstrap scripts, use the configure-github.sh script
+cd scripts/bootstrap
+./configure-github.sh
+```
+
+**Manual Configuration:**
 
 1. **Navigate to your GitHub repository**
    ```
    https://github.com/Celtikill/static-site
    ```
 
-2. **Go to Settings → Secrets and variables → Actions**
+2. **Go to Settings → Secrets and variables → Actions → Variables**
 
-3. **Add Repository Secret:**
-   - Click "New repository secret"
-   - Name: `AWS_ASSUME_ROLE_CENTRAL`
-   - Value: `arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central`
-   - Click "Add secret"
+3. **Add Repository Variables:**
 
-4. **Add Repository Variables:**
-
-   Click "Variables" tab, then "New repository variable" for each:
+   Click "New repository variable" for each:
 
    | Name | Value |
    |------|-------|
-   | AWS_ACCOUNT_ID_DEV | DEVELOPMENT_ACCOUNT_ID |
-   | AWS_ACCOUNT_ID_STAGING | STAGING_ACCOUNT_ID |
-   | AWS_ACCOUNT_ID_PROD | PRODUCTION_ACCOUNT_ID |
-   | AWS_DEFAULT_REGION | us-east-1 |
-   | OPENTOFU_VERSION | 1.6.0 |
+   | AWS_ACCOUNT_ID_DEV | YOUR_DEV_ACCOUNT_ID |
+   | AWS_ACCOUNT_ID_STAGING | YOUR_STAGING_ACCOUNT_ID |
+   | AWS_ACCOUNT_ID_PROD | YOUR_PROD_ACCOUNT_ID |
+   | AWS_ACCOUNT_ID_MANAGEMENT | YOUR_MGMT_ACCOUNT_ID |
+   | AWS_DEFAULT_REGION | us-east-2 (see scripts/bootstrap/config.sh) |
+   | REPLICA_REGION | us-west-2 |
+   | OPENTOFU_VERSION | 1.6.1 |
+   | DEFAULT_ENVIRONMENT | dev |
+   | MONTHLY_BUDGET_LIMIT | 40 |
+   | ALERT_EMAIL_ADDRESSES | ["your-email@example.com"] |
+
+> **No AWS Secrets Required**: Direct OIDC authentication eliminates the need for stored AWS credentials. GitHub Actions automatically obtains short-lived tokens (15 minutes) to authenticate with AWS.
 
 ### Step 1.2: Verify GitHub Configuration
 
 ```bash
 # If you have GitHub CLI installed:
 gh variable list
-gh secret list
 
-# You should see your variables and secrets (secret values are hidden)
+# You should see all configured variables
+# No secrets needed - OIDC handles authentication!
 ```
+
+**Expected variables:**
+- AWS_ACCOUNT_ID_DEV
+- AWS_ACCOUNT_ID_STAGING
+- AWS_ACCOUNT_ID_PROD
+- AWS_ACCOUNT_ID_MANAGEMENT
+- AWS_DEFAULT_REGION
+- REPLICA_REGION
+- OPENTOFU_VERSION
+- DEFAULT_ENVIRONMENT
+- MONTHLY_BUDGET_LIMIT
+- ALERT_EMAIL_ADDRESSES
 
 ---
 
