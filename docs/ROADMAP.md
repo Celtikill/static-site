@@ -102,7 +102,7 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 - ✅ Complete pipeline test: BUILD→TEST→RUN
   - All 8 workflow jobs passing
   - Zero IAM permission errors
-  - Infrastructure deployed to dev (822529998967)
+  - Infrastructure deployed to dev environment
   - Website content deployed successfully
 - ✅ Updated documentation:
   - `scripts/bootstrap/lib/roles.sh` - Policy generation with middle-way approach
@@ -264,22 +264,26 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 **Status**: 66% COMPLETE 🚧 (Dev + Staging Deployed)
 **Impact**: Enables full production readiness
 
+**Note**: Dev account recreated after previous account closure (November 3, 2025)
+
 **Completed**:
-- ✅ Dev deployment successful (Account: 822529998967)
-- ✅ Staging deployment successful (Account: 927588814642)
+- ✅ Dev deployment successful
+- ✅ Staging deployment successful
 - ✅ All Terraform outputs validated and working
 - ✅ Pipeline validation enhanced with automated output checks
+- ✅ Bootstrap scripts updated for new dev account
+- ✅ GitHub Actions variables updated with current account IDs
 
 **Remaining Steps**:
-1. Deploy to production environment (15 minutes)
+1. Test OIDC authentication with corrected role names (see item #0 above)
+2. Deploy to production environment (15 minutes)
    - Requires production authorization workflow (GitHub Release)
    - Comprehensive pre-deployment validation already in place
-   - Account: 546274483801
-2. Validate multi-account deployment (30 minutes)
+3. Validate multi-account deployment (30 minutes)
    - Cross-account access verification
    - Environment isolation testing
-3. Test CloudFront invalidation across environments (15 minutes)
-4. Verify monitoring and alerting functionality (30 minutes)
+4. Test CloudFront invalidation across environments (15 minutes)
+5. Verify monitoring and alerting functionality (30 minutes)
    - CloudWatch dashboards
    - Budget alerts
    - SNS notifications
@@ -647,10 +651,15 @@ This roadmap is reviewed quarterly to:
 - Add new opportunities identified
 - Adjust timelines based on resource availability
 
-**Last Review**: October 16, 2025
-**Next Review**: January 2026
+**Last Review**: November 3, 2025
+**Next Review**: February 2026
 
 **Recent Updates**:
+- November 3, 2025: Fixed critical OIDC authentication failure (IAM role naming mismatch)
+- November 3, 2025: Updated workflows to use correct role names (GitHubActions-Static-site-{Env}-Role)
+- November 3, 2025: Migrated to new dev account after account closure
+- November 3, 2025: Updated GitHub Actions variables with current account IDs
+- November 3, 2025: Promoted configure-github.sh from demo tooling to bootstrap suite (Step 3)
 - October 20, 2025: Fixed P0 shell word splitting bug in destroy-environment.sh, added P1 state validation
 - October 20, 2025: Updated Section 8 (Destroy Infrastructure) status from 30% → 60% complete
 - October 20, 2025: Comprehensive destroy framework documentation in scripts/destroy/README.md
