@@ -31,6 +31,103 @@ yamllint -d relaxed .github/workflows/*.yml
 
 ---
 
+## First-Time User Issues
+
+### Bootstrap hasn't been run
+
+**Symptoms**: GitHub Actions fails with "OIDC provider not found" or "Could not assume role"
+
+**Solution**:
+```bash
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+```
+
+This creates the OIDC provider and IAM roles required for GitHub Actions to authenticate with AWS.
+
+### GitHub variables not configured
+
+**Symptoms**: Workflow fails with missing variable errors or deploys to wrong account
+
+**Solution**:
+```bash
+# After running bootstrap, configure GitHub variables
+cd scripts/bootstrap
+./configure-github.sh
+
+# Or manually set variables
+gh variable set AWS_ACCOUNT_ID_DEV --body "YOUR_DEV_ACCOUNT_ID"
+gh variable set AWS_ACCOUNT_ID_STAGING --body "YOUR_STAGING_ACCOUNT_ID"
+gh variable set AWS_ACCOUNT_ID_PROD --body "YOUR_PROD_ACCOUNT_ID"
+gh variable set AWS_DEFAULT_REGION --body "us-east-2"
+```
+
+### Website returns 403 Forbidden after deployment
+
+**Symptoms**: Deployment succeeds but website URL returns 403 error
+
+**Solution**: Wait 30-60 seconds for permissions to propagate, then reload page. If still failing:
+```bash
+# Check bucket policy
+cd terraform/environments/dev
+tofu output s3_bucket_name
+aws s3api get-bucket-policy --bucket BUCKET_NAME
+
+# Verify website configuration
+aws s3api get-bucket-website --bucket BUCKET_NAME
+```
+
+### Wrong AWS credentials being used
+
+**Symptoms**: Resources created in unexpected AWS account
+
+**Solution**:
+```bash
+# Verify your AWS CLI configuration
+aws sts get-caller-identity
+
+# Check which profile is active
+echo $AWS_PROFILE
+
+# If wrong profile, unset and use correct credentials
+unset AWS_PROFILE
+aws configure  # Configure with correct account
+```
+
+### Can't find website URL after deployment
+
+**Symptoms**: Deployment succeeds but don't know where to access the website
+
+**Solution**:
+```bash
+# Get URL from GitHub Actions summary
+gh run view --log | grep "Website URL:"
+
+# Or get from Terraform outputs
+cd terraform/environments/dev
+tofu output website_url
+```
+
+Expected URL format: `http://static-website-dev-UNIQUEID.s3-website-us-east-2.amazonaws.com`
+
+### Terraform state lock error
+
+**Symptoms**: Deployment fails with "Error acquiring the state lock"
+
+**Solution**:
+```bash
+# View current locks
+aws dynamodb scan --table-name static-site-locks-dev-ACCOUNTID
+
+# If lock is stale (previous job failed/cancelled), force unlock
+cd terraform/environments/dev
+tofu force-unlock LOCK_ID
+```
+
+**Warning**: Only force unlock if you're certain no other operation is running.
+
+---
+
 ## BUILD Phase Issues
 
 ### Security Scan Failures

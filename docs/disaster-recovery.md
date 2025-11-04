@@ -47,6 +47,42 @@ graph LR
 
 ---
 
+## Quick Access - Common DR Scenarios
+
+### 🚨 Emergency Recovery
+**Website is down, need to recover immediately?**
+
+Go directly to:
+- [Emergency Rollback](#emergency-rollback) - Quick rollback to last working state
+- [Full Recovery from Backup](#full-infrastructure-recovery) - Complete infrastructure recovery
+- [Regional Failover](#regional-failover) - Switch to backup region
+
+### 📦 Restore Specific Components
+**Need to recover individual resources?**
+
+Jump to:
+- [Restore Website Content](#website-content-recovery) - Recover S3 objects
+- [Restore Terraform State](#terraform-state-recovery) - Fix corrupted state
+- [Restore from Version](#s3-version-recovery) - Recover specific file version
+
+### 🧪 Testing & Preparation
+**Preparing for potential disasters?**
+
+Review:
+- [DR Testing Procedures](#testing--validation) - Test your recovery plan
+- [Backup Verification](#backup-verification) - Confirm backups are working
+- [Runbook Preparation](#incident-response-runbook) - Document procedures
+
+### 📋 Post-Incident
+**Recovering from an incident and documenting?**
+
+Follow:
+- [Post-Recovery Validation](#post-recovery-validation) - Verify recovery
+- [Incident Documentation](#incident-documentation) - Document what happened
+- [Lessons Learned](#lessons-learned-template) - Improve processes
+
+---
+
 ## Table of Contents
 
 1. [Recovery Objectives](#recovery-objectives)
