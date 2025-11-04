@@ -2,9 +2,13 @@
 
 > ⚠️ **DEPRECATED**: This module implements a two-step authentication pattern (central role → workload role) which is **no longer recommended** as of 2025.
 >
-> **Recommended Alternative**: Use **direct OIDC authentication** where GitHub Actions authenticates directly to environment-specific roles using `AssumeRoleWithWebIdentity`. This is simpler, more secure, and follows AWS best practices.
+> **Recommended Alternative**: Use the **github-actions-oidc-role** module for direct OIDC authentication where GitHub Actions authenticates directly to environment-specific roles using `AssumeRoleWithWebIdentity`. This is simpler, more secure, and follows AWS best practices.
 >
-> **Migration Path**: See [Direct OIDC Setup](#-migration-to-direct-oidc) below.
+> **Current Modules**:
+> - `terraform/modules/iam/github-actions-oidc-role/` - Direct OIDC deployment role
+> - `terraform/modules/iam/readonly-console-role/` - Read-only console access
+>
+> **Migration Path**: See [Direct OIDC Setup](#-migration-to-direct-oidc) below or refer to [IAM Deep Dive](../../../docs/iam-deep-dive.md) for complete documentation.
 
 Environment-specific IAM role for GitHub Actions to deploy static website infrastructure with least-privilege permissions and external ID validation.
 
