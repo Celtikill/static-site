@@ -497,7 +497,7 @@ GitHub Actions roles trust the GitHub OIDC provider **directly** using `AssumeRo
 - ✅ **Repository scoping** - Only your specific repository can assume the role
 - ✅ **Per-account isolation** - Each account has its own OIDC provider and roles
 - ✅ **No long-lived credentials** - Tokens expire after workflow completion
-- ✅ **AWS-recommended pattern** (2025 best practices)
+- ✅ **[AWS-recommended pattern](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html)** for OIDC authentication
 
 ### Cross-Account Access
 

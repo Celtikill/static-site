@@ -4,7 +4,7 @@ Comprehensive technical architecture documentation for the AWS Static Website In
 
 ## Overview
 
-This system implements enterprise-grade static website hosting using AWS services with a multi-account architecture pattern. The design emphasizes security, scalability, cost optimization, and operational excellence.
+This system implements enterprise-grade static website hosting using AWS services with a multi-account architecture pattern. The design emphasizes security, scalability, cost optimization, and operational excellence aligned with the [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/).
 
 ## Multi-Account Architecture
 
@@ -78,7 +78,7 @@ graph TB
 
 ### Authentication Flow
 
-The system uses **Direct OIDC authentication** following AWS 2025 best practices:
+The system uses **Direct OIDC authentication** following [AWS security best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html):
 
 1. **GitHub Actions** generates OIDC token (15-minute lifetime)
 2. **AssumeRoleWithWebIdentity** - Direct authentication to environment role

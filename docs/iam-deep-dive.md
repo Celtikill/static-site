@@ -12,7 +12,7 @@ Comprehensive documentation of the AWS IAM permissions model for the static webs
 
 ## Executive Summary
 
-The project implements **Direct OIDC authentication** from GitHub Actions to environment-specific IAM roles, following AWS 2025 best practices. This architecture eliminates unnecessary role chaining, reduces attack surface, and simplifies security auditing.
+The project implements **Direct OIDC authentication** from GitHub Actions to environment-specific IAM roles, following [AWS IAM best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) for OIDC federation. This architecture eliminates unnecessary role chaining, reduces attack surface, and simplifies security auditing.
 
 ###Quick Status
 - **✅ OIDC Providers**: Configured in all environment accounts (dev, staging, prod)
@@ -96,7 +96,7 @@ graph TB
 ### Why Direct OIDC?
 
 **AWS Best Practice (2025)**:
-- **Recommended Pattern**: AWS documentation explicitly recommends direct OIDC for GitHub Actions
+- **Recommended Pattern**: [AWS documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) explicitly recommends direct OIDC for GitHub Actions
 - **Simpler is Safer**: Fewer hops = fewer potential misconfiguration points
 - **Native Integration**: GitHub OIDC designed specifically for this use case
 - **Industry Standard**: Adopted by major organizations migrating from stored credentials
