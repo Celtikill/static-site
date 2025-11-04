@@ -2,7 +2,7 @@
 
 Common issues and solutions for AWS Static Website Infrastructure deployment and operation.
 
-> **For comprehensive deployment troubleshooting**, see the troubleshooting section in the [Complete Deployment Guide](../DEPLOYMENT_GUIDE.md#troubleshooting).
+> **For comprehensive deployment troubleshooting**, see the troubleshooting section in the [Complete Deployment Guide](../DEPLOYMENT.md#troubleshooting).
 
 ## Quick Diagnostics
 

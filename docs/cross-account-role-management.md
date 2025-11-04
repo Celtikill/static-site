@@ -605,5 +605,5 @@ When forking this repository to a fresh AWS account:
 - [Architecture Overview](architecture.md)
 - [Permissions Architecture](permissions-architecture.md)
 - [Secrets and Variables](secrets-and-variables.md)
-- [Deployment Guide](../DEPLOYMENT_GUIDE.md)
+- [Deployment Guide](../DEPLOYMENT.md)
 - [Troubleshooting](troubleshooting.md)
