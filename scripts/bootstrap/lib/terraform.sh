@@ -89,6 +89,22 @@ apply_resource_tagging() {
 
     # Create temporary Terraform configuration
     cat > main.tf <<EOF
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  # AWS credentials and region are inherited from environment
+  # or AWS CLI configuration
+}
+
 module "tag_resource" {
   source = "${module_path}"
 
@@ -112,9 +128,14 @@ EOF
 
     # Initialize Terraform
     log_info "Initializing Terraform..."
-    if ! $TERRAFORM_CMD init -input=false >/dev/null 2>&1; then
-        log_error "Terraform init failed"
-        cat terraform.log 2>/dev/null
+    log_debug "Running: $TERRAFORM_CMD init -input=false in $(pwd)"
+    if ! $TERRAFORM_CMD init -input=false 2>&1 | tee terraform-init.log; then
+        log_error "Terraform init failed in $(pwd)"
+        log_error "Terraform command: $TERRAFORM_CMD"
+        log_error "Init output:"
+        cat terraform-init.log 2>/dev/null || echo "(no log file)"
+        log_error "Configuration files in workspace:"
+        ls -la
         popd >/dev/null
         return 1
     fi
@@ -253,6 +274,22 @@ apply_account_contacts() {
 
     # Create temporary Terraform configuration
     cat > main.tf <<EOF
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  # AWS credentials and region are inherited from environment
+  # or AWS CLI configuration
+}
+
 module "account_contacts" {
   source = "${module_path}"
 
@@ -289,8 +326,14 @@ EOF
 
     # Initialize Terraform
     log_info "Initializing Terraform..."
-    if ! $TERRAFORM_CMD init -input=false >/dev/null 2>&1; then
-        log_error "Terraform init failed"
+    log_debug "Running: $TERRAFORM_CMD init -input=false in $(pwd)"
+    if ! $TERRAFORM_CMD init -input=false 2>&1 | tee terraform-init.log; then
+        log_error "Terraform init failed in $(pwd)"
+        log_error "Terraform command: $TERRAFORM_CMD"
+        log_error "Init output:"
+        cat terraform-init.log 2>/dev/null || echo "(no log file)"
+        log_error "Configuration files in workspace:"
+        ls -la
         popd >/dev/null
         return 1
     fi
