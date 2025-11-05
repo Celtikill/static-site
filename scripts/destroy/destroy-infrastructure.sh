@@ -281,10 +281,10 @@ main() {
     destroy_cloudfront_distributions
     destroy_waf_resources
 
-    log_info "Phase 3: Destroying storage and logging (CloudTrail buckets deferred to Phase 12)..."
+    log_info "Phase 3: Destroying storage and logging (CloudTrail buckets deferred to Phase 11)..."
     # CRITICAL: Stop CloudTrail logging BEFORE deleting S3 to prevent infinite loop
     # where CloudTrail logs the S3 deletion events, creating new log files
-    # NOTE: CloudTrail S3 buckets are skipped here and deleted in Phase 12 (final cleanup)
+    # NOTE: CloudTrail S3 buckets are skipped here and deleted in Phase 11 (final cleanup)
     # to avoid blocking other resource destruction with slow bucket emptying
     stop_all_cloudtrail_logging
     # Using efficient batch deletion (1000 objects per API call)
