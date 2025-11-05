@@ -2,6 +2,15 @@
 # Destroy Foundation Script
 # Destroys OIDC providers, IAM roles, Terraform backends, and central bucket
 # Use with caution - this is destructive!
+#
+# SCOPE: Bootstrap infrastructure ONLY (backends, roles, OIDC)
+#        Workload resources (S3, CloudFront, etc.) are NOT affected
+#
+# RELATED SCRIPTS:
+#   - ../destroy/destroy-environment.sh    - Destroy workloads (preserves bootstrap)
+#   - ../destroy/destroy-infrastructure.sh - Destroy everything (workloads + bootstrap)
+#
+# See: ./destroy-foundation.sh --help for detailed documentation
 
 set -euo pipefail
 
@@ -65,10 +74,37 @@ DESCRIPTION:
     3. Deletes OIDC providers in all accounts
     4. Deletes central foundation state bucket
 
+    ${BOLD}IMPORTANT:${NC} This script only destroys BOOTSTRAP infrastructure.
+    Workload resources (S3 buckets, CloudFront, etc.) are NOT affected.
+
     PREREQUISITES:
     - accounts.json must exist with account IDs
     - AWS CLI must be configured with management account credentials
     - OrganizationAccountAccessRole must exist in target accounts
+
+RELATED SCRIPTS:
+    ${BOLD}../destroy/destroy-environment.sh${NC}
+        Destroy workload resources in a single environment (dev/staging/prod)
+        while PRESERVING bootstrap infrastructure (backends, roles, OIDC).
+        Use this for: Dev environment resets, testing cleanup
+
+    ${BOLD}../destroy/destroy-infrastructure.sh${NC}
+        Complete destruction of ALL resources (bootstrap + workloads) across
+        all accounts and regions. Equivalent to running destroy-environment.sh
+        for all environments PLUS destroy-foundation.sh.
+        Use this for: Complete teardown before account closure
+
+    ${BOLD}Recommended Workflow:${NC}
+        1. Destroy workloads first:
+           ../destroy/destroy-environment.sh dev
+           ../destroy/destroy-environment.sh staging
+           ../destroy/destroy-environment.sh prod
+
+        2. Then destroy bootstrap:
+           ./destroy-foundation.sh --force
+
+        OR use the all-in-one:
+           ../destroy/destroy-infrastructure.sh --force
 
 EXAMPLES:
     # Destroy all bootstrap infrastructure (with confirmation)
