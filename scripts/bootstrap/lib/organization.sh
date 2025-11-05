@@ -369,8 +369,7 @@ create_environment_accounts() {
         existing_prod=$(jq -r '.prod // ""' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
     fi
 
-    # Initialize replacement tracking
-    declare -g -A REPLACED_ACCOUNTS=()
+    # Timestamp for replacement account naming
     local timestamp=$(date +%Y%m%d)
 
     # Create or reuse dev account
