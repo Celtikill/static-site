@@ -134,10 +134,25 @@ create_terraform_backend() {
         log_warn "DynamoDB table already exists: $table_name"
     fi
 
-    # If resources exist, offer to destroy and recreate (for demo/testing)
+    # If resources exist, destroy and recreate (for demo/testing)
     if [[ "$bucket_exists" == "true" ]] || [[ "$table_exists" == "true" ]]; then
         log_warn "Backend resources already exist for $environment"
         log_info "Destroying existing resources before recreating..."
+
+        # Delete KMS alias and key first (S3 bucket depends on it)
+        local kms_alias="alias/${bucket_name}"
+        log_info "Checking for KMS key alias: $kms_alias"
+        local kms_key_id
+        kms_key_id=$(aws kms list-aliases --region "$region" --query "Aliases[?AliasName=='${kms_alias}'].TargetKeyId" --output text 2>/dev/null || echo "")
+
+        if [[ -n "$kms_key_id" ]]; then
+            log_info "Deleting KMS alias: $kms_alias"
+            aws kms delete-alias --alias-name "$kms_alias" --region "$region" 2>/dev/null || true
+
+            log_info "Scheduling KMS key deletion: $kms_key_id"
+            aws kms schedule-key-deletion --key-id "$kms_key_id" --pending-window-in-days 7 --region "$region" 2>/dev/null || true
+            log_success "Scheduled KMS key deletion (7-day window)"
+        fi
 
         # Delete S3 bucket if exists
         if [[ "$bucket_exists" == "true" ]]; then
