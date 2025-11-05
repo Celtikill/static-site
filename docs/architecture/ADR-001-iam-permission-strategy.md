@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2025-10-16
-**Deciders**: Infrastructure Team
+**Deciders**: Codeowner
 **Related**: ADR-002 (Branch-Based Routing), Pipeline Test Plan
 
 ---
@@ -136,7 +136,6 @@ Reasons for deferring two-role approach:
 **Option C: AWS Managed Policies** (Rejected)
 - Too broad for least privilege
 - No resource-level restrictions
-- Not suitable for CI/CD automation
 
 ## Consequences
 
@@ -212,5 +211,5 @@ Create two-role architecture when:
 
 ---
 
-**Last Updated**: 2025-10-16
-**Review Date**: 2026-04-16 (6 months - evaluate Phase 2 migration)
+**Last Updated**: 2025-11-05
+**Review Date**: 2026-05-05 (6 months - evaluate Phase 2 migration)

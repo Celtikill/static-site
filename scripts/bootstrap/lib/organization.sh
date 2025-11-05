@@ -915,6 +915,32 @@ ensure_accounts_in_project_ou() {
             log_warn "  Failed to move account $account_id (may lack permissions or account locked)"
             ((failed_count++)) || true
         fi
+
+        # Apply tags and contacts (idempotent - updates if exists)
+        if command -v tag_account >/dev/null 2>&1 && [[ -n "$RESOURCE_TAGS_JSON" ]]; then
+            log_info "  Updating tags for account $account_id..."
+            # Determine environment from account name
+            local env_tag=""
+            if [[ "$account_name" == *"-dev"* ]]; then
+                env_tag="dev"
+            elif [[ "$account_name" == *"-staging"* ]]; then
+                env_tag="staging"
+            elif [[ "$account_name" == *"-prod"* ]]; then
+                env_tag="prod"
+            fi
+
+            local account_tags="$RESOURCE_TAGS_JSON"
+            if [[ -n "$env_tag" ]]; then
+                account_tags=$(echo "$RESOURCE_TAGS_JSON" | jq --arg env "$env_tag" '. + {"Environment": $env}')
+            fi
+
+            tag_account "$account_id" "$account_tags" || log_warn "  Failed to update tags"
+        fi
+
+        if command -v apply_account_contacts >/dev/null 2>&1 && [[ -n "$CONTACT_INFO_JSON" ]]; then
+            log_info "  Updating contact information for account $account_id..."
+            apply_account_contacts "$account_id" "$CONTACT_INFO_JSON" || log_warn "  Failed to update contacts"
+        fi
     done < <(echo "$project_accounts" | jq -r '.[] | "\(.Id)|\(.Name)|\(.Status)"')
 
     # Summary

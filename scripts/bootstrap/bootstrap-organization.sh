@@ -17,6 +17,9 @@ source "${SCRIPT_DIR}/config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
 source "${SCRIPT_DIR}/lib/organization.sh"
+source "${SCRIPT_DIR}/lib/terraform.sh"
+
+# metadata.sh is sourced automatically via config.sh
 
 # =============================================================================
 # USAGE
@@ -44,7 +47,12 @@ DESCRIPTION:
     3. Creates project OU under Workloads (named from GITHUB_REPO)
     4. Creates three member accounts (dev, staging, prod)
     5. Places accounts in the project OU
-    6. Saves account IDs to accounts.json
+    6. Applies resource tags to OUs and accounts
+    7. Sets account contact information
+    8. Saves account IDs to accounts.json
+
+    Configuration is automatically loaded from .github/CODEOWNERS metadata,
+    ensuring consistency between code ownership and infrastructure tagging.
 
     Run this script FIRST on a fresh AWS account, then run
     bootstrap-foundation.sh to complete the bootstrap process.
@@ -161,9 +169,26 @@ Member Accounts:
 
 Account IDs saved to: ${ACCOUNTS_FILE}
 
+${BOLD}Tags Applied:${NC}
+$(if [[ -n "$RESOURCE_TAGS_JSON" ]]; then echo "$RESOURCE_TAGS_JSON" | jq -r 'to_entries[] | "  \(.key): \(.value)"'; else echo "  (no tags configured)"; fi)
+
+${BOLD}Contact Information:${NC}
+$(if [[ -n "$CONTACT_INFO_JSON" ]]; then
+    echo "  Name:    $(echo "$CONTACT_INFO_JSON" | jq -r '.full_name // "(not set)"')"
+    echo "  Company: $(echo "$CONTACT_INFO_JSON" | jq -r '.company_name // "(not set)"')"
+    echo "  City:    $(echo "$CONTACT_INFO_JSON" | jq -r '.city // "(not set)"'), $(echo "$CONTACT_INFO_JSON" | jq -r '.state_or_region // "(not set)"')"
+else
+    echo "  (no contact info configured)"
+fi)
+
+${BOLD}Configuration Source:${NC}
+  Metadata loaded from: .github/CODEOWNERS
+
 ${BOLD}Next Steps:${NC}
 1. Review the accounts.json file
-2. Run bootstrap-foundation.sh to create OIDC, roles, and backends:
+2. Verify tags in AWS Organizations console
+3. Check account contact information in AWS account settings
+4. Run bootstrap-foundation.sh to create OIDC, roles, and backends:
    ${BLUE}./bootstrap-foundation.sh${NC}
 
 EOF
