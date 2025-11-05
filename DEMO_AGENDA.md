@@ -596,9 +596,11 @@ This architecture is template-ready:
    - Publish to internal registry
 
 2. Bootstrap Scripts
+   - Stage 1: AWS CLI-based (organization structure, no Terraform dependency)
+   - Stage 2: Terraform-based (OIDC, IAM, state backends)
+   - macOS compatible (bash 3.x)
    - Parameterize for different projects
    - Add to project templates
-   - Document in internal wiki
 
 3. GitHub Workflows
    - Copy .github/workflows/ to new repos
