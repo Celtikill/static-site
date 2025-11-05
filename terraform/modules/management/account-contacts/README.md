@@ -1,222 +1,102 @@
 # AWS Account Contact Information Module
 
-Manages primary contact information for AWS accounts in an organization.
+⚠️ **STATUS: NOT IN USE - REQUIRES UPDATES**
 
-## Features
+This module is **currently not used** in production bootstrap scripts. A simpler AWS CLI approach is used instead.
 
-- ✅ **Centralized contact management** - Configure account contacts from management account
-- ✅ **Cross-account support** - Set contacts for member accounts via OrganizationAccountAccessRole
-- ✅ **Validation** - Enforces AWS contact information format requirements
-- ✅ **Idempotent** - Safe to run multiple times, updates contacts as needed
-- ✅ **Comprehensive documentation** - Clear variable descriptions and examples
+## Current Issue
 
-## Usage
+While Terraform does support `aws_account_primary_contact` resource, the bootstrap scripts have been simplified to use **AWS CLI alternate contacts** instead, which provides a more straightforward approach for setting contact information across multiple contact types (BILLING, OPERATIONS, SECURITY).
 
-### Basic Example
+## Current Implementation
 
-```hcl
-module "dev_account_contacts" {
-  source = "../../modules/management/account-contacts"
-
-  account_id      = "123456789012"
-  full_name       = "DevOps Team"
-  company_name    = "Celtikill Technologies"
-  phone_number    = "+1-206-555-0100"
-  address_line_1  = "123 Cloud Street"
-  city            = "Seattle"
-  state_or_region = "WA"
-  postal_code     = "98101"
-  country_code    = "US"
-}
-```
-
-### With Optional Fields
-
-```hcl
-module "prod_account_contacts" {
-  source = "../../modules/management/account-contacts"
-
-  account_id         = "987654321098"
-  full_name          = "Production Team"
-  company_name       = "Celtikill Technologies"
-  phone_number       = "+1-206-555-0200"
-  address_line_1     = "123 Cloud Street"
-  address_line_2     = "Suite 200"
-  city               = "Seattle"
-  state_or_region    = "WA"
-  postal_code        = "98101"
-  country_code       = "US"
-  district_or_county = "King County"
-  website_url        = "https://celtikill.com"
-}
-```
-
-### Current Account
-
-```hcl
-# Set contact info for the account associated with current credentials
-module "current_account_contacts" {
-  source = "../../modules/management/account-contacts"
-
-  # account_id = null (default) - uses current account
-  full_name       = "Engineering Team"
-  phone_number    = "+1-206-555-0300"
-  address_line_1  = "123 Cloud Street"
-  city            = "Seattle"
-  state_or_region = "WA"
-  postal_code     = "98101"
-  country_code    = "US"
-}
-```
-
-## Bootstrap Script Integration
-
-This module is designed to be called from bash bootstrap scripts:
+Bootstrap scripts use **AWS CLI** instead of this module:
 
 ```bash
 # In scripts/bootstrap/lib/terraform.sh
 apply_account_contacts() {
     local account_id="$1"
-    local contact_json="$2"  # JSON object with contact fields
+    local contact_json="$2"
 
-    # Extract fields from JSON
-    local full_name=$(echo "$contact_json" | jq -r '.full_name')
-    local phone=$(echo "$contact_json" | jq -r '.phone_number')
-    # ... etc
+    # Extract required fields
+    local full_name phone_number email_address
+    full_name=$(echo "$contact_json" | jq -r '.full_name // empty')
+    phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty')
+    email_address=$(echo "$contact_json" | jq -r '.email_address // "noreply@example.com"')
 
-    # Create temporary Terraform configuration
-    cat > /tmp/account_contacts.tf <<EOF
-module "account_contacts" {
-  source = "./terraform/modules/management/account-contacts"
-
-  account_id      = "$account_id"
-  full_name       = "$full_name"
-  phone_number    = "$phone"
-  address_line_1  = "$(echo "$contact_json" | jq -r '.address_line_1')"
-  city            = "$(echo "$contact_json" | jq -r '.city')"
-  state_or_region = "$(echo "$contact_json" | jq -r '.state_or_region')"
-  postal_code     = "$(echo "$contact_json" | jq -r '.postal_code')"
-  country_code    = "$(echo "$contact_json" | jq -r '.country_code')"
-}
-EOF
-
-    # Apply contact information
-    terraform init && terraform apply -auto-approve
+    # Set alternate contacts using AWS CLI
+    for contact_type in BILLING OPERATIONS SECURITY; do
+        aws account put-alternate-contact \
+            --account-id "$account_id" \
+            --alternate-contact-type "$contact_type" \
+            --name "$full_name" \
+            --phone-number "$phone_number" \
+            --email-address "$email_address" \
+            --title "Account Contact"
+    done
 }
 ```
 
-## Variables
+## Primary Contact vs Alternate Contacts
 
-### Required Variables
+### Primary Contact (aws_account_primary_contact)
+- **Terraform Resource**: `aws_account_primary_contact`
+- **Use Case**: Legal/billing entity information
+- **Fields**: Full address, company name, website, etc.
+- **Complexity**: Requires many fields, more complex to manage
 
-| Name | Description | Type | Validation |
-|------|-------------|------|------------|
-| `full_name` | Full name of primary contact | `string` | 1-50 characters |
-| `phone_number` | Phone in E.164 format | `string` | Format: +1-555-0100 |
-| `address_line_1` | First line of address | `string` | 1-60 characters |
-| `city` | City name | `string` | 1-50 characters |
-| `state_or_region` | State/province/region | `string` | 1-50 characters |
-| `postal_code` | Postal/ZIP code | `string` | 1-20 characters |
-| `country_code` | ISO 3166-1 alpha-2 code | `string` | 2 letters (e.g., US, CA) |
+### Alternate Contacts (AWS CLI)
+- **AWS CLI Command**: `aws account put-alternate-contact`
+- **Use Case**: Operational contact points (BILLING, OPERATIONS, SECURITY)
+- **Fields**: Name, email, phone, title (simpler)
+- **Advantage**: Can set multiple contact types in one operation
 
-### Optional Variables
+Bootstrap scripts prioritize **alternate contacts** for operational simplicity.
 
-| Name | Description | Type | Default |
-|------|-------------|------|---------|
-| `enabled` | Whether to manage contacts | `bool` | `true` |
-| `account_id` | Target AWS account ID | `string` | `null` (current account) |
-| `company_name` | Company/organization name | `string` | `null` |
-| `address_line_2` | Second address line | `string` | `null` |
-| `address_line_3` | Third address line | `string` | `null` |
-| `district_or_county` | District/county name | `string` | `null` |
-| `website_url` | Company website URL | `string` | `null` |
+## Path Forward
 
-## Outputs
+This module can be restored if there's a need to manage detailed primary contact information with full addresses. Consider:
 
-| Name | Description | Sensitive |
-|------|-------------|-----------|
-| `account_id` | Account ID configured | No |
-| `full_name` | Primary contact name | No |
-| `company_name` | Company name | No |
-| `phone_number` | Phone number | Yes |
-| `address_summary` | Address summary | No |
-| `contact_configured` | Configuration status | No |
+### Option 1: Keep Current AWS CLI Approach
+- ✅ Simpler implementation
+- ✅ Sets all three alternate contact types
+- ✅ Fewer required fields
+- ✅ No Terraform state to manage
+- ❌ Doesn't set primary contact (legal/billing entity)
 
-## Phone Number Format
+### Option 2: Combine Approaches
+Use this Terraform module for primary contacts AND AWS CLI for alternate contacts:
+```bash
+# Set primary contact (legal/billing entity) with Terraform
+terraform apply -target=module.primary_contact
 
-Phone numbers must be in **E.164 format**:
-- Starts with `+` followed by country code
-- Format: `+[country code]-[area code][number]`
+# Set alternate contacts (operational) with AWS CLI
+aws account put-alternate-contact ...
+```
 
-### Examples
-
-| Country | Format Example |
-|---------|----------------|
-| United States | `+1-206-555-0100` |
-| Canada | `+1-416-555-0100` |
-| United Kingdom | `+44-20-5555-0100` |
-| Australia | `+61-2-5555-0100` |
-
-See: [E.164 Format](https://en.wikipedia.org/wiki/E.164)
-
-## Country Codes
-
-Country codes must be **ISO 3166-1 alpha-2** format (two letters):
-
-| Country | Code |
-|---------|------|
-| United States | `US` |
-| Canada | `CA` |
-| United Kingdom | `GB` |
-| Australia | `AU` |
-| Germany | `DE` |
-| France | `FR` |
-| Japan | `JP` |
-
-See: [ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
-
-## Cross-Account Configuration
-
-### Prerequisites
-
-To configure contact information for member accounts from the management account:
-
-1. **OrganizationAccountAccessRole** must exist in the member account
-2. Management account must have permission to assume the role
-3. Role must have `account:PutContactInformation` permission
-
-### Automatic Setup
-
-When accounts are created via AWS Organizations, the `OrganizationAccountAccessRole` is created automatically with appropriate permissions.
-
-### Manual Setup
-
-If the role doesn't exist or lacks permissions:
-
+### Option 3: Update Module for Alternate Contacts
+Rewrite module to use `null_resource` with `aws account put-alternate-contact`:
 ```hcl
-# In member account
-resource "aws_iam_role" "organization_access" {
-  name = "OrganizationAccountAccessRole"
+resource "null_resource" "alternate_contacts" {
+  for_each = toset(["BILLING", "OPERATIONS", "SECURITY"])
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        AWS = "arn:aws:iam::${var.management_account_id}:root"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "organization_access" {
-  role       = aws_iam_role.organization_access.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws account put-alternate-contact \
+        --account-id ${var.account_id} \
+        --alternate-contact-type ${each.key} \
+        --name "${var.full_name}" \
+        --phone-number "${var.phone_number}" \
+        --email-address "${var.email_address}" \
+        --title "Account Contact"
+    EOT
+  }
 }
 ```
 
-## Requirements
+## Requirements for Future Implementation
+
+If using the Terraform resource approach:
 
 | Name | Version |
 |------|---------|
@@ -225,8 +105,7 @@ resource "aws_iam_role_policy_attachment" "organization_access" {
 
 ## Permissions Required
 
-The caller must have the following IAM permissions:
-
+### For Primary Contacts (Terraform)
 ```json
 {
   "Version": "2012-10-17",
@@ -243,104 +122,84 @@ The caller must have the following IAM permissions:
 }
 ```
 
-For cross-account operations, add:
-
+### For Alternate Contacts (AWS CLI - Current)
 ```json
 {
-  "Effect": "Allow",
-  "Action": "sts:AssumeRole",
-  "Resource": "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "account:PutAlternateContact",
+        "account:GetAlternateContact",
+        "account:DeleteAlternateContact"
+      ],
+      "Resource": "*"
+    }
+  ]
 }
 ```
 
-## Idempotency
+## Alternative: Direct AWS CLI Usage
 
-This module is idempotent:
+For current needs, use AWS CLI directly:
 
-1. **First run**: Contact information is created
-2. **Subsequent runs**:
-   - Existing contacts are updated if values changed
-   - No changes made if values match
-   - Terraform detects drift and updates accordingly
+```bash
+# Set BILLING contact
+aws account put-alternate-contact \
+  --account-id 123456789012 \
+  --alternate-contact-type BILLING \
+  --name "DevOps Team" \
+  --phone-number "+1-206-555-0100" \
+  --email-address "billing@example.com" \
+  --title "Billing Contact"
 
-## Resource Lifecycle
+# Set OPERATIONS contact
+aws account put-alternate-contact \
+  --account-id 123456789012 \
+  --alternate-contact-type OPERATIONS \
+  --name "DevOps Team" \
+  --phone-number "+1-206-555-0100" \
+  --email-address "ops@example.com" \
+  --title "Operations Contact"
 
-Contact information is managed through Terraform state:
-- Creates contact info on first apply
-- Updates contacts when configuration changes
-- **Does NOT delete** contact info on destroy (preserves account data)
+# Set SECURITY contact
+aws account put-alternate-contact \
+  --account-id 123456789012 \
+  --alternate-contact-type SECURITY \
+  --name "Security Team" \
+  --phone-number "+1-206-555-0200" \
+  --email-address "security@example.com" \
+  --title "Security Contact"
+```
 
-## Validation Rules
+## Phone Number Format
 
-### Address Validation
+Phone numbers must be in **E.164 format**:
+- Format: `+[country code]-[area code][number]`
+- Example: `+1-206-555-0100` (US)
 
-- **address_line_1**: Required, 1-60 characters
-- **address_line_2**: Optional, max 60 characters
-- **address_line_3**: Optional, max 60 characters
-- **city**: Required, 1-50 characters
-- **state_or_region**: Required, 1-50 characters
-- **postal_code**: Required, 1-20 characters
-- **country_code**: Required, 2-letter ISO code
+## Cross-Account Configuration
 
-### Contact Validation
+To configure contacts for member accounts:
 
-- **full_name**: Required, 1-50 characters
-- **company_name**: Optional, 1-50 characters
-- **phone_number**: Required, E.164 format
-- **website_url**: Optional, valid HTTP/HTTPS URL
+1. **Enable trusted access** for Account Management in AWS Organizations
+2. Use management account or delegated admin credentials
+3. Account must be a member of the organization
 
-## Architecture Decision
-
-This module implements **ADR-006: Prefer Terraform Modules Over Bash for Resource Management**.
-
-**Rationale**: Using Terraform for contact management provides:
-- Declarative configuration
-- Built-in idempotency
-- State tracking
-- Validation enforcement
-- Consistent patterns
-
-Bootstrap bash scripts orchestrate the process, Terraform modules handle AWS APIs.
+```bash
+# Enable trusted access (one-time setup)
+aws organizations enable-aws-service-access \
+  --service-principal account.amazonaws.com
+```
 
 ## Related Modules
 
-- `resource-tagging` - Manage AWS Organizations resource tags
-- `aws-organizations` - Full organization setup
+- `resource-tagging` - Also not in use, uses AWS CLI instead
+- See `scripts/bootstrap/lib/terraform.sh` for current implementation
 
-## Troubleshooting
+## References
 
-### "AccessDeniedException" Error
-
-**Cause**: Missing permissions or role assumption failure
-
-**Solution**:
-1. Verify OrganizationAccountAccessRole exists in target account
-2. Check management account can assume the role
-3. Ensure role has `account:PutContactInformation` permission
-
-### "ValidationException" Error
-
-**Cause**: Invalid phone number or country code format
-
-**Solution**:
-1. Verify phone number is in E.164 format (`+1-555-0100`)
-2. Verify country code is ISO 3166-1 alpha-2 (`US`, not `USA`)
-3. Check all required fields are provided
-
-### Contact Information Not Updating
-
-**Cause**: Terraform state doesn't reflect latest changes
-
-**Solution**:
-```bash
-terraform refresh
-terraform plan  # Verify changes detected
-terraform apply
-```
-
-## Support
-
-For issues or questions, see:
-- [Bootstrap Scripts Documentation](../../../../scripts/bootstrap/README.md)
-- [ADR-006: Terraform Over Bash](../../../../docs/architecture/ADR-006.md)
-- [Project Roadmap](../../../../docs/ROADMAP.md)
+- [AWS CLI put-alternate-contact](https://docs.aws.amazon.com/cli/latest/reference/account/put-alternate-contact.html)
+- [AWS Account Management Guide](https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-contact-alternate.html)
+- [Terraform aws_account_primary_contact](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/account_primary_contact)
