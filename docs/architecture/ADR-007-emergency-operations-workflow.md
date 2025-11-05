@@ -163,6 +163,9 @@ See [ROADMAP.md](../ROADMAP.md) for planned improvements:
 - ADR-002: Branch-Based Deployment Routing
 - ADR-003: Manual Semantic Versioning
 
+### Related Architecture
+- **[Architecture Guide](../architecture.md)** - See "CI/CD Pipeline Architecture" section for emergency operations integration in deployment strategy
+
 ### Research and Best Practices
 - [GitHub Actions: Manual workflows](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#workflow_dispatch)
 - [Incident Response: Best Practices](https://www.pagerduty.com/resources/learn/incident-response-process/)

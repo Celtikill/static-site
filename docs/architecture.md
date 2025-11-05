@@ -6,6 +6,17 @@ Comprehensive technical architecture documentation for the AWS Static Website In
 
 This system implements enterprise-grade static website hosting using AWS services with a multi-account architecture pattern. The design emphasizes security, scalability, cost optimization, and operational excellence aligned with the [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/).
 
+## Architectural Decisions
+
+This architecture is the result of deliberate design decisions documented in **Architecture Decision Records (ADRs)**. Key decisions include:
+
+- **[ADR-001: IAM Permission Strategy](architecture/ADR-001-iam-permission-strategy.md)** - Middle-way approach balancing security with operational efficiency using action-category wildcards
+- **[ADR-002: Branch-Based Deployment Routing](architecture/ADR-002-branch-based-deployment-routing.md)** - Progressive promotion strategy where main deploys to staging (not production)
+- **[ADR-006: Terraform Over Bash for Resources](architecture/ADR-006-terraform-over-bash-for-resources.md)** - Hybrid infrastructure approach using Terraform for resource management
+- **[ADR-007: Emergency Operations Workflow](architecture/ADR-007-emergency-operations-workflow.md)** - Dedicated workflow for production incidents and rollbacks
+
+For complete list of architectural decisions and their rationale, see [Architecture Decision Records](architecture/README.md).
+
 ## Multi-Account Architecture
 
 ### Account Structure
@@ -105,7 +116,7 @@ GitHub Workflow → OIDC Token → AssumeRoleWithWebIdentity → Environment Rol
 
 **No central role or cross-account trust required** - Each environment authenticates independently.
 
-For comprehensive IAM details, trust policies, and security model, see [IAM Deep Dive](iam-deep-dive.md).
+For comprehensive IAM details, trust policies, and security model, see [IAM Deep Dive](iam-deep-dive.md). For the rationale behind our IAM permission strategy, see [ADR-001: IAM Permission Strategy](architecture/ADR-001-iam-permission-strategy.md).
 
 ## Infrastructure Components
 
@@ -170,6 +181,8 @@ graph TD
 ```
 
 ## CI/CD Pipeline Architecture
+
+The pipeline implements progressive deployment with branch-based routing and emergency response capabilities. See [ADR-002: Branch-Based Deployment Routing](architecture/ADR-002-branch-based-deployment-routing.md) for deployment strategy rationale and [ADR-007: Emergency Operations Workflow](architecture/ADR-007-emergency-operations-workflow.md) for incident response procedures.
 
 ### Pipeline Flow
 
@@ -471,6 +484,8 @@ graph LR
 - **Module Architecture**: Reusable, composable infrastructure components
 - **State Management**: Distributed backends with state locking
 - **Version Control**: Git-based infrastructure versioning
+
+For rationale on using Terraform for resource management instead of bash scripts, see [ADR-006: Terraform Over Bash for Resources](architecture/ADR-006-terraform-over-bash-for-resources.md).
 
 ### Security & Compliance
 - **Checkov**: Infrastructure security scanning

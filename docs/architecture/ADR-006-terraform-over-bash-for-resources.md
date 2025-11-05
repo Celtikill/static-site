@@ -232,6 +232,10 @@ Use AWS native IaC tooling.
 - [AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [Idempotent Shell Scripts with Terraform](https://thepracticalsysadmin.com/idempotent-shell-scripts-with-terraform/)
 
+## Related Architecture
+
+- **[Architecture Guide](../architecture.md)** - See "Technology Stack" section for infrastructure-as-code implementation using this Terraform-first approach
+
 ## Related Files
 
 ### Terraform Modules

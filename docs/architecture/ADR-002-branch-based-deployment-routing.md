@@ -353,6 +353,9 @@ main → all environments (feature flags control)
 - **docs/deployment.md** - Deployment procedures
 - **CONTRIBUTING.md** - Developer workflow guide
 
+### Related Architecture
+- **[Architecture Guide](../architecture.md)** - See "CI/CD Pipeline Architecture" section for implementation of progressive deployment strategy
+
 ### Research and Best Practices
 - [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow): Feature branches + main + releases
 - [Trunk-Based Development](https://trunkbaseddevelopment.com/): Main as integration point

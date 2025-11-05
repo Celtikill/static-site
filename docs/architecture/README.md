@@ -2,6 +2,10 @@
 
 This directory contains Architecture Decision Records documenting significant architectural choices made for the static website infrastructure project.
 
+> **📐 For high-level architecture overview**, see [Architecture Guide](../architecture.md).
+>
+> **ADRs provide the "why"** - This directory documents the rationale behind architectural decisions. The Architecture Guide provides the "what" and "how" - showing the implemented system design.
+
 ## What are ADRs?
 
 Architecture Decision Records capture important architectural decisions along with their context, rationale, and consequences. They provide:

@@ -196,6 +196,9 @@ Create two-role architecture when:
 - **ADR-002** - Branch-based deployment routing that depends on these permissions
 - **docs/iam-deep-dive.md** - Detailed IAM architecture
 
+### Related Architecture
+- **[Architecture Guide](../architecture.md)** - See "Multi-Account Architecture" and "Authentication Flow" sections for implementation of this IAM strategy
+
 ### Research Sources
 - [AWS Security Blog: "Use IAM roles to connect GitHub Actions to actions in AWS"](https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/) (2023)
 - [DevOpsCube: "How to Configure GitHub Actions OIDC with AWS"](https://devopscube.com/github-actions-oidc-aws/) (2024)
