@@ -26,14 +26,27 @@ readonly TERRAFORM_MODULES_DIR="${TERRAFORM_ROOT}/modules"
 # PROJECT CONFIGURATION
 # =============================================================================
 
-readonly PROJECT_NAME="celtikill-static-site"
 readonly GITHUB_REPO="Celtikill/static-site"
-readonly EXTERNAL_ID="github-actions-static-site"
 readonly AWS_DEFAULT_REGION="us-east-2"
 readonly MANAGEMENT_ACCOUNT_ID="223938610551"
 
 # Derived configuration
 readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from "Celtikill/static-site"
+readonly GITHUB_OWNER="${GITHUB_REPO%%/*}"       # Extracts "Celtikill" from "Celtikill/static-site"
+
+# Convert owner to lowercase for bucket names (S3 requires lowercase)
+_to_lowercase() {
+    echo "$1" | tr '[:upper:]' '[:lower:]'
+}
+readonly GITHUB_OWNER_LOWER=$(_to_lowercase "$GITHUB_OWNER")  # "celtikill"
+
+# PROJECT_NAME: Used for S3 buckets, DynamoDB tables, and resource naming
+# Format: {owner-lowercase}-{repo-name} (e.g., "celtikill-static-site")
+# This ensures uniqueness when forking to different organizations
+readonly PROJECT_NAME="${GITHUB_OWNER_LOWER}-${PROJECT_SHORT_NAME}"
+
+# EXTERNAL_ID: Used for IAM trust relationships
+readonly EXTERNAL_ID="github-actions-${PROJECT_SHORT_NAME}"
 readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "static-site"
 readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+static-site"
 
