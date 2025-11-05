@@ -11,17 +11,6 @@
 # allowing for tag updates and ensuring consistency across the organization.
 # =============================================================================
 
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.0"
-    }
-  }
-}
-
 # =============================================================================
 # RESOURCE TAGGING
 # =============================================================================
