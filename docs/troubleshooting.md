@@ -94,6 +94,127 @@ unset AWS_PROFILE
 aws configure  # Configure with correct account
 ```
 
+### AWS Account Mismatch During Destroy Operations
+
+**Symptoms**: Destroy script shows error "Current AWS account (XXXXXX) doesn't match expected account (YYYYYY)"
+
+**Cause**: AWS profile or credentials pointing to wrong account for the target environment
+
+**Detailed Diagnosis**:
+
+1. **Check Current AWS Account**:
+   ```bash
+   aws sts get-caller-identity --query 'Account' --output text
+   ```
+
+2. **Check Active Profile**:
+   ```bash
+   echo $AWS_PROFILE
+   ```
+
+3. **Verify Expected Account Mapping**:
+   ```bash
+   # Check accounts.json for correct account IDs
+   cat scripts/bootstrap/accounts.json
+
+   # Expected mappings:
+   # dev: 859340968804
+   # staging: 927588814642
+   # prod: 546274483801
+   # management: 223938610551
+   ```
+
+4. **Verify AWS Profile Configuration**:
+   ```bash
+   # List configured profiles
+   grep '^\[' ~/.aws/credentials
+   grep '^\[' ~/.aws/config
+
+   # Test each profile
+   for profile in dev-deploy staging-deploy prod-deploy; do
+       AWS_PROFILE=$profile aws sts get-caller-identity
+   done
+   ```
+
+**Solutions**:
+
+**Option 1: Set Correct AWS Profile** (Recommended):
+```bash
+# For dev environment destroy
+export AWS_PROFILE=dev-deploy
+./scripts/destroy/destroy-environment.sh dev
+
+# For staging environment destroy
+export AWS_PROFILE=staging-deploy
+./scripts/destroy/destroy-environment.sh staging
+
+# For prod environment destroy
+export AWS_PROFILE=prod-deploy
+./scripts/destroy/destroy-environment.sh prod
+```
+
+**Option 2: Configure AWS Profile** (If profile doesn't exist):
+```bash
+# Configure AWS CLI profile for dev account
+aws configure --profile dev-deploy
+# Enter:
+#   AWS Access Key ID: [your dev account key]
+#   AWS Secret Access Key: [your dev account secret]
+#   Default region: us-east-2
+#   Default output format: json
+
+# Verify profile works
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+# Should show Account: 859340968804
+```
+
+**Option 3: Use AWS SSO** (If using AWS Organizations):
+```bash
+# Configure SSO profile
+aws configure sso --profile dev-deploy
+
+# Login to SSO
+aws sso login --profile dev-deploy
+
+# Verify access
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+```
+
+**Prevention**:
+Add these aliases to your shell profile (.bashrc, .zshrc):
+```bash
+alias destroy-dev='AWS_PROFILE=dev-deploy ./scripts/destroy/destroy-environment.sh dev'
+alias destroy-staging='AWS_PROFILE=staging-deploy ./scripts/destroy/destroy-environment.sh staging'
+alias destroy-prod='AWS_PROFILE=prod-deploy ./scripts/destroy/destroy-environment.sh prod'
+```
+
+**Understanding the Error**:
+
+The destroy script validates that your current AWS account matches the target environment:
+- **dev** environment → expects account 859340968804
+- **staging** environment → expects account 927588814642
+- **prod** environment → expects account 546274483801
+- **management** account → 223938610551 (not used for destroy operations)
+
+If you see "Current account (223938610551) doesn't match expected (859340968804)", you're authenticated to the management account but trying to destroy dev resources.
+
+**Common Mistake**:
+Running destroy scripts with management account credentials instead of environment-specific credentials. The management account (223938610551) should only be used for organization-level operations, not environment workload destruction.
+
+**Account-to-Profile-to-Environment Mapping**:
+
+| Environment | Account ID | AWS Profile | Purpose |
+|-------------|------------|-------------|---------|
+| dev | 859340968804 | `dev-deploy` | Deploy/destroy dev resources |
+| staging | 927588814642 | `staging-deploy` | Deploy/destroy staging resources |
+| prod | 546274483801 | `prod-deploy` | Deploy/destroy prod resources |
+| management | 223938610551 | `management` | Organization-level operations only |
+
+**Related Documentation**:
+- [destroy-runbook.md - AWS Profile Configuration](destroy-runbook.md#aws-profile-configuration)
+- [deployment-reference.md - Profile Mapping](deployment-reference.md#aws-profile-configuration-for-destroy-operations)
+- [TESTING-PROFILE-CONFIGURATION.md](TESTING-PROFILE-CONFIGURATION.md) - Detailed testing log
+
 ### Can't find website URL after deployment
 
 **Symptoms**: Deployment succeeds but don't know where to access the website
