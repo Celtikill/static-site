@@ -120,10 +120,14 @@ s3_bucket_exists() {
     local exit_code=$?
 
     if [[ $exit_code -eq 0 ]]; then
-        log_debug "Bucket exists: $bucket_name"
+        log_debug "Bucket exists and accessible: $bucket_name"
         return 0
     else
-        log_debug "Bucket check failed (exit $exit_code): $check_result"
+        # Log at info level for troubleshooting
+        log_info "Bucket check returned exit code $exit_code for: $bucket_name"
+        if [[ -n "$check_result" ]]; then
+            log_debug "Error details: $check_result"
+        fi
         return 1
     fi
 }
