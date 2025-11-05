@@ -462,6 +462,68 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 
 ## 🎨 Medium-Term Enhancements (3-6 Months)
 
+### Bootstrap Infrastructure Migration
+
+#### Bootstrap Script Migration to Terraform
+**Priority**: MEDIUM ⭐⭐
+**Status**: 20% COMPLETE 🚧 (Foundation Complete)
+**Effort**: 8-12 hours remaining
+**Value**: Improved idempotency, testability, and maintainability
+
+**Objective**: Migrate bash-based AWS resource operations to Terraform modules
+
+**Completed Components** (November 2025):
+- ✅ Created architectural pattern (ADR-006: Terraform Over Bash)
+- ✅ Implemented resource tagging module (`terraform/modules/management/resource-tagging/`)
+- ✅ Implemented account contacts module (`terraform/modules/management/account-contacts/`)
+- ✅ Created Terraform invocation library (`lib/terraform.sh`)
+- ✅ Created metadata parser for CODEOWNERS (`lib/metadata.sh`)
+- ✅ Integrated tagging and contacts into bootstrap-organization.sh
+
+**Remaining Work**:
+1. **OIDC Provider Management** (2-3 hours)
+   - Convert `lib/oidc.sh` AWS CLI calls to Terraform module
+   - Module: `terraform/modules/identity/github-oidc-provider/`
+   - Benefits: Declarative provider configuration, idempotent updates
+
+2. **IAM Role Management** (3-4 hours)
+   - Integrate existing `deployment-role` module into bootstrap process
+   - Replace `lib/roles.sh` policy generation with Terraform
+   - Benefits: Type-safe policy definitions, easier testing
+
+3. **Terraform Backend Setup** (2-3 hours)
+   - Convert `lib/backends.sh` to Terraform module
+   - Module: `terraform/modules/foundations/terraform-backend/`
+   - Benefits: Backend configuration as code, version-controlled
+
+4. **Account Closure Automation** (Optional, 4-5 hours)
+   - Consider Terraform-managed account lifecycle
+   - Requires careful design (destructive operations)
+   - Benefits: Tracked account closure, safer operations
+
+**Architectural Benefits**:
+- **Idempotency**: Terraform handles "already exists" automatically
+- **State Management**: Know what's deployed, detect drift
+- **Testability**: Modules can be unit tested independently
+- **Reusability**: Modules work across different projects
+- **Documentation**: Self-documenting via variables and README
+- **Validation**: Built-in type checking and constraints
+
+**Pattern Established**:
+```
+Bootstrap Script (Bash) → Orchestration Logic
+                       ↓
+          Terraform Modules → AWS Resource Operations
+                       ↓
+    CODEOWNERS Metadata → Configuration Source
+```
+
+**Related Documentation**:
+- `docs/architecture/ADR-006-terraform-over-bash-for-resources.md`
+- `terraform/modules/management/resource-tagging/README.md`
+- `terraform/modules/management/account-contacts/README.md`
+- `scripts/bootstrap/lib/terraform.sh`
+
 ### Policy & State Management
 
 #### Policy Lifecycle Management
@@ -655,6 +717,10 @@ This roadmap is reviewed quarterly to:
 **Next Review**: February 2026
 
 **Recent Updates**:
+- November 5, 2025: Added resource tagging and account contacts features to bootstrap scripts
+- November 5, 2025: Created ADR-006 (Terraform Over Bash for Resource Management)
+- November 5, 2025: Implemented CODEOWNERS metadata parser for centralized configuration
+- November 5, 2025: Added Bootstrap Script Migration to Terraform roadmap item (20% complete)
 - November 3, 2025: Fixed critical OIDC authentication failure (IAM role naming mismatch)
 - November 3, 2025: Updated workflows to use correct role names (GitHubActions-Static-site-{Env}-Role)
 - November 3, 2025: Migrated to new dev account after account closure
