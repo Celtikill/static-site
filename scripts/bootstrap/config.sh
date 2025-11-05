@@ -36,7 +36,14 @@ readonly MANAGEMENT_ACCOUNT_ID="223938610551"
 readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from "Celtikill/static-site"
 readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "static-site"
 readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+static-site"
-readonly IAM_ROLE_PREFIX="GitHubActions-${PROJECT_SHORT_NAME^}"  # "GitHubActions-Static-site" (capitalize first letter)
+
+# Capitalize first letter (bash 3.x compatible for macOS)
+# Convert "static-site" to "Static-site"
+_capitalize_first() {
+    local str="$1"
+    echo "$(echo "${str:0:1}" | tr '[:lower:]' '[:upper:]')${str:1}"
+}
+readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first "${PROJECT_SHORT_NAME}")"  # "GitHubActions-Static-site"
 
 # IAM role configuration
 readonly READONLY_ROLE_PREFIX="${PROJECT_SHORT_NAME}-ReadOnly"  # "static-site-ReadOnly"

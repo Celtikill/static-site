@@ -335,11 +335,14 @@ display_metadata_summary() {
     echo ""
 
     echo "${BOLD}Tags:${NC}"
-    declare -A tags
-    if load_tags_array tags; then
-        for key in "${!tags[@]}"; do
-            echo "  $key: ${tags[$key]}"
-        done
+    # Use JSON for bash 3.x compatibility (macOS)
+    local tags_json
+    if tags_json=$(get_tags_json); then
+        if [[ -n "$tags_json" ]] && [[ "$tags_json" != "{}" ]]; then
+            echo "$tags_json" | jq -r 'to_entries[] | "  \(.key): \(.value)"'
+        else
+            echo "  (no tags defined)"
+        fi
     else
         echo "  (no tags defined)"
     fi
