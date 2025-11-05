@@ -33,6 +33,18 @@
 # ✓ OIDC providers
 #
 #==============================================================================
+# RELATED SCRIPTS
+#==============================================================================
+# ../bootstrap/destroy-foundation.sh
+#   Destroys bootstrap infrastructure (backends, IAM roles, OIDC providers).
+#   Use AFTER destroying workloads in all environments if full teardown needed.
+#
+# destroy-infrastructure.sh
+#   Complete destruction of ALL resources (workloads + bootstrap) across all
+#   environments and regions. Equivalent to running this script for all
+#   environments plus destroy-foundation.sh.
+#
+#==============================================================================
 # KEY FEATURES
 #==============================================================================
 # • Terraform state validation before destroy
