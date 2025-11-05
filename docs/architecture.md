@@ -16,25 +16,27 @@ This system implements enterprise-grade static website hosting using AWS service
 
 ```mermaid
 %%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph TB
+graph TD
     accTitle: "Multi-Account AWS Architecture with Direct OIDC"
     accDescr: "Diagram showing Direct OIDC authentication architecture. GitHub Actions authenticate directly to environment-specific roles using AssumeRoleWithWebIdentity, eliminating central role dependencies. Each environment account (Dev, Staging, Production) contains its own OIDC provider, deployment role, Terraform state backend, and infrastructure resources. Management account hosts foundation state bucket but does not participate in deployment authentication flow. Dev account is operational, Staging and Production are ready for deployment. Implements account isolation for security and blast radius containment following AWS 2025 best practices for OIDC authentication."
 
-    subgraph GitHub["🐙 GitHub Actions"]
-        GH["GitHub Workflows<br/>Direct OIDC Authentication"]
-    end
+    GH["🐙 GitHub Actions<br/>GitHub Workflows<br/>Direct OIDC Authentication"]
 
-    subgraph Org["🏛️ AWS Organization<br/>ORG_ID"]
-        subgraph Management["🏢 Management<br/>MANAGEMENT_ACCOUNT_ID"]
+    subgraph Org["🏛️ AWS Organization (ORG_ID)"]
+        subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
             MgmtState["📦 Foundation State Bucket<br/>Terraform Foundation State Only"]
         end
 
-        subgraph Dev["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
+        subgraph Dev["🧪 Development Account<br/>DEVELOPMENT_ACCOUNT_ID"]
             DevOIDC["🔐 OIDC Provider<br/>token.actions.githubusercontent.com"]
             DevRole["🔧 Deployment Role<br/>GitHubActions-Static-site-dev"]
             DevConsole["👤 Console Role<br/>static-site-ReadOnly-dev"]
             DevState["💾 Dev State Backend<br/>static-site-state-dev-DEVELOPMENT_ACCOUNT_ID"]
             DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
+
+            DevOIDC --> DevRole
+            DevRole --> DevState
+            DevRole --> DevInfra
         end
 
         subgraph Staging["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
@@ -43,6 +45,10 @@ graph TB
             StagingConsole["👤 Console Role<br/>static-site-ReadOnly-staging"]
             StagingState["💾 Staging State Backend<br/>⏳ Ready for Bootstrap"]
             StagingInfra["☁️ Staging Infrastructure<br/>⏳ Ready for Deployment"]
+
+            StagingOIDC --> StagingRole
+            StagingRole --> StagingState
+            StagingRole --> StagingInfra
         end
 
         subgraph Prod["🏭 Production Account<br/>PRODUCTION_ACCOUNT_ID"]
@@ -51,6 +57,10 @@ graph TB
             ProdConsole["👤 Console Role<br/>static-site-ReadOnly-prod"]
             ProdState["💾 Production State Backend<br/>⏳ Ready for Bootstrap"]
             ProdInfra["☁️ Production Infrastructure<br/>⏳ Ready for Deployment"]
+
+            ProdOIDC --> ProdRole
+            ProdRole --> ProdState
+            ProdRole --> ProdInfra
         end
     end
 
@@ -58,22 +68,18 @@ graph TB
     GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| StagingRole
     GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| ProdRole
 
-    DevRole --> DevState
-    DevRole --> DevInfra
-    StagingRole --> StagingState
-    StagingRole --> StagingInfra
-    ProdRole --> ProdState
-    ProdRole --> ProdInfra
-
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
-    linkStyle 6 stroke:#333333,stroke-width:2px
-    linkStyle 7 stroke:#333333,stroke-width:2px
-    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 0 stroke:#666666,stroke-width:1px
+    linkStyle 1 stroke:#666666,stroke-width:1px
+    linkStyle 2 stroke:#666666,stroke-width:1px
+    linkStyle 3 stroke:#666666,stroke-width:1px
+    linkStyle 4 stroke:#666666,stroke-width:1px
+    linkStyle 5 stroke:#666666,stroke-width:1px
+    linkStyle 6 stroke:#666666,stroke-width:1px
+    linkStyle 7 stroke:#666666,stroke-width:1px
+    linkStyle 8 stroke:#666666,stroke-width:1px
+    linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
 ```
 
 ### Authentication Flow
