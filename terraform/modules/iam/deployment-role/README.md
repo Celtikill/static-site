@@ -2,9 +2,13 @@
 
 > ⚠️ **DEPRECATED**: This module implements a two-step authentication pattern (central role → workload role) which is **no longer recommended** as of 2025.
 >
-> **Recommended Alternative**: Use **direct OIDC authentication** where GitHub Actions authenticates directly to environment-specific roles using `AssumeRoleWithWebIdentity`. This is simpler, more secure, and follows AWS best practices.
+> **Recommended Alternative**: Use the **github-actions-oidc-role** module for direct OIDC authentication where GitHub Actions authenticates directly to environment-specific roles using `AssumeRoleWithWebIdentity`. This is simpler, more secure, and follows AWS best practices.
 >
-> **Migration Path**: See [Direct OIDC Setup](#-migration-to-direct-oidc) below.
+> **Current Modules**:
+> - `terraform/modules/iam/github-actions-oidc-role/` - Direct OIDC deployment role
+> - `terraform/modules/iam/readonly-console-role/` - Read-only console access
+>
+> **Migration Path**: See [Direct OIDC Setup](#-migration-to-direct-oidc) below or refer to [IAM Deep Dive](../../../docs/iam-deep-dive.md) for complete documentation.
 
 Environment-specific IAM role for GitHub Actions to deploy static website infrastructure with least-privilege permissions and external ID validation.
 
@@ -29,7 +33,11 @@ This module creates an environment-specific IAM role that can be assumed by a ce
 ### Role Assumption Flow
 
 ```mermaid
+%%{init: {'theme':'default'}}%%
 graph LR
+    accTitle: Two-Step Cross-Account Authentication Flow
+    accDescr: Deprecated authentication pattern showing GitHub Actions authenticating to central management role via OIDC, then assuming deployment role in workload account via AssumeRole with external ID. This two-hop pattern has been superseded by direct OIDC authentication for improved security and simplicity.
+
     A[👤 GitHub Actions] -->|OIDC Auth| B[Central Role<br/>Management Account]
     B -->|AssumeRole +<br/>ExternalID| C[Deployment Role<br/>Workload Account]
     C -->|Deploy| D[📦 S3 + ☁️ CloudFront<br/>+ 🛡️ WAF]

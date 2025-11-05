@@ -2,6 +2,10 @@
 
 This directory contains Architecture Decision Records documenting significant architectural choices made for the static website infrastructure project.
 
+> **📐 For high-level architecture overview**, see [Architecture Guide](../architecture.md).
+>
+> **ADRs provide the "why"** - This directory documents the rationale behind architectural decisions. The Architecture Guide provides the "what" and "how" - showing the implemented system design.
+
 ## What are ADRs?
 
 Architecture Decision Records capture important architectural decisions along with their context, rationale, and consequences. They provide:
@@ -184,9 +188,9 @@ When proposing a new architectural decision:
 
 ## Related Documentation
 
-- **[Complete Deployment Guide](../../DEPLOYMENT_GUIDE.md)** - Step-by-step deployment instructions
+- **[Complete Deployment Guide](../../DEPLOYMENT.md)** - Step-by-step deployment instructions (includes advanced patterns)
+- **[Deployment Reference](../deployment-reference.md)** - Quick command reference and troubleshooting
 - **[CI/CD Pipeline Guide](../ci-cd.md)** - Pipeline architecture and workflows
-- **[Advanced Deployment](../deployment.md)** - Deployment strategies and patterns
 - **[IAM Deep Dive](../iam-deep-dive.md)** - Detailed IAM permission architecture
 - **[Contributing Guide](../../CONTRIBUTING.md)** - Development workflow
 

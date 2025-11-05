@@ -33,6 +33,18 @@
 # ✓ OIDC providers
 #
 #==============================================================================
+# RELATED SCRIPTS
+#==============================================================================
+# ../bootstrap/destroy-foundation.sh
+#   Destroys bootstrap infrastructure (backends, IAM roles, OIDC providers).
+#   Use AFTER destroying workloads in all environments if full teardown needed.
+#
+# destroy-infrastructure.sh
+#   Complete destruction of ALL resources (workloads + bootstrap) across all
+#   environments and regions. Equivalent to running this script for all
+#   environments plus destroy-foundation.sh.
+#
+#==============================================================================
 # KEY FEATURES
 #==============================================================================
 # • Terraform state validation before destroy
@@ -62,7 +74,18 @@
 #   DRY_RUN        Set to "true" for dry-run mode
 #   FORCE          Set to "true" for force mode
 #   VERBOSE        Set to "true" for verbose mode
-#   AWS_PROFILE    AWS profile to use for credentials
+#   AWS_PROFILE    AWS profile to use for credentials (REQUIRED)
+#
+#                  Profile must be configured for target account:
+#                    dev     → use profile pointing to 859340968804
+#                    staging → use profile pointing to 927588814642
+#                    prod    → use profile pointing to 546274483801
+#
+#                  Verify profile before running:
+#                    AWS_PROFILE=dev-deploy aws sts get-caller-identity
+#
+#                  Common profiles:
+#                    dev-deploy, staging-deploy, prod-deploy
 #
 #==============================================================================
 # EXAMPLES
@@ -507,8 +530,55 @@ main() {
     current_account=$(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null || echo "unknown")
 
     if [[ "$current_account" != "$account_id" ]]; then
-        log_warn "Current AWS account ($current_account) doesn't match expected account ($account_id)"
-        log_warn "Ensure you're using the correct AWS_PROFILE or credentials"
+        log_error "AWS Account Mismatch Detected!"
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        log_error "Current AWS account:  ${BOLD}$current_account${NC}"
+        log_error "Expected AWS account: ${BOLD}$account_id${NC}"
+        log_error "Target environment:   ${BOLD}$ENVIRONMENT${NC}"
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo
+
+        # Identify which account is which
+        local current_account_name="unknown"
+        case "$current_account" in
+            "223938610551") current_account_name="management" ;;
+            "859340968804") current_account_name="dev" ;;
+            "927588814642") current_account_name="staging" ;;
+            "546274483801") current_account_name="prod" ;;
+        esac
+
+        log_error "You are authenticated to: ${BOLD}$current_account_name${NC} account"
+        log_error "But trying to destroy:    ${BOLD}$ENVIRONMENT${NC} environment"
+        echo
+        log_error "To fix this issue:"
+        log_error "  1. Set correct AWS profile:"
+        log_error "     ${BOLD}export AWS_PROFILE=${ENVIRONMENT}-deploy${NC}"
+        echo
+        log_error "  2. Verify profile configuration:"
+        log_error "     ${BOLD}aws sts get-caller-identity --query 'Account' --output text${NC}"
+        echo
+        log_error "  3. If profile not configured, set it up:"
+        log_error "     ${BOLD}aws configure --profile ${ENVIRONMENT}-deploy${NC}"
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo
+
+        if [[ "$FORCE" != "true" ]] && [[ "$DRY_RUN" != "true" ]]; then
+            echo -e "${YELLOW}${BOLD}WARNING:${NC} Proceeding will destroy resources in the ${BOLD}WRONG${NC} account!"
+            echo
+            read -p "Type 'CONTINUE' to proceed anyway (not recommended): " confirmation
+            if [[ "$confirmation" != "CONTINUE" ]]; then
+                log_warn "Operation cancelled due to account mismatch"
+                exit 1
+            fi
+            log_warn "Proceeding despite account mismatch (you confirmed)"
+            echo
+        elif [[ "$FORCE" == "true" ]]; then
+            log_warn "Force mode enabled - proceeding despite account mismatch"
+            echo
+        elif [[ "$DRY_RUN" == "true" ]]; then
+            log_warn "Dry-run mode - would normally stop here for confirmation"
+            echo
+        fi
     fi
 
     # Confirmation

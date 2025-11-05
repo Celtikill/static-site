@@ -2,7 +2,7 @@
 
 Common issues and solutions for AWS Static Website Infrastructure deployment and operation.
 
-> **For comprehensive deployment troubleshooting**, see the troubleshooting section in the [Complete Deployment Guide](../DEPLOYMENT_GUIDE.md#troubleshooting).
+> **For comprehensive deployment troubleshooting**, see the troubleshooting section in the [Complete Deployment Guide](../DEPLOYMENT.md#troubleshooting).
 
 ## Quick Diagnostics
 
@@ -28,6 +28,280 @@ tofu fmt -check
 # Validate GitHub workflows
 yamllint -d relaxed .github/workflows/*.yml
 ```
+
+---
+
+## First-Time User Issues
+
+### Bootstrap hasn't been run
+
+**Symptoms**: GitHub Actions fails with "OIDC provider not found" or "Could not assume role"
+
+**Solution**:
+```bash
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+```
+
+This creates the OIDC provider and IAM roles required for GitHub Actions to authenticate with AWS.
+
+### GitHub variables not configured
+
+**Symptoms**: Workflow fails with missing variable errors or deploys to wrong account
+
+**Solution**:
+```bash
+# After running bootstrap, configure GitHub variables
+cd scripts/bootstrap
+./configure-github.sh
+
+# Or manually set variables
+gh variable set AWS_ACCOUNT_ID_DEV --body "YOUR_DEV_ACCOUNT_ID"
+gh variable set AWS_ACCOUNT_ID_STAGING --body "YOUR_STAGING_ACCOUNT_ID"
+gh variable set AWS_ACCOUNT_ID_PROD --body "YOUR_PROD_ACCOUNT_ID"
+gh variable set AWS_DEFAULT_REGION --body "us-east-2"
+```
+
+### Website returns 403 Forbidden after deployment
+
+**Symptoms**: Deployment succeeds but website URL returns 403 error
+
+**Solution**: Wait 30-60 seconds for permissions to propagate, then reload page. If still failing:
+```bash
+# Check bucket policy
+cd terraform/environments/dev
+tofu output s3_bucket_name
+aws s3api get-bucket-policy --bucket BUCKET_NAME
+
+# Verify website configuration
+aws s3api get-bucket-website --bucket BUCKET_NAME
+```
+
+### Wrong AWS credentials being used
+
+**Symptoms**: Resources created in unexpected AWS account
+
+**Solution**:
+```bash
+# Verify your AWS CLI configuration
+aws sts get-caller-identity
+
+# Check which profile is active
+echo $AWS_PROFILE
+
+# If wrong profile, unset and use correct credentials
+unset AWS_PROFILE
+aws configure  # Configure with correct account
+```
+
+### AWS Account Mismatch During Destroy Operations
+
+**Symptoms**: Destroy script shows error "Current AWS account (XXXXXX) doesn't match expected account (YYYYYY)"
+
+**Cause**: AWS profile or credentials pointing to wrong account for the target environment
+
+**Detailed Diagnosis**:
+
+1. **Check Current AWS Account**:
+   ```bash
+   aws sts get-caller-identity --query 'Account' --output text
+   ```
+
+2. **Check Active Profile**:
+   ```bash
+   echo $AWS_PROFILE
+   ```
+
+3. **Verify Expected Account Mapping**:
+   ```bash
+   # Check accounts.json for correct account IDs
+   cat scripts/bootstrap/accounts.json
+
+   # Expected mappings:
+   # dev: 859340968804
+   # staging: 927588814642
+   # prod: 546274483801
+   # management: 223938610551
+   ```
+
+4. **Verify AWS Profile Configuration**:
+   ```bash
+   # List configured profiles
+   grep '^\[' ~/.aws/credentials
+   grep '^\[' ~/.aws/config
+
+   # Test each profile
+   for profile in dev-deploy staging-deploy prod-deploy; do
+       AWS_PROFILE=$profile aws sts get-caller-identity
+   done
+   ```
+
+**Solutions**:
+
+**Option 1: Set Correct AWS Profile** (Recommended):
+```bash
+# For dev environment destroy
+export AWS_PROFILE=dev-deploy
+./scripts/destroy/destroy-environment.sh dev
+
+# For staging environment destroy
+export AWS_PROFILE=staging-deploy
+./scripts/destroy/destroy-environment.sh staging
+
+# For prod environment destroy
+export AWS_PROFILE=prod-deploy
+./scripts/destroy/destroy-environment.sh prod
+```
+
+**Option 2: Configure AWS Profile** (If profile doesn't exist):
+```bash
+# Configure AWS CLI profile for dev account
+aws configure --profile dev-deploy
+# Enter:
+#   AWS Access Key ID: [your dev account key]
+#   AWS Secret Access Key: [your dev account secret]
+#   Default region: us-east-2
+#   Default output format: json
+
+# Verify profile works
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+# Should show Account: 859340968804
+```
+
+**Option 3: Use AWS SSO** (If using AWS Organizations):
+```bash
+# Configure SSO profile
+aws configure sso --profile dev-deploy
+
+# Login to SSO
+aws sso login --profile dev-deploy
+
+# Verify access
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+```
+
+**Prevention**:
+Add these aliases to your shell profile (.bashrc, .zshrc):
+```bash
+alias destroy-dev='AWS_PROFILE=dev-deploy ./scripts/destroy/destroy-environment.sh dev'
+alias destroy-staging='AWS_PROFILE=staging-deploy ./scripts/destroy/destroy-environment.sh staging'
+alias destroy-prod='AWS_PROFILE=prod-deploy ./scripts/destroy/destroy-environment.sh prod'
+```
+
+**Understanding the Error**:
+
+The destroy script validates that your current AWS account matches the target environment:
+- **dev** environment → expects account 859340968804
+- **staging** environment → expects account 927588814642
+- **prod** environment → expects account 546274483801
+- **management** account → 223938610551 (not used for destroy operations)
+
+If you see "Current account (223938610551) doesn't match expected (859340968804)", you're authenticated to the management account but trying to destroy dev resources.
+
+**Common Mistake**:
+Running destroy scripts with management account credentials instead of environment-specific credentials. The management account (223938610551) should only be used for organization-level operations, not environment workload destruction.
+
+**Account-to-Profile-to-Environment Mapping**:
+
+| Environment | Account ID | AWS Profile | Purpose |
+|-------------|------------|-------------|---------|
+| dev | 859340968804 | `dev-deploy` | Deploy/destroy dev resources |
+| staging | 927588814642 | `staging-deploy` | Deploy/destroy staging resources |
+| prod | 546274483801 | `prod-deploy` | Deploy/destroy prod resources |
+| management | 223938610551 | `management` | Organization-level operations only |
+
+**Related Documentation**:
+- [destroy-runbook.md - AWS Profile Configuration](destroy-runbook.md#aws-profile-configuration)
+- [deployment-reference.md - Profile Mapping](deployment-reference.md#aws-profile-configuration-for-destroy-operations)
+- [TESTING-PROFILE-CONFIGURATION.md](TESTING-PROFILE-CONFIGURATION.md) - Detailed testing log
+
+**AWS Organizations Role Assumption Architecture**:
+
+This project uses AWS Organizations with role assumption for cross-account access. You only need management account credentials - member account access is automatic via role assumption.
+
+**How It Works**:
+1. Store only management account credentials in your credential manager (pass/GPG)
+2. AWS CLI automatically assumes `OrganizationAccountAccessRole` in member accounts
+3. Temporary credentials are generated on-demand and auto-expire
+
+**Profile Configuration** (in `~/.aws/config`):
+```ini
+# Base profile with actual credentials
+[profile management-dev]
+credential_process = /path/to/credential-process.sh management-dev
+
+# Member account profiles (role assumption - no credentials needed)
+[profile dev-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::859340968804:role/OrganizationAccountAccessRole
+
+[profile staging-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::927588814642:role/OrganizationAccountAccessRole
+
+[profile prod-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::546274483801:role/OrganizationAccountAccessRole
+```
+
+**Benefits**:
+- Only one credential set to manage (management account)
+- Temporary credentials for member accounts (auto-expire, more secure)
+- No long-lived member account credentials to rotate
+- AWS CLI handles everything automatically
+- Zero script modifications needed
+
+**Testing Role Assumption**:
+```bash
+# Test management credentials
+AWS_PROFILE=management-dev aws sts get-caller-identity
+# Should show: Account 223938610551
+
+# Test dev role assumption
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+# Should show: Account 859340968804
+
+# Test staging role assumption
+AWS_PROFILE=staging-deploy aws sts get-caller-identity
+# Should show: Account 927588814642
+```
+
+If role assumption fails, verify:
+1. Management credentials are valid: `AWS_PROFILE=management-dev aws sts get-caller-identity`
+2. OrganizationAccountAccessRole exists in target account
+3. Trust relationship allows management account to assume role
+
+### Can't find website URL after deployment
+
+**Symptoms**: Deployment succeeds but don't know where to access the website
+
+**Solution**:
+```bash
+# Get URL from GitHub Actions summary
+gh run view --log | grep "Website URL:"
+
+# Or get from Terraform outputs
+cd terraform/environments/dev
+tofu output website_url
+```
+
+Expected URL format: `http://static-website-dev-UNIQUEID.s3-website-us-east-2.amazonaws.com`
+
+### Terraform state lock error
+
+**Symptoms**: Deployment fails with "Error acquiring the state lock"
+
+**Solution**:
+```bash
+# View current locks
+aws dynamodb scan --table-name static-site-locks-dev-ACCOUNTID
+
+# If lock is stale (previous job failed/cancelled), force unlock
+cd terraform/environments/dev
+tofu force-unlock LOCK_ID
+```
+
+**Warning**: Only force unlock if you're certain no other operation is running.
 
 ---
 
@@ -234,6 +508,169 @@ gh run view [RUN_ID] --log | grep -A 10 "CloudFront"
 # This is normal behavior, not an error
 # Consider cache-busting strategies for faster updates
 ```
+
+---
+
+## Emergency Operations Issues
+
+> **For detailed emergency procedures**, see [Emergency Operations Runbook](emergency-operations.md)
+
+### When to Use Emergency Workflow
+
+**Use emergency workflow when:**
+- Production incident requiring immediate response (< 15 minutes)
+- Critical security vulnerability discovered
+- Deployment failure requiring instant rollback
+- Service degradation from recent changes
+
+**Use standard deployment when:**
+- Planned features and updates
+- Non-urgent bug fixes
+- Changes that can wait for validation gates
+- Maintenance windows with scheduled downtime
+
+### Emergency Workflow Failures
+
+#### Workflow File Issue
+
+**Symptoms**: Emergency workflow fails immediately with "workflow file issue" or YAML parsing error
+
+**Cause**: Known YAML syntax error in emergency.yml (lines 235-240) - multi-line conditional expression
+
+**Status**: Documented in [ADR-007](architecture/ADR-007-emergency-operations-workflow.md), fix scheduled as HIGH priority
+
+**Workaround**: None available - workflow currently non-functional. Use manual rollback procedures instead:
+```bash
+# Manual rollback procedure
+# 1. Identify last known good tag
+git tag -l "v*" --sort=-version:refname | head -5
+
+# 2. Checkout last known good version
+git checkout v1.2.3
+
+# 3. Trigger standard deployment
+gh workflow run run.yml \
+  --field environment=prod \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+```
+
+#### Authorization Failed
+
+**Symptoms**: "Authorization check failed" or "CODEOWNERS review required"
+
+**Cause**: Production emergency operations require CODEOWNERS authorization
+
+**Solution**:
+```bash
+# 1. Verify you are listed in CODEOWNERS file
+cat .github/CODEOWNERS
+
+# 2. Ensure reason field is at least 10 characters
+# 3. For production, ensure you have write permissions
+# 4. Verify GitHub token has repo scope
+
+# Example with proper authorization
+gh workflow run emergency.yml \
+  --field operation=hotfix \
+  --field environment=prod \
+  --field deploy_option=immediate \
+  --field reason="Critical authentication bug affecting all users - PROD-INC-12345"
+```
+
+#### Rollback Target Not Found
+
+**Symptoms**: "Tag not found" or "Commit not found" during rollback
+
+**Cause**: Specified tag or commit doesn't exist in repository
+
+**Solution**:
+```bash
+# For last_known_good: Verify version tags exist
+git tag -l "v*" --sort=-version:refname
+# If no tags: create initial version tag
+git tag v0.1.0 && git push --tags
+
+# For specific_commit: Use full 40-character commit SHA
+git log --oneline -10
+git rev-parse abc123  # Get full SHA from short SHA
+
+# Correct rollback command with valid target
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=specific_commit \
+  --field commit_sha=abc123def456789012345678901234567890 \
+  --field reason="Rollback to pre-deployment state"
+```
+
+#### Deployment Timeout During Emergency
+
+**Symptoms**: Emergency workflow times out during deployment phase
+
+**Cause**: AWS service delays, large infrastructure changes, or CloudFront propagation
+
+**Solution**:
+```bash
+# 1. Check AWS service health
+aws health describe-events --filter eventStatusCodes=open
+
+# 2. Verify resources via AWS console
+# Check CloudFormation, S3, CloudFront status
+
+# 3. Check workflow timeout limits
+gh run view [RUN_ID] --log | grep -i timeout
+
+# 4. For infrastructure-only rollback (faster)
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=infrastructure_only \
+  --field reason="Timeout during full rollback - trying infrastructure only"
+```
+
+### Rollback Method Selection
+
+**Decision Matrix**:
+
+| Scenario | Recommended Method | Reason |
+|----------|-------------------|--------|
+| Deployment broke everything | `last_known_good` | Safest - revert to last stable version |
+| Need specific version | `specific_commit` | Precise control over target version |
+| Infrastructure config issue | `infrastructure_only` | Faster - skips content deployment |
+| Website content issue | `content_only` | Faster - preserves infrastructure |
+| Unknown root cause | `last_known_good` | Safest default option |
+
+### Post-Emergency Validation
+
+After emergency operation completes:
+
+```bash
+# 1. Verify deployment succeeded
+gh run view [RUN_ID]
+
+# 2. Check website accessibility
+curl -I $(cd terraform/environments/prod && tofu output -raw website_url)
+
+# 3. Monitor CloudWatch logs
+aws logs tail /aws/cloudfront/distribution --follow
+
+# 4. Verify CloudFront if enabled
+aws cloudfront get-distribution --id [DISTRIBUTION_ID]
+
+# 5. Run smoke tests
+./scripts/test/smoke-tests.sh prod
+```
+
+**Checklist**:
+- [ ] Website accessible and responding
+- [ ] No error rates in CloudWatch
+- [ ] CloudFront distribution healthy (if enabled)
+- [ ] Logs show normal traffic patterns
+- [ ] Critical user paths tested
+- [ ] Incident ticket updated
+- [ ] Team notified of resolution
+- [ ] Post-mortem scheduled
 
 ---
 
@@ -599,14 +1036,38 @@ tofu force-unlock [LOCK_ID]
 
 ### Emergency Rollback
 
-> **See also**: [Rollback Procedures](../DEPLOYMENT_GUIDE.md#rollback-procedures) in the Complete Deployment Guide for detailed rollback strategies.
+> **See also**:
+> - [Emergency Operations Runbook](emergency-operations.md) for detailed emergency procedures
+> - [Rollback Procedures](../DEPLOYMENT.md#rollback-procedures) in the Complete Deployment Guide for standard rollback strategies
 
+**Quick emergency rollback to last known good version:**
 ```bash
-# Quick emergency rollback
 gh workflow run emergency.yml \
-  --field environment=dev \
-  --field rollback_to_previous=true
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=last_known_good \
+  --field reason="Emergency rollback - production incident"
 ```
+
+**Infrastructure-only rollback (faster):**
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=infrastructure_only \
+  --field reason="Infrastructure config issue - reverting changes"
+```
+
+**Content-only rollback (fastest):**
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=content_only \
+  --field reason="Website content issue - rolling back to previous version"
+```
+
+**Note**: Emergency workflow currently has known YAML syntax error. See [Emergency Operations Issues](#emergency-operations-issues) section above for workarounds.
 
 ### State File Recovery
 

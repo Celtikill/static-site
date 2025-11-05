@@ -47,6 +47,42 @@ graph LR
 
 ---
 
+## Quick Access - Common DR Scenarios
+
+### 🚨 Emergency Recovery
+**Website is down, need to recover immediately?**
+
+Go directly to:
+- [Emergency Rollback](#emergency-rollback) - Quick rollback to last working state
+- [Full Recovery from Backup](#full-infrastructure-recovery) - Complete infrastructure recovery
+- [Regional Failover](#regional-failover) - Switch to backup region
+
+### 📦 Restore Specific Components
+**Need to recover individual resources?**
+
+Jump to:
+- [Restore Website Content](#website-content-recovery) - Recover S3 objects
+- [Restore Terraform State](#terraform-state-recovery) - Fix corrupted state
+- [Restore from Version](#s3-version-recovery) - Recover specific file version
+
+### 🧪 Testing & Preparation
+**Preparing for potential disasters?**
+
+Review:
+- [DR Testing Procedures](#testing--validation) - Test your recovery plan
+- [Backup Verification](#backup-verification) - Confirm backups are working
+- [Runbook Preparation](#incident-response-runbook) - Document procedures
+
+### 📋 Post-Incident
+**Recovering from an incident and documenting?**
+
+Follow:
+- [Post-Recovery Validation](#post-recovery-validation) - Verify recovery
+- [Incident Documentation](#incident-documentation) - Document what happened
+- [Lessons Learned](#lessons-learned-template) - Improve processes
+
+---
+
 ## Table of Contents
 
 1. [Recovery Objectives](#recovery-objectives)
@@ -438,6 +474,113 @@ echo "Failover complete. Website serving from us-west-2"
 tofu destroy  # Remove temporary resources
 # Update DNS back to primary
 ```
+
+---
+
+## Emergency Rollback
+
+**Purpose**: Quick rollback to last working state using emergency workflow
+
+**Recovery Time**: 5-10 minutes
+
+**When to Use**:
+- Production deployment failed and needs immediate rollback
+- Critical bug discovered requiring instant reversion
+- Security incident requiring immediate version change
+- Infrastructure changes causing service degradation
+
+### Emergency Workflow Rollback Methods
+
+The emergency workflow (`.github/workflows/emergency.yml`) provides four rollback strategies:
+
+#### 1. Last Known Good (Recommended)
+
+Rollback to most recent version tag:
+
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=last_known_good \
+  --field reason="Production incident - reverting to last stable version"
+```
+
+**Use when**: Need to quickly revert to previous working version
+
+#### 2. Specific Commit
+
+Rollback to known-good commit SHA:
+
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=specific_commit \
+  --field commit_sha=abc123def456 \
+  --field reason="Rolling back to pre-deployment commit"
+```
+
+**Use when**: Know exact commit that was working
+
+#### 3. Infrastructure Only
+
+Rollback infrastructure without changing website content:
+
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=infrastructure_only \
+  --field reason="Revert infrastructure configuration changes"
+```
+
+**Use when**: Infrastructure changes caused issue but content is fine
+
+#### 4. Content Only
+
+Rollback website content without changing infrastructure:
+
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=content_only \
+  --field reason="Revert website content to previous version"
+```
+
+**Use when**: Content changes caused issue but infrastructure is fine
+
+### Post-Rollback Validation
+
+After emergency rollback:
+
+```bash
+# 1. Verify website is accessible
+curl -I https://your-domain.com
+
+# 2. Check CloudFront distribution status
+aws cloudfront get-distribution --id DISTRIBUTION_ID
+
+# 3. Review CloudWatch logs for errors
+aws logs tail /aws/cloudfront/your-distribution --follow
+
+# 4. Test critical user paths
+# (Use your test suite or manual verification)
+
+# 5. Monitor for 15-30 minutes
+# Watch for errors, performance issues, or user reports
+```
+
+### Authorization Requirements
+
+- **Production**: Requires CODEOWNERS authorization
+- **Staging**: No authorization required (recommended for testing)
+- **Audit Trail**: All emergency operations logged in workflow runs
+
+**See Also**:
+- [Emergency Operations Runbook](emergency-operations.md) - Complete emergency procedures
+- [Workflow Reference](reference.md) - All workflow commands
+- [ADR-007](architecture/ADR-007-emergency-operations-workflow.md) - Emergency workflow design decisions
 
 ---
 

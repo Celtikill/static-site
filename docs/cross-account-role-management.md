@@ -1,10 +1,19 @@
 # Cross-Account Role Management Guide
 
-This guide covers the complete setup, management, and troubleshooting of cross-account IAM roles for GitHub Actions in the static-site AWS Organizations structure.
+> **⚠️ DEPRECATED**: This guide describes an outdated hub-and-spoke architecture with a central management role. The project now uses **Direct OIDC authentication** where each environment has its own OIDC provider and deployment role, eliminating the need for cross-account role assumptions.
+>
+> **See current documentation:**
+> - [IAM Deep Dive](./iam-deep-dive.md) - Current Direct OIDC architecture
+> - [Secrets and Variables](./secrets-and-variables.md) - GitHub configuration
+> - [Bootstrap Scripts README](../scripts/bootstrap/README.md) - Infrastructure setup
+>
+> **Last Updated**: 2025-11-04 - Marked as deprecated
 
-## Architecture Overview
+---
 
-The static-site project uses a hub-and-spoke architecture with a central management account and distributed workload accounts:
+## Legacy Architecture Overview (No Longer Used)
+
+The static-site project **previously used** a hub-and-spoke architecture with a central management account and distributed workload accounts:
 
 ```
 Management Account (Hub)
@@ -596,5 +605,5 @@ When forking this repository to a fresh AWS account:
 - [Architecture Overview](architecture.md)
 - [Permissions Architecture](permissions-architecture.md)
 - [Secrets and Variables](secrets-and-variables.md)
-- [Deployment Guide](../DEPLOYMENT_GUIDE.md)
+- [Deployment Guide](../DEPLOYMENT.md)
 - [Troubleshooting](troubleshooting.md)

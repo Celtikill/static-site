@@ -7,6 +7,18 @@
 # created by the static-site repository. It sources specialized libraries
 # for each AWS service and executes them in the correct order.
 #
+# SCOPE: EVERYTHING (bootstrap + workloads) across all accounts and regions
+#
+# RELATED SCRIPTS:
+#   - destroy-environment.sh               - Destroy workloads only (preserves bootstrap)
+#   - ../bootstrap/destroy-foundation.sh   - Destroy bootstrap only (preserves workloads)
+#
+# This script is equivalent to running:
+#   1. destroy-environment.sh dev
+#   2. destroy-environment.sh staging
+#   3. destroy-environment.sh prod
+#   4. ../bootstrap/destroy-foundation.sh --force
+#
 
 set -euo pipefail
 
@@ -69,6 +81,23 @@ OPTIONS:
     -h, --help               Show this help message
 
 NOTE: To close AWS member accounts, use scripts/bootstrap/destroy-foundation.sh --close-accounts
+
+RELATED SCRIPTS:
+    destroy-environment.sh (in this directory)
+        Destroy workload resources in a SINGLE environment (dev/staging/prod)
+        while PRESERVING bootstrap infrastructure (backends, IAM roles, OIDC).
+        Use for: Dev environment resets, testing cleanup
+
+    ../bootstrap/destroy-foundation.sh
+        Destroy ONLY bootstrap infrastructure (backends, IAM roles, OIDC providers)
+        while PRESERVING workload resources.
+        Use for: Bootstrap reset, granular backend cleanup
+
+    This script (destroy-infrastructure.sh) is equivalent to:
+        ./destroy-environment.sh dev && \
+        ./destroy-environment.sh staging && \
+        ./destroy-environment.sh prod && \
+        ../bootstrap/destroy-foundation.sh --force
 
 CROSS-ACCOUNT FEATURES:
     • Destroys GitHub Actions roles across all member accounts
@@ -281,10 +310,10 @@ main() {
     destroy_cloudfront_distributions
     destroy_waf_resources
 
-    log_info "Phase 3: Destroying storage and logging (CloudTrail buckets deferred to Phase 12)..."
+    log_info "Phase 3: Destroying storage and logging (CloudTrail buckets deferred to Phase 11)..."
     # CRITICAL: Stop CloudTrail logging BEFORE deleting S3 to prevent infinite loop
     # where CloudTrail logs the S3 deletion events, creating new log files
-    # NOTE: CloudTrail S3 buckets are skipped here and deleted in Phase 12 (final cleanup)
+    # NOTE: CloudTrail S3 buckets are skipped here and deleted in Phase 11 (final cleanup)
     # to avoid blocking other resource destruction with slow bucket emptying
     stop_all_cloudtrail_logging
     # Using efficient batch deletion (1000 objects per API call)

@@ -64,7 +64,7 @@ This directory contains policy examples and templates used throughout the AWS St
 | `iam-static-website.json` | Deployment roles | Infrastructure management |
 
 **Deployed IAM Roles** (per environment):
-- ✅ `GitHubActions-static-site-{Env}-Role` - GitHub Actions OIDC deployment role
+- ✅ `GitHubActions-Static-site-{env}` - GitHub Actions OIDC deployment role
 - ✅ `static-site-ReadOnly-{env}` - Read-only console access role
 - ✅ AWS ReadOnlyAccess (managed policy) - Attached to console access roles
 
@@ -103,7 +103,7 @@ This directory contains policy examples and templates used throughout the AWS St
 |-------------|------------------|---------|----------|
 | OPA/Rego | CI/CD Pipeline | Every commit (TEST phase) | policies/*.rego |
 | SCPs | Terraform | organization-management workflow | terraform/foundations/org-management/scps.tf |
-| IAM Policies | Terraform | Automatic with role deployment | terraform/modules/iam/deployment-role/main.tf |
+| IAM Policies | Terraform | Automatic with role deployment | terraform/modules/iam/github-actions-oidc-role/main.tf |
 | S3 Bucket Policies | Terraform | bootstrap-distributed-backend workflow | terraform/bootstrap/main.tf |
 
 ### How to Deploy Policies
@@ -243,7 +243,7 @@ Remove policies that are no longer managed by Terraform:
 
 ## 📖 Additional Resources
 
-- **[3-Tier Permissions Architecture](../docs/permissions-architecture.md)** - Detailed IAM role hierarchy
+- **[IAM Deep Dive](../docs/iam-deep-dive.md)** - Direct OIDC architecture and IAM role details
 - **[Security Policy](../SECURITY.md)** - Overall security posture
 - **[Architecture Guide](../docs/architecture.md)** - Complete infrastructure architecture
 - **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute policy improvements
@@ -258,5 +258,5 @@ These policies are automatically executed in the GitHub Actions workflow:
 
 ---
 
-**Last Updated**: 2025-10-07
+**Last Updated**: 2025-11-04
 **Maintained By**: Infrastructure Team

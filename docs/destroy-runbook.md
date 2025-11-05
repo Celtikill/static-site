@@ -291,6 +291,165 @@ done
 - [ ] **Rollback plan documented** (how to restore if needed)
 - [ ] **Post-mortem scheduled** (for emergency situations)
 
+### AWS Profile Configuration
+
+Before running any destroy operations, ensure AWS profiles are correctly configured for each environment.
+
+#### Quick Verification
+
+```bash
+# Verify all required profiles are configured
+for env in dev staging prod; do
+    profile="${env}-deploy"
+    echo "Testing $profile..."
+    if AWS_PROFILE=$profile aws sts get-caller-identity &>/dev/null; then
+        account=$(AWS_PROFILE=$profile aws sts get-caller-identity --query 'Account' --output text)
+        echo "  ✓ $profile → Account $account"
+    else
+        echo "  ✗ $profile not configured"
+    fi
+done
+```
+
+#### Expected Profile → Account Mapping
+
+| AWS Profile | Account ID | Environment | Purpose |
+|-------------|------------|-------------|---------|
+| `dev-deploy` | 859340968804 | Development | Deploy/destroy dev resources |
+| `staging-deploy` | 927588814642 | Staging | Deploy/destroy staging resources |
+| `prod-deploy` | 546274483801 | Production | Deploy/destroy prod resources |
+| `management` | 223938610551 | Management | Organization-level operations only |
+
+#### First-Time Setup
+
+**IMPORTANT**: This project uses AWS Organizations role assumption architecture. You only need to configure management account credentials - member account access is automatic.
+
+**Step 1: Configure Management Account Credentials**
+
+Store management account credentials in your secure credential manager (pass/GPG):
+```bash
+# Store management credentials in pass
+pass insert aws/management-dev/access-key-id
+pass insert aws/management-dev/secret-access-key
+```
+
+**Step 2: Configure AWS Profiles**
+
+Edit `~/.aws/config` with role assumption profiles:
+```ini
+# Base profile with actual credentials (management account)
+[profile management-dev]
+region = us-east-2
+output = json
+credential_process = /path/to/dotfiles/.aws/credential-process.sh management-dev
+
+# Member account profiles use role assumption (NO credentials needed)
+[profile dev-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::859340968804:role/OrganizationAccountAccessRole
+role_session_name = dev-deploy-session
+region = us-east-2
+output = json
+
+[profile staging-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::927588814642:role/OrganizationAccountAccessRole
+role_session_name = staging-deploy-session
+region = us-east-2
+output = json
+
+[profile prod-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::546274483801:role/OrganizationAccountAccessRole
+role_session_name = prod-deploy-session
+region = us-east-2
+output = json
+```
+
+**How It Works**:
+1. AWS CLI reads `[profile dev-deploy]` configuration
+2. Sees `source_profile=management-dev` → retrieves management credentials
+3. Automatically calls `aws sts assume-role` with specified role ARN
+4. Gets temporary credentials for member account
+5. All subsequent commands use member account credentials
+
+**Benefits**:
+- Only one credential set to manage (management account)
+- Temporary credentials (auto-expire, more secure)
+- No long-lived member account credentials
+- Zero script modifications needed
+
+#### Verification Commands
+
+```bash
+# Test management account credentials
+AWS_PROFILE=management-dev aws sts get-caller-identity
+# Expected output:
+{
+    "UserId": "AIDXXXXXXXXXXXXXXXXXX",
+    "Account": "223938610551",
+    "Arn": "arn:aws:iam::223938610551:user/your-user"
+}
+
+# Test dev account role assumption
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+# Expected output:
+{
+    "UserId": "AROAXXXXXXXXXXXXX:dev-deploy-session",
+    "Account": "859340968804",
+    "Arn": "arn:aws:sts::859340968804:assumed-role/OrganizationAccountAccessRole/dev-deploy-session"
+}
+
+# Test staging account role assumption
+AWS_PROFILE=staging-deploy aws sts get-caller-identity
+# Expected: Account "927588814642"
+
+# Check profile points to correct region
+AWS_PROFILE=dev-deploy aws configure get region
+# Expected: us-east-2
+```
+
+#### Common Configuration Errors
+
+**Error**: "Unable to locate credentials"
+```bash
+# Solution: Management credentials not configured
+# Verify pass entry exists:
+pass show aws/management-dev/access-key-id
+pass show aws/management-dev/secret-access-key
+
+# Test management profile:
+AWS_PROFILE=management-dev aws sts get-caller-identity
+```
+
+**Error**: "An error occurred (InvalidClientTokenId)"
+```bash
+# Solution: Management credentials are invalid or expired
+# Regenerate access keys in IAM console for management account
+# Update pass entries:
+pass edit aws/management-dev/access-key-id
+pass edit aws/management-dev/secret-access-key
+```
+
+**Error**: "An error occurred (AccessDenied) when calling AssumeRole"
+```bash
+# Solution: Cannot assume role in member account
+# Verify OrganizationAccountAccessRole exists:
+AWS_PROFILE=management-dev aws iam get-role \
+  --role-name OrganizationAccountAccessRole \
+  --query 'Role.Arn' \
+  --output text
+
+# Verify trust relationship allows management account
+```
+
+**Error**: "Profile dev-deploy not found"
+```bash
+# Solution: AWS config not properly configured
+# Verify ~/.aws/config has role assumption profiles
+grep -A 5 "profile dev-deploy" ~/.aws/config
+```
+
 ---
 
 ## Script Reference

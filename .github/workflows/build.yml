@@ -210,7 +210,7 @@ jobs:
           echo "## 🔒 Checkov Security Analysis" >> $GITHUB_STEP_SUMMARY
 
           # Run Checkov with JSON output
-          checkov -d terraform --framework terraform --output json -o checkov-results.json --skip-check CKV_AWS_20,CKV_AWS_117 --quiet || CHECKOV_EXIT=$?
+          checkov -d terraform --framework terraform -o json --skip-check CKV_AWS_20,CKV_AWS_117 --quiet > checkov-results.json || CHECKOV_EXIT=$?
 
           # Set default exit code if not set
           CHECKOV_EXIT=${CHECKOV_EXIT:-0}
@@ -486,13 +486,9 @@ jobs:
             fi
           done
 
-          # Basic HTML validation
+          # Basic HTML validation (non-blocking)
           if command -v html5validator >/dev/null 2>&1 || pip3 install html5validator --quiet; then
-            if html5validator --root src/ --also-check-css; then
-              echo "✅ HTML validation passed" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "⚠️ HTML validation warnings (non-blocking)" >> $GITHUB_STEP_SUMMARY
-            fi
+            html5validator --root src/ --also-check-css && echo "✅ HTML validation passed" >> $GITHUB_STEP_SUMMARY || echo "⚠️ HTML validation warnings (non-blocking)" >> $GITHUB_STEP_SUMMARY || true
           fi
 
   cost-projection:

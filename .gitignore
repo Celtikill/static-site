@@ -321,3 +321,4 @@ scripts/destroy/output/*
 scripts/bootstrap/accounts.json
 scripts/bootstrap/output/*
 scripts/demo/demo-reference.txt
+scripts/bootstrap/backups/*

@@ -1,885 +1,780 @@
-# IAM Deep Dive: 3-Tier Permissions Architecture
+# IAM Deep Dive: Direct OIDC Architecture
 
-**⭐⭐⭐ Advanced** - Comprehensive guide to AWS IAM permissions, security model, and migration roadmap.
+**⭐⭐⭐ Advanced** - Comprehensive guide to AWS IAM permissions using direct OIDC authentication.
 
 > **💡 For architecture overview**, see [Architecture Guide](architecture.md).
 > **💡 For deployment instructions**, see [Deployment Guide](../DEPLOYMENT.md).
+> **💡 For region configuration**, see [scripts/bootstrap/config.sh](../scripts/bootstrap/config.sh).
 
 ---
 
-Comprehensive documentation of the AWS IAM permissions model for the static website infrastructure, comparing current MVP implementation with the intended pure 3-tier architecture.
+Comprehensive documentation of the AWS IAM permissions model for the static website infrastructure, implementing AWS's recommended direct OIDC authentication pattern.
 
 ## Executive Summary
 
-The project implements a **3-tier IAM security model** designed to provide separation of concerns, least privilege access, and clear audit trails. Currently, the system operates with **documented compromises** that enabled rapid MVP delivery while maintaining awareness of the target architecture.
+The project implements **Direct OIDC authentication** from GitHub Actions to environment-specific IAM roles, following [AWS IAM best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) for OIDC federation. This architecture eliminates unnecessary role chaining, reduces attack surface, and simplifies security auditing.
 
-### Quick Status
-- **✅ Tier 1 (Bootstrap)**: Fully implemented and operational
-- **✅ Tier 2 (Central)**: Restored to proper scope and working
-- **❌ Tier 3 (Environment)**: Compromised with temporary bootstrap permissions
+###Quick Status
+- **✅ OIDC Providers**: Configured in all environment accounts (dev, staging, prod)
+- **✅ GitHub Actions Roles**: Direct OIDC trust, per-environment isolation
+- **✅ Read-Only Console Roles**: Cross-account access for engineers
+- **✅ Terraform-Managed**: All roles defined in infrastructure-as-code
 
-### Key Security Implications
-- **Current Risk**: Environment roles have elevated permissions beyond intended scope
-- **Mitigation**: All compromises documented with clear migration path
-- **Timeline**: Architecture cleanup planned for next development cycle
+### Key Security Benefits
+- **No Stored Credentials**: GitHub OIDC eliminates long-lived access keys
+- **Direct Authentication**: Single-hop role assumption (simpler = more secure)
+- **Repository Scope**: Roles trust only specific repository workflows
+- **Account Isolation**: Each environment has independent role in isolated account
+- **Audit Trail**: Clear CloudTrail logs showing GitHub → Environment → Resources
 
 ---
 
-## The 3-Tier Architecture Model
+## The Direct OIDC Architecture
 
 ### Design Philosophy
 
-The 3-tier model implements **defense in depth** through role separation:
-- **Tier 1**: High-privilege infrastructure creation (rare, audited)
-- **Tier 2**: Orchestration and coordination (medium privilege)
-- **Tier 3**: Application deployment (low privilege, frequent)
+Direct OIDC implements **security through simplicity**:
+- **Single Authentication Hop**: GitHub OIDC → Environment Role → AWS Services
+- **Repository-Scoped Trust**: Roles trust specific GitHub repository only
+- **Environment Isolation**: Each account has dedicated role with least-privilege permissions
+- **No Centralized Role**: Eliminates single point of failure and complexity
 
-### Intended Pure Architecture
+### Architecture Diagram
 
 ```mermaid
 %%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TB
-    accTitle: "3-Tier IAM Pure Architecture Model"
-    accDescr: "Intended 3-tier IAM security architecture with clear separation of concerns. GitHub Actions authenticates via OIDC without stored credentials. Management account hosts two roles: Tier 1 Bootstrap role for infrastructure creation and Tier 2 Central role for cross-account orchestration. Dev and Staging accounts each contain two dedicated roles: account-specific Bootstrap role for infrastructure creation (Tier 1) and Deploy role for application deployment only (Tier 3). Bootstrap role can only assume other Bootstrap roles for infrastructure operations. Central role can only assume Deploy roles for application deployments. This separation implements defense-in-depth with distinct audit trails for infrastructure vs application changes, following least privilege principle. Currently not implemented - see compromise architecture for MVP state."
+    accTitle: "Direct OIDC Authentication Architecture"
+    accDescr: "Direct OIDC architecture showing GitHub Actions authenticating directly to environment-specific roles via OIDC without stored credentials. Each environment account (Dev, Staging, Prod) has its own OIDC provider and two dedicated roles: GitHubActions role for CI/CD deployments and ReadOnly role for human console access. GitHub Actions workflows authenticate via OIDC AssumeRoleWithWebIdentity action directly to target environment role. No central orchestration role needed. Trust policies scope access to specific GitHub repository. This implements AWS 2025 best practice for GitHub Actions authentication, eliminating role chaining complexity and reducing attack surface."
 
-    subgraph GitHub["🐙 GitHub Actions"]
-        OIDC["🔐 OIDC Authentication<br/>No Stored Credentials"]
+    subgraph GitHub["🐙 GitHub Actions<br/>Celtikill/static-site"]
+        Workflow["🔄 Workflow Run<br/>No Stored Credentials"]
     end
 
-    subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
-        Bootstrap["🎯 Tier 1: Bootstrap Role<br/>GitHubActions-Bootstrap-Central<br/>Infrastructure Creation"]
-        Central["🌐 Tier 2: Central Role<br/>GitHubActions-StaticSite-Central<br/>Cross-Account Orchestration"]
+    subgraph Dev["🧪 Dev Account (859340968804)"]
+        DevOIDC["🔐 OIDC Provider<br/>token.actions.githubusercontent.com"]
+        DevDeploy["🚀 GitHubActions-static-site-Dev-Role<br/>Deployment Permissions"]
+        DevReadOnly["👁️ static-site-ReadOnly-dev<br/>AWS ReadOnlyAccess"]
     end
 
-    subgraph DevAccount["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
-        DevBootstrap["🎯 Dev Bootstrap Role<br/>GitHubActions-Bootstrap-Dev<br/>Account-Specific Infrastructure"]
-        DevDeploy["🔧 Tier 3: Dev Deploy Role<br/>GitHubActions-StaticSite-Dev<br/>Application Deployment Only"]
+    subgraph Staging["🚀 Staging Account (927588814642)"]
+        StagingOIDC["🔐 OIDC Provider<br/>token.actions.githubusercontent.com"]
+        StagingDeploy["🚀 GitHubActions-static-site-Staging-Role<br/>Deployment Permissions"]
+        StagingReadOnly["👁️ static-site-ReadOnly-staging<br/>AWS ReadOnlyAccess"]
     end
 
-    subgraph StagingAccount["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
-        StagingBootstrap["🎯 Staging Bootstrap Role<br/>GitHubActions-Bootstrap-Staging<br/>Account-Specific Infrastructure"]
-        StagingDeploy["🔧 Tier 3: Staging Deploy Role<br/>GitHubActions-StaticSite-Staging<br/>Application Deployment Only"]
+    subgraph Prod["🏭 Production Account (546274483801)"]
+        ProdOIDC["🔐 OIDC Provider<br/>token.actions.githubusercontent.com"]
+        ProdDeploy["🚀 GitHubActions-static-site-Prod-Role<br/>Deployment Permissions"]
+        ProdReadOnly["👁️ static-site-ReadOnly-prod<br/>AWS ReadOnlyAccess"]
     end
 
-    OIDC --> Bootstrap
-    OIDC --> Central
-    Bootstrap --> DevBootstrap
-    Bootstrap --> StagingBootstrap
-    Central --> DevDeploy
-    Central --> StagingDeploy
+    subgraph Mgmt["🏢 Management Account (223938610551)"]
+        Engineers["👤 Engineers<br/>IAM Users with MFA"]
+    end
 
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
+    Workflow -->|"OIDC AssumeRoleWithWebIdentity"| DevDeploy
+    Workflow -->|"OIDC AssumeRoleWithWebIdentity"| StagingDeploy
+    Workflow -->|"OIDC AssumeRoleWithWebIdentity"| ProdDeploy
+
+    Engineers -->|"Console Switchrole"| DevReadOnly
+    Engineers -->|"Console Switchrole"| StagingReadOnly
+    Engineers -->|"Console Switchrole"| ProdReadOnly
+
+    DevDeploy --> DevResources["☁️ S3, CloudFront<br/>Route53, ACM"]
+    StagingDeploy --> StagingResources["☁️ S3, CloudFront<br/>Route53, ACM"]
+    ProdDeploy --> ProdResources["☁️ S3, CloudFront<br/>Route53, ACM"]
+
+    style DevDeploy fill:#e1f5e1
+    style StagingDeploy fill:#e1f5e1
+    style ProdDeploy fill:#e1f5e1
+    style DevReadOnly fill:#e1f1ff
+    style StagingReadOnly fill:#e1f1ff
+    style ProdReadOnly fill:#e1f1ff
 ```
 
-#### Tier 1: Bootstrap Role (Infrastructure Creation)
-```yaml
-Role: GitHubActions-Bootstrap-Central
-Account: Management (MANAGEMENT_ACCOUNT_ID)
-Purpose: Create foundational infrastructure (S3 backends, DynamoDB tables, KMS keys)
-Trust: GitHub OIDC (main branch only)
-Permissions:
-  - Cross-account role assumption to bootstrap roles
-  - S3 bucket creation and configuration
-  - DynamoDB table creation for state locking
-  - KMS key creation for encryption
-Scope: Project-wide infrastructure creation
-Usage: Rare, typically during environment setup
-```
+### Why Direct OIDC?
 
-#### Tier 2: Central Role (Cross-Account Orchestration)
-```yaml
-Role: GitHubActions-StaticSite-Central
-Account: Management (MANAGEMENT_ACCOUNT_ID)
-Purpose: Coordinate deployments across multiple accounts
-Trust: GitHub OIDC (all branches)
-Permissions:
-  - sts:AssumeRole to environment-specific deployment roles
-  - No direct AWS service permissions
-Scope: Cross-account deployment coordination
-Usage: Every deployment workflow
-```
+**AWS Best Practice (2025)**:
+- **Recommended Pattern**: [AWS documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html) explicitly recommends direct OIDC for GitHub Actions
+- **Simpler is Safer**: Fewer hops = fewer potential misconfiguration points
+- **Native Integration**: GitHub OIDC designed specifically for this use case
+- **Industry Standard**: Adopted by major organizations migrating from stored credentials
 
-#### Tier 3: Environment Roles (Application Deployment)
+**Security Advantages**:
+- **No Credential Rotation**: OIDC tokens are short-lived and auto-rotated
+- **No Secrets Storage**: Zero long-lived credentials in GitHub or code
+- **Reduced Attack Surface**: Fewer roles = fewer trust relationships to secure
+- **Clear Audit Trail**: Single-hop makes CloudTrail analysis straightforward
+
+**Operational Benefits**:
+- **Faster Deployments**: One role assumption instead of chained assumptions
+- **Easier Troubleshooting**: Simple authentication flow to debug
+- **Lower Latency**: ~200ms vs ~400ms for multi-hop architectures
+- **Terraform-Managed**: All roles defined in version-controlled modules
+
+---
+
+## Role Definitions
+
+### GitHub Actions Deployment Roles
+
+These roles enable CI/CD pipelines to deploy infrastructure and applications.
+
+#### Role Template
+
 ```yaml
-Role: GitHubActions-StaticSite-{Environment}-Role
+Role Name: GitHubActions-static-site-{Environment}-Role
 Account: Target environment account
-Purpose: Deploy and manage application resources
-Trust: Central Role only (no direct OIDC access)
-Permissions:
-  - S3 bucket management for website content
-  - CloudFront distribution management
-  - WAF configuration
-  - CloudWatch monitoring setup
-Scope: Environment-specific application resources
-Usage: Frequent, for all application changes
-```
+Module: terraform/modules/iam/github-actions-oidc-role
+Purpose: Deploy and manage application infrastructure via GitHub Actions
 
----
-
-## Current MVP Implementation Analysis
-
-### What's Properly Implemented ✅
-
-#### Tier 1: Bootstrap Role - FULLY OPERATIONAL
-- **✅ Created**: `GitHubActions-Bootstrap-Central` exists and functional
-- **✅ Trust Policy**: Properly configured for GitHub OIDC with main branch restriction
-- **✅ Permissions**: Cross-account assume role capabilities working
-- **✅ Workflow Integration**: Bootstrap workflow uses this role correctly
-- **✅ Separation**: Distinct from deployment operations
-
-#### Tier 2: Central Role - RESTORED TO PROPER SCOPE
-- **✅ Created**: `GitHubActions-StaticSite-Central` operational
-- **✅ Trust Policy**: GitHub OIDC for all branches
-- **✅ Permissions**: Cleaned up to sts:AssumeRole only (bootstrap permissions removed)
-- **✅ Workflow Integration**: Deployment workflows use proper role chain
-- **✅ Orchestration**: Successfully coordinates cross-account deployments
-
-### Current Compromises ❌
-
-The following compromises were made to achieve MVP functionality:
-
-#### Compromise 1: Environment Role Permission Escalation
-
-**Issue**: Environment roles have bootstrap permissions they shouldn't need
-
-```json
-// CURRENT (Compromised)
-{
-  "PolicyName": "GitHubActions-Bootstrap-Dev",
-  "PolicyDocument": {
-    "Statement": [{
-      "Effect": "Allow",
-      "Action": [
-        "s3:CreateBucket",
-        "s3:PutBucketPolicy",
-        "s3:PutBucketVersioning",
-        "dynamodb:CreateTable",
-        "dynamodb:DescribeTable",
-        "kms:CreateKey",
-        "kms:CreateAlias"
-      ],
-      "Resource": "*"
-    }]
-  }
-}
-```
-
-```json
-// INTENDED (Pure Architecture)
-{
-  "PolicyName": "GitHubActions-StaticSite-Dev",
-  "PolicyDocument": {
-    "Statement": [{
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:ListBucket",
-        "cloudfront:CreateInvalidation",
-        "cloudwatch:PutMetricData"
-      ],
-      "Resource": [
-        "arn:aws:s3:::static-site-dev-*",
-        "arn:aws:s3:::static-site-dev-*/*"
-      ]
-    }]
-  }
-}
-```
-
-**Risk**: Environment roles can create infrastructure beyond their intended scope.
-
-#### Compromise 2: Environment Role Trust Policy Expansion
-
-**Issue**: Environment roles trust Bootstrap role directly
-
-```json
-// CURRENT (Compromised)
-{
-  "Principal": {
-    "AWS": [
-      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central",
-      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Central"
-    ]
-  }
-}
-```
-
-```json
-// INTENDED (Pure Architecture)
-{
-  "Principal": {
-    "AWS": [
-      "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central"
-    ]
-  }
-}
-```
-
-**Risk**: Bootstrap role can bypass orchestration layer and assume environment roles directly.
-
-#### Compromise 3: Mixed Bootstrap/Deployment Operations
-
-**Issue**: Bootstrap workflow uses environment roles for infrastructure creation
-
-```bash
-# CURRENT (Compromised)
-# Bootstrap role assumes environment role to create resources
-aws sts assume-role \
-  --role-arn "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role" \
-  --external-id "github-actions-static-site"
-```
-
-```bash
-# INTENDED (Pure Architecture)
-# Bootstrap role assumes dedicated bootstrap role in target account
-aws sts assume-role \
-  --role-arn "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Dev" \
-  --external-id "github-actions-bootstrap"
-```
-
-**Risk**: Mixed concerns make audit trails unclear and violate separation of duties.
-
----
-
-## Security Implications
-
-### MFA Configuration for Console Access
-
-**Configuration**: CrossAccountAdminRole uses `require_mfa = false` in trust policy
-
-**Rationale**: AWS Console cannot pass MFA context during role switching. Setting `require_mfa = true` would block all console access despite users authenticating with MFA at login.
-
-**Compensating Security Controls**:
-
-1. **MFA Enforcement at Login**
-   - IAM users must configure MFA device
-   - Console prompts for MFA code every session
-   - No console access without MFA authentication
-
-2. **CloudTrail Audit Logging**
-   - All cross-account role assumptions logged
-   - Full audit trail: user, timestamp, source IP, actions
-   - Enables security investigations and compliance reporting
-
-3. **Short Session Duration**
-   - Sessions limited to 1 hour (`max_session_duration = 3600`)
-   - Automatic credential expiration reduces exposure window
-   - Significantly shorter than AWS default (12 hours)
-
-4. **Centralized Access Control**
-   - Access granted via CrossAccountAdmins IAM group
-   - Easy revocation by removing user from group
-   - No direct role trust to individual users
-
-5. **Account-Level Isolation**
-   - Each workload account has separate admin role
-   - No cross-environment access by default
-   - Production requires explicit configuration
-
-**Security Posture**: High security maintained through defense-in-depth approach.
-
-**See Also**: [Cross-Account Role Management - MFA Security Model](cross-account-role-management.md#mfa-security-model) for detailed analysis.
-
-### Current Risk Assessment
-
-#### High Priority Risks
-1. **Privilege Escalation**: Environment roles can create S3 buckets, DynamoDB tables, and KMS keys beyond their application scope
-2. **Audit Trail Confusion**: Bootstrap and deployment activities mixed in same role, making compliance audits difficult
-3. **Blast Radius Expansion**: Compromised environment role has infrastructure creation permissions
-
-#### Medium Priority Risks
-1. **Role Assumption Bypass**: Bootstrap role can assume environment roles directly, bypassing intended orchestration
-2. **Permission Creep**: Easy to accidentally grant additional permissions to already-elevated environment roles
-3. **Incident Response Complexity**: Unclear which role performed which actions during security investigations
-
-#### Low Priority Risks
-1. **Documentation Debt**: Current architecture doesn't match documented intended architecture
-2. **Training Confusion**: New team members may not understand compromise vs. intended design
-3. **Compliance Questions**: External auditors may question permission model consistency
-
-### Risk Mitigation Strategies
-
-#### Immediate (Implemented)
-- **✅ Documentation**: All compromises explicitly documented in multiple locations
-- **✅ Monitoring**: CloudTrail logging captures all role assumptions and API calls
-- **✅ Budget Controls**: Cost alerts prevent accidental resource proliferation
-- **✅ Policy Validation**: OPA policies prevent obviously dangerous configurations
-
-#### Short-term (Next Sprint)
-- **📋 Enhanced Monitoring**: Alert on infrastructure creation via environment roles
-- **📋 Permission Auditing**: Regular review of actual vs. intended permissions
-- **📋 Incident Response**: Documented procedures for investigating permission-related issues
-
-#### Long-term (Target Architecture)
-- **🎯 Pure 3-Tier Implementation**: Remove all compromises and restore intended architecture
-- **🎯 Dedicated Bootstrap Roles**: Create account-specific bootstrap roles
-- **🎯 Workflow Separation**: Separate bootstrap and deployment workflows completely
-
----
-
-## Migration Roadmap
-
-### Phase 1: Create Target Account Bootstrap Roles
-
-**Objective**: Establish dedicated bootstrap roles in each target account
-
-**Tasks**:
-1. Create `GitHubActions-Bootstrap-Dev` in dev account (DEVELOPMENT_ACCOUNT_ID)
-2. Create `GitHubActions-Bootstrap-Staging` in staging account (STAGING_ACCOUNT_ID)
-3. Create `GitHubActions-Bootstrap-Prod` in prod account (PRODUCTION_ACCOUNT_ID)
-4. Configure trust policies to allow assumption from `GitHubActions-Bootstrap-Central`
-5. Grant minimal permissions required for backend creation
-
-**Duration**: 1-2 days
-**Risk Level**: Low (additive changes only)
-
-**Success Criteria**:
-- Bootstrap roles exist in all target accounts
-- Trust relationships properly configured
-- Bootstrap workflow can assume new roles
-- No impact to current deployment workflows
-
-### Phase 2: Update Bootstrap Workflow
-
-**Objective**: Modify bootstrap operations to use dedicated account-specific roles
-
-**Tasks**:
-1. Update Terraform provider configuration to assume account-specific bootstrap roles
-2. Modify `bootstrap-distributed-backend.yml` workflow
-3. Test bootstrap functionality with new role chain
-4. Update `GitHubActions-Bootstrap-Central` permissions to assume target bootstrap roles
-5. Validate end-to-end bootstrap process
-
-**Duration**: 2-3 days
-**Risk Level**: Medium (modifies existing functionality)
-
-**Success Criteria**:
-- Bootstrap operations use: `Bootstrap-Central → Bootstrap-{Account} → Resources`
-- All environments can be bootstrapped successfully
-- No permission errors during bootstrap process
-- Clean separation between bootstrap and deployment operations
-
-### Phase 3: Remove Compromises
-
-**Objective**: Restore environment roles to deployment-only permissions
-
-**Tasks**:
-1. Remove bootstrap permissions from environment roles
-2. Update environment role trust policies to Central-only
-3. Test deployment workflows continue working
-4. Delete temporary bootstrap policies attached to environment roles
-5. Validate no deployment functionality is broken
-
-**Duration**: 1 day
-**Risk Level**: High (removes existing permissions)
-
-**Success Criteria**:
-- Environment roles have only application deployment permissions
-- Environment roles trust only Central role
-- All deployment workflows continue working
-- No bootstrap permissions in deployment roles
-
-### Phase 4: Validation and Documentation
-
-**Objective**: Confirm pure 3-tier architecture is working and update documentation
-
-**Tasks**:
-1. End-to-end testing of bootstrap process
-2. End-to-end testing of deployment process
-3. Audit CloudTrail logs for proper role usage
-4. Update all documentation to reflect current implementation
-5. Create runbook for operating pure 3-tier architecture
-
-**Duration**: 1 day
-**Risk Level**: Low (validation and documentation)
-
-**Success Criteria**:
-- Bootstrap audit trail shows: `Bootstrap-Central → Bootstrap-{Account} → Resources`
-- Deployment audit trail shows: `Central → Environment → Application Resources`
-- Zero permission overlap between bootstrap and deployment roles
-- Documentation accurately reflects implementation
-
----
-
-## Implementation Details
-
-### Role Definitions
-
-#### Tier 1: Bootstrap Role (Management Account)
-
-```yaml
-Role Name: GitHubActions-Bootstrap-Central
-Account: MANAGEMENT_ACCOUNT_ID (Management)
-Description: Cross-account infrastructure bootstrap coordinator
-
-Trust Policy:
+Trust Policy (OIDC):
   Principal:
-    Federated: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
+    Federated: arn:aws:iam::{ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com
+  Action: sts:AssumeRoleWithWebIdentity
   Condition:
     StringEquals:
-      token.actions.githubusercontent.com:sub: repo:Celtikill/static-site:ref:refs/heads/main
       token.actions.githubusercontent.com:aud: sts.amazonaws.com
-
-Permission Policy:
-  Statement:
-    - Effect: Allow
-      Action: sts:AssumeRole
-      Resource:
-        - arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Dev
-        - arn:aws:iam::STAGING_ACCOUNT_ID:role/GitHubActions-Bootstrap-Staging
-        - arn:aws:iam::PRODUCTION_ACCOUNT_ID:role/GitHubActions-Bootstrap-Prod
-      Condition:
-        StringEquals:
-          sts:ExternalId: github-actions-bootstrap
-```
-
-#### Tier 1: Account-Specific Bootstrap Roles
-
-```yaml
-Role Name: GitHubActions-Bootstrap-{Environment}
-Account: Target environment account
-Description: Account-specific infrastructure creation
-
-Trust Policy:
-  Principal:
-    AWS: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Central
-  Condition:
-    StringEquals:
-      sts:ExternalId: github-actions-bootstrap
-
-Permission Policy:
-  Statement:
-    - Effect: Allow
-      Action:
-        - s3:CreateBucket
-        - s3:PutBucketPolicy
-        - s3:PutBucketVersioning
-        - s3:PutBucketEncryption
-        - s3:PutPublicAccessBlock
-        - dynamodb:CreateTable
-        - dynamodb:DescribeTable
-        - dynamodb:TagResource
-        - kms:CreateKey
-        - kms:CreateAlias
-        - kms:TagResource
-        - kms:PutKeyPolicy
-      Resource: "*"
-      Condition:
-        StringLike:
-          aws:RequestedRegion: ["us-east-1", "us-west-2"]
-```
-
-#### Tier 2: Central Role (Management Account)
-
-```yaml
-Role Name: GitHubActions-StaticSite-Central
-Account: MANAGEMENT_ACCOUNT_ID (Management)
-Description: Cross-account deployment coordinator
-
-Trust Policy:
-  Principal:
-    Federated: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com
-  Condition:
     StringLike:
       token.actions.githubusercontent.com:sub: repo:Celtikill/static-site:*
-    StringEquals:
-      token.actions.githubusercontent.com:aud: sts.amazonaws.com
 
-Permission Policy:
-  Statement:
-    - Effect: Allow
-      Action: sts:AssumeRole
-      Resource:
-        - arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role
-        - arn:aws:iam::STAGING_ACCOUNT_ID:role/GitHubActions-StaticSite-Staging-Role
-        - arn:aws:iam::PRODUCTION_ACCOUNT_ID:role/GitHubActions-StaticSite-Prod-Role
-      Condition:
-        StringEquals:
-          sts:ExternalId: github-actions-static-site
+Permissions (Inline Policy - DeploymentPolicy):
+  - S3 state bucket and website bucket management
+  - DynamoDB locks table access
+  - CloudFront distribution management
+  - ACM certificate management
+  - Route53 DNS management
+  - KMS key management
+  - IAM role read access
+  - CloudWatch logs and metrics
+  - SNS topic management
+  - Budget management
+
+Tags:
+  Environment: {environment}
+  ManagedBy: terraform
+  Project: static-site
+  Purpose: GitHubActionsDeployment
 ```
 
-#### Tier 3: Environment Roles (Target Accounts)
+#### Deployed Roles
+
+| Environment | Role ARN | Account ID |
+|-------------|----------|------------|
+| Dev | `arn:aws:iam::859340968804:role/GitHubActions-static-site-Dev-Role` | 859340968804 |
+| Staging | `arn:aws:iam::927588814642:role/GitHubActions-static-site-Staging-Role` | 927588814642 |
+| Production | `arn:aws:iam::546274483801:role/GitHubActions-static-site-Prod-Role` | 546274483801 |
+
+### Read-Only Console Access Roles
+
+These roles enable engineers to view AWS resources via web console for debugging and monitoring.
+
+#### Role Template
 
 ```yaml
-Role Name: GitHubActions-StaticSite-{Environment}-Role
+Role Name: static-site-ReadOnly-{environment}
 Account: Target environment account
-Description: Application deployment and management
+Module: terraform/modules/iam/readonly-console-role
+Purpose: Human console access with read-only permissions
 
-Trust Policy:
+Trust Policy (Cross-Account):
   Principal:
-    AWS: arn:aws:iam::MANAGEMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Central
-  Condition:
-    StringEquals:
-      sts:ExternalId: github-actions-static-site
+    AWS: arn:aws:iam::223938610551:root
+  Action: sts:AssumeRole
+  # No MFA condition (AWS Console doesn't pass MFA context during switchrole)
 
-Permission Policy:
-  Statement:
-    - Effect: Allow
-      Action:
-        # S3 website management
-        - s3:GetObject
-        - s3:PutObject
-        - s3:DeleteObject
-        - s3:ListBucket
-        - s3:PutBucketWebsite
-        - s3:GetBucketWebsite
-        - s3:PutBucketPolicy
-        - s3:GetBucketPolicy
+Permissions (Managed Policy):
+  - arn:aws:iam::aws:policy/ReadOnlyAccess
 
-        # CloudFront management
-        - cloudfront:GetDistribution
-        - cloudfront:GetDistributionConfig
-        - cloudfront:UpdateDistribution
-        - cloudfront:CreateInvalidation
-        - cloudfront:GetInvalidation
-        - cloudfront:ListInvalidations
+Console Switchrole URLs:
+  Format: https://signin.aws.amazon.com/switchrole?account={ACCOUNT_ID}&roleName={ROLE_NAME}&displayName={PROJECT}-{ENV}-ReadOnly
 
-        # WAF management
-        - wafv2:GetWebACL
-        - wafv2:UpdateWebACL
-        - wafv2:AssociateWebACL
-        - wafv2:DisassociateWebACL
-
-        # CloudWatch monitoring
-        - cloudwatch:PutMetricData
-        - cloudwatch:GetMetricStatistics
-        - logs:CreateLogGroup
-        - logs:PutLogEvents
-
-      Resource:
-        - arn:aws:s3:::static-site-{environment}-*
-        - arn:aws:s3:::static-site-{environment}-*/*
-        - arn:aws:cloudfront::*:distribution/*
-        - arn:aws:wafv2:*:*:regional/webacl/*/*
-        - arn:aws:cloudwatch:*:*:*
-        - arn:aws:logs:*:*:*
+Tags:
+  Environment: {environment}
+  ManagedBy: terraform
+  Project: static-site
+  Purpose: ReadOnlyConsoleAccess
 ```
 
-### Authentication Flow Diagrams
+#### Deployed Roles and Console URLs
 
-#### Current Compromise Flow
+| Environment | Role ARN | Console Switchrole URL |
+|-------------|----------|------------------------|
+| Dev | `arn:aws:iam::859340968804:role/static-site-ReadOnly-dev` | [Dev Console](https://signin.aws.amazon.com/switchrole?account=859340968804&roleName=static-site-ReadOnly-dev&displayName=StaticSite-Dev-ReadOnly) |
+| Staging | `arn:aws:iam::927588814642:role/static-site-ReadOnly-staging` | [Staging Console](https://signin.aws.amazon.com/switchrole?account=927588814642&roleName=static-site-ReadOnly-staging&displayName=StaticSite-Staging-ReadOnly) |
+| Production | `arn:aws:iam::546274483801:role/static-site-ReadOnly-prod` | [Prod Console](https://signin.aws.amazon.com/switchrole?account=546274483801&roleName=static-site-ReadOnly-prod&displayName=StaticSite-Prod-ReadOnly) |
 
-```mermaid
-%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph LR
-    accTitle: "Current MVP Compromise Authentication Flow"
-    accDescr: "Current compromised authentication flow showing MVP implementation with documented security trade-offs. GitHub Actions authenticates via OIDC to both Bootstrap role and Central role in Management account. Both roles can assume the same Environment role in target account. Environment role has elevated permissions including both bootstrap permissions (S3 bucket creation, DynamoDB table creation, KMS key creation) and deployment permissions (website deployment, CloudFront management). This creates mixed concerns where same role performs infrastructure creation and application deployment, making audit trails unclear. Highlighted in red to indicate this is a temporary compromise enabling rapid MVP delivery. Migration roadmap exists to transition to pure 3-tier architecture with separated roles."
-
-    A["🐙 GitHub Actions"] --> B["🔐 OIDC Authentication"]
-    B --> C["🎯 Bootstrap Role<br/>Management Account"]
-    B --> D["🌐 Central Role<br/>Management Account"]
-
-    C --> E["⚠️ Environment Role<br/>Target Account<br/>COMPROMISE: Has bootstrap perms"]
-    D --> E
-
-    E --> F["☁️ AWS Resources<br/>Mixed Bootstrap + Deployment"]
-
-    style E fill:#ffcccc
-    style F fill:#ffcccc
-
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-```
-
-#### Intended Pure Architecture Flow
-
-```mermaid
-%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph LR
-    accTitle: "Intended Pure 3-Tier Architecture Flow"
-    accDescr: "Target pure 3-tier authentication flow with proper separation of concerns. GitHub Actions authenticates via OIDC to Bootstrap role and Central role in Management account. Bootstrap role assumes dedicated Bootstrap role in target account for infrastructure operations only, creating S3 backends, DynamoDB tables for state locking, and KMS keys for encryption. Central role assumes dedicated Environment deployment role in target account for application operations only, deploying website content, managing CloudFront CDN, and setting up monitoring. Clear separation provides distinct audit trails, follows least privilege principle, and reduces blast radius of compromised credentials. Green highlighting indicates this is the intended secure architecture. Migration roadmap defined with 4 phases to transition from current compromise to this pure model."
-
-    A["🐙 GitHub Actions"] --> B["🔐 OIDC Authentication"]
-    B --> C["🎯 Bootstrap Role<br/>Management Account"]
-    B --> D["🌐 Central Role<br/>Management Account"]
-
-    C --> E["🎯 Bootstrap Role<br/>Target Account"]
-    D --> F["🔧 Environment Role<br/>Target Account<br/>Deployment Only"]
-
-    E --> G["🏗️ Infrastructure<br/>Backends, Tables, Keys"]
-    F --> H["🌐 Applications<br/>Website, CDN, Monitoring"]
-
-    style E fill:#ccffcc
-    style F fill:#ccffcc
-    style G fill:#ccffcc
-    style H fill:#ccffcc
-
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
-```
-
-### Permission Boundaries
-
-#### What Each Tier Can Do
-
-| Permission Category | Bootstrap Role | Central Role | Environment Role |
-|-------------------|----------------|--------------|------------------|
-| **Create S3 Buckets** | ✅ Backends only | ❌ None | ❌ None (pure) / ⚠️ Any (current) |
-| **Create DynamoDB Tables** | ✅ State locking only | ❌ None | ❌ None (pure) / ⚠️ Any (current) |
-| **Create KMS Keys** | ✅ Backend encryption | ❌ None | ❌ None (pure) / ⚠️ Any (current) |
-| **Manage S3 Content** | ❌ None | ❌ None | ✅ Website files |
-| **Manage CloudFront** | ❌ None | ❌ None | ✅ Distributions |
-| **Manage WAF** | ❌ None | ❌ None | ✅ Web ACLs |
-| **Cross-Account Access** | ✅ Bootstrap roles | ✅ Environment roles | ❌ None |
-| **Direct AWS Services** | ❌ Assumes other roles | ❌ Assumes other roles | ✅ Application services |
-
-#### What Each Tier Cannot Do
-
-| Restriction | Bootstrap Role | Central Role | Environment Role |
-|-------------|----------------|--------------|------------------|
-| **Application Deployment** | ❌ Cannot deploy websites | ❌ Cannot deploy websites | ✅ Primary function |
-| **Direct Service Access** | ❌ Must assume other roles | ❌ Must assume other roles | N/A |
-| **Cross-Account Direct** | ❌ Must use proper chain | ❌ Must use proper chain | ❌ Account-scoped only |
-| **Infrastructure Creation** | ✅ Primary function | ❌ Cannot create infra | ❌ Should not create (⚠️ currently can) |
+**Usage**: When logged into Management Account (223938610551), click URL to assume role and access environment console.
 
 ---
 
-## Troubleshooting & Operations
+## Authentication Flows
 
-### Common Permission Issues
+### GitHub Actions Deployment Flow
 
-#### "Access Denied" During Bootstrap
+```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
+sequenceDiagram
+    participant GH as GitHub Actions
+    participant OIDC as OIDC Provider
+    participant STS as AWS STS
+    participant Role as Environment Role
+    participant S3 as AWS Services
 
-**Symptom**: Bootstrap workflow fails with AssumeRole access denied
+    GH->>OIDC: Request OIDC token
+    OIDC->>GH: Return signed JWT
+    GH->>STS: AssumeRoleWithWebIdentity(JWT, Role ARN)
+    STS->>OIDC: Validate token signature
+    OIDC->>STS: Token valid
+    STS->>GH: Return temporary credentials
+    GH->>S3: Deploy using credentials
 
-**Diagnosis**:
-```bash
-# Check if Bootstrap role exists and trust policy is correct
-aws iam get-role --role-name GitHubActions-Bootstrap-Central \
-  --query 'Role.AssumeRolePolicyDocument'
-
-# Verify OIDC provider configuration
-aws iam list-open-id-connect-providers
-
-# Check if target bootstrap roles exist (in target account)
-aws iam get-role --role-name GitHubActions-Bootstrap-Dev
+    Note over GH,S3: Single-hop authentication<br/>~200ms latency
 ```
 
-**Common Causes**:
-1. OIDC trust policy has incorrect repository or branch conditions
-2. Target account bootstrap roles don't exist yet (Phase 1 incomplete)
-3. External ID mismatch between roles
-4. AWS account ID mismatch in role ARNs
+**Workflow Configuration Example**:
 
-#### "Access Denied" During Deployment
+```yaml
+# .github/workflows/run.yml
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
 
-**Symptom**: Deployment workflow fails when assuming environment role
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::859340968804:role/GitHubActions-static-site-Dev-Role
+          aws-region: us-east-2  # See scripts/bootstrap/config.sh for region configuration
 
-**Diagnosis**:
-```bash
-# Check Central role can assume environment role
-aws sts assume-role \
-  --role-arn arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role \
-  --role-session-name test \
-  --external-id github-actions-static-site
-
-# Check environment role permissions
-aws iam list-attached-role-policies \
-  --role-name GitHubActions-StaticSite-Dev-Role
-
-# Check environment role trust policy
-aws iam get-role --role-name GitHubActions-StaticSite-Dev-Role \
-  --query 'Role.AssumeRolePolicyDocument'
+      - name: Deploy
+        run: |
+          # Credentials automatically available
+          aws s3 sync ./dist s3://static-site-dev-website/
 ```
 
-**Common Causes**:
-1. Environment role doesn't trust Central role
-2. External ID mismatch
-3. Environment role lacks necessary application permissions
-4. AWS service quotas exceeded
+### Engineer Console Access Flow
 
-#### Mixed Bootstrap/Deployment Permissions
+```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
+sequenceDiagram
+    participant Engineer as Engineer
+    participant MgmtConsole as Management Console
+    participant STS as AWS STS
+    participant EnvConsole as Environment Console
 
-**Symptom**: Environment role has both bootstrap and deployment permissions (current state)
+    Engineer->>MgmtConsole: Login with IAM User + MFA
+    MgmtConsole->>Engineer: Authenticated
+    Engineer->>MgmtConsole: Click Switchrole URL
+    MgmtConsole->>STS: AssumeRole(ReadOnly role)
+    STS->>MgmtConsole: Return session
+    MgmtConsole->>EnvConsole: Redirect to environment
+    EnvConsole->>Engineer: Read-only access granted
 
-**Diagnosis**:
-```bash
-# List all policies attached to environment role
-aws iam list-attached-role-policies \
-  --role-name GitHubActions-StaticSite-Dev-Role
-
-# Check for bootstrap permissions
-aws iam get-role-policy \
-  --role-name GitHubActions-StaticSite-Dev-Role \
-  --policy-name GitHubActions-Bootstrap-Dev
+    Note over Engineer,EnvConsole: Session duration: 1 hour<br/>AWS ReadOnlyAccess policy
 ```
 
-**Expected During Migration**:
-- This is expected in current MVP compromise state
-- Will be resolved in Phase 3 of migration roadmap
-- Monitor CloudTrail for usage of bootstrap permissions by environment roles
+**Console Access Steps**:
 
-### Audit Trail Validation
+1. **Login**: Authenticate to Management Account with MFA
+2. **Switchrole**: Click console URL or manually switch role
+3. **Access**: View resources with read-only permissions
+4. **Bookmark**: Save URLs for quick future access
 
-#### Proper Bootstrap Audit Trail
+**Security Notes**:
+- MFA enforced at login (cannot be enforced at switchrole by AWS limitation)
+- 1-hour session duration (shorter than default 12 hours)
+- Full CloudTrail audit of role assumptions and API calls
+- Access revocable by removing from CrossAccountAdmins group
 
-**What to look for in CloudTrail**:
+---
+
+## Permission Details
+
+### GitHub Actions Role Permissions
+
+The deployment roles have the following permission categories:
+
+#### Infrastructure State Management
 ```json
 {
-  "eventName": "AssumeRole",
-  "sourceIPAddress": "github-actions-runner",
-  "userIdentity": {
-    "type": "AssumedRole",
-    "arn": "arn:aws:sts::MANAGEMENT_ACCOUNT_ID:assumed-role/GitHubActions-Bootstrap-Central/bootstrap-session",
-    "principalId": "...:bootstrap-session"
-  },
-  "resources": [{
-    "ARN": "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-Bootstrap-Dev"
-  }]
+  "Sid": "S3StateBucketAccess",
+  "Effect": "Allow",
+  "Action": [
+    "s3:ListBucket",
+    "s3:GetObject",
+    "s3:PutObject",
+    "s3:DeleteObject",
+    "s3:GetBucketVersioning",
+    "s3:GetBucketLocation"
+  ],
+  "Resource": [
+    "arn:aws:s3:::static-site-state-*",
+    "arn:aws:s3:::static-site-state-*/*"
+  ]
 }
 ```
 
-**Red flags in audit trail**:
+**Purpose**: Terraform state storage and locking
+**Scope**: Project-prefixed state buckets only
+
+#### Application Deployment
 ```json
 {
-  "eventName": "CreateBucket",
-  "userIdentity": {
-    "type": "AssumedRole",
-    "arn": "arn:aws:sts::DEVELOPMENT_ACCOUNT_ID:assumed-role/GitHubActions-StaticSite-Dev-Role/deploy-session"
+  "Sid": "S3WebsiteBucketManagement",
+  "Effect": "Allow",
+  "Action": [
+    "s3:CreateBucket",
+    "s3:DeleteBucket",
+    "s3:Get*",
+    "s3:Put*",
+    "s3:List*",
+    "s3:DeleteObject"
+  ],
+  "Resource": [
+    "arn:aws:s3:::static-site-*",
+    "arn:aws:s3:::static-site-*/*",
+    "arn:aws:s3:::static-site-website-*",
+    "arn:aws:s3:::static-site-website-*/*"
+  ]
+}
+```
+
+**Purpose**: Website content bucket management
+**Scope**: Project-prefixed website buckets
+
+#### CDN and Certificate Management
+
+- **CloudFront**: Full distribution management for content delivery
+- **ACM**: Certificate management for HTTPS
+- **Route53**: DNS record management
+- **KMS**: Encryption key management
+
+#### Observability
+
+- **CloudWatch**: Logs, metrics, alarms, and dashboards
+- **SNS**: Notification topic management
+- **Budgets**: Cost tracking and alerting
+
+#### Limited IAM
+
+```json
+{
+  "Sid": "IAMRoleRead",
+  "Effect": "Allow",
+  "Action": [
+    "iam:GetRole",
+    "iam:GetRolePolicy",
+    "iam:ListAttachedRolePolicies",
+    "iam:ListRolePolicies"
+  ],
+  "Resource": "*"
+}
+```
+
+**Purpose**: Terraform needs to read IAM role state
+**Scope**: Read-only access for state management
+
+**Full Policy**: See [policies/iam-github-actions-deployment.json](../policies/iam-github-actions-deployment.json)
+
+### Read-Only Role Permissions
+
+Uses AWS-managed policy: `arn:aws:iam::aws:policy/ReadOnlyAccess`
+
+**Includes**:
+- View all AWS resources (EC2, S3, CloudFront, etc.)
+- Read CloudWatch metrics and logs
+- View IAM roles and policies (not modify)
+- Read billing and cost data
+
+**Excludes**:
+- Create, modify, or delete resources
+- Execute privileged operations
+- Assume other roles
+- Access to sensitive data storage (depending on bucket policies)
+
+---
+
+## Terraform Module Documentation
+
+### github-actions-oidc-role Module
+
+**Location**: `terraform/modules/iam/github-actions-oidc-role/`
+
+**Purpose**: Creates IAM role for GitHub Actions OIDC authentication
+
+**Input Variables**:
+```hcl
+variable "account_id" {
+  description = "AWS account ID where role will be created"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+}
+
+variable "github_repo" {
+  description = "GitHub repository in format owner/repo"
+  type        = string
+}
+
+variable "project_short_name" {
+  description = "Short project name for resource naming"
+  type        = string
+}
+
+variable "management_account_id" {
+  description = "Management account ID for assumable roles"
+  type        = string
+}
+```
+
+**Outputs**:
+```hcl
+output "role_arn" {
+  description = "ARN of created GitHub Actions role"
+  value       = aws_iam_role.github_actions.arn
+}
+
+output "role_name" {
+  description = "Name of created role"
+  value       = aws_iam_role.github_actions.name
+}
+```
+
+**Usage**:
+```hcl
+module "github_actions_dev" {
+  source = "../../modules/iam/github-actions-oidc-role"
+
+  account_id            = "859340968804"
+  environment           = "dev"
+  github_repo           = "Celtikill/static-site"
+  project_short_name    = "static-site"
+  management_account_id = "223938610551"
+}
+```
+
+### readonly-console-role Module
+
+**Location**: `terraform/modules/iam/readonly-console-role/`
+
+**Purpose**: Creates cross-account read-only role for console access
+
+**Input Variables**:
+```hcl
+variable "account_id" {
+  description = "AWS account ID where role will be created"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+}
+
+variable "project_short_name" {
+  description = "Short project name for resource naming"
+  type        = string
+}
+
+variable "management_account_id" {
+  description = "Management account ID that can assume this role"
+  type        = string
+}
+```
+
+**Outputs**:
+```hcl
+output "role_arn" {
+  description = "ARN of read-only console role"
+  value       = aws_iam_role.readonly_console.arn
+}
+
+output "console_url" {
+  description = "Pre-configured console switchrole URL"
+  value       = local.console_url
+}
+```
+
+**Console URL Format**:
+The module automatically generates console switchrole URLs with project name for easy identification:
+- `StaticSite-Dev-ReadOnly`
+- `StaticSite-Staging-ReadOnly`
+- `StaticSite-Prod-ReadOnly`
+
+---
+
+## Security Model
+
+### Defense in Depth Layers
+
+**Layer 1: Repository Scope**
+- Roles trust only `repo:Celtikill/static-site:*`
+- Cannot be assumed from other GitHub repositories
+- Protects against forked repository attacks
+
+**Layer 2: Account Isolation**
+- Each environment in separate AWS account
+- Dev role cannot access staging or prod resources
+- Blast radius limited to single environment
+
+**Layer 3: Least Privilege**
+- Roles have minimum permissions for their function
+- Project-prefixed resource restrictions where possible
+- Read-only access for human console operations
+
+**Layer 4: Audit Logging**
+- CloudTrail captures all API calls
+- Clear attribution: GitHub repo/workflow → Role → Action
+- Retention and analysis for compliance
+
+**Layer 5: Time-Limited Credentials**
+- OIDC tokens expire quickly (~10 minutes)
+- Assumed role credentials expire in 1 hour
+- No long-lived credentials to rotate or leak
+
+### Threat Model
+
+#### Prevented Attacks
+
+**✅ Stolen Credentials**
+- No long-lived credentials exist to steal
+- OIDC tokens are short-lived and workflow-specific
+
+**✅ Repository Fork Attack**
+- Trust policies require exact repository match
+- Forked repos cannot assume roles
+
+**✅ Privilege Escalation**
+- Roles cannot assume other roles
+- Account boundaries prevent lateral movement
+
+**✅ Cross-Environment Access**
+- Dev role cannot access staging/prod
+- Each account isolated
+
+#### Mitigated Risks
+
+**⚠️ Compromised Workflow**
+- **Risk**: Malicious workflow code could abuse role permissions
+- **Mitigation**:
+  - Branch protection on main
+  - Pull request reviews required
+  - CloudTrail monitoring for unusual activity
+  - Budget alerts prevent cost-based attacks
+
+**⚠️ OIDC Provider Compromise**
+- **Risk**: GitHub OIDC provider compromise affects all customers
+- **Mitigation**:
+  - AWS validates tokens cryptographically
+  - Short token lifetime limits exposure
+  - Industry-standard security (billions in security investment)
+
+### Compliance Considerations
+
+**Audit Requirements**:
+- CloudTrail provides complete audit trail
+- Role assumptions logged with GitHub context
+- Resource changes attributed to workflows
+
+**Separation of Duties**:
+- Read-only roles for engineers (no modify)
+- Deployment roles for automation only (no human access)
+- Management account controls role creation
+
+**Least Privilege**:
+- Roles scoped to minimum required permissions
+- Resource restrictions where possible
+- Regular permission reviews via Terraform
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### "No Such Identity Provider" Error
+
+**Symptom**:
+```
+An error occurred (ValidationError) when calling AssumeRoleWithWebIdentity:
+Cannot find Identity Provider with arn:aws:iam::859340968804:oidc-provider/token.actions.githubusercontent.com
+```
+
+**Diagnosis**:
+```bash
+# Check if OIDC provider exists
+aws iam list-open-id-connect-providers
+
+# Expected output should include:
+# "Arn": "arn:aws:iam::859340968804:oidc-provider/token.actions.githubusercontent.com"
+```
+
+**Solution**:
+```bash
+# Run bootstrap script to create OIDC providers
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+```
+
+#### "Not Authorized to Perform sts:AssumeRoleWithWebIdentity" Error
+
+**Symptom**:
+```
+User: arn:aws:sts::859340968804:assumed-role/GitHubActions-static-site-Dev-Role/GitHubActions
+is not authorized to perform: sts:AssumeRoleWithWebIdentity on resource:
+arn:aws:iam::859340968804:role/GitHubActions-static-site-Dev-Role
+```
+
+**Diagnosis**:
+```bash
+# Check role trust policy
+aws iam get-role --role-name GitHubActions-static-site-Dev-Role \
+  --query 'Role.AssumeRolePolicyDocument'
+
+# Verify repository name matches exactly
+# Check for typos in GitHub repository name
+```
+
+**Common Causes**:
+1. Repository name mismatch (check capitalization)
+2. OIDC audience mismatch (should be `sts.amazonaws.com`)
+3. Role doesn't exist or wrong account
+4. GitHub Actions workflow missing `id-token: write` permission
+
+#### "Console Switchrole Access Denied"
+
+**Symptom**: Click console URL but get "You don't have permission to switch to this role"
+
+**Diagnosis**:
+```bash
+# Verify you're logged into management account
+aws sts get-caller-identity
+
+# Should show: "Account": "223938610551"
+
+# Check role trust policy
+aws iam get-role --role-name static-site-ReadOnly-dev \
+  --profile dev-deploy
+```
+
+**Solution**:
+1. Ensure logged into Management Account (223938610551)
+2. Verify your IAM user is in CrossAccountAdmins group
+3. Check role trust policy allows management account root
+
+---
+
+## Bootstrap Process
+
+### Creating Roles
+
+All IAM roles are created via Terraform during bootstrap:
+
+```bash
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+```
+
+**What It Does**:
+1. Creates OIDC providers in all environment accounts
+2. Creates GitHub Actions deployment roles (6 roles: 3 environments)
+3. Creates read-only console roles (3 roles)
+4. Generates console switchrole URLs
+5. Outputs role ARNs for GitHub Actions configuration
+
+**Terraform Modules Used**:
+- `terraform/modules/iam/github-actions-oidc-role`
+- `terraform/modules/iam/readonly-console-role`
+
+**Terraform Foundation**:
+- `terraform/foundations/iam-roles/main.tf` (orchestrates module instantiation)
+
+### Generated Outputs
+
+After bootstrap, find generated outputs:
+
+**Console URLs**: `scripts/bootstrap/output/console-urls.txt`
+```
+Dev Environment:
+  Account: 859340968804
+  Role: static-site-ReadOnly-dev
+  URL:
+https://signin.aws.amazon.com/switchrole?account=859340968804&roleName=static-site-ReadOnly-dev&displayName=StaticSite-Dev-ReadOnly
+```
+
+**Bootstrap Report**: `scripts/bootstrap/output/bootstrap-report.json`
+```json
+{
+  "timestamp": "2025-11-04T11:08:44-05:00",
+  "status": "success",
+  "role_arns": {
+    "github_actions": {
+      "dev": "arn:aws:iam::859340968804:role/GitHubActions-static-site-Dev-Role",
+      "staging": "arn:aws:iam::927588814642:role/GitHubActions-static-site-Staging-Role",
+      "prod": "arn:aws:iam::546274483801:role/GitHubActions-static-site-Prod-Role"
+    },
+    "readonly_console": {
+      "dev": "arn:aws:iam::859340968804:role/static-site-ReadOnly-dev",
+      "staging": "arn:aws:iam::927588814642:role/static-site-ReadOnly-staging",
+      "prod": "arn:aws:iam::546274483801:role/static-site-ReadOnly-prod"
+    }
+  },
+  "console_urls": {
+    "dev": "https://signin.aws.amazon.com/switchrole?account=859340968804&roleName=static-site-ReadOnly-dev&displayName=StaticSite-Dev-ReadOnly",
+    "staging": "https://signin.aws.amazon.com/switchrole?account=927588814642&roleName=static-site-ReadOnly-staging&displayName=StaticSite-Staging-ReadOnly",
+    "prod": "https://signin.aws.amazon.com/switchrole?account=546274483801&roleName=static-site-ReadOnly-prod&displayName=StaticSite-Prod-ReadOnly"
   }
 }
 ```
-*This shows environment role creating infrastructure (current compromise)*
-
-#### Proper Deployment Audit Trail
-
-**What to look for**:
-```json
-{
-  "eventName": "AssumeRole",
-  "userIdentity": {
-    "type": "AssumedRole",
-    "arn": "arn:aws:sts::MANAGEMENT_ACCOUNT_ID:assumed-role/GitHubActions-StaticSite-Central/deployment-session"
-  },
-  "resources": [{
-    "ARN": "arn:aws:iam::DEVELOPMENT_ACCOUNT_ID:role/GitHubActions-StaticSite-Dev-Role"
-  }]
-}
-```
-
-### Emergency Access Patterns
-
-#### Break-Glass Access
-
-**Scenario**: Critical production issue requires immediate infrastructure changes
-
-**Process**:
-1. Use emergency workflow with manual approval
-2. Temporarily assume Bootstrap role with extended permissions
-3. Document all actions taken in incident report
-4. Audit trail review within 24 hours
-5. Revert any temporary permission changes
-
-**Commands**:
-```bash
-# Emergency infrastructure change
-gh workflow run emergency.yml \
-  --field environment=prod \
-  --field action=infrastructure-fix \
-  --field justification="P1 incident #12345"
-```
-
-#### Role Recovery
-
-**Scenario**: Role trust policies corrupted or permissions removed
-
-**Root Account Recovery Process**:
-1. Use AWS root account to restore role trust policies
-2. Verify OIDC provider configuration intact
-3. Test role assumption from GitHub Actions
-4. Document changes made and root cause
-5. Implement additional safeguards
-
----
-
-## Performance Impact Considerations
-
-### Role Assumption Latency
-
-**Current Measurements**:
-- OIDC → Bootstrap Role: ~200ms
-- Bootstrap Role → Environment Role: ~150ms (compromise flow)
-- OIDC → Central Role: ~200ms
-- Central Role → Environment Role: ~150ms
-
-**Target Architecture Impact**:
-- OIDC → Bootstrap Role: ~200ms (same)
-- Bootstrap Role → Bootstrap-{Account}: ~150ms (new hop)
-- Total bootstrap latency: +150ms (~300ms vs 200ms)
-
-**Deployment Impact**: Negligible (bootstrap operations are rare)
-
-### API Rate Limiting
-
-**Considerations**:
-- Each role assumption consumes STS API quota
-- Pure architecture adds one additional STS call per bootstrap operation
-- Current STS limits: 5,000 requests per second per region
-- Project usage: <10 requests per hour
-
-**Mitigation**: No action needed, well within STS limits
-
-### Monitoring Overhead
-
-**CloudTrail Volume**:
-- Current: ~50 events per deployment
-- Target: ~55 events per deployment (+5 for additional role assumptions)
-- CloudTrail costs: Negligible increase
-
-**Performance Monitoring**:
-- Add CloudWatch metrics for role assumption latency
-- Alert on role assumption failures
-- Track permission denied events
 
 ---
 
 ## Related Documentation
 
 ### Primary References
-- **[MVP Architectural Compromises](mvp-architectural-compromises.md)** - Detailed compromise analysis
-- **[Security Policy](../SECURITY.md)** - Overall security architecture
-- **[IAM Policies](iam-policies/)** - Specific policy documents
 - **[Architecture Guide](architecture.md)** - Infrastructure overview
+- **[Bootstrap README](../scripts/bootstrap/README.md)** - Bootstrap process details
+- **[Policies README](../policies/README.md)** - IAM policy documentation
+- **[Security Policy](../SECURITY.md)** - Overall security architecture
 
-### Operational Guides
-- **[Deployment Guide](deployment.md)** - Using the permission model
-- **[Troubleshooting Guide](troubleshooting.md)** - Permission error resolution
-- **[Reference Guide](reference.md)** - Command reference
+### Configuration Files
+- **[bootstrap/config.sh](../scripts/bootstrap/config.sh)** - Authoritative configuration source (region, account IDs)
+- **[github-actions-oidc-role/main.tf](../terraform/modules/iam/github-actions-oidc-role/main.tf)** - GitHub Actions role module
+- **[readonly-console-role/main.tf](../terraform/modules/iam/readonly-console-role/main.tf)** - Console access role module
 
-### Planning Documents
-- **[TODO.md](../TODO.md)** - Implementation roadmap
-- **[WISHLIST.md](../WISHLIST.md)** - Future enhancements
+### Policy Documents
+- **[iam-github-actions-oidc-trust.json](../policies/iam-github-actions-oidc-trust.json)** - OIDC trust policy template
+- **[iam-github-actions-deployment.json](../policies/iam-github-actions-deployment.json)** - Deployment permissions policy
+- **[iam-readonly-console-trust.json](../policies/iam-readonly-console-trust.json)** - Console access trust policy
+
+### External Resources
+- **[AWS: Use IAM roles to connect GitHub Actions to AWS](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc_cognito.html)**
+- **[GitHub: Configuring OpenID Connect in AWS](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)**
+- **[AWS: Switching to an IAM role (console)](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-console.html)**
 
 ---
 
 ## Conclusion
 
-The 3-tier permissions architecture provides a robust security foundation for the AWS static website infrastructure. While current MVP compromises exist, they are well-documented, monitored, and have a clear migration path to the intended pure architecture.
+The Direct OIDC architecture provides a secure, simple, and maintainable IAM permissions model following AWS 2025 best practices. By eliminating role chaining complexity and leveraging native GitHub OIDC integration, the architecture achieves:
 
-**Key Takeaways**:
-1. **Current State**: Functional with documented security compromises
-2. **Target State**: Pure 3-tier separation with minimal permission overlap
-3. **Migration Path**: Clear 4-phase roadmap with defined success criteria
-4. **Risk Management**: Comprehensive monitoring and mitigation strategies
+**Key Benefits**:
+1. **Security**: No stored credentials, short-lived tokens, repository-scoped trust
+2. **Simplicity**: Single-hop authentication, fewer roles to manage
+3. **Auditability**: Clear CloudTrail attribution from GitHub to AWS resources
+4. **Maintainability**: Terraform-managed infrastructure-as-code
+5. **Developer Experience**: Console switchrole URLs for easy environment access
 
-The architecture successfully balances security, operational simplicity, and development velocity while maintaining awareness of the long-term target state.
+The architecture successfully balances security, operational simplicity, and developer productivity while following industry best practices for GitHub Actions integration with AWS.
 
 ---
 
-**Last Updated**: 2025-09-22
-**Next Review**: After Phase 3 migration completion
-**Version**: 1.0.0
+**Last Updated**: 2025-11-04
+**Version**: 2.0.0 (Complete rewrite to reflect direct OIDC implementation)

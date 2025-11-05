@@ -1,5 +1,12 @@
 name: 'Validate Environment Configuration'
-description: 'Validates environment-specific configuration and prerequisites'
+description: |
+  EXAMPLE ONLY - NOT USED IN ACTIVE WORKFLOWS
+
+  Validates environment-specific configuration and prerequisites.
+  This action demonstrates environment validation patterns and is provided
+  as a reference implementation. Current workflows use inline validation.
+
+  See README.md for usage patterns and examples.
 
 inputs:
   environment:

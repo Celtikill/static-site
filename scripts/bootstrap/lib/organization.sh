@@ -121,6 +121,15 @@ create_workloads_structure() {
         return 1
     fi
 
+    # Tag Workloads OU (if Terraform library available)
+    if command -v tag_ou >/dev/null 2>&1 && [[ -n "$RESOURCE_TAGS_JSON" ]]; then
+        log_info "Tagging Workloads OU..."
+        # Add Purpose tag for Workloads OU
+        local workloads_tags
+        workloads_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Purpose": "workloads"}')
+        tag_ou "$workloads_ou_id" "$workloads_tags" || log_warn "Failed to tag Workloads OU"
+    fi
+
     # Extract project name from GitHub repo (e.g., "Celtikill/static-site" -> "static-site")
     local project_name="${GITHUB_REPO##*/}"
     log_info "Project name: $project_name"
@@ -129,6 +138,12 @@ create_workloads_structure() {
     local project_ou_id
     if ! project_ou_id=$(create_ou "$project_name" "$workloads_ou_id"); then
         return 1
+    fi
+
+    # Tag project OU (if Terraform library available)
+    if command -v tag_ou >/dev/null 2>&1 && [[ -n "$RESOURCE_TAGS_JSON" ]]; then
+        log_info "Tagging project OU..."
+        tag_ou "$project_ou_id" "$RESOURCE_TAGS_JSON" || log_warn "Failed to tag project OU"
     fi
 
     log_success "Created Workloads OU structure"
@@ -477,6 +492,43 @@ create_environment_accounts() {
     export DEV_ACCOUNT="$dev_account"
     export STAGING_ACCOUNT="$staging_account"
     export PROD_ACCOUNT="$prod_account"
+
+    # Tag and set contact information for accounts (if Terraform library available)
+    if command -v tag_account >/dev/null 2>&1 && command -v apply_account_contacts >/dev/null 2>&1; then
+        log_info "Applying tags and contact information to accounts..."
+
+        # Tag and set contacts for dev account
+        if [[ -n "$RESOURCE_TAGS_JSON" ]]; then
+            local dev_tags
+            dev_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "dev"}')
+            tag_account "$dev_account" "$dev_tags" || log_warn "Failed to tag dev account"
+        fi
+        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+            apply_account_contacts "$dev_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set dev account contacts"
+        fi
+
+        # Tag and set contacts for staging account
+        if [[ -n "$RESOURCE_TAGS_JSON" ]]; then
+            local staging_tags
+            staging_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "staging"}')
+            tag_account "$staging_account" "$staging_tags" || log_warn "Failed to tag staging account"
+        fi
+        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+            apply_account_contacts "$staging_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set staging account contacts"
+        fi
+
+        # Tag and set contacts for prod account
+        if [[ -n "$RESOURCE_TAGS_JSON" ]]; then
+            local prod_tags
+            prod_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "prod"}')
+            tag_account "$prod_account" "$prod_tags" || log_warn "Failed to tag prod account"
+        fi
+        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+            apply_account_contacts "$prod_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set prod account contacts"
+        fi
+
+        log_success "Tags and contact information applied"
+    fi
 
     log_success "All environment accounts created"
     echo "$dev_account $staging_account $prod_account"
@@ -862,6 +914,32 @@ ensure_accounts_in_project_ou() {
         else
             log_warn "  Failed to move account $account_id (may lack permissions or account locked)"
             ((failed_count++)) || true
+        fi
+
+        # Apply tags and contacts (idempotent - updates if exists)
+        if command -v tag_account >/dev/null 2>&1 && [[ -n "$RESOURCE_TAGS_JSON" ]]; then
+            log_info "  Updating tags for account $account_id..."
+            # Determine environment from account name
+            local env_tag=""
+            if [[ "$account_name" == *"-dev"* ]]; then
+                env_tag="dev"
+            elif [[ "$account_name" == *"-staging"* ]]; then
+                env_tag="staging"
+            elif [[ "$account_name" == *"-prod"* ]]; then
+                env_tag="prod"
+            fi
+
+            local account_tags="$RESOURCE_TAGS_JSON"
+            if [[ -n "$env_tag" ]]; then
+                account_tags=$(echo "$RESOURCE_TAGS_JSON" | jq --arg env "$env_tag" '. + {"Environment": $env}')
+            fi
+
+            tag_account "$account_id" "$account_tags" || log_warn "  Failed to update tags"
+        fi
+
+        if command -v apply_account_contacts >/dev/null 2>&1 && [[ -n "$CONTACT_INFO_JSON" ]]; then
+            log_info "  Updating contact information for account $account_id..."
+            apply_account_contacts "$account_id" "$CONTACT_INFO_JSON" || log_warn "  Failed to update contacts"
         fi
     done < <(echo "$project_accounts" | jq -r '.[] | "\(.Id)|\(.Name)|\(.Status)"')
 

@@ -221,29 +221,52 @@ EXAMPLES:
    - `token.actions.githubusercontent.com`
    - Configured for GitHub Actions authentication
 
-2. **GitHub Actions Roles** (per account):
-   - `GitHubActions-<ProjectName>-Dev-Role`
-   - `GitHubActions-<ProjectName>-Staging-Role`
-   - `GitHubActions-<ProjectName>-Prod-Role`
+2. **IAM Deployment Roles** (per account):
+   - `GitHubActions-Static-site-dev`
+   - `GitHubActions-Static-site-staging`
+   - `GitHubActions-Static-site-prod`
 
-   (Role names are derived from PROJECT_NAME in config.sh)
+   These roles allow GitHub Actions workflows to deploy infrastructure via Direct OIDC authentication.
 
-3. **Terraform Backends** (per account):
-   - S3 bucket: `<project-name>-state-{env}-{account-id}`
-   - DynamoDB table: `<project-name>-locks-{env}`
+3. **IAM Console Access Roles** (per account):
+   - `static-site-ReadOnly-dev`
+   - `static-site-ReadOnly-staging`
+   - `static-site-ReadOnly-prod`
+
+   These roles allow engineers to access AWS console with read-only permissions.
+
+4. **Console SwitchRole URLs** (per account):
+   - Pre-configured URLs for quick console access
+   - Include project name in display (e.g., "StaticSite-Dev-ReadOnly")
+   - Saved to `output/console-urls.txt`
+
+5. **Terraform Backends** (per account):
+   - S3 bucket: `static-site-state-{env}-{account-id}`
+   - DynamoDB table: `static-site-locks-{env}`
    - KMS key for encryption
    - Backend config files: `output/backend-config-{env}.hcl`
-
-   (Bucket/table names use PROJECT_NAME from config.sh)
 
 **Output:**
 ```
 OIDC Providers: ✓
-GitHub Actions Roles: ✓
+GitHub Actions Deployment Roles: ✓
+Console Access Roles: ✓
 Terraform Backends: ✓
 
 Backend Configurations: output/backend-config-*.hcl
+Console URLs: output/console-urls.txt
 Verification Report: output/verification-report.json
+
+=== AWS Console Access URLs ===
+
+Dev Environment:
+https://signin.aws.amazon.com/switchrole?account=210987654321&roleName=static-site-ReadOnly-dev&displayName=StaticSite-Dev-ReadOnly
+
+Staging Environment:
+https://signin.aws.amazon.com/switchrole?account=111222333444&roleName=static-site-ReadOnly-staging&displayName=StaticSite-Staging-ReadOnly
+
+Production Environment:
+https://signin.aws.amazon.com/switchrole?account=555666777888&roleName=static-site-ReadOnly-prod&displayName=StaticSite-Prod-ReadOnly
 ```
 
 ### Configure GitHub Repository (Optional)
@@ -272,12 +295,12 @@ EXAMPLES:
 **What it configures:**
 
 1. **GitHub Secrets:**
-   - `AWS_ASSUME_ROLE_CENTRAL` - Central OIDC role ARN
+   - None required! Direct OIDC authentication eliminates the need for stored AWS credentials
 
 2. **GitHub Variables:**
    - AWS account IDs (management, dev, staging, prod)
-   - AWS regions (us-east-1, us-west-2)
-   - Infrastructure settings (OpenTofu version, budget limits, etc.)
+   - AWS regions (configured in config.sh - default: us-east-2 primary, us-west-2 replica)
+   - Infrastructure settings (OpenTofu version, budget limits, alert emails, etc.)
 
 **Interactive Flow:**
 1. Validates prerequisites (gh CLI, accounts.json)
@@ -474,7 +497,7 @@ GitHub Actions roles trust the GitHub OIDC provider **directly** using `AssumeRo
 - ✅ **Repository scoping** - Only your specific repository can assume the role
 - ✅ **Per-account isolation** - Each account has its own OIDC provider and roles
 - ✅ **No long-lived credentials** - Tokens expire after workflow completion
-- ✅ **AWS-recommended pattern** (2025 best practices)
+- ✅ **[AWS-recommended pattern](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_oidc.html)** for OIDC authentication
 
 ### Cross-Account Access
 
@@ -614,9 +637,9 @@ After bootstrap, your GitHub Actions workflows can authenticate **directly** to 
 - name: Configure AWS Credentials (Direct OIDC)
   uses: aws-actions/configure-aws-credentials@v4
   with:
-    role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-StaticSite-Dev-Role
+    role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-Static-site-dev
     role-session-name: github-actions-dev-${{ github.run_id }}
-    aws-region: us-east-1
+    aws-region: us-east-2  # See config.sh for region configuration
     audience: sts.amazonaws.com
 ```
 
@@ -645,6 +668,102 @@ Use generated backend configs in Terraform:
 terraform init -backend-config=../scripts/bootstrap/output/backend-config-dev.hcl
 ```
 
+## 🌐 AWS Console Access
+
+### Console SwitchRole URLs
+
+The bootstrap process generates pre-configured console URLs that allow you to quickly switch to read-only roles in each environment. These URLs are displayed at the end of `bootstrap-foundation.sh` and saved to `output/console-urls.txt`.
+
+### Using Console URLs
+
+**From Bootstrap Output:**
+1. Run `./bootstrap-foundation.sh`
+2. Copy the console URL for your target environment
+3. Paste into your browser
+4. AWS will switch you to the read-only role automatically
+
+**From Saved File:**
+```bash
+# View all console URLs
+cat scripts/bootstrap/output/console-urls.txt
+
+# Open directly (macOS)
+open "$(grep 'Dev Environment' -A1 scripts/bootstrap/output/console-urls.txt | tail -1)"
+
+# Open directly (Linux with xdg-open)
+xdg-open "$(grep 'Dev Environment' -A1 scripts/bootstrap/output/console-urls.txt | tail -1)"
+```
+
+### URL Format
+
+Console URLs follow this format:
+```
+https://signin.aws.amazon.com/switchrole?account={ACCOUNT_ID}&roleName={ROLE_NAME}&displayName={DISPLAY_NAME}
+```
+
+**Components:**
+- **account**: AWS account ID (e.g., `210987654321`)
+- **roleName**: IAM role name (e.g., `static-site-ReadOnly-dev`)
+- **displayName**: Friendly name in console (e.g., `StaticSite-Dev-ReadOnly`)
+
+**Display Name Benefits:**
+- Includes project name for multi-project scenarios
+- Makes it easy to identify which role you're using
+- Shows environment (Dev, Staging, Prod) clearly
+
+### Read-Only Access
+
+The console roles provide full read-only access via AWS managed policy `ReadOnlyAccess`:
+
+**What you can do:**
+- ✅ View all resources (S3 buckets, CloudFront distributions, IAM roles, etc.)
+- ✅ Read CloudWatch logs and metrics
+- ✅ View CloudTrail audit trails
+- ✅ Inspect security group rules
+- ✅ Review cost and usage reports
+
+**What you cannot do:**
+- ❌ Create, modify, or delete resources
+- ❌ Change IAM policies
+- ❌ Modify security settings
+- ❌ Deploy infrastructure
+
+### Trust Policy
+
+Console roles trust the management account, allowing IAM users and roles in the management account to assume them:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::MANAGEMENT_ACCOUNT_ID:root"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+**Access Requirements:**
+- Must be authenticated to management account
+- No MFA required (managed at management account level)
+- Session duration: 1 hour (configurable)
+
+### Multi-Project Workflow
+
+For engineers working on multiple projects, the display name includes the project name to avoid confusion:
+
+**Example Console Role Menu:**
+- StaticSite-Dev-ReadOnly ← Current project
+- StaticSite-Staging-ReadOnly
+- OtherProject-Dev-ReadOnly ← Different project
+- OtherProject-Prod-ReadOnly
+
+This naming makes it clear which project and environment you're accessing.
+
 ## 📚 Additional Resources
 
 - [Main Documentation](../../docs/README.md)
@@ -666,5 +785,5 @@ See the main repository for license information.
 
 ---
 
-**Last Updated**: 2025-10-07
-**Bootstrap Version**: 1.0.0
+**Last Updated**: 2025-11-04
+**Bootstrap Version**: 1.1.0 (Added console URL documentation)

@@ -6,7 +6,7 @@ Creates administrative IAM roles in workload accounts that can be assumed by hum
 
 ## 📋 Overview
 
-This module enables **human administrators** (not automation) to access workload accounts (dev, staging, prod) from a central management account. It implements AWS multi-account security best practices including:
+This module enables **human administrators** (not automation) to access workload accounts (dev, staging, prod) from a central management account. It implements [AWS multi-account security best practices](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_best-practices.html) including:
 
 - **MFA enforcement** for production access (default: enabled)
 - **External ID validation** for additional security (optional)

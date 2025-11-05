@@ -3,7 +3,7 @@
 > **🎯 Choose Your Path**: Pick the guide that matches your experience and needs
 > **📊 Difficulty Levels**: ⭐ Basic | ⭐⭐ Intermediate | ⭐⭐⭐ Advanced
 > **⏱️ Time Estimates**: Realistic reading and implementation times included
-> **🔄 Last Updated**: 2025-10-07 (consolidated and simplified)
+> **🔄 Last Updated**: 2025-11-04 (consolidated and workflow reorganization)
 
 ---
 
@@ -104,9 +104,10 @@ Examples: [Architecture](architecture.md), [IAM Deep Dive](iam-deep-dive.md)
 
 ---
 
-## 🔄 Documentation Updates (2025-10-07)
+## 🔄 Documentation Updates (2025-11-04)
 
 ### What's New
+- ✅ **Workflow Reorganization**: Moved reusable workflows to [.github/workflow-examples/](../.github/workflow-examples/) with comprehensive README
 - ✅ **Consolidated Deployment**: Merged 3 guides into single [DEPLOYMENT.md](../DEPLOYMENT.md)
 - ✅ **Added Reference Guide**: New [deployment-reference.md](deployment-reference.md) for quick lookups
 - ✅ **Streamlined Navigation**: Clear paths for different experience levels
@@ -127,6 +128,13 @@ Examples: [Architecture](architecture.md), [IAM Deep Dive](iam-deep-dive.md)
 - **Moved**: CONTRIBUTING.md → docs/CONTRIBUTING.md
 - **Moved**: ROADMAP.md → docs/ROADMAP.md
 - **Updated**: All internal links to reflect new structure
+
+**Phase 3:**
+- **Moved**: Reusable workflows → .github/workflow-examples/
+- **Created**: workflow-examples/README.md (comprehensive guide with 2025 best practices)
+- **Updated**: .github/workflows/README.md (pointer to examples)
+- **Updated**: docs/workflows-reusable.md (location notices and path updates)
+- **Fixed**: Broken DEPLOYMENT_GUIDE.md links across documentation
 
 ### Benefits
 - 📉 **40% less duplication** - No more searching across multiple files
@@ -183,4 +191,4 @@ Found an error or want to improve the docs? See our [Contributing Guide](../CONT
 
 **Happy deploying!** 🚀
 
-This documentation is maintained by the community. Last major update: October 2025.
+This documentation is maintained by the community. Last major update: November 2025.

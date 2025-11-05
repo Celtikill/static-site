@@ -152,17 +152,19 @@ extract_terraform_outputs() {
 }
 
 # =============================================================================
-# LEGACY FUNCTIONS (Kept for reference, not used)
+# LEGACY FUNCTION STUBS (NOT IMPLEMENTED - Always return error)
 # =============================================================================
 
-# Old bash-based role creation - replaced by Terraform
+# STUB: Old bash-based role creation - NOT IMPLEMENTED
+# This function is a placeholder only and always returns an error.
+# Role creation has been replaced by Terraform via create_iam_roles_via_terraform()
 create_github_actions_role_legacy() {
     local account_id="$1"
     local environment="$2"
     local env_cap=$(capitalize "$environment")
     local role_name="${IAM_ROLE_PREFIX}-${env_cap}-Role"
 
-    log_warn "Legacy function - use create_iam_roles_via_terraform instead"
+    log_warn "STUB function - NOT IMPLEMENTED. Use create_iam_roles_via_terraform instead"
     return 1
 }
 

@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2025-10-16
-**Deciders**: Infrastructure Team
+**Deciders**: Codeowner 
 **Related**: ADR-001 (IAM Permissions), ADR-003 (Versioning), ADR-004 (Commit Standards)
 
 ---
@@ -353,11 +353,16 @@ main → all environments (feature flags control)
 - **docs/deployment.md** - Deployment procedures
 - **CONTRIBUTING.md** - Developer workflow guide
 
+### Related Architecture
+- **[Architecture Guide](../architecture.md)** - See "CI/CD Pipeline Architecture" section for implementation of progressive deployment strategy
+
 ### Research and Best Practices
-- GitHub Flow: Feature branches + main + releases
-- Trunk-Based Development: Main as integration point
-- GitLab Flow: Environment branches (staging, production)
-- Heroku Flow: Main is staging, releases to production
+- [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow): Feature branches + main + releases
+- [Trunk-Based Development](https://trunkbaseddevelopment.com/): Main as integration point
+- [GitLab Flow](https://docs.gitlab.com/ee/topics/gitlab_flow.html): Environment branches (staging, production)
+- [Heroku Flow](https://www.heroku.com/flow): Main is staging, releases to production
+- [Netlify Deploy Previews](https://docs.netlify.com/site-deploys/deploy-previews/): Branch-based deployment patterns
+- [Vercel Git Integration](https://vercel.com/docs/deployments/git): Automatic deployments from branches
 
 ### Validation Evidence
 - Dev environment: Operational with feature/* branch deployments
@@ -366,5 +371,5 @@ main → all environments (feature flags control)
 
 ---
 
-**Last Updated**: 2025-10-16
-**Review Date**: 2026-01-16 (3 months - evaluate developer feedback)
+**Last Updated**: 2025-11-05
+**Review Date**: 2026-04-16 (6 months - evaluate developer feedback)

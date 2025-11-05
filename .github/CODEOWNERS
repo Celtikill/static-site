@@ -1,3 +1,45 @@
+# =============================================================================
+# PROJECT METADATA
+# =============================================================================
+# This section contains structured metadata used by bootstrap scripts for
+# AWS Organizations tagging and account contact information configuration.
+#
+# Format: # @metadata:<category>:<key>: <value>
+# Categories: project, contact, tag
+#
+# Bootstrap scripts parse this file to extract configuration, ensuring
+# consistency between code ownership and infrastructure metadata.
+# =============================================================================
+
+# --- Project Information ---
+# @metadata:project:name: static-site
+# @metadata:project:repository: Celtikill/static-site
+# @metadata:project:description: Static website hosting infrastructure
+
+# --- Contact Information ---
+# Used for AWS account primary contact configuration
+# @metadata:contact:full-name: DevOps Team
+# @metadata:contact:department: Engineering
+# @metadata:contact:company: Celtikill
+# @metadata:contact:phone: +1-555-0100
+# @metadata:contact:address-line-1: 123 Cloud Street
+# @metadata:contact:city: Seattle
+# @metadata:contact:state: WA
+# @metadata:contact:postal-code: 98101
+# @metadata:contact:country: US
+
+# --- Resource Tags ---
+# Applied to AWS Organizations resources (OUs, accounts)
+# @metadata:tag:ManagedBy: bootstrap-scripts
+# @metadata:tag:Repository: Celtikill/static-site
+# @metadata:tag:Project: static-site
+# @metadata:tag:Owner: @celtikill
+# @metadata:tag:CostCenter: engineering
+
+# =============================================================================
+# CODE OWNERSHIP RULES
+# =============================================================================
+
 # Global code ownership - all files require approval from primary maintainers
 * @celtikill
 

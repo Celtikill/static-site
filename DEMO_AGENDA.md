@@ -55,7 +55,7 @@ This demonstration showcases enterprise-grade AWS multi-account infrastructure d
 - [ ] **Review documentation for reference**
   - [ ] `docs/ci-cd.md` - Pipeline architecture
   - [ ] `docs/architecture.md` - Technical architecture
-  - [ ] `docs/permissions-architecture.md` - IAM deep-dive
+  - [ ] `docs/iam-deep-dive.md` - IAM deep-dive
 
 **30 minutes before demo:**
 - [ ] Re-verify all websites are down (clean slate for demo)
@@ -320,16 +320,16 @@ cd /home/user0/workspace/github/celtikill/static-site
 
 **While script runs, narrate**:
 - "Reading account IDs from local accounts.json file"
-- "Setting AWS_ASSUME_ROLE_CENTRAL secret for OIDC authentication"
 - "Configuring environment-specific account variables"
-- "No AWS credentials stored in GitHub - only OIDC trust relationship"
+- "Setting up AWS regions (us-east-2 primary, us-west-2 replica)"
+- "No AWS credentials stored in GitHub - Direct OIDC handles authentication automatically"
 
 **Expected output**:
 ```
 ✓ GitHub CLI authenticated
 ✓ accounts.json found
-✓ AWS_ASSUME_ROLE_CENTRAL configured
 ✓ All secrets and variables configured successfully!
+✓ No AWS secrets needed - OIDC authentication enabled
 ```
 
 **If prompted for confirmation**: Type `y` and press Enter
@@ -659,7 +659,7 @@ curl -I <website-url>
 
 - **Architecture**: `docs/architecture.md`
 - **CI/CD Pipeline**: `docs/ci-cd.md`
-- **IAM Permissions**: `docs/permissions-architecture.md`
+- **IAM Permissions**: `docs/iam-deep-dive.md`
 - **Deployment Guide**: `DEPLOYMENT.md`
 - **Troubleshooting**: `docs/troubleshooting.md`
 

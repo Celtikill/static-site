@@ -11,39 +11,31 @@
 
 The project implements a three-phase CI/CD pipeline that ensures security, quality, and reliable deployments:
 
-```mermaid
-%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph LR
-    accTitle: Three-Phase CI/CD Pipeline Overview
-    accDescr: High-level overview of the three-phase continuous integration and deployment pipeline with associated security and quality gates. Code pushes trigger the BUILD phase (~20 seconds) which performs security scanning with Checkov and Trivy while creating deployment artifacts. Upon BUILD success, the TEST phase (~35 seconds) executes OPA policy validation for security and compliance checks along with Terraform validation. After TEST passes, the RUN phase (~1m49s) orchestrates infrastructure deployment via OpenTofu and website deployment to S3 and CloudFront. This progressive pipeline architecture implements fail-fast principles with each phase gating the next, ensuring security vulnerabilities and policy violations are detected early before any infrastructure changes occur. The total end-to-end execution time of approximately 2 minutes 44 seconds provides rapid feedback while maintaining comprehensive security validation. This approach reduces remediation costs by catching issues early in the development lifecycle.
+### Pipeline Flow
 
-    A["📝 Code Push"] --> B["🔨 BUILD<br/>~20s"]
-    B --> C["🧪 TEST<br/>~35s"]
-    C --> D["🚀 RUN<br/>~1m49s"]
+**📝 Code Push** → **🔨 BUILD** (~20s) → **🧪 TEST** (~35s) → **🚀 RUN** (~1m49s)
 
-    B1["🛡️ Security Scan"] -.-> B
-    B2["📦 Artifacts"] -.-> B
-    C1["📜 Policies"] -.-> C
-    C2["🔍 Validation"] -.-> C
-    D1["🏗️ Infrastructure"] -.-> D
-    D2["🌐 Website"] -.-> D
+#### 🔨 BUILD Phase (~20 seconds)
+- **🛡️ Security Scanning**: Checkov and Trivy scan infrastructure code
+- **📦 Artifact Creation**: Package validated code and scan results
+- **💰 Cost Estimation**: Project AWS costs for budget validation
+- **Result**: Block deployment if critical/high vulnerabilities found
 
-    style B fill:#e1f5fe
-    style C fill:#fff9c4
-    style D fill:#c8e6c9
+#### 🧪 TEST Phase (~35 seconds)
+- **📜 Policy Validation**: OPA security and compliance policies
+- **🔍 Terraform Validation**: Syntax checking and execution planning
+- **📊 Summary Generation**: Comprehensive validation reports
+- **Result**: Block deployment if security policies fail
 
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
-    linkStyle 6 stroke:#333333,stroke-width:2px
-    linkStyle 7 stroke:#333333,stroke-width:2px
-    linkStyle 8 stroke:#333333,stroke-width:2px
-```
+#### 🚀 RUN Phase (~1m49s)
+- **🏗️ Infrastructure Deployment**: OpenTofu provisions AWS resources
+- **🌐 Website Deployment**: S3 sync and CloudFront invalidation
+- **✅ Health Validation**: Verify website accessibility and monitoring
+- **Result**: Automated rollback if deployment fails
 
 **Total Pipeline Time**: ~2 minutes 44 seconds
+
+This progressive architecture implements fail-fast principles, ensuring security vulnerabilities and policy violations are detected early before any infrastructure changes occur.
 
 ---
 
@@ -139,7 +131,7 @@ graph LR
     accTitle: BUILD Phase Security Scanning Workflow
     accDescr: Sequential security validation workflow in the BUILD phase ensuring infrastructure-as-code security before deployment. The workflow begins by checking out source code from the repository. Checkov performs infrastructure-as-code security scanning validating Terraform configurations against 50+ built-in security policies covering AWS security best practices, CIS benchmarks, and compliance frameworks. Trivy conducts vulnerability scanning of dependencies, container images, and infrastructure configurations detecting known CVEs and security misconfigurations. Cost estimation analyzes proposed infrastructure changes predicting AWS costs for budget validation and cost optimization. Artifact creation packages validated code and scan results for downstream pipeline phases. Report generation produces comprehensive security summaries with pass/fail status, vulnerability counts, and remediation guidance. The BUILD phase completes in approximately 20 seconds providing rapid security feedback. Failed security scans block the pipeline immediately preventing vulnerable code from advancing to deployment, implementing fail-fast security principles that reduce remediation costs.
 
-    A["📥 Checkout Code"] --> B["🛡️ Checkov Scan"]
+    A["📥 Push Code"] --> B["🛡️ Checkov Scan"]
     B --> C["🔍 Trivy Scan"]
     C --> D["💰 Cost Estimation"]
     D --> E["📦 Create Artifacts"]
@@ -336,13 +328,12 @@ graph TD
 
 ```yaml
 Steps:
-1. Configure AWS credentials (OIDC)
-2. Assume Central Role (Management Account)
-3. Assume Environment Role (Target Account)
-4. Initialize Terraform backend
-5. Generate execution plan
-6. Apply infrastructure changes
-7. Extract outputs (URLs, ARNs)
+1. Configure AWS credentials (Direct OIDC)
+2. Assume environment role via AssumeRoleWithWebIdentity
+3. Initialize Terraform backend
+4. Generate execution plan
+5. Apply infrastructure changes
+6. Extract outputs (URLs, ARNs)
 ```
 
 **Resources deployed:**

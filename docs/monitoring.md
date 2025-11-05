@@ -58,6 +58,43 @@ graph TD
 
 ---
 
+## Choose Your Path
+
+### 🆕 First-Time User?
+**Just deployed and want to check if everything's working?**
+
+Start here:
+- [View Your Dashboard](#view-your-dashboard) - See all metrics at a glance
+- [Check Website Health](#website-health-checks) - Verify your site is online
+- [Set Up Alerts](#setting-up-sns-notifications) - Get notified of issues
+
+### 📊 Operations Team?
+**Need to monitor production and respond to issues?**
+
+Focus on:
+- [CloudWatch Dashboards](#cloudwatch-dashboards) - Real-time metrics
+- [Alerting](#alerting) - Configure alert thresholds
+- [Security Monitoring](#security-monitoring) - Track security events
+- [Troubleshooting](#troubleshooting) - Diagnose issues
+
+### 💰 Cost Management?
+**Tracking spending and optimizing costs?**
+
+Check:
+- [Cost Monitoring](#cost-monitoring) - Budget tracking and alerts
+- [Cost Optimization Tips](#cost-optimization) - Reduce spending
+- [Usage Patterns](#analyzing-usage-patterns) - Understand your usage
+
+### 🔒 Security Team?
+**Monitoring for security threats and compliance?**
+
+Review:
+- [Security Monitoring](#security-monitoring) - WAF events and threats
+- [Access Logs](#s3-access-logs) - Audit access patterns
+- [Security Alerts](#security-alerts) - Configure security notifications
+
+---
+
 ## Table of Contents
 
 1. [Quick Start](#quick-start)

@@ -232,9 +232,14 @@ jobs:
         if: env.trigger_deployment == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ inputs.environment == 'staging' && vars.AWS_ROLE_ARN_STAGING || inputs.environment == 'prod' && vars.AWS_ROLE_ARN_PROD || secrets.AWS_ASSUME_ROLE_CENTRAL }}
+          role-to-assume: ${{
+            inputs.environment == 'dev' && format('arn:aws:iam::{0}:role/GitHubActions-Static-site-dev', vars.AWS_ACCOUNT_ID_DEV) ||
+            inputs.environment == 'staging' && format('arn:aws:iam::{0}:role/GitHubActions-Static-site-staging', vars.AWS_ACCOUNT_ID_STAGING) ||
+            inputs.environment == 'prod' && format('arn:aws:iam::{0}:role/GitHubActions-Static-site-prod', vars.AWS_ACCOUNT_ID_PROD) ||
+            ''
+          }}
           role-session-name: emergency-${{ inputs.operation }}-${{ github.run_id }}
-          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+          aws-region: ${{ vars.AWS_DEFAULT_REGION }}
           audience: sts.amazonaws.com
 
       - name: Emergency Deployment

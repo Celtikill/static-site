@@ -326,8 +326,7 @@ External → WAF → CloudFront → OAC → S3
 
 **Reference**:
 - [Glossary](GLOSSARY.md) - terminology
-- [TODO](../TODO.md) - roadmap
-- [Wishlist](../WISHLIST.md) - future ideas
+- [Roadmap](../docs/ROADMAP.md) - implementation priorities and future enhancements
 
 ---
 

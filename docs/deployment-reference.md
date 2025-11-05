@@ -89,14 +89,104 @@ gh workflow list
 | `AWS_ACCOUNT_ID_DEV` | 12-digit account ID | Development account |
 | `AWS_ACCOUNT_ID_STAGING` | 12-digit account ID | Staging account |
 | `AWS_ACCOUNT_ID_PROD` | 12-digit account ID | Production account |
-| `AWS_DEFAULT_REGION` | `us-east-1` | Primary AWS region |
-| `OPENTOFU_VERSION` | `1.6.0` | OpenTofu version |
+| `AWS_ACCOUNT_ID_MANAGEMENT` | 12-digit account ID | Management account |
+| `AWS_DEFAULT_REGION` | `us-east-2` | Primary AWS region (see config.sh) |
+| `REPLICA_REGION` | `us-west-2` | Cross-region replication target |
+| `OPENTOFU_VERSION` | `1.6.1` | OpenTofu version |
+| `DEFAULT_ENVIRONMENT` | `dev` | Default deployment environment |
+| `MONTHLY_BUDGET_LIMIT` | `40` | Budget alert threshold |
+| `ALERT_EMAIL_ADDRESSES` | JSON array | Budget alert email addresses |
 
-**GitHub Repository Secrets** (Settings → Secrets and variables → Actions → Secrets):
+**GitHub Repository Secrets**:
 
-| Secret | Value | Purpose |
-|--------|-------|---------|
-| `AWS_ASSUME_ROLE_CENTRAL` | ARN of central role | Cross-account access |
+> **No AWS secrets required!** With Direct OIDC authentication, GitHub Actions uses short-lived OIDC tokens to authenticate directly to AWS. No stored credentials needed.
+
+### AWS Profile Configuration for Destroy Operations
+
+**Architecture**: This project uses AWS Organizations with role assumption. You only need management account credentials - member account access is automatic via `OrganizationAccountAccessRole`.
+
+#### Profile Setup
+
+Configure profiles in `~/.aws/config` using role assumption:
+
+```ini
+# Base profile with actual credentials
+[profile management-dev]
+credential_process = /path/to/credential-process.sh management-dev
+region = us-east-2
+output = json
+
+# Member account profiles (role assumption - no credentials needed)
+[profile dev-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::859340968804:role/OrganizationAccountAccessRole
+role_session_name = dev-deploy-session
+region = us-east-2
+output = json
+
+[profile staging-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::927588814642:role/OrganizationAccountAccessRole
+role_session_name = staging-deploy-session
+region = us-east-2
+output = json
+
+[profile prod-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::546274483801:role/OrganizationAccountAccessRole
+role_session_name = prod-deploy-session
+region = us-east-2
+output = json
+```
+
+**Benefits**: Only management credentials needed, temporary member account credentials, no credential rotation for member accounts.
+
+#### Profile Verification
+
+```bash
+# Test management credentials
+AWS_PROFILE=management-dev aws sts get-caller-identity
+# Expected: Account "223938610551"
+
+# Test dev role assumption
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+# Expected for dev (via role assumption):
+{
+    "UserId": "AROAXXXXXXXXXXXXX:dev-deploy-session",
+    "Account": "859340968804",
+    "Arn": "arn:aws:sts::859340968804:assumed-role/OrganizationAccountAccessRole/dev-deploy-session"
+}
+```
+
+#### Environment-to-Profile-to-Account Mapping
+
+| Operation | AWS_PROFILE | Account ID | Authentication Method |
+|-----------|-------------|------------|----------------------|
+| Destroy dev | `dev-deploy` | 859340968804 | Role assumption from management |
+| Destroy staging | `staging-deploy` | 927588814642 | Role assumption from management |
+| Destroy prod | `prod-deploy` | 546274483801 | Role assumption from management |
+| Org management | `management-dev` | 223938610551 | Direct credentials (base profile) |
+
+**How It Works**: All member account profiles (`*-deploy`) use `source_profile=management-dev` to automatically assume `OrganizationAccountAccessRole` in the target account. AWS CLI handles role assumption transparently.
+
+#### Profile in Script Examples
+
+All destroy script examples in documentation show correct AWS_PROFILE usage:
+
+```bash
+# ✅ Correct - uses environment-specific profile
+AWS_PROFILE=dev-deploy ./scripts/destroy/destroy-environment.sh dev
+
+# ❌ Wrong - uses management account
+AWS_PROFILE=management ./scripts/destroy/destroy-environment.sh dev
+
+# ❌ Wrong - no profile (may use wrong default)
+./scripts/destroy/destroy-environment.sh dev
+```
+
+**Related Documentation**:
+- [Troubleshooting - Account Mismatch](troubleshooting.md#aws-account-mismatch-during-destroy-operations)
+- [Destroy Runbook - Profile Configuration](destroy-runbook.md#aws-profile-configuration)
 
 ### Environment-Specific Configuration
 

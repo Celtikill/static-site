@@ -1,5 +1,16 @@
 name: 'Setup Infrastructure Tools'
-description: 'Sets up OpenTofu, AWS CLI, and other infrastructure tools with OIDC authentication and security best practices'
+description: |
+  EXAMPLE ONLY - DEPRECATED - NOT USED IN ACTIVE WORKFLOWS
+
+  Sets up OpenTofu, AWS CLI, and other infrastructure tools with OIDC authentication.
+  This action demonstrates composite action patterns for tool installation and caching.
+
+  DEPRECATED: Superseded by direct usage of opentofu-org/setup-opentofu action
+  and inline AWS credential configuration in active workflows.
+
+  NOTE: Default OpenTofu version (1.6.2) is outdated. Current: 1.8.1
+
+  See README.md for usage patterns and what to use instead.
 
 inputs:
   aws-region:

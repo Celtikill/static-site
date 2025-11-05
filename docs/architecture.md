@@ -4,7 +4,18 @@ Comprehensive technical architecture documentation for the AWS Static Website In
 
 ## Overview
 
-This system implements enterprise-grade static website hosting using AWS services with a multi-account architecture pattern. The design emphasizes security, scalability, cost optimization, and operational excellence.
+This system implements enterprise-grade static website hosting using AWS services with a multi-account architecture pattern. The design emphasizes security, scalability, cost optimization, and operational excellence aligned with the [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/).
+
+## Architectural Decisions
+
+This architecture is the result of deliberate design decisions documented in **Architecture Decision Records (ADRs)**. Key decisions include:
+
+- **[ADR-001: IAM Permission Strategy](architecture/ADR-001-iam-permission-strategy.md)** - Middle-way approach balancing security with operational efficiency using action-category wildcards
+- **[ADR-002: Branch-Based Deployment Routing](architecture/ADR-002-branch-based-deployment-routing.md)** - Progressive promotion strategy where main deploys to staging (not production)
+- **[ADR-006: Terraform Over Bash for Resources](architecture/ADR-006-terraform-over-bash-for-resources.md)** - Hybrid infrastructure approach using Terraform for resource management
+- **[ADR-007: Emergency Operations Workflow](architecture/ADR-007-emergency-operations-workflow.md)** - Dedicated workflow for production incidents and rollbacks
+
+For complete list of architectural decisions and their rationale, see [Architecture Decision Records](architecture/README.md).
 
 ## Multi-Account Architecture
 
@@ -16,79 +27,96 @@ This system implements enterprise-grade static website hosting using AWS service
 
 ```mermaid
 %%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph TB
-    accTitle: "Multi-Account AWS Architecture"
-    accDescr: "Diagram showing 3-tier IAM security model with GitHub Actions OIDC authentication. Management account hosts OIDC provider, bootstrap role, and central orchestration role. Central role coordinates deployments to Dev, Staging, and Production accounts. Each environment account contains deployment role, Terraform state backend, and infrastructure resources. Dev account is operational, Staging and Production are ready for deployment. Implements account isolation for security and blast radius containment following AWS Well-Architected multi-account strategy."
+graph TD
+    accTitle: "Multi-Account AWS Architecture with Direct OIDC"
+    accDescr: "Diagram showing Direct OIDC authentication architecture. GitHub Actions authenticate directly to environment-specific roles using AssumeRoleWithWebIdentity, eliminating central role dependencies. Each environment account (Dev, Staging, Production) contains its own OIDC provider, deployment role, Terraform state backend, and infrastructure resources. Management account hosts foundation state bucket but does not participate in deployment authentication flow. Dev account is operational, Staging and Production are ready for deployment. Implements account isolation for security and blast radius containment following AWS 2025 best practices for OIDC authentication."
 
-    subgraph Org["🏛️ AWS Organization<br/>ORG_ID"]
+    GH["🐙 GitHub Actions<br/>GitHub Workflows<br/>Direct OIDC Authentication"]
+
+    subgraph Org["🏛️ AWS Organization (ORG_ID)"]
         subgraph Management["🏢 Management Account<br/>MANAGEMENT_ACCOUNT_ID"]
-            OIDC["🔐 OIDC Provider<br/>github.com/Celtikill/static-site"]
-            Bootstrap["⚙️ Bootstrap Role<br/>GitHubActions-Bootstrap-Central"]
-            Central["🌐 Central Role<br/>GitHubActions-StaticSite-Central"]
+            MgmtState["📦 Foundation State Bucket<br/>Terraform Foundation State Only"]
         end
 
-        subgraph Dev["🧪 Dev Account<br/>DEVELOPMENT_ACCOUNT_ID"]
-            DevRole["🔧 Dev Role<br/>GitHubActions-StaticSite-Dev-Role"]
+        subgraph Dev["🧪 Development Account<br/>DEVELOPMENT_ACCOUNT_ID"]
+            DevOIDC["🔐 OIDC Provider<br/>token.actions.githubusercontent.com"]
+            DevRole["🔧 Deployment Role<br/>GitHubActions-Static-site-dev"]
+            DevConsole["👤 Console Role<br/>static-site-ReadOnly-dev"]
             DevState["💾 Dev State Backend<br/>static-site-state-dev-DEVELOPMENT_ACCOUNT_ID"]
             DevInfra["☁️ Dev Infrastructure<br/>✅ OPERATIONAL"]
+
+            DevOIDC --> DevRole
+            DevRole --> DevState
+            DevRole --> DevInfra
         end
 
         subgraph Staging["🚀 Staging Account<br/>STAGING_ACCOUNT_ID"]
-            StagingRole["🔧 Staging Role<br/>GitHubActions-StaticSite-Staging-Role"]
+            StagingOIDC["🔐 OIDC Provider<br/>token.actions.githubusercontent.com"]
+            StagingRole["🔧 Deployment Role<br/>GitHubActions-Static-site-staging"]
+            StagingConsole["👤 Console Role<br/>static-site-ReadOnly-staging"]
             StagingState["💾 Staging State Backend<br/>⏳ Ready for Bootstrap"]
             StagingInfra["☁️ Staging Infrastructure<br/>⏳ Ready for Deployment"]
+
+            StagingOIDC --> StagingRole
+            StagingRole --> StagingState
+            StagingRole --> StagingInfra
         end
 
         subgraph Prod["🏭 Production Account<br/>PRODUCTION_ACCOUNT_ID"]
-            ProdRole["🔧 Prod Role<br/>GitHubActions-StaticSite-Prod-Role"]
+            ProdOIDC["🔐 OIDC Provider<br/>token.actions.githubusercontent.com"]
+            ProdRole["🔧 Deployment Role<br/>GitHubActions-Static-site-prod"]
+            ProdConsole["👤 Console Role<br/>static-site-ReadOnly-prod"]
             ProdState["💾 Production State Backend<br/>⏳ Ready for Bootstrap"]
             ProdInfra["☁️ Production Infrastructure<br/>⏳ Ready for Deployment"]
+
+            ProdOIDC --> ProdRole
+            ProdRole --> ProdState
+            ProdRole --> ProdInfra
         end
     end
 
-    OIDC --> Central
-    Central --> DevRole
-    Central --> StagingRole
-    Central --> ProdRole
+    GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| DevRole
+    GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| StagingRole
+    GH -->|"Direct OIDC<br/>AssumeRoleWithWebIdentity"| ProdRole
 
-    DevRole --> DevState
-    DevRole --> DevInfra
-    StagingRole --> StagingState
-    StagingRole --> StagingInfra
-    ProdRole --> ProdState
-    ProdRole --> ProdInfra
-
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
-    linkStyle 6 stroke:#333333,stroke-width:2px
-    linkStyle 7 stroke:#333333,stroke-width:2px
-    linkStyle 8 stroke:#333333,stroke-width:2px
+    linkStyle 0 stroke:#666666,stroke-width:1px
+    linkStyle 1 stroke:#666666,stroke-width:1px
+    linkStyle 2 stroke:#666666,stroke-width:1px
+    linkStyle 3 stroke:#666666,stroke-width:1px
+    linkStyle 4 stroke:#666666,stroke-width:1px
+    linkStyle 5 stroke:#666666,stroke-width:1px
+    linkStyle 6 stroke:#666666,stroke-width:1px
+    linkStyle 7 stroke:#666666,stroke-width:1px
+    linkStyle 8 stroke:#666666,stroke-width:1px
     linkStyle 9 stroke:#333333,stroke-width:2px
+    linkStyle 10 stroke:#333333,stroke-width:2px
+    linkStyle 11 stroke:#333333,stroke-width:2px
 ```
 
 ### Authentication Flow
 
-The system uses a 3-tier security model with OIDC authentication:
+The system uses **Direct OIDC authentication** following [AWS security best practices](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html):
 
-1. **Tier 1 (Bootstrap)**: GitHub Actions → OIDC → Bootstrap Role (infrastructure creation)
-2. **Tier 2 (Central)**: GitHub Actions → OIDC → Central Role (cross-account orchestration)
-3. **Tier 3 (Environment)**: Central Role → Environment Role (application deployment)
+1. **GitHub Actions** generates OIDC token (15-minute lifetime)
+2. **AssumeRoleWithWebIdentity** - Direct authentication to environment role
+3. **Environment Role** - Deploys infrastructure with scoped permissions
 
 **Key Security Features:**
-- ✅ No stored credentials (OIDC-based authentication)
-- ✅ Least privilege access (role-based separation)
-- ✅ Cross-account isolation
-- ✅ Audit trail via CloudTrail
+- ✅ No stored credentials (OIDC tokens generated on-demand)
+- ✅ Zero credential rotation burden
+- ✅ Single-step authentication (no role chaining)
+- ✅ Repository-scoped trust policies
+- ✅ Per-account OIDC providers (account isolation)
+- ✅ Complete audit trail via CloudTrail
 
-**Current Status:**
-- ✅ Tier 1 & 2: Fully implemented
-- ⚠️ Tier 3: MVP with documented compromises
+**Authentication Pattern:**
+```
+GitHub Workflow → OIDC Token → AssumeRoleWithWebIdentity → Environment Role → Deploy
+```
 
-For comprehensive IAM details, compromises, and migration roadmap, see [IAM Deep Dive](iam-deep-dive.md).
+**No central role or cross-account trust required** - Each environment authenticates independently.
+
+For comprehensive IAM details, trust policies, and security model, see [IAM Deep Dive](iam-deep-dive.md). For the rationale behind our IAM permission strategy, see [ADR-001: IAM Permission Strategy](architecture/ADR-001-iam-permission-strategy.md).
 
 ## Infrastructure Components
 
@@ -153,6 +181,8 @@ graph TD
 ```
 
 ## CI/CD Pipeline Architecture
+
+The pipeline implements progressive deployment with branch-based routing and emergency response capabilities. See [ADR-002: Branch-Based Deployment Routing](architecture/ADR-002-branch-based-deployment-routing.md) for deployment strategy rationale and [ADR-007: Emergency Operations Workflow](architecture/ADR-007-emergency-operations-workflow.md) for incident response procedures.
 
 ### Pipeline Flow
 
@@ -455,6 +485,8 @@ graph LR
 - **State Management**: Distributed backends with state locking
 - **Version Control**: Git-based infrastructure versioning
 
+For rationale on using Terraform for resource management instead of bash scripts, see [ADR-006: Terraform Over Bash for Resources](architecture/ADR-006-terraform-over-bash-for-resources.md).
+
 ### Security & Compliance
 - **Checkov**: Infrastructure security scanning
 - **Trivy**: Vulnerability and misconfiguration detection
@@ -483,4 +515,4 @@ The architecture is designed to scale both horizontally and vertically:
 
 ## Next Steps
 
-See [TODO.md](../TODO.md) for immediate implementation priorities and [WISHLIST.md](../WISHLIST.md) for future architectural enhancements.
+See [ROADMAP.md](ROADMAP.md) for implementation priorities and future architectural enhancements.

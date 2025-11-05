@@ -313,6 +313,62 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 - ✅ Created destroy-foundation.sh script with full documentation
 - ✅ Validated bootstrap from completely clean state
 
+### 5. Emergency Workflow Fix & Comprehensive Documentation
+**Priority**: HIGH ⭐
+**Status**: 30% COMPLETE 🚧 (Concise docs created, workflow fix pending)
+**Effort**: 6-8 hours remaining
+**Value**: Restore production incident response capability
+
+**Objective**: Fix broken emergency operations workflow and expand documentation
+
+**Current Status**:
+- ⚠️ Emergency workflow (`.github/workflows/emergency.yml`) has YAML syntax error at lines 235-240
+- ⚠️ 100% failure rate - workflow has never successfully executed
+- ✅ Created concise emergency operations documentation (November 5, 2025):
+  - `docs/emergency-operations.md` - Quick reference runbook
+  - `docs/architecture/ADR-007-emergency-operations-workflow.md` - Design decisions
+  - Updated `docs/disaster-recovery.md` with Emergency Rollback section
+  - Fixed command syntax in `docs/reference.md`
+  - Added comprehensive Emergency Operations Issues to `docs/troubleshooting.md`
+
+**Remaining Work**:
+1. **Fix YAML Syntax Error** (P0 - 1-2 hours)
+   - Fix multi-line conditional expression in emergency.yml (lines 235-240)
+   - Test workflow syntax with yamllint
+   - Validate workflow in non-production branch
+
+2. **Test All Rollback Methods** (P0 - 2-3 hours)
+   - Test `last_known_good` rollback in staging
+   - Test `specific_commit` rollback in staging
+   - Test `infrastructure_only` rollback in staging
+   - Test `content_only` rollback in staging
+   - Document any issues discovered
+
+3. **Expand Emergency Operations Documentation** (P1 - 2-3 hours)
+   - Add detailed troubleshooting scenarios to emergency-operations.md
+   - Create emergency communication templates
+   - Add comprehensive examples for all rollback methods
+   - Document post-incident validation procedures
+   - Add incident response decision trees
+
+4. **Optional: Create Template in workflow-examples/** (P3 - 1 hour)
+   - Create example emergency workflow template
+   - Document customization patterns
+   - Show integration with different deployment patterns
+
+**Architectural Benefits**:
+- **Incident Response**: Restore fast production incident response capability
+- **Documentation**: Complete operational runbooks for emergency procedures
+- **Reliability**: Tested emergency procedures reduce MTTR
+- **Knowledge Transfer**: Clear documentation enables team self-service
+
+**Related Documentation**:
+- `.github/workflows/emergency.yml` (current state - has syntax error)
+- `docs/emergency-operations.md` (concise runbook)
+- `docs/architecture/ADR-007-emergency-operations-workflow.md` (design rationale)
+- `docs/disaster-recovery.md` (emergency rollback procedures)
+- `docs/troubleshooting.md` (emergency operations troubleshooting)
+
 ---
 
 ## 📈 Short-Term Goals (1-2 Months)
@@ -458,9 +514,133 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 - `scripts/destroy/destroy-environment.sh` - Workload-only destroy
 - `terraform/modules/storage/s3-bucket/variables.tf` - force_destroy docs
 
+### 9. ADR Review Enforcement Automation
+**Priority**: MEDIUM ⭐⭐
+**Status**: 0% COMPLETE 🚧 (Planned)
+**Effort**: 4-6 hours
+**Value**: Maintain ADR accuracy and relevance over time
+
+**Objective**: Automate tracking and enforcement of ADR review dates
+- Create GitHub Action to check ADR review dates in PRs
+- Report overdue ADRs as PR comments
+- Phased enforcement approach (non-blocking → optional blocking)
+- Emergency bypass mechanism for critical PRs
+
+**Phase 1: Non-Blocking Reminders** (2-3 hours):
+1. Create `.github/workflows/adr-review-check.yml`
+   - Trigger on pull request events
+   - Parse ADR files for review dates
+   - Compare review dates to current date
+   - Post informational PR comment listing overdue ADRs
+   - Always allow PR to proceed (non-blocking)
+
+2. PR Comment Format:
+   ```
+   ## 📋 ADR Review Status
+
+   The following ADRs are past their review dates:
+   - **ADR-001** (Review Date: 2026-05-05) - 30 days overdue
+     - Topic: IAM Permission Strategy
+     - Action: Consider reviewing middle-way approach effectiveness
+
+   This is informational only. PR can proceed without ADR updates.
+   ```
+
+**Phase 2: Optional Blocking** (2-3 hours, future):
+1. Add workflow configuration:
+   - Repository variable: `ADR_REVIEW_ENFORCEMENT` (default: "warn")
+   - Values: "warn" (non-blocking), "error" (blocking)
+   - Emergency bypass: Label "bypass-adr-check" on PR
+
+2. Blocking behavior when enforcement enabled:
+   - Fail status check if ADRs >90 days overdue
+   - Require ADR updates or review date extensions
+   - Document rationale for deferring review
+   - Allow emergency bypass with justification
+
+**Architectural Benefits**:
+- **Proactive Maintenance**: Surface stale ADRs before they cause confusion
+- **Low Friction**: Phase 1 is informational, doesn't block work
+- **Flexibility**: Teams can choose enforcement level
+- **Emergency Support**: Critical PRs can bypass if needed
+- **Visibility**: ADR staleness visible in every PR
+
+**Related Files**:
+- `.github/workflows/adr-review-check.yml` (to be created)
+- `docs/architecture/ADR-*.md` (all ADRs have Review Date field)
+- `.github/workflows/pr-validation.yml` (existing PR checks)
+
+**Validation**:
+- Test with ADRs at different staleness levels
+- Verify comment formatting and clarity
+- Ensure emergency bypass works correctly
+- Document opt-in enforcement in README
+
 ---
 
 ## 🎨 Medium-Term Enhancements (3-6 Months)
+
+### Bootstrap Infrastructure Migration
+
+#### Bootstrap Script Migration to Terraform
+**Priority**: MEDIUM ⭐⭐
+**Status**: 20% COMPLETE 🚧 (Foundation Complete)
+**Effort**: 8-12 hours remaining
+**Value**: Improved idempotency, testability, and maintainability
+
+**Objective**: Migrate bash-based AWS resource operations to Terraform modules
+
+**Completed Components** (November 2025):
+- ✅ Created architectural pattern (ADR-006: Terraform Over Bash)
+- ✅ Implemented resource tagging module (`terraform/modules/management/resource-tagging/`)
+- ✅ Implemented account contacts module (`terraform/modules/management/account-contacts/`)
+- ✅ Created Terraform invocation library (`lib/terraform.sh`)
+- ✅ Created metadata parser for CODEOWNERS (`lib/metadata.sh`)
+- ✅ Integrated tagging and contacts into bootstrap-organization.sh
+
+**Remaining Work**:
+1. **OIDC Provider Management** (2-3 hours)
+   - Convert `lib/oidc.sh` AWS CLI calls to Terraform module
+   - Module: `terraform/modules/identity/github-oidc-provider/`
+   - Benefits: Declarative provider configuration, idempotent updates
+
+2. **IAM Role Management** (3-4 hours)
+   - Integrate existing `deployment-role` module into bootstrap process
+   - Replace `lib/roles.sh` policy generation with Terraform
+   - Benefits: Type-safe policy definitions, easier testing
+
+3. **Terraform Backend Setup** (2-3 hours)
+   - Convert `lib/backends.sh` to Terraform module
+   - Module: `terraform/modules/foundations/terraform-backend/`
+   - Benefits: Backend configuration as code, version-controlled
+
+4. **Account Closure Automation** (Optional, 4-5 hours)
+   - Consider Terraform-managed account lifecycle
+   - Requires careful design (destructive operations)
+   - Benefits: Tracked account closure, safer operations
+
+**Architectural Benefits**:
+- **Idempotency**: Terraform handles "already exists" automatically
+- **State Management**: Know what's deployed, detect drift
+- **Testability**: Modules can be unit tested independently
+- **Reusability**: Modules work across different projects
+- **Documentation**: Self-documenting via variables and README
+- **Validation**: Built-in type checking and constraints
+
+**Pattern Established**:
+```
+Bootstrap Script (Bash) → Orchestration Logic
+                       ↓
+          Terraform Modules → AWS Resource Operations
+                       ↓
+    CODEOWNERS Metadata → Configuration Source
+```
+
+**Related Documentation**:
+- `docs/architecture/ADR-006-terraform-over-bash-for-resources.md`
+- `terraform/modules/management/resource-tagging/README.md`
+- `terraform/modules/management/account-contacts/README.md`
+- `scripts/bootstrap/lib/terraform.sh`
 
 ### Policy & State Management
 
@@ -655,6 +835,15 @@ This roadmap is reviewed quarterly to:
 **Next Review**: February 2026
 
 **Recent Updates**:
+- November 5, 2025: Created Emergency Workflow Fix & Comprehensive Documentation roadmap item (Section 5 - HIGH priority)
+- November 5, 2025: Moved custom actions to workflow-examples/composite-actions/ with complete documentation
+- November 5, 2025: Created concise emergency operations documentation (emergency-operations.md, ADR-007, troubleshooting updates)
+- November 5, 2025: Fixed command syntax errors in docs/reference.md and docs/disaster-recovery.md
+- November 5, 2025: Added ADR Review Enforcement Automation to Short-Term Goals (Section 9)
+- November 5, 2025: Added resource tagging and account contacts features to bootstrap scripts
+- November 5, 2025: Created ADR-006 (Terraform Over Bash for Resource Management)
+- November 5, 2025: Implemented CODEOWNERS metadata parser for centralized configuration
+- November 5, 2025: Added Bootstrap Script Migration to Terraform roadmap item (20% complete)
 - November 3, 2025: Fixed critical OIDC authentication failure (IAM role naming mismatch)
 - November 3, 2025: Updated workflows to use correct role names (GitHubActions-Static-site-{Env}-Role)
 - November 3, 2025: Migrated to new dev account after account closure
