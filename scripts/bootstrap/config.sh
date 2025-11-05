@@ -2,9 +2,9 @@
 # Bootstrap Configuration
 # All configuration in one place
 
-# Prevent multiple sourcing
-[[ -n "${BOOTSTRAP_CONFIG_LOADED:-}" ]] && return 0
-readonly BOOTSTRAP_CONFIG_LOADED=1
+# Prevent multiple sourcing (include guard)
+[[ -v BOOTSTRAP_CONFIG_LOADED ]] && return 0
+export BOOTSTRAP_CONFIG_LOADED=1
 
 set -euo pipefail
 
