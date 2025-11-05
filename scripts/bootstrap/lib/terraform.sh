@@ -89,6 +89,22 @@ apply_resource_tagging() {
 
     # Create temporary Terraform configuration
     cat > main.tf <<EOF
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  # AWS credentials and region are inherited from environment
+  # or AWS CLI configuration
+}
+
 module "tag_resource" {
   source = "${module_path}"
 
@@ -258,6 +274,22 @@ apply_account_contacts() {
 
     # Create temporary Terraform configuration
     cat > main.tf <<EOF
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  # AWS credentials and region are inherited from environment
+  # or AWS CLI configuration
+}
+
 module "account_contacts" {
   source = "${module_path}"
 
