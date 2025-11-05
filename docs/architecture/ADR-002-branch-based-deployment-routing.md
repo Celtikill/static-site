@@ -369,4 +369,4 @@ main → all environments (feature flags control)
 ---
 
 **Last Updated**: 2025-11-05
-**Review Date**: 2026-11-05 (3 months - evaluate developer feedback)
+**Review Date**: 2026-04-16 (6 months - evaluate developer feedback)

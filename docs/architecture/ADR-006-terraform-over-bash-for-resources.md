@@ -3,7 +3,7 @@
 **Status**: Accepted
 **Date**: 2025-11-05
 **Deciders**: Codeowner
-**Related**: Bootstrap Scripts, Resource Tagging, Account Contacts
+**Related**: ADR-001 (IAM Permissions), Bootstrap Scripts, Resource Tagging, Account Contacts
 
 ---
 
@@ -234,10 +234,18 @@ Use AWS native IaC tooling.
 
 ## Related Files
 
+### Terraform Modules
 - `terraform/modules/management/resource-tagging/` - Resource tagging module
 - `terraform/modules/management/account-contacts/` - Account contacts module
+
+### Bootstrap Scripts
 - `scripts/bootstrap/lib/terraform.sh` - Terraform invocation library
 - `scripts/bootstrap/lib/metadata.sh` - CODEOWNERS metadata parser
+- `scripts/bootstrap/config.sh` - Configuration loader with metadata integration
+- `scripts/bootstrap/lib/organization.sh` - Organization management with tagging
+- `scripts/bootstrap/bootstrap-organization.sh` - Main bootstrap orchestrator
+
+### Configuration
 - `.github/CODEOWNERS` - Metadata source of truth
 
 ## Examples
@@ -298,4 +306,4 @@ This ADR will be reviewed:
 ---
 
 **Last Updated**: 2025-11-05
-**Next Review**: 2026-02-05
+**Review Date**: 2026-05-05 (6 months - evaluate pattern effectiveness)
