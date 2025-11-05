@@ -491,6 +491,11 @@ create_environment_accounts() {
 
     # Tag and set contact information for accounts (if Terraform library available)
     if command -v tag_account >/dev/null 2>&1 && command -v apply_account_contacts >/dev/null 2>&1; then
+        # Enable trusted access for AWS Account Management (required for alternate contacts)
+        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+            enable_account_management_trusted_access || log_warn "Could not enable trusted access for Account Management"
+        fi
+
         log_info "Applying tags and contact information to accounts..."
 
         # Tag and set contacts for dev account
@@ -1035,6 +1040,36 @@ tag_root() {
 # =============================================================================
 # ACCOUNT CONTACT INFORMATION
 # =============================================================================
+
+# Enable trusted access for AWS Account Management
+# Required before setting alternate contacts on member accounts
+enable_account_management_trusted_access() {
+    log_info "Enabling trusted access for AWS Account Management..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would enable trusted access for account.amazonaws.com"
+        return 0
+    fi
+
+    # Check if already enabled
+    if aws organizations list-aws-service-access-for-organization \
+        --query 'EnabledServicePrincipals[?ServicePrincipal==`account.amazonaws.com`]' \
+        --output text 2>/dev/null | grep -q "account.amazonaws.com"; then
+        log_debug "Trusted access already enabled for AWS Account Management"
+        return 0
+    fi
+
+    # Enable trusted access
+    if aws organizations enable-aws-service-access \
+        --service-principal account.amazonaws.com 2>&1; then
+        log_success "Enabled trusted access for AWS Account Management"
+        return 0
+    else
+        log_error "Failed to enable trusted access for AWS Account Management"
+        log_error "This is required to set alternate contacts on member accounts"
+        return 1
+    fi
+}
 
 # Set account contact information
 # Usage: apply_account_contacts "123456789012" '{"full_name":"...","phone_number":"...",...}'
