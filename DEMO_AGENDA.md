@@ -636,6 +636,12 @@ A: "Multi-region S3 replication enabled. For production, would add Route53 healt
 **Q: How confident are you in this for production?**
 A: "The patterns are production-ready. This specific implementation is MVP - shows the architecture, but needs hardening (WAF, GuardDuty, Config). Documented path to production-ready state."
 
+**Q: Why split bootstrap into two stages?**
+A: "Stage 1 (bootstrap-organization.sh) uses AWS CLI to create accounts and OUs - this avoids chicken-and-egg problems with Terraform state backends that don't exist yet. Stage 2 (bootstrap-foundation.sh) uses Terraform once accounts exist to create the infrastructure for deploying more Terraform. It also enables trusted access for AWS Account Management, allowing us to set alternate contacts on member accounts."
+
+**Q: Does this work on macOS?**
+A: "Yes! We've ensured bash 3.x compatibility throughout. macOS ships with bash 3.2 by default, and all scripts work without requiring bash 4+ features. This was a key requirement during development."
+
 ---
 
 ## Presenter Cue Cards
