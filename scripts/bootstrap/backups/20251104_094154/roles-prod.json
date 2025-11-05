@@ -1,6 +1,0 @@
-[
-    {
-        "RoleName": "GitHubActions-Static-site-Prod-Role",
-        "Arn": "arn:aws:iam::546274483801:role/GitHubActions-Static-site-Prod-Role"
-    }
-]

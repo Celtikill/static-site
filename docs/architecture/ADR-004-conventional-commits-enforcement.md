@@ -521,18 +521,18 @@ docs(adr): add versioning decision record
 - **GitHub Release Auto-Generation**: https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes
 
 ### Research and Best Practices
-- Angular Commit Guidelines (origin of Conventional Commits)
-- Vercel/Next.js PR validation strategy
-- Semantic Release project documentation
-- GitHub's own conventional commits usage
+- [Angular Commit Guidelines](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#commit) (origin of Conventional Commits)
+- [Vercel/Next.js PR validation strategy](https://github.com/vercel/next.js/blob/canary/.github/workflows/pull_request_lint.yml)
+- [Semantic Release project documentation](https://semantic-release.gitbook.io/semantic-release/)
+- [GitHub's own conventional commits usage](https://github.blog/changelog/2021-10-05-improved-release-notes-automation/)
 
 ### Projects Using This Pattern
-- Next.js, Vercel
-- Turborepo
-- Nx
-- TypeScript
-- Vue.js
-- Angular
+- [Next.js](https://github.com/vercel/next.js), [Vercel](https://github.com/vercel/vercel)
+- [Turborepo](https://github.com/vercel/turborepo)
+- [Nx](https://github.com/nrwl/nx)
+- [TypeScript](https://github.com/microsoft/TypeScript)
+- [Vue.js](https://github.com/vuejs/core)
+- [Angular](https://github.com/angular/angular)
 
 ---
 

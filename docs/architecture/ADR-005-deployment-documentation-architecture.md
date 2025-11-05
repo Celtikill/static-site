@@ -567,16 +567,16 @@ docs/
 - `docs/ci-cd.md` - Pipeline architecture (linked from ADRs)
 
 ### Documentation Best Practices
-- **Diátaxis Framework**: Tutorial, how-to, reference, explanation
-- **Write the Docs**: Documentation structure and maintenance
-- **Documentation as Code**: Version control, CI/CD, reviews
-- **ADR Pattern**: Nygard's Architecture Decision Records
+- [**Diátaxis Framework**](https://diataxis.fr/): Tutorial, how-to, reference, explanation
+- [**Write the Docs**](https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/): Documentation structure and maintenance
+- [**Documentation as Code**](https://www.writethedocs.org/guide/docs-as-code/): Version control, CI/CD, reviews
+- [**ADR Pattern**](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions): Nygard's Architecture Decision Records
 
 ### Examples of Good Documentation Architecture
-- **Kubernetes**: Concepts, Tasks, Tutorials, Reference
-- **Next.js**: Getting Started, Guides, API Reference, Architecture
-- **Terraform**: Intro, Guides, Language, Registry
-- **AWS Well-Architected**: Pillars, Best Practices, Whitepapers
+- [**Kubernetes**](https://kubernetes.io/docs/): Concepts, Tasks, Tutorials, Reference
+- [**Next.js**](https://nextjs.org/docs): Getting Started, Guides, API Reference, Architecture
+- [**Terraform**](https://www.terraform.io/docs): Intro, Guides, Language, Registry
+- [**AWS Well-Architected**](https://aws.amazon.com/architecture/well-architected/): Pillars, Best Practices, Whitepapers
 
 ---
 

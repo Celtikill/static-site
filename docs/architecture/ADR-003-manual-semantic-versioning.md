@@ -443,16 +443,16 @@ gh release create v2.0.0 --latest
 - **Conventional Changelog**: https://www.conventionalcommits.org/
 
 ### Research and Best Practices
-- npm versioning strategy: Manual SemVer for small teams
-- Terraform Registry: SemVer required for module publishing
-- GitHub's own versioning: Manual releases with auto-generated notes
-- HashiCorp projects: Manual versioning with CHANGELOG.md
+- [npm versioning strategy](https://docs.npmjs.com/about-semantic-versioning): Manual SemVer for small teams
+- [Terraform Registry](https://www.terraform.io/registry/modules/publish#requirements): SemVer required for module publishing
+- [GitHub's own versioning](https://github.blog/changelog/2021-10-05-improved-release-notes-automation/): Manual releases with auto-generated notes
+- [HashiCorp projects](https://github.com/hashicorp/terraform/blob/main/CHANGELOG.md): Manual versioning with CHANGELOG.md
 
 ### Tools Evaluated (Not Adopted)
-- `semantic-release`: Automatic version bumping based on commits
-- `standard-version`: Generates CHANGELOG.md and bumps versions
-- `release-please`: Google's automated release tooling
-- `changesets`: Monorepo-focused versioning (overkill for single project)
+- [`semantic-release`](https://github.com/semantic-release/semantic-release): Automatic version bumping based on commits
+- [`standard-version`](https://github.com/conventional-changelog/standard-version): Generates CHANGELOG.md and bumps versions
+- [`release-please`](https://github.com/googleapis/release-please): Google's automated release tooling
+- [`changesets`](https://github.com/changesets/changesets): Monorepo-focused versioning (overkill for single project)
 
 ---
 

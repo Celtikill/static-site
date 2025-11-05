@@ -1,6 +1,0 @@
-[
-    {
-        "RoleName": "GitHubActions-Static-site-Dev-Role",
-        "Arn": "arn:aws:iam::859340968804:role/GitHubActions-Static-site-Dev-Role"
-    }
-]
