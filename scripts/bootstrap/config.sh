@@ -37,40 +37,40 @@ fi
 # =============================================================================
 
 if [[ -z "${GITHUB_REPO+x}" ]]; then
-    readonly GITHUB_REPO="Celtikill/static-site"
+    readonly GITHUB_REPO="mhanyc/demo-cicd-terraform"
     readonly AWS_DEFAULT_REGION="us-east-2"
-    readonly MANAGEMENT_ACCOUNT_ID="223938610551"
+    readonly MANAGEMENT_ACCOUNT_ID="901903979475"
 
     # Derived configuration
-    readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from "Celtikill/static-site"
-    readonly GITHUB_OWNER="${GITHUB_REPO%%/*}"       # Extracts "Celtikill" from "Celtikill/static-site"
+    readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "demo-cicd-terraform" from "mhanyc/demo-cicd-terraform"
+    readonly GITHUB_OWNER="${GITHUB_REPO%%/*}"       # Extracts "mhanyc" from "mhanyc/demo-cicd-terraform"
 
     # Convert owner to lowercase for bucket names (S3 requires lowercase)
     _to_lowercase() {
         echo "$1" | tr '[:upper:]' '[:lower:]'
     }
-    readonly GITHUB_OWNER_LOWER=$(_to_lowercase "$GITHUB_OWNER")  # "celtikill"
+    readonly GITHUB_OWNER_LOWER=$(_to_lowercase "$GITHUB_OWNER")  # "mhanyc"
 
     # PROJECT_NAME: Used for S3 buckets, DynamoDB tables, and resource naming
-    # Format: {owner-lowercase}-{repo-name} (e.g., "celtikill-static-site")
+    # Format: {owner-lowercase}-{repo-name} (e.g., "mhanyc-demo-cicd-terraform")
     # This ensures uniqueness when forking to different organizations
     readonly PROJECT_NAME="${GITHUB_OWNER_LOWER}-${PROJECT_SHORT_NAME}"
 
     # EXTERNAL_ID: Used for IAM trust relationships
     readonly EXTERNAL_ID="github-actions-${PROJECT_SHORT_NAME}"
-    readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "static-site"
-    readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+static-site"
+    readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "demo-cicd-terraform"
+    readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+demo-cicd-terraform"
 
     # Capitalize first letter (bash 3.x compatible for macOS)
-    # Convert "static-site" to "Static-site"
+    # Convert "demo-cicd-terraform" to "Demo-cicd-terraform"
     _capitalize_first() {
         local str="$1"
         echo "$(echo "${str:0:1}" | tr '[:lower:]' '[:upper:]')${str:1}"
     }
-    readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first "${PROJECT_SHORT_NAME}")"  # "GitHubActions-Static-site"
+    readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first "${PROJECT_SHORT_NAME}")"  # "GitHubActions-Demo-cicd-terraform"
 
     # IAM role configuration
-    readonly READONLY_ROLE_PREFIX="${PROJECT_SHORT_NAME}-ReadOnly"  # "static-site-ReadOnly"
+    readonly READONLY_ROLE_PREFIX="${PROJECT_SHORT_NAME}-ReadOnly"  # "demo-cicd-terraform-ReadOnly"
     readonly GITHUB_ACTIONS_ROLE_NAME_PREFIX="GitHubActions"
 fi
 
