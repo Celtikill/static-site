@@ -3,7 +3,8 @@
 # All configuration in one place
 
 # Prevent multiple sourcing (include guard)
-[[ -v BOOTSTRAP_CONFIG_LOADED ]] && return 0
+# Using ${VAR+x} for bash 3.x compatibility (macOS)
+[[ -n "${BOOTSTRAP_CONFIG_LOADED+x}" ]] && return 0
 export BOOTSTRAP_CONFIG_LOADED=1
 
 set -euo pipefail
