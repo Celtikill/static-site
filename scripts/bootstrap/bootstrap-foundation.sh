@@ -183,8 +183,16 @@ main() {
     if ! verify_oidc_authentication; then
         log_warn "OIDC verification had issues, but continuing..."
     fi
-    log_info "Waiting for IAM role propagation (this provides time for roles to be globally available)..."
-    # Natural delay from verification work allows IAM roles to propagate (~60-120 seconds total)
+
+    # Wait for IAM role propagation (AWS typically takes 30-60 seconds)
+    log_info "Waiting 60 seconds for IAM roles to propagate globally..."
+    log_info "This ensures roles are available for S3 bucket policy references..."
+    if [[ "$DRY_RUN" != "true" ]]; then
+        sleep 60
+    else
+        log_info "[DRY-RUN] Would wait 60 seconds for IAM propagation"
+    fi
+    log_success "IAM propagation window complete"
 
     # Step 6: Create Terraform backends
     step "Creating Terraform backends"
