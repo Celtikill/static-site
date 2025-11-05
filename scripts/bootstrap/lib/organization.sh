@@ -631,8 +631,13 @@ should_close_account() {
         fi
 
         # Match by environment name (case-insensitive) if provided
-        if [[ -n "$env_name" ]] && [[ "${filtered_account,,}" == "${env_name,,}" ]]; then
-            return 0
+        # Use tr for bash 3.x compatibility (macOS)
+        if [[ -n "$env_name" ]]; then
+            local filtered_lower=$(echo "$filtered_account" | tr '[:upper:]' '[:lower:]')
+            local env_lower=$(echo "$env_name" | tr '[:upper:]' '[:lower:]')
+            if [[ "$filtered_lower" == "$env_lower" ]]; then
+                return 0
+            fi
         fi
     done
 
