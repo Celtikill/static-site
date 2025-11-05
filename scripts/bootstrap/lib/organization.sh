@@ -382,8 +382,7 @@ create_environment_accounts() {
             log_info "Dev account already exists and is ACTIVE: $existing_dev"
             dev_account="$existing_dev"
         elif [[ "$dev_status" == "SUSPENDED" ]] || [[ "$dev_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Dev account $existing_dev is $dev_status - creating replacement"
-            REPLACED_ACCOUNTS["dev"]="$existing_dev|$dev_status|$(date -Iseconds)"
+            log_warn "Dev account $existing_dev is $dev_status - creating replacement (timestamp: $(date -Iseconds))"
 
             if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
                 log_error "Failed to create replacement dev account"
@@ -414,8 +413,7 @@ create_environment_accounts() {
             log_info "Staging account already exists and is ACTIVE: $existing_staging"
             staging_account="$existing_staging"
         elif [[ "$staging_status" == "SUSPENDED" ]] || [[ "$staging_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Staging account $existing_staging is $staging_status - creating replacement"
-            REPLACED_ACCOUNTS["staging"]="$existing_staging|$staging_status|$(date -Iseconds)"
+            log_warn "Staging account $existing_staging is $staging_status - creating replacement (timestamp: $(date -Iseconds))"
 
             if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
                 log_error "Failed to create replacement staging account"
@@ -446,8 +444,7 @@ create_environment_accounts() {
             log_info "Prod account already exists and is ACTIVE: $existing_prod"
             prod_account="$existing_prod"
         elif [[ "$prod_status" == "SUSPENDED" ]] || [[ "$prod_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Prod account $existing_prod is $prod_status - creating replacement"
-            REPLACED_ACCOUNTS["prod"]="$existing_prod|$prod_status|$(date -Iseconds)"
+            log_warn "Prod account $existing_prod is $prod_status - creating replacement (timestamp: $(date -Iseconds))"
 
             if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
                 log_error "Failed to create replacement prod account"
