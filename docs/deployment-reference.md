@@ -101,6 +101,63 @@ gh workflow list
 
 > **No AWS secrets required!** With Direct OIDC authentication, GitHub Actions uses short-lived OIDC tokens to authenticate directly to AWS. No stored credentials needed.
 
+### AWS Profile Configuration for Destroy Operations
+
+Destroy scripts require proper AWS profile configuration to target the correct account.
+
+#### Profile Setup
+
+```bash
+# Quick setup for all environments
+for env in dev staging prod; do
+    aws configure --profile ${env}-deploy
+done
+```
+
+#### Profile Verification
+
+```bash
+# Before any destroy operation, verify profile
+export AWS_PROFILE=dev-deploy
+aws sts get-caller-identity
+
+# Expected for dev:
+{
+    "Account": "859340968804",
+    ...
+}
+```
+
+#### Environment-to-Profile-to-Account Mapping
+
+| Operation | AWS_PROFILE | Account ID | Notes |
+|-----------|-------------|------------|-------|
+| Destroy dev | `dev-deploy` | 859340968804 | Development workload |
+| Destroy staging | `staging-deploy` | 927588814642 | Staging workload |
+| Destroy prod | `prod-deploy` | 546274483801 | Production workload |
+| Org management | `management` | 223938610551 | Organization-level only |
+
+**Important**: Never use management account credentials for environment-specific destroy operations.
+
+#### Profile in Script Examples
+
+All destroy script examples in documentation show correct AWS_PROFILE usage:
+
+```bash
+# ✅ Correct - uses environment-specific profile
+AWS_PROFILE=dev-deploy ./scripts/destroy/destroy-environment.sh dev
+
+# ❌ Wrong - uses management account
+AWS_PROFILE=management ./scripts/destroy/destroy-environment.sh dev
+
+# ❌ Wrong - no profile (may use wrong default)
+./scripts/destroy/destroy-environment.sh dev
+```
+
+**Related Documentation**:
+- [Troubleshooting - Account Mismatch](troubleshooting.md#aws-account-mismatch-during-destroy-operations)
+- [Destroy Runbook - Profile Configuration](destroy-runbook.md#aws-profile-configuration)
+
 ### Environment-Specific Configuration
 
 ```bash
