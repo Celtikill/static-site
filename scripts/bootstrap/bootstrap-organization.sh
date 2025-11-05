@@ -17,7 +17,6 @@ source "${SCRIPT_DIR}/config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
 source "${SCRIPT_DIR}/lib/organization.sh"
-source "${SCRIPT_DIR}/lib/terraform.sh"
 
 # metadata.sh is sourced automatically via config.sh
 
