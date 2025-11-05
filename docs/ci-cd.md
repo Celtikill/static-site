@@ -11,39 +11,31 @@
 
 The project implements a three-phase CI/CD pipeline that ensures security, quality, and reliable deployments:
 
-```mermaid
-%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph LR
-    accTitle: Three-Phase CI/CD Pipeline Overview
-    accDescr: High-level overview of the three-phase continuous integration and deployment pipeline with associated security and quality gates. Code pushes trigger the BUILD phase (~20 seconds) which performs security scanning with Checkov and Trivy while creating deployment artifacts. Upon BUILD success, the TEST phase (~35 seconds) executes OPA policy validation for security and compliance checks along with Terraform validation. After TEST passes, the RUN phase (~1m49s) orchestrates infrastructure deployment via OpenTofu and website deployment to S3 and CloudFront. This progressive pipeline architecture implements fail-fast principles with each phase gating the next, ensuring security vulnerabilities and policy violations are detected early before any infrastructure changes occur. The total end-to-end execution time of approximately 2 minutes 44 seconds provides rapid feedback while maintaining comprehensive security validation. This approach reduces remediation costs by catching issues early in the development lifecycle.
+### Pipeline Flow
 
-    A["📝 Code Push"] --> B["🔨 BUILD<br/>~20s"]
-    B --> C["🧪 TEST<br/>~35s"]
-    C --> D["🚀 RUN<br/>~1m49s"]
+**📝 Code Push** → **🔨 BUILD** (~20s) → **🧪 TEST** (~35s) → **🚀 RUN** (~1m49s)
 
-    B1["🛡️ Security Scan"] -.-> B
-    B2["📦 Artifacts"] -.-> B
-    C1["📜 Policies"] -.-> C
-    C2["🔍 Validation"] -.-> C
-    D1["🏗️ Infrastructure"] -.-> D
-    D2["🌐 Website"] -.-> D
+#### 🔨 BUILD Phase (~20 seconds)
+- **🛡️ Security Scanning**: Checkov and Trivy scan infrastructure code
+- **📦 Artifact Creation**: Package validated code and scan results
+- **💰 Cost Estimation**: Project AWS costs for budget validation
+- **Result**: Block deployment if critical/high vulnerabilities found
 
-    style B fill:#e1f5fe
-    style C fill:#fff9c4
-    style D fill:#c8e6c9
+#### 🧪 TEST Phase (~35 seconds)
+- **📜 Policy Validation**: OPA security and compliance policies
+- **🔍 Terraform Validation**: Syntax checking and execution planning
+- **📊 Summary Generation**: Comprehensive validation reports
+- **Result**: Block deployment if security policies fail
 
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
-    linkStyle 6 stroke:#333333,stroke-width:2px
-    linkStyle 7 stroke:#333333,stroke-width:2px
-    linkStyle 8 stroke:#333333,stroke-width:2px
-```
+#### 🚀 RUN Phase (~1m49s)
+- **🏗️ Infrastructure Deployment**: OpenTofu provisions AWS resources
+- **🌐 Website Deployment**: S3 sync and CloudFront invalidation
+- **✅ Health Validation**: Verify website accessibility and monitoring
+- **Result**: Automated rollback if deployment fails
 
 **Total Pipeline Time**: ~2 minutes 44 seconds
+
+This progressive architecture implements fail-fast principles, ensuring security vulnerabilities and policy violations are detected early before any infrastructure changes occur.
 
 ---
 
