@@ -7,6 +7,18 @@
 # created by the static-site repository. It sources specialized libraries
 # for each AWS service and executes them in the correct order.
 #
+# SCOPE: EVERYTHING (bootstrap + workloads) across all accounts and regions
+#
+# RELATED SCRIPTS:
+#   - destroy-environment.sh               - Destroy workloads only (preserves bootstrap)
+#   - ../bootstrap/destroy-foundation.sh   - Destroy bootstrap only (preserves workloads)
+#
+# This script is equivalent to running:
+#   1. destroy-environment.sh dev
+#   2. destroy-environment.sh staging
+#   3. destroy-environment.sh prod
+#   4. ../bootstrap/destroy-foundation.sh --force
+#
 
 set -euo pipefail
 
