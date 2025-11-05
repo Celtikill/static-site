@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2025-11-05
-**Deciders**: Infrastructure Team
+**Deciders**: Codeowner
 **Related**: Bootstrap Scripts, Resource Tagging, Account Contacts
 
 ---

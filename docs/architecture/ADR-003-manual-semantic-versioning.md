@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2025-10-16
-**Deciders**: Infrastructure Team
+**Deciders**: Codeowner
 **Related**: ADR-002 (Branch-Based Routing), ADR-004 (Conventional Commits)
 
 ---
