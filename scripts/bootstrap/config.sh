@@ -115,6 +115,65 @@ load_accounts() {
 }
 
 # =============================================================================
+# METADATA FROM CODEOWNERS
+# =============================================================================
+
+# Source metadata library (must be sourced after LIB_DIR is defined)
+if [[ -f "${LIB_DIR}/metadata.sh" ]]; then
+    source "${LIB_DIR}/metadata.sh"
+else
+    # Metadata library not yet created - use defaults
+    log_warn "Metadata library not found, using config defaults" 2>/dev/null || true
+fi
+
+# Load project metadata from CODEOWNERS
+load_project_metadata() {
+    # Try to load from CODEOWNERS, fall back to config defaults
+    PROJECT_NAME_META=$(get_project_name 2>/dev/null || echo "$PROJECT_NAME")
+    PROJECT_REPO_META=$(get_project_repository 2>/dev/null || echo "$GITHUB_REPO")
+
+    export PROJECT_NAME_META PROJECT_REPO_META
+}
+
+# Load contact metadata from CODEOWNERS for account contact information
+load_contact_metadata() {
+    # Get contact information JSON from CODEOWNERS
+    if command -v get_contact_json >/dev/null 2>&1; then
+        CONTACT_INFO_JSON=$(get_contact_json 2>/dev/null || echo "{}")
+    else
+        CONTACT_INFO_JSON="{}"
+    fi
+
+    export CONTACT_INFO_JSON
+}
+
+# Load tags metadata from CODEOWNERS for resource tagging
+load_tags_metadata() {
+    # Get tags JSON from CODEOWNERS
+    if command -v get_tags_json >/dev/null 2>&1; then
+        RESOURCE_TAGS_JSON=$(get_tags_json 2>/dev/null || echo "{}")
+    else
+        # Use default tags if CODEOWNERS not available
+        RESOURCE_TAGS_JSON=$(cat <<EOF
+{
+  "ManagedBy": "bootstrap-scripts",
+  "Repository": "$GITHUB_REPO",
+  "Project": "$PROJECT_SHORT_NAME"
+}
+EOF
+        )
+    fi
+
+    export RESOURCE_TAGS_JSON
+}
+
+# Initialize metadata on source
+# These functions are safe to call even if metadata library isn't loaded yet
+load_project_metadata 2>/dev/null || true
+load_contact_metadata 2>/dev/null || true
+load_tags_metadata 2>/dev/null || true
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
