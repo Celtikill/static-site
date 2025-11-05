@@ -131,7 +131,7 @@ graph LR
     accTitle: BUILD Phase Security Scanning Workflow
     accDescr: Sequential security validation workflow in the BUILD phase ensuring infrastructure-as-code security before deployment. The workflow begins by checking out source code from the repository. Checkov performs infrastructure-as-code security scanning validating Terraform configurations against 50+ built-in security policies covering AWS security best practices, CIS benchmarks, and compliance frameworks. Trivy conducts vulnerability scanning of dependencies, container images, and infrastructure configurations detecting known CVEs and security misconfigurations. Cost estimation analyzes proposed infrastructure changes predicting AWS costs for budget validation and cost optimization. Artifact creation packages validated code and scan results for downstream pipeline phases. Report generation produces comprehensive security summaries with pass/fail status, vulnerability counts, and remediation guidance. The BUILD phase completes in approximately 20 seconds providing rapid security feedback. Failed security scans block the pipeline immediately preventing vulnerable code from advancing to deployment, implementing fail-fast security principles that reduce remediation costs.
 
-    A["📥 Checkout Code"] --> B["🛡️ Checkov Scan"]
+    A["📥 Push Code"] --> B["🛡️ Checkov Scan"]
     B --> C["🔍 Trivy Scan"]
     C --> D["💰 Cost Estimation"]
     D --> E["📦 Create Artifacts"]
