@@ -112,9 +112,14 @@ EOF
 
     # Initialize Terraform
     log_info "Initializing Terraform..."
-    if ! $TERRAFORM_CMD init -input=false >/dev/null 2>&1; then
-        log_error "Terraform init failed"
-        cat terraform.log 2>/dev/null
+    log_debug "Running: $TERRAFORM_CMD init -input=false in $(pwd)"
+    if ! $TERRAFORM_CMD init -input=false 2>&1 | tee terraform-init.log; then
+        log_error "Terraform init failed in $(pwd)"
+        log_error "Terraform command: $TERRAFORM_CMD"
+        log_error "Init output:"
+        cat terraform-init.log 2>/dev/null || echo "(no log file)"
+        log_error "Configuration files in workspace:"
+        ls -la
         popd >/dev/null
         return 1
     fi
@@ -289,8 +294,14 @@ EOF
 
     # Initialize Terraform
     log_info "Initializing Terraform..."
-    if ! $TERRAFORM_CMD init -input=false >/dev/null 2>&1; then
-        log_error "Terraform init failed"
+    log_debug "Running: $TERRAFORM_CMD init -input=false in $(pwd)"
+    if ! $TERRAFORM_CMD init -input=false 2>&1 | tee terraform-init.log; then
+        log_error "Terraform init failed in $(pwd)"
+        log_error "Terraform command: $TERRAFORM_CMD"
+        log_error "Init output:"
+        cat terraform-init.log 2>/dev/null || echo "(no log file)"
+        log_error "Configuration files in workspace:"
+        ls -la
         popd >/dev/null
         return 1
     fi
