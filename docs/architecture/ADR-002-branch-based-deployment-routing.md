@@ -354,10 +354,12 @@ main → all environments (feature flags control)
 - **CONTRIBUTING.md** - Developer workflow guide
 
 ### Research and Best Practices
-- GitHub Flow: Feature branches + main + releases
-- Trunk-Based Development: Main as integration point
-- GitLab Flow: Environment branches (staging, production)
-- Heroku Flow: Main is staging, releases to production
+- [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow): Feature branches + main + releases
+- [Trunk-Based Development](https://trunkbaseddevelopment.com/): Main as integration point
+- [GitLab Flow](https://docs.gitlab.com/ee/topics/gitlab_flow.html): Environment branches (staging, production)
+- [Heroku Flow](https://www.heroku.com/flow): Main is staging, releases to production
+- [Netlify Deploy Previews](https://docs.netlify.com/site-deploys/deploy-previews/): Branch-based deployment patterns
+- [Vercel Git Integration](https://vercel.com/docs/deployments/git): Automatic deployments from branches
 
 ### Validation Evidence
 - Dev environment: Operational with feature/* branch deployments

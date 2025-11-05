@@ -1,11 +1,85 @@
 # ADR-005: Deployment Documentation Architecture
 
-**Status**: Accepted (Implementation Evolved)
+**Status**: Partially Implemented
 **Date**: 2025-10-16
-**Deciders**: Infrastructure Team
+**Deciders**: Codeowner
 **Related**: ADR-001, ADR-002, ADR-003, ADR-004
 
 > **📝 Implementation Note**: The proposed structure in this ADR was implemented with modifications. The `deployment.md` file was merged into `DEPLOYMENT.md` along with `QUICK-START.md` as a single unified deployment guide with progressive disclosure. See [docs/README.md](../README.md) for current documentation structure (Phase 3 updates, 2025-11-04).
+
+## Implementation Variance
+
+**What Was Planned** (October 2025):
+This ADR proposed creating a layered documentation architecture with:
+- `docs/QUICK-START.md` - 5-minute deployment guide
+- `docs/RELEASE-PROCESS.md` - Production release workflow
+- `docs/archive/2025-10-16-pipeline-test-plan.md` - Archived test plan
+- Separate ADR documents (ADR-001 through ADR-005)
+- Enhanced README.md with quick links
+
+**What Was Actually Implemented** (October-November 2025):
+The project evolved the documentation structure differently:
+
+✅ **Fully Implemented**:
+- ADR documents (ADR-001 through ADR-006) created as planned
+- Enhanced README.md with quick links and status
+- docs/CONTRIBUTING.md created for developer workflow
+- Comprehensive docs/README.md as documentation index
+
+⚠️ **Implemented Differently**:
+- Quick-start content merged into unified DEPLOYMENT.md instead of separate file
+- Release process documented in CONTRIBUTING.md and ROADMAP.md instead of dedicated file
+- Progressive disclosure achieved through docs/README.md navigation structure
+
+❌ **Not Implemented**:
+- Standalone docs/QUICK-START.md file
+- Standalone docs/RELEASE-PROCESS.md file
+- docs/archive/ directory and archived pipeline test plan
+
+**Rationale for Variance**:
+1. **Unified Deployment Guide**: Team found single DEPLOYMENT.md with sections more maintainable than multiple small files
+2. **Release Process Integration**: Release workflow fits naturally in CONTRIBUTING.md alongside PR workflow
+3. **Archive Decision**: Original test plan information captured in ADR-001, separate archive deemed unnecessary
+4. **Progressive Disclosure Achieved**: docs/README.md navigation provides intended user journey without file proliferation
+
+**Current Documentation Structure** (November 2025):
+```
+Repository Root
+├── README.md (Project status, quick links)
+├── CONTRIBUTING.md (Dev workflow, releases)
+│
+├── docs/
+│   ├── README.md (Documentation index, navigation)
+│   ├── DEPLOYMENT.md (Unified deployment guide)
+│   ├── ROADMAP.md (Project planning)
+│   ├── deployment-reference.md (Advanced patterns)
+│   ├── ci-cd.md (Pipeline architecture)
+│   ├── workflows.md (Workflow routing)
+│   │
+│   └── architecture/
+│       ├── ADR-001-iam-permission-strategy.md
+│       ├── ADR-002-branch-based-deployment-routing.md
+│       ├── ADR-003-manual-semantic-versioning.md
+│       ├── ADR-004-conventional-commits-enforcement.md
+│       ├── ADR-005-deployment-documentation-architecture.md
+│       └── ADR-006-terraform-over-bash-for-resources.md
+```
+
+**Impact Assessment**:
+The actual implementation achieves the ADR's core objectives:
+- ✅ Clear user journeys (via docs/README.md navigation)
+- ✅ Progressive disclosure (section-based organization)
+- ✅ Reduced duplication (unified files prevent drift)
+- ✅ Multiple audiences served (index directs to appropriate docs)
+- ✅ Maintainability (fewer files to keep in sync)
+
+The variance represents an evolution based on team experience, not a failure to implement. The spirit of the ADR (layered, audience-driven documentation) was achieved through different file organization.
+
+**Lessons Learned**:
+- Fewer, well-organized files > many small files for small teams
+- Navigation layer (docs/README.md) sufficient for progressive disclosure
+- Integration (release process in CONTRIBUTING.md) better than separation
+- ADRs capture decisions; implementation can adapt to reality
 
 ---
 

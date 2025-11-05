@@ -66,9 +66,9 @@ Instead of:
 ### Scope of Permissions
 
 **Single Role Per Environment**:
-- `GitHubActions-StaticSite-Dev-Role`
-- `GitHubActions-StaticSite-Staging-Role`
-- `GitHubActions-StaticSite-Prod-Role`
+- `GitHubActions-Static-site-Dev-Role`
+- `GitHubActions-Static-site-Staging-Role`
+- `GitHubActions-Static-site-Prod-Role`
 
 **Each role supports**:
 - Read operations: `Get*`, `List*`, `Describe*` (validation and state reading)
@@ -197,11 +197,11 @@ Create two-role architecture when:
 - **docs/iam-deep-dive.md** - Detailed IAM architecture
 
 ### Research Sources
-- AWS Security Blog: "Use IAM roles to connect GitHub Actions to actions in AWS" (2024)
-- DevOpsCube: "How to Configure GitHub Actions OIDC with AWS" (2025)
-- AWS Prescriptive Guidance: "Security best practices - Terraform AWS Provider"
-- Stack Overflow: "IAM policy that allows only terraform plans to be executed"
-- 8th Light: "Minimally Privileged Terraform" - Action-category wildcard patterns
+- [AWS Security Blog: "Use IAM roles to connect GitHub Actions to actions in AWS"](https://aws.amazon.com/blogs/security/use-iam-roles-to-connect-github-actions-to-actions-in-aws/) (2023)
+- [DevOpsCube: "How to Configure GitHub Actions OIDC with AWS"](https://devopscube.com/github-actions-oidc-aws/) (2024)
+- [AWS Prescriptive Guidance: "Security best practices for the Terraform AWS Provider"](https://docs.aws.amazon.com/prescriptive-guidance/latest/terraform-aws-provider-best-practices/security-best-practices.html)
+- [Stack Overflow: "IAM policy that allows only terraform plans to be executed"](https://stackoverflow.com/questions/58456846/iam-policy-that-allows-only-terraform-plans-to-be-executed)
+- [8th Light: "Minimally Privileged Terraform"](https://8thlight.com/insights/minimally-privileged-terraform) - Action-category wildcard patterns
 
 ### Validation Evidence
 - GitHub Actions Run ID: 18567763990
