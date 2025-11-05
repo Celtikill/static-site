@@ -291,6 +291,133 @@ done
 - [ ] **Rollback plan documented** (how to restore if needed)
 - [ ] **Post-mortem scheduled** (for emergency situations)
 
+### AWS Profile Configuration
+
+Before running any destroy operations, ensure AWS profiles are correctly configured for each environment.
+
+#### Quick Verification
+
+```bash
+# Verify all required profiles are configured
+for env in dev staging prod; do
+    profile="${env}-deploy"
+    echo "Testing $profile..."
+    if AWS_PROFILE=$profile aws sts get-caller-identity &>/dev/null; then
+        account=$(AWS_PROFILE=$profile aws sts get-caller-identity --query 'Account' --output text)
+        echo "  ✓ $profile → Account $account"
+    else
+        echo "  ✗ $profile not configured"
+    fi
+done
+```
+
+#### Expected Profile → Account Mapping
+
+| AWS Profile | Account ID | Environment | Purpose |
+|-------------|------------|-------------|---------|
+| `dev-deploy` | 859340968804 | Development | Deploy/destroy dev resources |
+| `staging-deploy` | 927588814642 | Staging | Deploy/destroy staging resources |
+| `prod-deploy` | 546274483801 | Production | Deploy/destroy prod resources |
+| `management` | 223938610551 | Management | Organization-level operations only |
+
+#### First-Time Setup
+
+If profiles are not configured, set them up:
+
+**Method 1: Using AWS CLI**
+```bash
+# Configure dev profile
+aws configure --profile dev-deploy
+# Enter credentials for account 859340968804
+
+# Configure staging profile
+aws configure --profile staging-deploy
+# Enter credentials for account 927588814642
+
+# Configure prod profile
+aws configure --profile prod-deploy
+# Enter credentials for account 546274483801
+```
+
+**Method 2: Using AWS SSO**
+```bash
+# For organizations using AWS SSO
+aws configure sso --profile dev-deploy
+# Follow prompts to select dev account (859340968804)
+
+aws configure sso --profile staging-deploy
+# Follow prompts to select staging account (927588814642)
+
+aws configure sso --profile prod-deploy
+# Follow prompts to select prod account (546274483801)
+```
+
+**Method 3: Manual Configuration**
+
+Edit `~/.aws/config`:
+```ini
+[profile dev-deploy]
+region = us-east-2
+output = json
+# If using SSO:
+sso_start_url = https://your-org.awsapps.com/start
+sso_region = us-east-1
+sso_account_id = 859340968804
+sso_role_name = DeploymentRole
+
+[profile staging-deploy]
+region = us-east-2
+output = json
+sso_account_id = 927588814642
+sso_role_name = DeploymentRole
+
+[profile prod-deploy]
+region = us-east-2
+output = json
+sso_account_id = 546274483801
+sso_role_name = DeploymentRole
+```
+
+#### Verification Commands
+
+```bash
+# Verify profile configuration
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+
+# Expected output:
+{
+    "UserId": "AIDXXXXXXXXXXXXXXXXXX",
+    "Account": "859340968804",
+    "Arn": "arn:aws:iam::859340968804:user/your-user"
+}
+
+# Check profile points to correct region
+AWS_PROFILE=dev-deploy aws configure get region
+# Expected: us-east-2
+```
+
+#### Common Configuration Errors
+
+**Error**: "Unable to locate credentials"
+```bash
+# Solution: Configure credentials
+aws configure --profile dev-deploy
+```
+
+**Error**: "An error occurred (InvalidClientTokenId)"
+```bash
+# Solution: Credentials are invalid or expired
+# Regenerate access keys in IAM console
+# For SSO: Run `aws sso login --profile dev-deploy`
+```
+
+**Error**: "An error occurred (AccessDenied)"
+```bash
+# Solution: Credentials valid but lack permissions
+# Verify IAM user/role has necessary destroy permissions
+AWS_PROFILE=dev-deploy aws iam get-user
+```
+
 ---
 
 ## Script Reference
