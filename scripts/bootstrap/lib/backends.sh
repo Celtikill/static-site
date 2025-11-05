@@ -120,11 +120,66 @@ create_terraform_backend() {
         return 1
     fi
 
-    # Check if backend already exists
-    if s3_bucket_exists "$bucket_name" && dynamodb_table_exists "$table_name" "$region"; then
-        log_success "Terraform backend already exists for $environment"
-        clear_assumed_role
-        return 0
+    # Check if backend resources already exist
+    local bucket_exists=false
+    local table_exists=false
+
+    if s3_bucket_exists "$bucket_name"; then
+        bucket_exists=true
+        log_warn "S3 bucket already exists: $bucket_name"
+    fi
+
+    if dynamodb_table_exists "$table_name" "$region"; then
+        table_exists=true
+        log_warn "DynamoDB table already exists: $table_name"
+    fi
+
+    # If resources exist, destroy and recreate (for demo/testing)
+    if [[ "$bucket_exists" == "true" ]] || [[ "$table_exists" == "true" ]]; then
+        log_warn "Backend resources already exist for $environment"
+        log_info "Destroying existing resources before recreating..."
+
+        # Delete KMS alias and key first (S3 bucket depends on it)
+        local kms_alias="alias/${bucket_name}"
+        log_info "Checking for KMS key alias: $kms_alias"
+        local kms_key_id
+        kms_key_id=$(aws kms list-aliases --region "$region" --query "Aliases[?AliasName=='${kms_alias}'].TargetKeyId" --output text 2>/dev/null || echo "")
+
+        if [[ -n "$kms_key_id" ]]; then
+            log_info "Deleting KMS alias: $kms_alias"
+            aws kms delete-alias --alias-name "$kms_alias" --region "$region" 2>/dev/null || true
+
+            log_info "Scheduling KMS key deletion: $kms_key_id"
+            aws kms schedule-key-deletion --key-id "$kms_key_id" --pending-window-in-days 7 --region "$region" 2>/dev/null || true
+            log_success "Scheduled KMS key deletion (7-day window)"
+        fi
+
+        # Delete S3 bucket if exists
+        if [[ "$bucket_exists" == "true" ]]; then
+            log_info "Deleting S3 bucket: $bucket_name"
+            if ! delete_s3_bucket "$bucket_name"; then
+                log_error "Failed to delete existing S3 bucket: $bucket_name"
+                clear_assumed_role
+                return 1
+            fi
+            log_success "Deleted existing S3 bucket"
+        fi
+
+        # Delete DynamoDB table if exists
+        if [[ "$table_exists" == "true" ]]; then
+            log_info "Deleting DynamoDB table: $table_name"
+            if aws dynamodb delete-table --table-name "$table_name" --region "$region" 2>&1; then
+                log_info "Waiting for DynamoDB table deletion..."
+                aws dynamodb wait table-not-exists --table-name "$table_name" --region "$region" 2>&1 || true
+                log_success "Deleted existing DynamoDB table"
+            else
+                log_error "Failed to delete existing DynamoDB table: $table_name"
+                clear_assumed_role
+                return 1
+            fi
+        fi
+
+        log_success "Cleaned up existing backend resources"
     fi
 
     # Use existing Terraform bootstrap configuration
