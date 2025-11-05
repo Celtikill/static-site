@@ -4,7 +4,9 @@
 
 # Prevent multiple sourcing (include guard)
 # Using ${VAR+x} for bash 3.x compatibility (macOS)
-[[ -n "${BOOTSTRAP_CONFIG_LOADED+x}" ]] && return 0
+if [[ -n "${BOOTSTRAP_CONFIG_LOADED+x}" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
 export BOOTSTRAP_CONFIG_LOADED=1
 
 set -euo pipefail
@@ -16,58 +18,61 @@ export AWS_PAGER=""
 # PATHS
 # =============================================================================
 
-readonly BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly LIB_DIR="${BOOTSTRAP_DIR}/lib"
-readonly TEMPLATES_DIR="${BOOTSTRAP_DIR}/templates"
-readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
-readonly OUTPUT_DIR="${OUTPUT_DIR:-${BOOTSTRAP_DIR}/output}"
+# Bash 3.x compatible check: ${VAR+x} expands to "x" if set, empty if not
+if [[ -z "${BOOTSTRAP_DIR+x}" ]]; then
+    readonly BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    readonly LIB_DIR="${BOOTSTRAP_DIR}/lib"
+    readonly TEMPLATES_DIR="${BOOTSTRAP_DIR}/templates"
+    readonly ACCOUNTS_FILE="${BOOTSTRAP_DIR}/accounts.json"
+    readonly OUTPUT_DIR="${OUTPUT_DIR:-${BOOTSTRAP_DIR}/output}"
 
-# Terraform paths
-readonly TERRAFORM_ROOT="${BOOTSTRAP_DIR}/../../terraform"
-readonly TERRAFORM_IAM_DIR="${TERRAFORM_ROOT}/foundations/iam-roles"
-readonly TERRAFORM_MODULES_DIR="${TERRAFORM_ROOT}/modules"
+    # Terraform paths
+    readonly TERRAFORM_ROOT="${BOOTSTRAP_DIR}/../../terraform"
+    readonly TERRAFORM_IAM_DIR="${TERRAFORM_ROOT}/foundations/iam-roles"
+    readonly TERRAFORM_MODULES_DIR="${TERRAFORM_ROOT}/modules"
+fi
 
 # =============================================================================
 # PROJECT CONFIGURATION
 # =============================================================================
 
-readonly PROJECT_NAME="vibrant-demo-cicd"
-readonly GITHUB_REPO="mhanyc/demo-cicd-terraform"
-readonly EXTERNAL_ID="github-actions-static-site"
-readonly AWS_DEFAULT_REGION="us-east-2"
-readonly MANAGEMENT_ACCOUNT_ID="901903979475"
+if [[ -z "${GITHUB_REPO+x}" ]]; then
+    readonly GITHUB_REPO="mhanyc/demo-cicd-terraform"
+    readonly AWS_DEFAULT_REGION="us-east-2"
+    readonly MANAGEMENT_ACCOUNT_ID="901903979475"
 
-# Derived configuration
-readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from "Celtikill/static-site"
-readonly GITHUB_OWNER="${GITHUB_REPO%%/*}"       # Extracts "Celtikill" from "Celtikill/static-site"
+    # Derived configuration
+    readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "demo-cicd-terraform" from "mhanyc/demo-cicd-terraform"
+    readonly GITHUB_OWNER="${GITHUB_REPO%%/*}"       # Extracts "mhanyc" from "mhanyc/demo-cicd-terraform"
 
-# Convert owner to lowercase for bucket names (S3 requires lowercase)
-_to_lowercase() {
-    echo "$1" | tr '[:upper:]' '[:lower:]'
-}
-readonly GITHUB_OWNER_LOWER=$(_to_lowercase "$GITHUB_OWNER")  # "celtikill"
+    # Convert owner to lowercase for bucket names (S3 requires lowercase)
+    _to_lowercase() {
+        echo "$1" | tr '[:upper:]' '[:lower:]'
+    }
+    readonly GITHUB_OWNER_LOWER=$(_to_lowercase "$GITHUB_OWNER")  # "mhanyc"
 
-# PROJECT_NAME: Used for S3 buckets, DynamoDB tables, and resource naming
-# Format: {owner-lowercase}-{repo-name} (e.g., "celtikill-static-site")
-# This ensures uniqueness when forking to different organizations
-readonly PROJECT_NAME="${GITHUB_OWNER_LOWER}-${PROJECT_SHORT_NAME}"
+    # PROJECT_NAME: Used for S3 buckets, DynamoDB tables, and resource naming
+    # Format: {owner-lowercase}-{repo-name} (e.g., "mhanyc-demo-cicd-terraform")
+    # This ensures uniqueness when forking to different organizations
+    readonly PROJECT_NAME="${GITHUB_OWNER_LOWER}-${PROJECT_SHORT_NAME}"
 
-# EXTERNAL_ID: Used for IAM trust relationships
-readonly EXTERNAL_ID="github-actions-${PROJECT_SHORT_NAME}"
-readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "static-site"
-readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+static-site"
+    # EXTERNAL_ID: Used for IAM trust relationships
+    readonly EXTERNAL_ID="github-actions-${PROJECT_SHORT_NAME}"
+    readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"  # "demo-cicd-terraform"
+    readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"  # "aws+demo-cicd-terraform"
 
-# Capitalize first letter (bash 3.x compatible for macOS)
-# Convert "static-site" to "Static-site"
-_capitalize_first() {
-    local str="$1"
-    echo "$(echo "${str:0:1}" | tr '[:lower:]' '[:upper:]')${str:1}"
-}
-readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first "${PROJECT_SHORT_NAME}")"  # "GitHubActions-Static-site"
+    # Capitalize first letter (bash 3.x compatible for macOS)
+    # Convert "demo-cicd-terraform" to "Demo-cicd-terraform"
+    _capitalize_first() {
+        local str="$1"
+        echo "$(echo "${str:0:1}" | tr '[:lower:]' '[:upper:]')${str:1}"
+    }
+    readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first "${PROJECT_SHORT_NAME}")"  # "GitHubActions-Demo-cicd-terraform"
 
-# IAM role configuration
-readonly READONLY_ROLE_PREFIX="${PROJECT_SHORT_NAME}-ReadOnly"  # "static-site-ReadOnly"
-readonly GITHUB_ACTIONS_ROLE_NAME_PREFIX="GitHubActions"
+    # IAM role configuration
+    readonly READONLY_ROLE_PREFIX="${PROJECT_SHORT_NAME}-ReadOnly"  # "demo-cicd-terraform-ReadOnly"
+    readonly GITHUB_ACTIONS_ROLE_NAME_PREFIX="GitHubActions"
+fi
 
 # =============================================================================
 # STATE MANAGEMENT
@@ -110,15 +115,17 @@ SKIP_VERIFICATION="${SKIP_VERIFICATION:-false}"
 # COLORS
 # =============================================================================
 
-if [[ -t 1 ]]; then
-    readonly RED='\033[0;31m'
-    readonly GREEN='\033[0;32m'
-    readonly YELLOW='\033[1;33m'
-    readonly BLUE='\033[0;34m'
-    readonly BOLD='\033[1m'
-    readonly NC='\033[0m'
-else
-    readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
+if [[ -z "${RED+x}" ]]; then
+    if [[ -t 1 ]]; then
+        readonly RED='\033[0;31m'
+        readonly GREEN='\033[0;32m'
+        readonly YELLOW='\033[1;33m'
+        readonly BLUE='\033[0;34m'
+        readonly BOLD='\033[1m'
+        readonly NC='\033[0m'
+    else
+        readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
+    fi
 fi
 
 # =============================================================================
