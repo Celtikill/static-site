@@ -175,12 +175,21 @@ DRY_RUN="${DRY_RUN:-false}"
 FORCE="${FORCE:-false}"
 VERBOSE="${VERBOSE:-false}"
 
-# Account mapping (populated from unified config)
-declare -A ACCOUNT_MAP=(
-    ["dev"]="$DEV_ACCOUNT"
-    ["staging"]="$STAGING_ACCOUNT"
-    ["prod"]="$PROD_ACCOUNT"
-)
+# Account mapping (bash 3.x compatible - using functions instead of associative arrays)
+get_account_for_env() {
+    local env="$1"
+    case "$env" in
+        dev) echo "$DEV_ACCOUNT" ;;
+        staging) echo "$STAGING_ACCOUNT" ;;
+        prod) echo "$PROD_ACCOUNT" ;;
+        *) return 1 ;;
+    esac
+}
+
+is_valid_env() {
+    local env="$1"
+    [[ "$env" == "dev" || "$env" == "staging" || "$env" == "prod" ]]
+}
 
 # Colors are already defined in config.sh - no need to redefine
 
@@ -271,7 +280,7 @@ validate_environment() {
         exit 1
     fi
 
-    if [[ ! "${ACCOUNT_MAP[$env]+isset}" ]]; then
+    if ! is_valid_env "$env"; then
         log_error "Invalid environment: $env"
         log_error "Valid environments: dev, staging, prod"
         exit 1
@@ -512,7 +521,8 @@ main() {
     # Validate environment
     validate_environment "$ENVIRONMENT"
 
-    local account_id="${ACCOUNT_MAP[$ENVIRONMENT]}"
+    local account_id
+    account_id=$(get_account_for_env "$ENVIRONMENT")
 
     log_info "Environment: $ENVIRONMENT"
     log_info "AWS Account: $account_id"

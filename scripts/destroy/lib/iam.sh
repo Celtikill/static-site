@@ -200,11 +200,10 @@ destroy_iam_policies() {
     local destroyed=0
     local failed=0
 
-    # Use mapfile to avoid subshell issues with pipe to while loop
-    local policy_list
-    mapfile -t policy_list < <(echo "$policies" | jq -c '.[]')
-
-    for policy_info in "${policy_list[@]}"; do
+    # Bash 3.x compatible loop (avoiding mapfile)
+    local policy_info
+    while IFS= read -r policy_info; do
+        [[ -z "$policy_info" ]] && continue
         local policy_name policy_arn
         policy_name=$(echo "$policy_info" | jq -r '.PolicyName')
         policy_arn=$(echo "$policy_info" | jq -r '.Arn')
@@ -214,11 +213,11 @@ destroy_iam_policies() {
                 log_action "Delete IAM policy: $policy_name"
 
                 if [[ "$DRY_RUN" != "true" ]]; then
-                    # Delete all policy versions except default
+                    # Delete all policy versions except default (bash 3.x compatible)
                     local version_ids
-                    mapfile -t version_ids < <(aws iam list-policy-versions --policy-arn "$policy_arn" --query 'Versions[?!IsDefaultVersion].VersionId' --output text 2>/dev/null)
+                    version_ids=$(aws iam list-policy-versions --policy-arn "$policy_arn" --query 'Versions[?!IsDefaultVersion].VersionId' --output text 2>/dev/null)
 
-                    for version_id in ${version_ids[@]}; do
+                    for version_id in $version_ids; do
                         [[ -n "$version_id" ]] && aws iam delete-policy-version --policy-arn "$policy_arn" --version-id "$version_id" 2>/dev/null || true
                     done
 
@@ -233,7 +232,7 @@ destroy_iam_policies() {
                 fi
             fi
         fi
-    done
+    done < <(echo "$policies" | jq -c '.[]')
 
     log_info "Custom IAM policies: $destroyed destroyed, $failed failed"
 }
