@@ -82,6 +82,23 @@ OPTIONS:
 
 NOTE: To close AWS member accounts, use scripts/bootstrap/destroy-foundation.sh --close-accounts
 
+RELATED SCRIPTS:
+    destroy-environment.sh (in this directory)
+        Destroy workload resources in a SINGLE environment (dev/staging/prod)
+        while PRESERVING bootstrap infrastructure (backends, IAM roles, OIDC).
+        Use for: Dev environment resets, testing cleanup
+
+    ../bootstrap/destroy-foundation.sh
+        Destroy ONLY bootstrap infrastructure (backends, IAM roles, OIDC providers)
+        while PRESERVING workload resources.
+        Use for: Bootstrap reset, granular backend cleanup
+
+    This script (destroy-infrastructure.sh) is equivalent to:
+        ./destroy-environment.sh dev && \
+        ./destroy-environment.sh staging && \
+        ./destroy-environment.sh prod && \
+        ../bootstrap/destroy-foundation.sh --force
+
 CROSS-ACCOUNT FEATURES:
     • Destroys GitHub Actions roles across all member accounts
     • Cleans up cross-account Terraform state
