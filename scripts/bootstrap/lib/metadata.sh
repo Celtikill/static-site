@@ -196,9 +196,9 @@ get_tags_json() {
         return 0
     fi
 
-    # Parse tags into JSON
-    local json="{"
-    local first=true
+    # Parse tags into JSON using jq for proper escaping
+    # Build a simpler structure and let jq handle the JSON generation
+    local tag_pairs=""
 
     while IFS= read -r line; do
         # Extract key and value from: # @metadata:tag:Key: Value
@@ -211,16 +211,17 @@ get_tags_json() {
         value=$(echo "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 
         if [[ -n "$key" ]] && [[ -n "$value" ]]; then
-            if [[ "$first" == "false" ]]; then
-                json+=","
-            fi
-            json+="$(jq -n --arg k "$key" --arg v "$value" '"\($k)": $v')"
-            first=false
+            # Append key=value pairs, separated by newlines
+            tag_pairs+="$key=$value"$'\n'
         fi
     done <<< "$tag_lines"
 
-    json+="}"
-    echo "$json"
+    # Build JSON using jq from key=value pairs
+    if [[ -z "$tag_pairs" ]]; then
+        echo "{}"
+    else
+        echo "$tag_pairs" | jq -R -s 'split("\n") | map(select(length > 0) | split("=") | {(.[0]): .[1]}) | add'
+    fi
 }
 
 # Get tags as bash associative array
