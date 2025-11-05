@@ -46,7 +46,7 @@ verify_terraform_cli() {
 # RESOURCE TAGGING
 # =============================================================================
 
-# Apply tags to an AWS Organizations resource
+# Apply tags to an AWS Organizations resource using AWS CLI
 # Usage: apply_resource_tagging "resource-id" '{"ManagedBy":"bootstrap",...}'
 apply_resource_tagging() {
     local resource_id="$1"
@@ -60,113 +60,32 @@ apply_resource_tagging() {
         return 0
     fi
 
-    # Verify Terraform CLI
-    if ! verify_terraform_cli; then
-        log_error "Terraform/OpenTofu not available"
-        return 1
+    # Convert JSON to AWS CLI tag format: Key=key1,Value=value1 Key=key2,Value=value2
+    local tag_args=""
+    while IFS= read -r tag_entry; do
+        local key value
+        key=$(echo "$tag_entry" | jq -r '.key')
+        value=$(echo "$tag_entry" | jq -r '.value')
+
+        if [[ -n "$key" ]] && [[ -n "$value" ]]; then
+            tag_args+="Key=${key},Value=${value} "
+        fi
+    done < <(echo "$tags_json" | jq -c 'to_entries | .[] | {key: .key, value: .value}')
+
+    if [[ -z "$tag_args" ]]; then
+        log_warn "No valid tags to apply"
+        return 0
     fi
 
-    # Create workspace
-    local workspace
-    workspace=$(setup_terraform_workspace "tagging-${resource_id}")
-
-    # Ensure cleanup on exit
-    trap "cleanup_terraform_workspace '$workspace'" RETURN
-
-    # Navigate to workspace
-    pushd "$workspace" >/dev/null || return 1
-
-    # Get module path relative to repository root
-    local repo_root
-    repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "${BOOTSTRAP_DIR}/../..")
-    local module_path="${repo_root}/terraform/modules/management/resource-tagging"
-
-    if [[ ! -d "$module_path" ]]; then
-        log_error "Resource tagging module not found: $module_path"
-        popd >/dev/null
-        return 1
-    fi
-
-    # Create temporary Terraform configuration
-    cat > main.tf <<EOF
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.0"
-    }
-  }
-}
-
-provider "aws" {
-  # AWS credentials and region are inherited from environment
-  # or AWS CLI configuration
-}
-
-module "tag_resource" {
-  source = "${module_path}"
-
-  resource_id = "${resource_id}"
-  tags        = jsondecode(<<-JSON
-${tags_json}
-JSON
-  )
-}
-
-output "resource_id" {
-  value = module.tag_resource.resource_id
-}
-
-output "tags" {
-  value = module.tag_resource.tags
-}
-EOF
-
-    log_debug "Created Terraform configuration in: $workspace"
-
-    # Initialize Terraform
-    log_info "Initializing Terraform..."
-    log_debug "Running: $TERRAFORM_CMD init -input=false in $(pwd)"
-    if ! $TERRAFORM_CMD init -input=false 2>&1 | tee terraform-init.log; then
-        log_error "Terraform init failed in $(pwd)"
-        log_error "Terraform command: $TERRAFORM_CMD"
-        log_error "Init output:"
-        cat terraform-init.log 2>/dev/null || echo "(no log file)"
-        log_error "Configuration files in workspace:"
-        ls -la
-        popd >/dev/null
-        return 1
-    fi
-
-    # Validate configuration
-    if ! $TERRAFORM_CMD validate >/dev/null 2>&1; then
-        log_error "Terraform validation failed"
-        $TERRAFORM_CMD validate
-        popd >/dev/null
-        return 1
-    fi
-
-    # Create plan
-    log_info "Creating Terraform plan..."
-    if ! $TERRAFORM_CMD plan -input=false -out=tfplan >/dev/null 2>&1; then
-        log_error "Terraform plan failed"
-        $TERRAFORM_CMD plan -input=false
-        popd >/dev/null
-        return 1
-    fi
-
-    # Apply changes
-    log_info "Applying tags..."
-    if $TERRAFORM_CMD apply -input=false -auto-approve tfplan >/dev/null 2>&1; then
+    # Apply tags using AWS CLI
+    log_debug "Running: aws organizations tag-resource --resource-id $resource_id --tags $tag_args"
+    if aws organizations tag-resource \
+        --resource-id "$resource_id" \
+        --tags $tag_args 2>&1; then
         log_success "Tags applied successfully to: $resource_id"
-        popd >/dev/null
         return 0
     else
-        log_error "Terraform apply failed"
-        $TERRAFORM_CMD apply -input=false -auto-approve tfplan
-        popd >/dev/null
+        log_error "Failed to apply tags to: $resource_id"
         return 1
     fi
 }
@@ -219,154 +138,47 @@ apply_account_contacts() {
         return 0
     fi
 
-    # Verify Terraform CLI
-    if ! verify_terraform_cli; then
-        log_error "Terraform/OpenTofu not available"
-        return 1
-    fi
-
     # Extract required fields from JSON
-    local full_name phone_number address_line_1 city state postal_code country
+    local full_name phone_number
     full_name=$(echo "$contact_json" | jq -r '.full_name // empty')
     phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty')
-    address_line_1=$(echo "$contact_json" | jq -r '.address_line_1 // empty')
-    city=$(echo "$contact_json" | jq -r '.city // empty')
-    state=$(echo "$contact_json" | jq -r '.state_or_region // empty')
-    postal_code=$(echo "$contact_json" | jq -r '.postal_code // empty')
-    country=$(echo "$contact_json" | jq -r '.country_code // empty')
 
-    # Validate required fields
-    if [[ -z "$full_name" ]] || [[ -z "$phone_number" ]] || [[ -z "$address_line_1" ]] || \
-       [[ -z "$city" ]] || [[ -z "$state" ]] || [[ -z "$postal_code" ]] || [[ -z "$country" ]]; then
+    # Validate required fields for alternate contacts
+    if [[ -z "$full_name" ]] || [[ -z "$phone_number" ]]; then
         log_error "Missing required contact information fields"
-        log_error "Required: full_name, phone_number, address_line_1, city, state_or_region, postal_code, country_code"
+        log_error "Required: full_name, phone_number"
         return 1
     fi
 
-    # Create workspace
-    local workspace
-    workspace=$(setup_terraform_workspace "contacts-${account_id}")
+    # Set alternate contacts using AWS CLI
+    # AWS Organizations supports three alternate contact types: BILLING, OPERATIONS, SECURITY
+    local success=0
+    local email_address
+    email_address=$(echo "$contact_json" | jq -r '.email_address // "noreply@example.com"')
 
-    # Ensure cleanup on exit
-    trap "cleanup_terraform_workspace '$workspace'" RETURN
+    for contact_type in BILLING OPERATIONS SECURITY; do
+        log_debug "Setting $contact_type contact for account $account_id"
 
-    # Navigate to workspace
-    pushd "$workspace" >/dev/null || return 1
+        if aws account put-alternate-contact \
+            --account-id "$account_id" \
+            --alternate-contact-type "$contact_type" \
+            --name "$full_name" \
+            --phone-number "$phone_number" \
+            --email-address "$email_address" \
+            --title "Account Contact" 2>&1; then
+            log_debug "$contact_type contact set successfully"
+            ((success++))
+        else
+            log_warn "Failed to set $contact_type contact for account: $account_id"
+        fi
+    done
 
-    # Get module path
-    local repo_root
-    repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo "${BOOTSTRAP_DIR}/../..")
-    local module_path="${repo_root}/terraform/modules/management/account-contacts"
-
-    if [[ ! -d "$module_path" ]]; then
-        log_error "Account contacts module not found: $module_path"
-        popd >/dev/null
-        return 1
-    fi
-
-    # Extract optional fields
-    local company_name address_line_2 address_line_3 district_or_county website_url
-    company_name=$(echo "$contact_json" | jq -r '.company_name // ""')
-    address_line_2=$(echo "$contact_json" | jq -r '.address_line_2 // ""')
-    address_line_3=$(echo "$contact_json" | jq -r '.address_line_3 // ""')
-    district_or_county=$(echo "$contact_json" | jq -r '.district_or_county // ""')
-    website_url=$(echo "$contact_json" | jq -r '.website_url // ""')
-
-    # Create temporary Terraform configuration
-    cat > main.tf <<EOF
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.0"
-    }
-  }
-}
-
-provider "aws" {
-  # AWS credentials and region are inherited from environment
-  # or AWS CLI configuration
-}
-
-module "account_contacts" {
-  source = "${module_path}"
-
-  account_id      = "${account_id}"
-  full_name       = "${full_name}"
-  phone_number    = "${phone_number}"
-  address_line_1  = "${address_line_1}"
-  city            = "${city}"
-  state_or_region = "${state}"
-  postal_code     = "${postal_code}"
-  country_code    = "${country}"
-EOF
-
-    # Add optional fields if present
-    [[ -n "$company_name" ]] && echo "  company_name    = \"${company_name}\"" >> main.tf
-    [[ -n "$address_line_2" ]] && echo "  address_line_2  = \"${address_line_2}\"" >> main.tf
-    [[ -n "$address_line_3" ]] && echo "  address_line_3  = \"${address_line_3}\"" >> main.tf
-    [[ -n "$district_or_county" ]] && echo "  district_or_county = \"${district_or_county}\"" >> main.tf
-    [[ -n "$website_url" ]] && echo "  website_url     = \"${website_url}\"" >> main.tf
-
-    cat >> main.tf <<EOF
-}
-
-output "account_id" {
-  value = module.account_contacts.account_id
-}
-
-output "contact_configured" {
-  value = module.account_contacts.contact_configured
-}
-EOF
-
-    log_debug "Created Terraform configuration in: $workspace"
-
-    # Initialize Terraform
-    log_info "Initializing Terraform..."
-    log_debug "Running: $TERRAFORM_CMD init -input=false in $(pwd)"
-    if ! $TERRAFORM_CMD init -input=false 2>&1 | tee terraform-init.log; then
-        log_error "Terraform init failed in $(pwd)"
-        log_error "Terraform command: $TERRAFORM_CMD"
-        log_error "Init output:"
-        cat terraform-init.log 2>/dev/null || echo "(no log file)"
-        log_error "Configuration files in workspace:"
-        ls -la
-        popd >/dev/null
-        return 1
-    fi
-
-    # Validate configuration
-    if ! $TERRAFORM_CMD validate >/dev/null 2>&1; then
-        log_error "Terraform validation failed"
-        $TERRAFORM_CMD validate
-        popd >/dev/null
-        return 1
-    fi
-
-    # Create plan
-    log_info "Creating Terraform plan..."
-    if ! $TERRAFORM_CMD plan -input=false -out=tfplan >/dev/null 2>&1; then
-        log_error "Terraform plan failed"
-        $TERRAFORM_CMD plan -input=false
-        popd >/dev/null
-        return 1
-    fi
-
-    # Apply changes
-    log_info "Applying contact information..."
-    if $TERRAFORM_CMD apply -input=false -auto-approve tfplan >/dev/null 2>&1; then
-        log_success "Contact information set successfully for account: $account_id"
-        popd >/dev/null
+    if [[ $success -gt 0 ]]; then
+        log_success "Contact information set successfully for account: $account_id ($success/3 contact types)"
         return 0
     else
-        log_error "Terraform apply failed"
-        $TERRAFORM_CMD apply -input=false -auto-approve tfplan
-        popd >/dev/null
+        log_error "Failed to set any contact information for account: $account_id"
         return 1
-    fi
 }
 
 # =============================================================================
