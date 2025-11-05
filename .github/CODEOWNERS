@@ -13,14 +13,14 @@
 
 # --- Project Information ---
 # @metadata:project:name: static-site
-# @metadata:project:repository: Celtikill/static-site
+# @metadata:project:repository: mhanyc/demo-cicd-terraform 
 # @metadata:project:description: Static website hosting infrastructure
 
 # --- Contact Information ---
 # Used for AWS account primary contact configuration
 # @metadata:contact:full-name: DevOps Team
 # @metadata:contact:department: Engineering
-# @metadata:contact:company: Celtikill
+# @metadata:contact:company: Vibrant
 # @metadata:contact:phone: +1-555-0100
 # @metadata:contact:address-line-1: 123 Cloud Street
 # @metadata:contact:city: Seattle
@@ -31,7 +31,7 @@
 # --- Resource Tags ---
 # Applied to AWS Organizations resources (OUs, accounts)
 # @metadata:tag:ManagedBy: bootstrap-scripts
-# @metadata:tag:Repository: Celtikill/static-site
+# @metadata:tag:Repository: mhanyc/demo-cicd-terraform
 # @metadata:tag:Project: static-site
 # @metadata:tag:Owner: @celtikill
 # @metadata:tag:CostCenter: engineering

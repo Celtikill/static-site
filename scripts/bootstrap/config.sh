@@ -26,11 +26,11 @@ readonly TERRAFORM_MODULES_DIR="${TERRAFORM_ROOT}/modules"
 # PROJECT CONFIGURATION
 # =============================================================================
 
-readonly PROJECT_NAME="celtikill-static-site"
-readonly GITHUB_REPO="Celtikill/static-site"
+readonly PROJECT_NAME="vibrant-demo-cicd"
+readonly GITHUB_REPO="mhanyc/demo-cicd-terraform"
 readonly EXTERNAL_ID="github-actions-static-site"
 readonly AWS_DEFAULT_REGION="us-east-2"
-readonly MANAGEMENT_ACCOUNT_ID="223938610551"
+readonly MANAGEMENT_ACCOUNT_ID="901903979475"
 
 # Derived configuration
 readonly PROJECT_SHORT_NAME="${GITHUB_REPO##*/}"  # Extracts "static-site" from "Celtikill/static-site"
