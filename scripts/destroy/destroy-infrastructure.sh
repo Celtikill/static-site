@@ -295,7 +295,7 @@ main() {
     log_info "Beginning destruction sequence..."
 
     # Track destruction results
-    declare -A destruction_results
+    # Note: destruction_results removed for bash 3.x compatibility (was unused)
     local total_destroyed=0
     local total_failed=0
 
