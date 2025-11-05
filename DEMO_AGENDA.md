@@ -55,7 +55,7 @@ This demonstration showcases enterprise-grade AWS multi-account infrastructure d
 - [ ] **Review documentation for reference**
   - [ ] `docs/ci-cd.md` - Pipeline architecture
   - [ ] `docs/architecture.md` - Technical architecture
-  - [ ] `docs/permissions-architecture.md` - IAM deep-dive
+  - [ ] `docs/iam-deep-dive.md` - IAM deep-dive
 
 **30 minutes before demo:**
 - [ ] Re-verify all websites are down (clean slate for demo)
@@ -659,7 +659,7 @@ curl -I <website-url>
 
 - **Architecture**: `docs/architecture.md`
 - **CI/CD Pipeline**: `docs/ci-cd.md`
-- **IAM Permissions**: `docs/permissions-architecture.md`
+- **IAM Permissions**: `docs/iam-deep-dive.md`
 - **Deployment Guide**: `DEPLOYMENT.md`
 - **Troubleshooting**: `docs/troubleshooting.md`
 
