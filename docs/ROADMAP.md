@@ -458,6 +458,68 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 - `scripts/destroy/destroy-environment.sh` - Workload-only destroy
 - `terraform/modules/storage/s3-bucket/variables.tf` - force_destroy docs
 
+### 9. ADR Review Enforcement Automation
+**Priority**: MEDIUM ⭐⭐
+**Status**: 0% COMPLETE 🚧 (Planned)
+**Effort**: 4-6 hours
+**Value**: Maintain ADR accuracy and relevance over time
+
+**Objective**: Automate tracking and enforcement of ADR review dates
+- Create GitHub Action to check ADR review dates in PRs
+- Report overdue ADRs as PR comments
+- Phased enforcement approach (non-blocking → optional blocking)
+- Emergency bypass mechanism for critical PRs
+
+**Phase 1: Non-Blocking Reminders** (2-3 hours):
+1. Create `.github/workflows/adr-review-check.yml`
+   - Trigger on pull request events
+   - Parse ADR files for review dates
+   - Compare review dates to current date
+   - Post informational PR comment listing overdue ADRs
+   - Always allow PR to proceed (non-blocking)
+
+2. PR Comment Format:
+   ```
+   ## 📋 ADR Review Status
+
+   The following ADRs are past their review dates:
+   - **ADR-001** (Review Date: 2026-05-05) - 30 days overdue
+     - Topic: IAM Permission Strategy
+     - Action: Consider reviewing middle-way approach effectiveness
+
+   This is informational only. PR can proceed without ADR updates.
+   ```
+
+**Phase 2: Optional Blocking** (2-3 hours, future):
+1. Add workflow configuration:
+   - Repository variable: `ADR_REVIEW_ENFORCEMENT` (default: "warn")
+   - Values: "warn" (non-blocking), "error" (blocking)
+   - Emergency bypass: Label "bypass-adr-check" on PR
+
+2. Blocking behavior when enforcement enabled:
+   - Fail status check if ADRs >90 days overdue
+   - Require ADR updates or review date extensions
+   - Document rationale for deferring review
+   - Allow emergency bypass with justification
+
+**Architectural Benefits**:
+- **Proactive Maintenance**: Surface stale ADRs before they cause confusion
+- **Low Friction**: Phase 1 is informational, doesn't block work
+- **Flexibility**: Teams can choose enforcement level
+- **Emergency Support**: Critical PRs can bypass if needed
+- **Visibility**: ADR staleness visible in every PR
+
+**Related Files**:
+- `.github/workflows/adr-review-check.yml` (to be created)
+- `docs/architecture/ADR-*.md` (all ADRs have Review Date field)
+- `.github/workflows/pr-validation.yml` (existing PR checks)
+
+**Validation**:
+- Test with ADRs at different staleness levels
+- Verify comment formatting and clarity
+- Ensure emergency bypass works correctly
+- Document opt-in enforcement in README
+
 ---
 
 ## 🎨 Medium-Term Enhancements (3-6 Months)
@@ -717,6 +779,7 @@ This roadmap is reviewed quarterly to:
 **Next Review**: February 2026
 
 **Recent Updates**:
+- November 5, 2025: Added ADR Review Enforcement Automation to Short-Term Goals (Section 9)
 - November 5, 2025: Added resource tagging and account contacts features to bootstrap scripts
 - November 5, 2025: Created ADR-006 (Terraform Over Bash for Resource Management)
 - November 5, 2025: Implemented CODEOWNERS metadata parser for centralized configuration
