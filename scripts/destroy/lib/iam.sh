@@ -232,7 +232,7 @@ destroy_iam_policies() {
                 fi
             fi
         fi
-    done
+    done < <(echo "$policies" | jq -c '.[]')
 
     log_info "Custom IAM policies: $destroyed destroyed, $failed failed"
 }
