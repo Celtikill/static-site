@@ -215,6 +215,62 @@ Running destroy scripts with management account credentials instead of environme
 - [deployment-reference.md - Profile Mapping](deployment-reference.md#aws-profile-configuration-for-destroy-operations)
 - [TESTING-PROFILE-CONFIGURATION.md](TESTING-PROFILE-CONFIGURATION.md) - Detailed testing log
 
+**AWS Organizations Role Assumption Architecture**:
+
+This project uses AWS Organizations with role assumption for cross-account access. You only need management account credentials - member account access is automatic via role assumption.
+
+**How It Works**:
+1. Store only management account credentials in your credential manager (pass/GPG)
+2. AWS CLI automatically assumes `OrganizationAccountAccessRole` in member accounts
+3. Temporary credentials are generated on-demand and auto-expire
+
+**Profile Configuration** (in `~/.aws/config`):
+```ini
+# Base profile with actual credentials
+[profile management-dev]
+credential_process = /path/to/credential-process.sh management-dev
+
+# Member account profiles (role assumption - no credentials needed)
+[profile dev-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::859340968804:role/OrganizationAccountAccessRole
+
+[profile staging-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::927588814642:role/OrganizationAccountAccessRole
+
+[profile prod-deploy]
+source_profile = management-dev
+role_arn = arn:aws:iam::546274483801:role/OrganizationAccountAccessRole
+```
+
+**Benefits**:
+- Only one credential set to manage (management account)
+- Temporary credentials for member accounts (auto-expire, more secure)
+- No long-lived member account credentials to rotate
+- AWS CLI handles everything automatically
+- Zero script modifications needed
+
+**Testing Role Assumption**:
+```bash
+# Test management credentials
+AWS_PROFILE=management-dev aws sts get-caller-identity
+# Should show: Account 223938610551
+
+# Test dev role assumption
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+# Should show: Account 859340968804
+
+# Test staging role assumption
+AWS_PROFILE=staging-deploy aws sts get-caller-identity
+# Should show: Account 927588814642
+```
+
+If role assumption fails, verify:
+1. Management credentials are valid: `AWS_PROFILE=management-dev aws sts get-caller-identity`
+2. OrganizationAccountAccessRole exists in target account
+3. Trust relationship allows management account to assume role
+
 ### Can't find website URL after deployment
 
 **Symptoms**: Deployment succeeds but don't know where to access the website
