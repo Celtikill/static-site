@@ -124,14 +124,22 @@ create_terraform_backend() {
     local bucket_exists=false
     local table_exists=false
 
-    if s3_bucket_exists "$bucket_name"; then
+    log_info "Checking if backend resources exist..."
+    log_info "Checking bucket: $bucket_name (region: $region)"
+    log_info "Checking table: $table_name (region: $region)"
+
+    if s3_bucket_exists "$bucket_name" "$region"; then
         bucket_exists=true
         log_warn "S3 bucket already exists: $bucket_name"
+    else
+        log_info "S3 bucket does not exist or check failed: $bucket_name"
     fi
 
     if dynamodb_table_exists "$table_name" "$region"; then
         table_exists=true
         log_warn "DynamoDB table already exists: $table_name"
+    else
+        log_info "DynamoDB table does not exist or check failed: $table_name"
     fi
 
     # If resources exist, destroy and recreate (for demo/testing)

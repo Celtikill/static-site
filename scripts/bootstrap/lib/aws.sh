@@ -106,15 +106,24 @@ clear_assumed_role() {
 
 s3_bucket_exists() {
     local bucket_name="$1"
+    local region="${2:-$AWS_DEFAULT_REGION}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if S3 bucket exists: $bucket_name"
         return 1
     fi
 
-    if aws s3api head-bucket --bucket "$bucket_name" 2>/dev/null; then
+    # Use head-bucket with explicit region
+    # Returns 0 if bucket exists and we have access, non-zero otherwise
+    local check_result
+    check_result=$(aws s3api head-bucket --bucket "$bucket_name" --region "$region" 2>&1)
+    local exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+        log_debug "Bucket exists: $bucket_name"
         return 0
     else
+        log_debug "Bucket check failed (exit $exit_code): $check_result"
         return 1
     fi
 }
