@@ -2,7 +2,7 @@
 
 **Status**: Accepted
 **Date**: 2025-10-16
-**Deciders**: Infrastructure Team
+**Deciders**: Codeowner 
 **Related**: ADR-001 (IAM Permissions), ADR-003 (Versioning), ADR-004 (Commit Standards)
 
 ---
@@ -366,5 +366,5 @@ main → all environments (feature flags control)
 
 ---
 
-**Last Updated**: 2025-10-16
-**Review Date**: 2026-01-16 (3 months - evaluate developer feedback)
+**Last Updated**: 2025-11-05
+**Review Date**: 2026-11-05 (3 months - evaluate developer feedback)
