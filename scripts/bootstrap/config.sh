@@ -2,6 +2,10 @@
 # Bootstrap Configuration
 # All configuration in one place
 
+# Prevent multiple sourcing
+[[ -n "${BOOTSTRAP_CONFIG_LOADED:-}" ]] && return 0
+readonly BOOTSTRAP_CONFIG_LOADED=1
+
 set -euo pipefail
 
 # Disable AWS CLI pager for non-interactive script execution
