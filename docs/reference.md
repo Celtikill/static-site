@@ -65,22 +65,64 @@ gh workflow run bootstrap-distributed-backend.yml \
 ```
 
 #### Emergency Workflow
+
+**Hotfix Operations:**
 ```bash
-# Emergency rollback - Development
+# Deploy hotfix to staging
 gh workflow run emergency.yml \
-  --field environment=dev \
-  --field rollback_to_previous=true
-
-# Emergency rollback - Staging
-gh workflow run emergency.yml \
+  --field operation=hotfix \
   --field environment=staging \
-  --field rollback_to_previous=true
+  --field deploy_option=immediate \
+  --field reason="Critical bug fix for user authentication"
 
-# Emergency rollback - Production
+# Deploy hotfix to production
 gh workflow run emergency.yml \
+  --field operation=hotfix \
   --field environment=prod \
-  --field rollback_to_previous=true
+  --field deploy_option=immediate \
+  --field reason="Security patch for CVE-2024-XXXXX"
 ```
+
+**Rollback Operations:**
+```bash
+# Rollback to last known good version - Development
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=dev \
+  --field rollback_method=last_known_good \
+  --field reason="Reverting failed deployment"
+
+# Rollback to last known good - Production
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=last_known_good \
+  --field reason="Production incident - reverting to stable version"
+
+# Rollback to specific commit
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=specific_commit \
+  --field commit_sha=abc123def456 \
+  --field reason="Rolling back to pre-deployment commit"
+
+# Infrastructure-only rollback
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=infrastructure_only \
+  --field reason="Revert infrastructure configuration changes"
+
+# Content-only rollback
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=content_only \
+  --field reason="Revert website content to previous version"
+```
+
+**See Also**: [Emergency Operations Guide](emergency-operations.md) for detailed procedures
 
 ### Workflow Monitoring
 ```bash

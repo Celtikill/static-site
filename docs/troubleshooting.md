@@ -334,6 +334,169 @@ gh run view [RUN_ID] --log | grep -A 10 "CloudFront"
 
 ---
 
+## Emergency Operations Issues
+
+> **For detailed emergency procedures**, see [Emergency Operations Runbook](emergency-operations.md)
+
+### When to Use Emergency Workflow
+
+**Use emergency workflow when:**
+- Production incident requiring immediate response (< 15 minutes)
+- Critical security vulnerability discovered
+- Deployment failure requiring instant rollback
+- Service degradation from recent changes
+
+**Use standard deployment when:**
+- Planned features and updates
+- Non-urgent bug fixes
+- Changes that can wait for validation gates
+- Maintenance windows with scheduled downtime
+
+### Emergency Workflow Failures
+
+#### Workflow File Issue
+
+**Symptoms**: Emergency workflow fails immediately with "workflow file issue" or YAML parsing error
+
+**Cause**: Known YAML syntax error in emergency.yml (lines 235-240) - multi-line conditional expression
+
+**Status**: Documented in [ADR-007](architecture/ADR-007-emergency-operations-workflow.md), fix scheduled as HIGH priority
+
+**Workaround**: None available - workflow currently non-functional. Use manual rollback procedures instead:
+```bash
+# Manual rollback procedure
+# 1. Identify last known good tag
+git tag -l "v*" --sort=-version:refname | head -5
+
+# 2. Checkout last known good version
+git checkout v1.2.3
+
+# 3. Trigger standard deployment
+gh workflow run run.yml \
+  --field environment=prod \
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
+```
+
+#### Authorization Failed
+
+**Symptoms**: "Authorization check failed" or "CODEOWNERS review required"
+
+**Cause**: Production emergency operations require CODEOWNERS authorization
+
+**Solution**:
+```bash
+# 1. Verify you are listed in CODEOWNERS file
+cat .github/CODEOWNERS
+
+# 2. Ensure reason field is at least 10 characters
+# 3. For production, ensure you have write permissions
+# 4. Verify GitHub token has repo scope
+
+# Example with proper authorization
+gh workflow run emergency.yml \
+  --field operation=hotfix \
+  --field environment=prod \
+  --field deploy_option=immediate \
+  --field reason="Critical authentication bug affecting all users - PROD-INC-12345"
+```
+
+#### Rollback Target Not Found
+
+**Symptoms**: "Tag not found" or "Commit not found" during rollback
+
+**Cause**: Specified tag or commit doesn't exist in repository
+
+**Solution**:
+```bash
+# For last_known_good: Verify version tags exist
+git tag -l "v*" --sort=-version:refname
+# If no tags: create initial version tag
+git tag v0.1.0 && git push --tags
+
+# For specific_commit: Use full 40-character commit SHA
+git log --oneline -10
+git rev-parse abc123  # Get full SHA from short SHA
+
+# Correct rollback command with valid target
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=specific_commit \
+  --field commit_sha=abc123def456789012345678901234567890 \
+  --field reason="Rollback to pre-deployment state"
+```
+
+#### Deployment Timeout During Emergency
+
+**Symptoms**: Emergency workflow times out during deployment phase
+
+**Cause**: AWS service delays, large infrastructure changes, or CloudFront propagation
+
+**Solution**:
+```bash
+# 1. Check AWS service health
+aws health describe-events --filter eventStatusCodes=open
+
+# 2. Verify resources via AWS console
+# Check CloudFormation, S3, CloudFront status
+
+# 3. Check workflow timeout limits
+gh run view [RUN_ID] --log | grep -i timeout
+
+# 4. For infrastructure-only rollback (faster)
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=infrastructure_only \
+  --field reason="Timeout during full rollback - trying infrastructure only"
+```
+
+### Rollback Method Selection
+
+**Decision Matrix**:
+
+| Scenario | Recommended Method | Reason |
+|----------|-------------------|--------|
+| Deployment broke everything | `last_known_good` | Safest - revert to last stable version |
+| Need specific version | `specific_commit` | Precise control over target version |
+| Infrastructure config issue | `infrastructure_only` | Faster - skips content deployment |
+| Website content issue | `content_only` | Faster - preserves infrastructure |
+| Unknown root cause | `last_known_good` | Safest default option |
+
+### Post-Emergency Validation
+
+After emergency operation completes:
+
+```bash
+# 1. Verify deployment succeeded
+gh run view [RUN_ID]
+
+# 2. Check website accessibility
+curl -I $(cd terraform/environments/prod && tofu output -raw website_url)
+
+# 3. Monitor CloudWatch logs
+aws logs tail /aws/cloudfront/distribution --follow
+
+# 4. Verify CloudFront if enabled
+aws cloudfront get-distribution --id [DISTRIBUTION_ID]
+
+# 5. Run smoke tests
+./scripts/test/smoke-tests.sh prod
+```
+
+**Checklist**:
+- [ ] Website accessible and responding
+- [ ] No error rates in CloudWatch
+- [ ] CloudFront distribution healthy (if enabled)
+- [ ] Logs show normal traffic patterns
+- [ ] Critical user paths tested
+- [ ] Incident ticket updated
+- [ ] Team notified of resolution
+- [ ] Post-mortem scheduled
+
+---
+
 ## Organization Management Workflow Issues
 
 ### Service Control Policy (SCP) Errors
@@ -696,14 +859,38 @@ tofu force-unlock [LOCK_ID]
 
 ### Emergency Rollback
 
-> **See also**: [Rollback Procedures](../DEPLOYMENT.md#rollback-procedures) in the Complete Deployment Guide for detailed rollback strategies.
+> **See also**:
+> - [Emergency Operations Runbook](emergency-operations.md) for detailed emergency procedures
+> - [Rollback Procedures](../DEPLOYMENT.md#rollback-procedures) in the Complete Deployment Guide for standard rollback strategies
 
+**Quick emergency rollback to last known good version:**
 ```bash
-# Quick emergency rollback
 gh workflow run emergency.yml \
-  --field environment=dev \
-  --field rollback_to_previous=true
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=last_known_good \
+  --field reason="Emergency rollback - production incident"
 ```
+
+**Infrastructure-only rollback (faster):**
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=infrastructure_only \
+  --field reason="Infrastructure config issue - reverting changes"
+```
+
+**Content-only rollback (fastest):**
+```bash
+gh workflow run emergency.yml \
+  --field operation=rollback \
+  --field environment=prod \
+  --field rollback_method=content_only \
+  --field reason="Website content issue - rolling back to previous version"
+```
+
+**Note**: Emergency workflow currently has known YAML syntax error. See [Emergency Operations Issues](#emergency-operations-issues) section above for workarounds.
 
 ### State File Recovery
 

@@ -313,6 +313,62 @@ This roadmap outlines the development path for the AWS Static Website Infrastruc
 - ✅ Created destroy-foundation.sh script with full documentation
 - ✅ Validated bootstrap from completely clean state
 
+### 5. Emergency Workflow Fix & Comprehensive Documentation
+**Priority**: HIGH ⭐
+**Status**: 30% COMPLETE 🚧 (Concise docs created, workflow fix pending)
+**Effort**: 6-8 hours remaining
+**Value**: Restore production incident response capability
+
+**Objective**: Fix broken emergency operations workflow and expand documentation
+
+**Current Status**:
+- ⚠️ Emergency workflow (`.github/workflows/emergency.yml`) has YAML syntax error at lines 235-240
+- ⚠️ 100% failure rate - workflow has never successfully executed
+- ✅ Created concise emergency operations documentation (November 5, 2025):
+  - `docs/emergency-operations.md` - Quick reference runbook
+  - `docs/architecture/ADR-007-emergency-operations-workflow.md` - Design decisions
+  - Updated `docs/disaster-recovery.md` with Emergency Rollback section
+  - Fixed command syntax in `docs/reference.md`
+  - Added comprehensive Emergency Operations Issues to `docs/troubleshooting.md`
+
+**Remaining Work**:
+1. **Fix YAML Syntax Error** (P0 - 1-2 hours)
+   - Fix multi-line conditional expression in emergency.yml (lines 235-240)
+   - Test workflow syntax with yamllint
+   - Validate workflow in non-production branch
+
+2. **Test All Rollback Methods** (P0 - 2-3 hours)
+   - Test `last_known_good` rollback in staging
+   - Test `specific_commit` rollback in staging
+   - Test `infrastructure_only` rollback in staging
+   - Test `content_only` rollback in staging
+   - Document any issues discovered
+
+3. **Expand Emergency Operations Documentation** (P1 - 2-3 hours)
+   - Add detailed troubleshooting scenarios to emergency-operations.md
+   - Create emergency communication templates
+   - Add comprehensive examples for all rollback methods
+   - Document post-incident validation procedures
+   - Add incident response decision trees
+
+4. **Optional: Create Template in workflow-examples/** (P3 - 1 hour)
+   - Create example emergency workflow template
+   - Document customization patterns
+   - Show integration with different deployment patterns
+
+**Architectural Benefits**:
+- **Incident Response**: Restore fast production incident response capability
+- **Documentation**: Complete operational runbooks for emergency procedures
+- **Reliability**: Tested emergency procedures reduce MTTR
+- **Knowledge Transfer**: Clear documentation enables team self-service
+
+**Related Documentation**:
+- `.github/workflows/emergency.yml` (current state - has syntax error)
+- `docs/emergency-operations.md` (concise runbook)
+- `docs/architecture/ADR-007-emergency-operations-workflow.md` (design rationale)
+- `docs/disaster-recovery.md` (emergency rollback procedures)
+- `docs/troubleshooting.md` (emergency operations troubleshooting)
+
 ---
 
 ## 📈 Short-Term Goals (1-2 Months)
@@ -779,6 +835,10 @@ This roadmap is reviewed quarterly to:
 **Next Review**: February 2026
 
 **Recent Updates**:
+- November 5, 2025: Created Emergency Workflow Fix & Comprehensive Documentation roadmap item (Section 5 - HIGH priority)
+- November 5, 2025: Moved custom actions to workflow-examples/composite-actions/ with complete documentation
+- November 5, 2025: Created concise emergency operations documentation (emergency-operations.md, ADR-007, troubleshooting updates)
+- November 5, 2025: Fixed command syntax errors in docs/reference.md and docs/disaster-recovery.md
 - November 5, 2025: Added ADR Review Enforcement Automation to Short-Term Goals (Section 9)
 - November 5, 2025: Added resource tagging and account contacts features to bootstrap scripts
 - November 5, 2025: Created ADR-006 (Terraform Over Bash for Resource Management)

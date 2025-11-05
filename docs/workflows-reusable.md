@@ -130,6 +130,54 @@ jobs:
 | `plan_result` | Plan exit code (0=no changes, 2=changes) |
 | `outputs` | Terraform outputs (JSON) |
 
+## Composite Actions
+
+In addition to reusable workflows, this repository includes **composite action examples** in `.github/workflow-examples/composite-actions/`:
+
+### Available Examples
+
+1. **[validate-environment](../.github/workflow-examples/composite-actions/validate-environment/)** - Environment validation patterns
+   - Input validation (dev/staging/prod)
+   - Required file checks
+   - Environment-specific configuration generation
+   - **Status**: Example only (active workflows use inline validation)
+
+2. **[setup-infrastructure](../.github/workflow-examples/composite-actions/setup-infrastructure/)** - Tool installation patterns (DEPRECATED)
+   - AWS OIDC authentication patterns
+   - OpenTofu installation with caching
+   - Tool dependency management
+   - **Status**: Deprecated (superseded by official actions like `opentofu-org/setup-opentofu`)
+
+### When to Use Composite Actions vs Reusable Workflows
+
+**Use composite actions when:**
+- Logic is truly shared across 3+ workflows
+- Process is stable and rarely changes
+- Steps are tightly coupled and always used together
+- You need to hide sensitive implementation details
+
+**Use reusable workflows when:**
+- Need to define entire job with specific permissions
+- Require matrix strategies or service containers
+- Want to use secrets that aren't available to composite actions
+- Process involves multiple jobs or complex orchestration
+
+**Use inline steps when:**
+- Logic is workflow-specific
+- You need maximum visibility and debuggability
+- Official actions already exist (prefer official over custom)
+- Process is still evolving
+
+### Documentation
+
+For comprehensive guidance on composite actions including:
+- Best practices and anti-patterns
+- Testing strategies
+- Migration examples (composite actions → inline steps)
+- Comparison matrix of options
+
+See [composite-actions/README.md](../.github/workflow-examples/composite-actions/README.md)
+
 ## Integration Patterns
 
 ### Environment-Specific Workflows
