@@ -1,6 +1,6 @@
 # 60-Minute Technical Demo: AWS Multi-Account Infrastructure
 
-**Last Updated**: 2025-10-31
+**Last Updated**: 2025-11-05
 **Duration**: 60 minutes
 **Format**: Technical demonstration with live deployment
 **Target Audience**: Engineers, architects, technical decision-makers
@@ -21,7 +21,10 @@ This demonstration showcases enterprise-grade AWS multi-account infrastructure d
 
 - [ ] **Bootstrap AWS infrastructure**
   ```bash
+  # Stage 1: Create AWS Organization structure and accounts (AWS CLI-based)
   ./scripts/bootstrap/bootstrap-organization.sh
+
+  # Stage 2: Create OIDC providers, IAM roles, and state backends (Terraform-based)
   ./scripts/bootstrap/bootstrap-foundation.sh
   ```
 
@@ -239,7 +242,9 @@ terraform/
 ```
 
 **Explain the tiers**:
-- **Tier 0 (Bootstrap)**: Creates the state backend infrastructure
+- **Tier 0 (Bootstrap)**: Two-stage process
+  - Stage 1 (bootstrap-organization.sh): AWS CLI-based account/OU creation, trusted access setup
+  - Stage 2 (bootstrap-foundation.sh): Terraform-based state backends, OIDC, IAM roles
 - **Tier 1 (Foundations)**: One-time account setup, rarely changes
 - **Tier 2 (Environments)**: Environment-specific configurations
 - **Tier 3 (Workloads)**: Application infrastructure, changes frequently
