@@ -14,17 +14,6 @@
 # allowing centralized management of account contact details.
 # =============================================================================
 
-terraform {
-  required_version = ">= 1.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.0"
-    }
-  }
-}
-
 # =============================================================================
 # ACCOUNT CONTACT INFORMATION
 # =============================================================================
