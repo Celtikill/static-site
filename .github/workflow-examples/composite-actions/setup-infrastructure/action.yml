@@ -1,0 +1,211 @@
+name: 'Setup Infrastructure Tools'
+description: 'Sets up OpenTofu, AWS CLI, and other infrastructure tools with OIDC authentication and security best practices'
+
+inputs:
+  aws-region:
+    description: 'AWS region for deployment'
+    required: true
+    default: 'us-east-1'
+  aws-role:
+    description: 'AWS IAM role ARN to assume via OIDC (e.g., arn:aws:iam::123456789012:role/github-actions-role)'
+    required: true
+  opentofu-version:
+    description: 'OpenTofu version to install'
+    required: false
+    default: '1.6.2'
+
+outputs:
+  aws-account-id:
+    description: 'AWS Account ID'
+    value: ${{ steps.aws-info.outputs.account-id }}
+  opentofu-version:
+    description: 'Installed OpenTofu version'
+    value: ${{ steps.verify-tofu.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    # OIDC Authentication: Exchange GitHub OIDC token for AWS temporary credentials
+    # Requires: 
+    # 1. Workflow permissions: id-token: write
+    # 2. AWS OIDC provider configured in target account
+    # 3. IAM role with trust policy allowing GitHub repository
+    # See: docs/oidc-authentication.md for complete setup guide
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@ececac1a45f3b08a01d2dd070d28d111c5fe6722 # v4.1.0
+      with:
+        role-to-assume: ${{ inputs.aws-role }}
+        role-session-name: github-actions-${{ github.run_id }}
+        aws-region: ${{ inputs.aws-region }}
+        mask-aws-account-id: false
+        # Security enhancements
+        retry-max-attempts: 3
+        output-credentials: false
+
+    - name: Get AWS Account Information
+      id: aws-info
+      shell: bash
+      run: |
+        echo "🔐 **AWS Authentication Verification**" >> $GITHUB_STEP_SUMMARY
+        
+        # Validate AWS credentials and connectivity
+        if ! aws sts get-caller-identity > /dev/null 2>&1; then
+          echo "❌ Failed to authenticate with AWS" >> $GITHUB_STEP_SUMMARY
+          echo "**Troubleshooting Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Verify AWS_ASSUME_ROLE secret is correctly configured" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check IAM role trust policy includes GitHub OIDC provider" >> $GITHUB_STEP_SUMMARY
+          echo "3. Ensure role has necessary permissions" >> $GITHUB_STEP_SUMMARY
+          echo "4. Verify repository is allowed in role conditions" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+        
+        # Get account information
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        USER_ARN=$(aws sts get-caller-identity --query Arn --output text)
+        
+        echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+        echo "✅ **AWS Authentication Successful**" >> $GITHUB_STEP_SUMMARY
+        echo "**Account ID**: $ACCOUNT_ID" >> $GITHUB_STEP_SUMMARY
+        echo "**Assumed Role**: ${USER_ARN}" >> $GITHUB_STEP_SUMMARY
+
+    - name: Cache OpenTofu Binary
+      uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+      id: cache-tofu
+      with:
+        path: /usr/local/bin/tofu
+        key: opentofu-${{ inputs.opentofu-version }}-${{ runner.os }}
+        restore-keys: |
+          opentofu-${{ inputs.opentofu-version }}-
+        # Add debugging
+        lookup-only: false
+        fail-on-cache-miss: false
+
+    - name: Cache Debug Information
+      shell: bash
+      run: |
+        echo "🔍 **Cache Debug Information**" >> $GITHUB_STEP_SUMMARY
+        echo "**Cache Key**: opentofu-${{ inputs.opentofu-version }}-${{ runner.os }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Cache Hit**: ${{ steps.cache-tofu.outputs.cache-hit }}" >> $GITHUB_STEP_SUMMARY
+        echo "**OpenTofu Version**: ${{ inputs.opentofu-version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Runner OS**: ${{ runner.os }}" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ steps.cache-tofu.outputs.cache-hit }}" = "true" ]; then
+          echo "✅ OpenTofu binary restored from cache" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⚠️ Cache miss - will install OpenTofu binary" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Setup OpenTofu
+      id: tofu-setup
+      shell: bash
+      if: steps.cache-tofu.outputs.cache-hit != 'true'
+      run: |
+        TOFU_VERSION="${{ inputs.opentofu-version }}"
+        
+        # Download and install OpenTofu with checksum verification
+        echo "Installing OpenTofu v$TOFU_VERSION..."
+        
+        # Download OpenTofu with original filename for checksum verification
+        TOFU_ZIP="tofu_${TOFU_VERSION}_linux_amd64.zip"
+        echo "Downloading OpenTofu: $TOFU_ZIP"
+        
+        if curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/${TOFU_ZIP}" -o "${TOFU_ZIP}"; then
+          echo "✅ OpenTofu binary downloaded successfully"
+          ls -la "${TOFU_ZIP}"
+        else
+          echo "❌ Failed to download OpenTofu binary"
+          exit 1
+        fi
+        
+        # Download and verify checksum
+        echo "Downloading checksum file..."
+        if curl -fsSL "https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}/tofu_${TOFU_VERSION}_SHA256SUMS" -o checksums.txt; then
+          echo "✅ Checksum file downloaded successfully"
+        else
+          echo "❌ Failed to download checksum file"
+          exit 1
+        fi
+        
+        # Debug: Show checksum file contents
+        echo "📋 Checksum file contents:"
+        grep "${TOFU_ZIP}" checksums.txt || echo "⚠️ No checksum found for ${TOFU_ZIP}"
+        
+        # Verify the checksum
+        echo "🔍 Verifying checksum..."
+        if grep "${TOFU_ZIP}" checksums.txt | sha256sum -c -; then
+          echo "✅ Checksum verification passed"
+        else
+          echo "❌ Checksum verification failed"
+          echo "📁 Current directory contents:"
+          ls -la
+          echo "🔍 Expected file: ${TOFU_ZIP}"
+          echo "📋 Checksum entry:"
+          grep "${TOFU_ZIP}" checksums.txt || echo "Checksum entry not found"
+          exit 1
+        fi
+        
+        # Extract and install
+        echo "📦 Extracting OpenTofu binary..."
+        if unzip -o -q "${TOFU_ZIP}"; then
+          echo "✅ Extraction successful"
+          ls -la tofu 2>/dev/null || echo "⚠️ tofu binary not found after extraction"
+        else
+          echo "❌ Failed to extract OpenTofu binary"
+          echo "📋 Archive contents:"
+          unzip -l "${TOFU_ZIP}" || echo "Could not list archive contents"
+          exit 1
+        fi
+        
+        # Install binary
+        if sudo mv tofu /usr/local/bin/ && sudo chmod +x /usr/local/bin/tofu; then
+          echo "✅ OpenTofu installed successfully"
+        else
+          echo "❌ Failed to install OpenTofu binary"
+          exit 1
+        fi
+        
+        # Cleanup
+        rm -f "${TOFU_ZIP}" checksums.txt
+
+    - name: Verify OpenTofu Installation
+      id: verify-tofu
+      shell: bash
+      run: |
+        # Verify installation (works whether cached or newly installed)
+        if command -v tofu &> /dev/null; then
+          INSTALLED_VERSION=$(tofu version -json | jq -r '.terraform_version' 2>/dev/null || tofu version | head -1 | cut -d' ' -f2)
+          echo "version=$INSTALLED_VERSION" >> $GITHUB_OUTPUT
+          echo "✅ OpenTofu v$INSTALLED_VERSION ready" >> $GITHUB_STEP_SUMMARY
+          
+          # Verify version matches expected
+          if [ "$INSTALLED_VERSION" = "v${{ inputs.opentofu-version }}" ] || [ "$INSTALLED_VERSION" = "${{ inputs.opentofu-version }}" ]; then
+            echo "✅ Version matches expected: ${{ inputs.opentofu-version }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Version mismatch - Expected: ${{ inputs.opentofu-version }}, Found: $INSTALLED_VERSION" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "❌ OpenTofu binary not found in PATH" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
+
+    - name: Install Additional Tools
+      shell: bash
+      run: |
+        echo "Installing additional tools..."
+        
+        # Install jq and bc for calculations
+        sudo apt-get update -qq
+        sudo apt-get install -y jq bc curl wget unzip
+        
+        # Install HTML Tidy for content validation
+        sudo apt-get install -y tidy
+        
+        echo "✅ Additional tools installed" >> $GITHUB_STEP_SUMMARY
+
+    - name: Verify Tool Versions
+      shell: bash
+      run: |
+        echo "## 🔧 Tool Versions" >> $GITHUB_STEP_SUMMARY
+        echo "- **OpenTofu**: $(tofu version | head -1)" >> $GITHUB_STEP_SUMMARY
+        echo "- **AWS CLI**: $(aws --version)" >> $GITHUB_STEP_SUMMARY
+        echo "- **jq**: $(jq --version)" >> $GITHUB_STEP_SUMMARY
+        echo "- **bc**: $(bc --version | head -1)" >> $GITHUB_STEP_SUMMARY
