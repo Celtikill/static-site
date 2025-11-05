@@ -119,6 +119,45 @@ s3_bucket_exists() {
     fi
 }
 
+delete_s3_bucket() {
+    local bucket_name="$1"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would delete S3 bucket: $bucket_name"
+        return 0
+    fi
+
+    # Delete all versions and delete markers (for versioned buckets)
+    log_debug "Removing all object versions from bucket: $bucket_name"
+    aws s3api delete-objects \
+        --bucket "$bucket_name" \
+        --delete "$(aws s3api list-object-versions \
+            --bucket "$bucket_name" \
+            --output json \
+            --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null || echo '{"Objects":[]}')" \
+        2>/dev/null || true
+
+    # Delete all delete markers
+    aws s3api delete-objects \
+        --bucket "$bucket_name" \
+        --delete "$(aws s3api list-object-versions \
+            --bucket "$bucket_name" \
+            --output json \
+            --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null || echo '{"Objects":[]}')" \
+        2>/dev/null || true
+
+    # Delete all objects (for non-versioned or remaining objects)
+    aws s3 rm "s3://${bucket_name}" --recursive 2>/dev/null || true
+
+    # Delete the bucket
+    if aws s3api delete-bucket --bucket "$bucket_name" 2>&1; then
+        return 0
+    else
+        log_error "Failed to delete S3 bucket: $bucket_name"
+        return 1
+    fi
+}
+
 dynamodb_table_exists() {
     local table_name="$1"
     local region="${2:-$AWS_DEFAULT_REGION}"
