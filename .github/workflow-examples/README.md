@@ -153,6 +153,41 @@ jobs:
 
 ---
 
+## Composite Action Examples
+
+This directory also includes example composite actions in [`composite-actions/`](./composite-actions/):
+
+### Available Examples
+
+1. **[validate-environment](./composite-actions/validate-environment/)** - Environment validation patterns
+   - Input validation (dev/staging/prod)
+   - Required file checks
+   - Environment-specific configuration
+   - **Status**: Example only (active workflows use inline validation)
+
+2. **[setup-infrastructure](./composite-actions/setup-infrastructure/)** - Tool installation patterns (DEPRECATED)
+   - AWS OIDC authentication
+   - OpenTofu installation with caching
+   - Tool dependency management
+   - **Status**: Deprecated (superseded by official actions)
+
+### When to Use Composite Actions
+
+**Use composite actions when**:
+- Logic is truly shared across 3+ workflows
+- Process is stable and rarely changes
+- You need to hide sensitive implementation details
+
+**Use inline steps when**:
+- Logic is workflow-specific
+- You need maximum visibility and debuggability
+- Official actions already exist
+- Process is still evolving
+
+See [composite-actions/README.md](./composite-actions/README.md) for detailed guidance, patterns, and best practices.
+
+---
+
 ## Organizational Workflow Sharing
 
 ### Overview (2025 Best Practices)
