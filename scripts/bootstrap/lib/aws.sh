@@ -132,6 +132,78 @@ s3_bucket_exists() {
     fi
 }
 
+# Get the actual AWS region where an S3 bucket is located
+# Returns the region name, normalized to handle us-east-1 quirk
+get_s3_bucket_region() {
+    local bucket_name="$1"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_debug "[DRY-RUN] Would get bucket region for: $bucket_name"
+        echo "$AWS_DEFAULT_REGION"
+        return 0
+    fi
+
+    # Query bucket location
+    # AWS quirk: us-east-1 returns null or "None" for LocationConstraint
+    local location
+    location=$(aws s3api get-bucket-location --bucket "$bucket_name" --query 'LocationConstraint' --output text 2>/dev/null)
+    local exit_code=$?
+
+    if [[ $exit_code -ne 0 ]]; then
+        log_debug "Failed to get bucket location for: $bucket_name"
+        return 1
+    fi
+
+    # Handle us-east-1 special case
+    if [[ "$location" == "None" ]] || [[ -z "$location" ]] || [[ "$location" == "null" ]]; then
+        echo "us-east-1"
+    else
+        echo "$location"
+    fi
+
+    return 0
+}
+
+# Check if S3 bucket exists and optionally validate it's in the expected region
+# Usage: s3_bucket_exists_in_region <bucket_name> <expected_region>
+# Returns 0 if bucket exists AND is in the correct region, non-zero otherwise
+s3_bucket_exists_in_region() {
+    local bucket_name="$1"
+    local expected_region="$2"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_debug "[DRY-RUN] Would check if bucket exists in region: $bucket_name ($expected_region)"
+        return 1
+    fi
+
+    # First check if bucket exists at all
+    if ! s3_bucket_exists "$bucket_name" "$expected_region"; then
+        log_debug "Bucket does not exist: $bucket_name"
+        return 1
+    fi
+
+    # Now verify it's in the correct region
+    local actual_region
+    actual_region=$(get_s3_bucket_region "$bucket_name")
+    local exit_code=$?
+
+    if [[ $exit_code -ne 0 ]]; then
+        log_warn "Could not determine bucket region for: $bucket_name"
+        return 1
+    fi
+
+    if [[ "$actual_region" != "$expected_region" ]]; then
+        log_warn "Bucket region mismatch for: $bucket_name"
+        log_warn "  Expected region: $expected_region"
+        log_warn "  Actual region:   $actual_region"
+        log_warn "  Bucket needs recreation in correct region"
+        return 1
+    fi
+
+    log_debug "Bucket exists in correct region: $bucket_name ($actual_region)"
+    return 0
+}
+
 delete_s3_bucket() {
     local bucket_name="$1"
 
