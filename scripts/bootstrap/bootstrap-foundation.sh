@@ -23,6 +23,7 @@ fi
 # Set bootstrap-specific paths
 : "${ACCOUNTS_FILE:=${SCRIPT_DIR}/accounts.json}"
 : "${OUTPUT_DIR:=${SCRIPT_DIR}/output}"
+: "${TERRAFORM_IAM_DIR:=${SCRIPT_DIR}/../../terraform/modules/iam}"
 
 # Source bootstrap libraries
 source "${SCRIPT_DIR}/lib/common.sh"
