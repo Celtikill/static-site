@@ -266,7 +266,7 @@ main() {
 ${BOLD}Bootstrap Foundation Created:${NC}
 
 Central State Bucket:
-  ✓ static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}
+  ✓ ${PROJECT_NAME}-terraform-state-${MANAGEMENT_ACCOUNT_ID}
   Purpose: Stores foundation state (OIDC, IAM management, org management)
   Access: Shared by all engineers with management account credentials
 
