@@ -2,24 +2,29 @@ variable "github_repo" {
   description = "GitHub repository in format 'owner/repo'"
   type        = string
   default     = "Celtikill/static-site"
+  # Note: Bootstrap script overrides this with fork-specific value from config.sh
 }
 
 variable "project_short_name" {
   description = "Short project name used in resource naming"
   type        = string
   default     = "static-site"
+  # Note: Bootstrap script overrides this with fork-specific value from config.sh
 }
 
 variable "project_name" {
   description = "Full project name including owner prefix (e.g., 'celtikill-static-site')"
   type        = string
   default     = "celtikill-static-site"
+  # Note: Bootstrap script overrides this with fork-specific value from config.sh
 }
 
 variable "management_account_id" {
-  description = "AWS Management Account ID"
+  description = "AWS Management Account ID - CRITICAL for IAM role trust policies"
   type        = string
   default     = "223938610551"
+  # IMPORTANT: Bootstrap script MUST override this with fork's management account ID
+  # This default is for reference only - using it on forks will break role assumption
 }
 
 variable "aws_region" {
