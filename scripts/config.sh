@@ -72,17 +72,21 @@ readonly LOCK_TABLE_PREFIX="${PROJECT_NAME}"
 readonly KMS_KEY_PREFIX="${PROJECT_NAME}"
 
 # IAM role naming: GitHubActions-{PREFIX}-{Env}-Role
-# Note: Using tr for case conversion (macOS Bash 3.x compatible)
-_capitalize_first_char() {
-    local str="$1"
-    local first_char="${str:0:1}"
-    local rest="${str:1}"
-    printf '%s' "$(echo "$first_char" | tr '[:lower:]' '[:upper:]')${rest}"
+# Note: Bash 3.2 compatible title case function (matches Terraform's title())
+# Capitalizes first letter of each word (separated by hyphens, spaces, underscores)
+_title_case() {
+    echo "$1" | awk -F'-' '{
+        for(i=1; i<=NF; i++) {
+            $i = toupper(substr($i,1,1)) substr($i,2)
+        }
+        print
+    }' OFS='-'
 }
-readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
+readonly IAM_ROLE_PREFIX="GitHubActions-$(_title_case "${PROJECT_SHORT_NAME}")"
 
-# Read-only console role naming: {PROJECT_SHORT_NAME_CAPITALIZED}-{Env}-ReadOnly
-readonly READONLY_ROLE_PREFIX="$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
+# Read-only console role naming: {Title(PROJECT_SHORT_NAME)}-{env}
+# Must match Terraform's title() output: "static-site" -> "Static-Site"
+readonly READONLY_ROLE_PREFIX="$(_title_case "${PROJECT_SHORT_NAME}")"
 
 # Account naming: {PREFIX}-{env}
 readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"

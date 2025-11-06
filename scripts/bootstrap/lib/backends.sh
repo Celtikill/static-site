@@ -90,6 +90,128 @@ ensure_central_state_bucket() {
 }
 
 # =============================================================================
+# BACKEND RESOURCE IMPORT (IDEMPOTENCY)
+# =============================================================================
+
+import_existing_backend_resources() {
+    local account_id="$1"
+    local environment="$2"
+    local region="$3"
+    local bucket_name="$4"
+    local table_name="$5"
+
+    log_info "Checking for existing backend resources to import..."
+
+    local import_count=0
+
+    # Check and import S3 bucket
+    if s3_bucket_exists "$bucket_name" "$region"; then
+        log_info "Found existing S3 bucket: $bucket_name"
+        if ! tofu state show aws_s3_bucket.terraform_state > /dev/null 2>&1; then
+            log_info "Importing S3 bucket into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                aws_s3_bucket.terraform_state \
+                "$bucket_name" \
+                > "$OUTPUT_DIR/terraform-import-s3-${environment}.log" 2>&1; then
+                log_success "Imported S3 bucket: $bucket_name"
+                ((import_count++))
+            else
+                log_warn "Failed to import S3 bucket (may not be critical)"
+                cat "$OUTPUT_DIR/terraform-import-s3-${environment}.log" >&2
+            fi
+        else
+            log_info "S3 bucket already in Terraform state"
+        fi
+    fi
+
+    # Check and import KMS key
+    local kms_alias="alias/${bucket_name}"
+    log_info "Checking for KMS key alias: $kms_alias"
+    local kms_key_id
+    kms_key_id=$(aws kms list-aliases --region "$region" --query "Aliases[?AliasName=='${kms_alias}'].TargetKeyId" --output text 2>/dev/null || echo "")
+
+    if [[ -n "$kms_key_id" ]] && [[ "$kms_key_id" != "None" ]]; then
+        log_info "Found existing KMS key: $kms_key_id"
+
+        # Import KMS key
+        if ! tofu state show aws_kms_key.terraform_state > /dev/null 2>&1; then
+            log_info "Importing KMS key into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                aws_kms_key.terraform_state \
+                "$kms_key_id" \
+                > "$OUTPUT_DIR/terraform-import-kms-key-${environment}.log" 2>&1; then
+                log_success "Imported KMS key: $kms_key_id"
+                ((import_count++))
+            else
+                log_warn "Failed to import KMS key (may not be critical)"
+            fi
+        else
+            log_info "KMS key already in Terraform state"
+        fi
+
+        # Import KMS alias
+        if ! tofu state show aws_kms_alias.terraform_state > /dev/null 2>&1; then
+            log_info "Importing KMS alias into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                aws_kms_alias.terraform_state \
+                "$kms_alias" \
+                > "$OUTPUT_DIR/terraform-import-kms-alias-${environment}.log" 2>&1; then
+                log_success "Imported KMS alias: $kms_alias"
+                ((import_count++))
+            else
+                log_warn "Failed to import KMS alias (may not be critical)"
+            fi
+        else
+            log_info "KMS alias already in Terraform state"
+        fi
+    fi
+
+    # Check and import DynamoDB table
+    if dynamodb_table_exists "$table_name" "$region"; then
+        log_info "Found existing DynamoDB table: $table_name"
+        if ! tofu state show aws_dynamodb_table.terraform_locks > /dev/null 2>&1; then
+            log_info "Importing DynamoDB table into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                aws_dynamodb_table.terraform_locks \
+                "$table_name" \
+                > "$OUTPUT_DIR/terraform-import-dynamodb-${environment}.log" 2>&1; then
+                log_success "Imported DynamoDB table: $table_name"
+                ((import_count++))
+            else
+                log_warn "Failed to import DynamoDB table (may not be critical)"
+                cat "$OUTPUT_DIR/terraform-import-dynamodb-${environment}.log" >&2
+            fi
+        else
+            log_info "DynamoDB table already in Terraform state"
+        fi
+    fi
+
+    if [[ $import_count -gt 0 ]]; then
+        log_success "Imported $import_count existing backend resource(s) into Terraform state"
+    else
+        log_info "No backend resources needed import"
+    fi
+
+    return 0
+}
+
+# =============================================================================
 # BACKEND CREATION
 # =============================================================================
 
@@ -255,6 +377,11 @@ create_terraform_backend() {
         popd > /dev/null
         clear_assumed_role
         return 1
+    fi
+
+    # Import existing backend resources for idempotency
+    if ! import_existing_backend_resources "$account_id" "$environment" "$region" "$bucket_name" "$table_name"; then
+        log_warn "Import had issues, but continuing with plan..."
     fi
 
     # Plan backend creation
