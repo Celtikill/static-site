@@ -62,6 +62,12 @@ variable "project_name" {
   default     = "celtikill-static-site"
 }
 
+variable "project_short_name" {
+  description = "Short project name for IAM role naming (e.g., static-site)"
+  type        = string
+  default     = "static-site"
+}
+
 # Local values for resource naming
 locals {
   bucket_name = "${var.project_name}-state-${var.environment}-${var.aws_account_id}"
@@ -192,7 +198,7 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         Sid    = "AllowDeploymentRole"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
+          AWS = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-${var.project_short_name}-${title(var.environment)}-Role"
         }
         Action = [
           "s3:ListBucket",
