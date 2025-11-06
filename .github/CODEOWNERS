@@ -13,7 +13,7 @@
 
 # --- Project Information ---
 # @metadata:project:name: static-site
-# @metadata:project:repository: mhanyc/demo-cicd-terraform 
+# @metadata:project:repository: Celtikill/static-site
 # @metadata:project:description: Static website hosting infrastructure
 
 # --- Contact Information ---
@@ -31,7 +31,7 @@
 # --- Resource Tags ---
 # Applied to AWS Organizations resources (OUs, accounts)
 # @metadata:tag:ManagedBy: bootstrap-scripts
-# @metadata:tag:Repository: mhanyc/demo-cicd-terraform
+# @metadata:tag:Repository: Celtikill/static-site
 # @metadata:tag:Project: static-site
 # @metadata:tag:Owner: @celtikill
 # @metadata:tag:CostCenter: engineering

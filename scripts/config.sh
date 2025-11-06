@@ -1,6 +1,22 @@
 #!/bin/bash
 # Unified Configuration for Bootstrap and Destroy Scripts
 # Single source of truth for all project configuration
+#
+# CONFIGURATION HIERARCHY:
+# 1. Environment variables (highest priority - set by GitHub Actions via repository variables)
+# 2. Hardcoded defaults (fallback for local execution)
+#
+# FOR GITHUB ACTIONS:
+# Set repository variables at: https://github.com/OWNER/REPO/settings/variables/actions
+# These will automatically override defaults when running in CI/CD
+#
+# FOR LOCAL EXECUTION:
+# Hardcoded defaults are used unless environment variables are explicitly set
+# No environment variables are required - scripts work out of the box
+#
+# FOR FORKING:
+# 1. Update repository variables in GitHub (recommended)
+# 2. OR update the hardcoded defaults below (alternative)
 
 set -euo pipefail
 
@@ -11,24 +27,37 @@ export AWS_PAGER=""
 # PROJECT IDENTITY
 # =============================================================================
 
-# Full project name (used for globally unique resources like S3 buckets)
-readonly PROJECT_NAME="celtikill-static-site"
+# GitHub repository (org/repo format)
+# Example: "YourOrg/your-repo"
+# GitHub Actions: Set via vars.GITHUB_REPO
+readonly GITHUB_REPO="${GITHUB_REPO:-Celtikill/static-site}"
+
+# GitHub owner (extracted from repository)
+readonly GITHUB_OWNER="${GITHUB_OWNER:-${GITHUB_REPO%%/*}}"
 
 # Short project name (used for resource naming within accounts)
-readonly PROJECT_SHORT_NAME="static-site"
+# Example: "your-repo"
+# GitHub Actions: Set via vars.PROJECT_SHORT_NAME
+readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:-static-site}"
 
-# GitHub repository (org/repo format)
-readonly GITHUB_REPO="Celtikill/static-site"
+# Full project name (used for globally unique resources like S3 buckets)
+# Format: {owner-lowercase}-{repo-name}
+# Example: "yourorg-your-repo"
+# GitHub Actions: Set via vars.PROJECT_NAME
+readonly PROJECT_NAME="${PROJECT_NAME:-celtikill-static-site}"
 
 # Project OU name (extracted from repository name)
 readonly PROJECT_OU_NAME="${GITHUB_REPO##*/}"
 
 # External ID for cross-account role assumption
-readonly EXTERNAL_ID="github-actions-${PROJECT_SHORT_NAME}"
+# GitHub Actions: Set via vars.EXTERNAL_ID
+readonly EXTERNAL_ID="${EXTERNAL_ID:-github-actions-${PROJECT_SHORT_NAME}}"
 
 # =============================================================================
 # RESOURCE NAMING PATTERNS
 # =============================================================================
+# These are derived from PROJECT_NAME and PROJECT_SHORT_NAME above
+# No need to override these individually
 
 # State bucket naming: {PREFIX}-state-{env}-{account-id}
 readonly STATE_BUCKET_PREFIX="${PROJECT_NAME}"
@@ -40,7 +69,14 @@ readonly LOCK_TABLE_PREFIX="${PROJECT_NAME}"
 readonly KMS_KEY_PREFIX="${PROJECT_NAME}"
 
 # IAM role naming: GitHubActions-{PREFIX}-{Env}-Role
-readonly IAM_ROLE_PREFIX="GitHubActions-${PROJECT_SHORT_NAME^}"
+# Note: Using tr for case conversion (macOS Bash 3.x compatible)
+_capitalize_first_char() {
+    local str="$1"
+    local first_char="${str:0:1}"
+    local rest="${str:1}"
+    printf '%s' "$(echo "$first_char" | tr '[:lower:]' '[:upper:]')${rest}"
+}
+readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
 
 # Account naming: {PREFIX}-{env}
 readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"
@@ -49,10 +85,11 @@ readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"
 readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"
 
 # Project-specific resource patterns for discovery/validation
+# Note: Using tr for uppercase conversion (macOS Bash 3.x compatible)
 readonly PROJECT_PATTERNS=(
     "${PROJECT_SHORT_NAME}"
     "${PROJECT_NAME}"
-    "${PROJECT_SHORT_NAME^}"      # Capitalized (StaticSite)
+    "$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
     "terraform-state"
     "GitHubActions"
     "cloudtrail-logs"
@@ -62,8 +99,20 @@ readonly PROJECT_PATTERNS=(
 # AWS CONFIGURATION
 # =============================================================================
 
+# AWS Default Region
+# GitHub Actions: Set via vars.AWS_DEFAULT_REGION
 readonly AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
-readonly MANAGEMENT_ACCOUNT_ID="223938610551"
+
+# Management Account ID (12 digits)
+# GitHub Actions: Set via vars.MANAGEMENT_ACCOUNT_ID
+readonly MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-223938610551}"
+
+# Environment-specific Account IDs (loaded dynamically from accounts.json or env vars)
+# GitHub Actions: Set via vars.AWS_ACCOUNT_ID_DEV, vars.AWS_ACCOUNT_ID_STAGING, vars.AWS_ACCOUNT_ID_PROD
+# These are loaded by load_accounts() function below, but can be overridden here if needed
+: "${AWS_ACCOUNT_ID_DEV:=}"
+: "${AWS_ACCOUNT_ID_STAGING:=}"
+: "${AWS_ACCOUNT_ID_PROD:=}"
 
 # =============================================================================
 # PATHS (Context-aware - set by calling scripts)

@@ -16,15 +16,22 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source shared configuration first (defines BOOTSTRAP_DIR, colors, etc.)
-if [[ -f "${SCRIPT_DIR}/config.sh" ]]; then
-    source "${SCRIPT_DIR}/config.sh"
+# Source unified configuration (from scripts/config.sh)
+if [[ -f "${SCRIPT_DIR}/../config.sh" ]]; then
+    source "${SCRIPT_DIR}/../config.sh"
+else
+    echo "ERROR: scripts/config.sh not found" >&2
+    exit 1
 fi
 
 # Source common logging functions
 if [[ -f "${SCRIPT_DIR}/lib/common.sh" ]]; then
     source "${SCRIPT_DIR}/lib/common.sh"
 fi
+
+# Set ACCOUNTS_FILE if not set by config.sh
+: "${ACCOUNTS_FILE:=${SCRIPT_DIR}/accounts.json}"
+: "${OUTPUT_DIR:=${SCRIPT_DIR}/output}"
 
 # Execution modes (override if needed)
 DRY_RUN="${DRY_RUN:-false}"
@@ -259,21 +266,50 @@ configure_variables() {
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY-RUN] Would set the following variables:"
-        echo "  AWS_ACCOUNT_ID_MANAGEMENT: $MGMT_ACCOUNT"
-        echo "  AWS_ACCOUNT_ID_DEV:        $DEV_ACCOUNT"
-        echo "  AWS_ACCOUNT_ID_STAGING:    $STAGING_ACCOUNT"
-        echo "  AWS_ACCOUNT_ID_PROD:       $PROD_ACCOUNT"
-        echo "  AWS_DEFAULT_REGION:        $AWS_DEFAULT_REGION"
-        echo "  REPLICA_REGION:            us-west-2"
-        echo "  OPENTOFU_VERSION:          1.8.4"
-        echo "  DEFAULT_ENVIRONMENT:       dev"
-        echo "  MONTHLY_BUDGET_LIMIT:      40"
-        echo "  ALERT_EMAIL_ADDRESSES:     [\"celtikill@celtikill.io\"]"
+        echo ""
+        echo "  Project Identity:"
+        echo "    GITHUB_REPO:          $GITHUB_REPO"
+        echo "    GITHUB_OWNER:         $GITHUB_OWNER"
+        echo "    PROJECT_NAME:         $PROJECT_NAME"
+        echo "    PROJECT_SHORT_NAME:   $PROJECT_SHORT_NAME"
+        echo "    EXTERNAL_ID:          $EXTERNAL_ID"
+        echo ""
+        echo "  AWS Configuration:"
+        echo "    MANAGEMENT_ACCOUNT_ID:    $MGMT_ACCOUNT"
+        echo "    AWS_ACCOUNT_ID_DEV:       $DEV_ACCOUNT"
+        echo "    AWS_ACCOUNT_ID_STAGING:   $STAGING_ACCOUNT"
+        echo "    AWS_ACCOUNT_ID_PROD:      $PROD_ACCOUNT"
+        echo "    AWS_DEFAULT_REGION:       $AWS_DEFAULT_REGION"
+        echo "    REPLICA_REGION:           us-west-2"
+        echo ""
+        echo "  Infrastructure Tools:"
+        echo "    OPENTOFU_VERSION:         1.8.4"
+        echo "    DEFAULT_ENVIRONMENT:      dev"
+        echo "    MONTHLY_BUDGET_LIMIT:     40"
+        echo "    ALERT_EMAIL_ADDRESSES:    [\"celtikill@celtikill.io\"]"
     else
+        # Project Identity Variables
+        log_info "Setting project identity variables..."
+        gh variable set GITHUB_REPO --body "$GITHUB_REPO"
+        log_success "GITHUB_REPO set to $GITHUB_REPO"
+
+        gh variable set GITHUB_OWNER --body "$GITHUB_OWNER"
+        log_success "GITHUB_OWNER set to $GITHUB_OWNER"
+
+        gh variable set PROJECT_NAME --body "$PROJECT_NAME"
+        log_success "PROJECT_NAME set to $PROJECT_NAME"
+
+        gh variable set PROJECT_SHORT_NAME --body "$PROJECT_SHORT_NAME"
+        log_success "PROJECT_SHORT_NAME set to $PROJECT_SHORT_NAME"
+
+        gh variable set EXTERNAL_ID --body "$EXTERNAL_ID"
+        log_success "EXTERNAL_ID set to $EXTERNAL_ID"
+
+        echo
         # AWS Configuration
         log_info "Setting AWS account variables..."
-        gh variable set AWS_ACCOUNT_ID_MANAGEMENT --body "$MGMT_ACCOUNT"
-        log_success "AWS_ACCOUNT_ID_MANAGEMENT set"
+        gh variable set MANAGEMENT_ACCOUNT_ID --body "$MGMT_ACCOUNT"
+        log_success "MANAGEMENT_ACCOUNT_ID set"
 
         gh variable set AWS_ACCOUNT_ID_DEV --body "$DEV_ACCOUNT"
         log_success "AWS_ACCOUNT_ID_DEV set"

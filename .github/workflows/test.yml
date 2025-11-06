@@ -26,7 +26,21 @@ permissions:
   id-token: write
 
 env:
-  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+  # AWS Configuration
+  AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
+  MANAGEMENT_ACCOUNT_ID: ${{ vars.MANAGEMENT_ACCOUNT_ID }}
+  AWS_ACCOUNT_ID_DEV: ${{ vars.AWS_ACCOUNT_ID_DEV }}
+  AWS_ACCOUNT_ID_STAGING: ${{ vars.AWS_ACCOUNT_ID_STAGING }}
+  AWS_ACCOUNT_ID_PROD: ${{ vars.AWS_ACCOUNT_ID_PROD }}
+
+  # Project Identity
+  GITHUB_REPO: ${{ vars.GITHUB_REPO || github.repository }}
+  GITHUB_OWNER: ${{ vars.GITHUB_OWNER || github.repository_owner }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'celtikill-static-site' }}
+  PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME || 'static-site' }}
+  EXTERNAL_ID: ${{ vars.EXTERNAL_ID || 'github-actions-static-site' }}
+
+  # Infrastructure Tools
   OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION || '1.8.4' }}
   TF_IN_AUTOMATION: true
 
