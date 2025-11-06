@@ -274,7 +274,7 @@ main() {
     local CONSOLE_URL_STAGING="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-staging&account=${STAGING_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-staging-readonly"
     local CONSOLE_URL_PROD="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-prod&account=${PROD_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-prod-readonly"
 
-    cat <<EOF
+    printf '%b\n' "$(cat <<EOF
 ${BOLD}Bootstrap Foundation Created:${NC}
 
 Central State Bucket:
