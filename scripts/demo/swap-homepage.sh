@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 INDEX_FILE="${REPO_ROOT}/src/index.html"
-VERSION_A="${REPO_ROOT}/src/index.html"
+VERSION_A="${REPO_ROOT}/src/index-blog-v1.html"
 VERSION_B="${REPO_ROOT}/src/index-blog-v2.html"
 
 # Colors for output
@@ -91,6 +91,11 @@ show_status() {
 }
 
 swap_to_version_a() {
+    if [[ ! -f "$VERSION_A" ]]; then
+        echo -e "${RED}Error: Version A file not found: $VERSION_A${NC}"
+        return 1
+    fi
+
     local current=$(detect_current_version)
 
     if [[ "$current" == "A" ]]; then
@@ -99,11 +104,7 @@ swap_to_version_a() {
     fi
 
     echo -e "${BLUE}Swapping to Version A (blue theme)...${NC}"
-    git checkout main -- src/index.html 2>/dev/null || {
-        echo -e "${RED}Error: Could not restore Version A from git${NC}"
-        echo -e "${YELLOW}Make sure you have committed Version A to main branch${NC}"
-        return 1
-    }
+    cp "$VERSION_A" "$INDEX_FILE"
 
     echo -e "${GREEN}✓ Switched to Version A${NC}"
     echo -e "  Theme: Blue"
