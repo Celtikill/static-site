@@ -12,6 +12,6 @@ terraform {
     key            = "environments/prod/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "static-website-locks-prod"
+    dynamodb_table = "celtikill-static-site-locks-prod"
   }
 }
