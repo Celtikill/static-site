@@ -184,13 +184,14 @@ main() {
         log_warn "OIDC verification had issues, but continuing..."
     fi
 
-    # Wait for IAM role propagation (AWS typically takes 30-60 seconds)
-    log_info "Waiting 60 seconds for IAM roles to propagate globally..."
+    # Wait for IAM role propagation (AWS typically takes 30-60 seconds, but can be longer)
+    log_info "Waiting 120 seconds for IAM roles to propagate globally..."
     log_info "This ensures roles are available for S3 bucket policy references..."
+    log_info "Note: AWS IAM has eventual consistency; longer wait prevents timing errors"
     if [[ "$DRY_RUN" != "true" ]]; then
-        sleep 60
+        sleep 120
     else
-        log_info "[DRY-RUN] Would wait 60 seconds for IAM propagation"
+        log_info "[DRY-RUN] Would wait 120 seconds for IAM propagation"
     fi
     log_success "IAM propagation window complete"
 
