@@ -10,6 +10,12 @@ variable "project_short_name" {
   default     = "static-site"
 }
 
+variable "project_name" {
+  description = "Full project name including owner prefix (e.g., 'celtikill-static-site')"
+  type        = string
+  default     = "celtikill-static-site"
+}
+
 variable "management_account_id" {
   description = "AWS Management Account ID"
   type        = string

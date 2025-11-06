@@ -79,6 +79,7 @@ create_iam_roles_via_terraform() {
         -var="dev_account_id=$DEV_ACCOUNT" \
         -var="staging_account_id=$STAGING_ACCOUNT" \
         -var="prod_account_id=$PROD_ACCOUNT" \
+        -var="project_name=$PROJECT_NAME" \
         -out="$OUTPUT_DIR/iam-roles.tfplan" \
         > "$OUTPUT_DIR/terraform-iam-plan.log" 2>&1; then
         log_error "Terraform plan failed. See: $OUTPUT_DIR/terraform-iam-plan.log"
