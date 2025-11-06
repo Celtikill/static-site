@@ -114,6 +114,7 @@ import_existing_backend_resources() {
                 -var="aws_account_id=$account_id" \
                 -var="aws_region=$region" \
                 -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
                 aws_s3_bucket.terraform_state \
                 "$bucket_name" \
                 > "$OUTPUT_DIR/terraform-import-s3-${environment}.log" 2>&1; then
@@ -145,6 +146,7 @@ import_existing_backend_resources() {
                 -var="aws_account_id=$account_id" \
                 -var="aws_region=$region" \
                 -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
                 aws_kms_key.terraform_state \
                 "$kms_key_id" \
                 > "$OUTPUT_DIR/terraform-import-kms-key-${environment}.log" 2>&1; then
@@ -165,6 +167,7 @@ import_existing_backend_resources() {
                 -var="aws_account_id=$account_id" \
                 -var="aws_region=$region" \
                 -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
                 aws_kms_alias.terraform_state \
                 "$kms_alias" \
                 > "$OUTPUT_DIR/terraform-import-kms-alias-${environment}.log" 2>&1; then
