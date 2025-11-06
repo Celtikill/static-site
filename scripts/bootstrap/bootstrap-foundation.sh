@@ -60,6 +60,8 @@ ENVIRONMENT VARIABLES:
     DRY_RUN               Set to 'true' for dry-run mode
     VERBOSE               Set to 'true' for verbose output
     SKIP_VERIFICATION     Set to 'true' to skip verification
+    RECREATE_BACKENDS     Set to 'true' to force recreation of existing backends
+                          (WARNING: Causes AWS eventual consistency delays)
 
 DESCRIPTION:
     This script performs Stage 2 of the bootstrap process:
