@@ -332,50 +332,50 @@ configure_variables() {
         # Note: REPO_FULL_NAME and REPO_OWNER are not set - workflows use github.repository and github.repository_owner
         log_info "Setting project identity variables..."
 
-        gh variable set PROJECT_NAME --body "$PROJECT_NAME"
+        gh variable set PROJECT_NAME --repo "$TARGET_REPO" --body "$PROJECT_NAME"
         log_success "PROJECT_NAME set to $PROJECT_NAME"
 
-        gh variable set PROJECT_SHORT_NAME --body "$PROJECT_SHORT_NAME"
+        gh variable set PROJECT_SHORT_NAME --repo "$TARGET_REPO" --body "$PROJECT_SHORT_NAME"
         log_success "PROJECT_SHORT_NAME set to $PROJECT_SHORT_NAME"
 
-        gh variable set EXTERNAL_ID --body "$EXTERNAL_ID"
+        gh variable set EXTERNAL_ID --repo "$TARGET_REPO" --body "$EXTERNAL_ID"
         log_success "EXTERNAL_ID set to $EXTERNAL_ID"
 
         echo
         # AWS Configuration
         log_info "Setting AWS account variables..."
-        gh variable set MANAGEMENT_ACCOUNT_ID --body "$MGMT_ACCOUNT"
+        gh variable set MANAGEMENT_ACCOUNT_ID --repo "$TARGET_REPO" --body "$MGMT_ACCOUNT"
         log_success "MANAGEMENT_ACCOUNT_ID set"
 
-        gh variable set AWS_ACCOUNT_ID_DEV --body "$DEV_ACCOUNT"
+        gh variable set AWS_ACCOUNT_ID_DEV --repo "$TARGET_REPO" --body "$DEV_ACCOUNT"
         log_success "AWS_ACCOUNT_ID_DEV set"
 
-        gh variable set AWS_ACCOUNT_ID_STAGING --body "$STAGING_ACCOUNT"
+        gh variable set AWS_ACCOUNT_ID_STAGING --repo "$TARGET_REPO" --body "$STAGING_ACCOUNT"
         log_success "AWS_ACCOUNT_ID_STAGING set"
 
-        gh variable set AWS_ACCOUNT_ID_PROD --body "$PROD_ACCOUNT"
+        gh variable set AWS_ACCOUNT_ID_PROD --repo "$TARGET_REPO" --body "$PROD_ACCOUNT"
         log_success "AWS_ACCOUNT_ID_PROD set"
 
         echo
         log_info "Setting AWS region variables..."
-        gh variable set AWS_DEFAULT_REGION --body "$AWS_DEFAULT_REGION"
+        gh variable set AWS_DEFAULT_REGION --repo "$TARGET_REPO" --body "$AWS_DEFAULT_REGION"
         log_success "AWS_DEFAULT_REGION set to $AWS_DEFAULT_REGION"
 
-        gh variable set REPLICA_REGION --body "us-west-2"
+        gh variable set REPLICA_REGION --repo "$TARGET_REPO" --body "us-west-2"
         log_success "REPLICA_REGION set to us-west-2"
 
         echo
         log_info "Setting infrastructure variables..."
-        gh variable set OPENTOFU_VERSION --body "1.8.4"
+        gh variable set OPENTOFU_VERSION --repo "$TARGET_REPO" --body "1.8.4"
         log_success "OPENTOFU_VERSION set to 1.8.4"
 
-        gh variable set DEFAULT_ENVIRONMENT --body "dev"
+        gh variable set DEFAULT_ENVIRONMENT --repo "$TARGET_REPO" --body "dev"
         log_success "DEFAULT_ENVIRONMENT set to dev"
 
-        gh variable set MONTHLY_BUDGET_LIMIT --body "40"
+        gh variable set MONTHLY_BUDGET_LIMIT --repo "$TARGET_REPO" --body "40"
         log_success "MONTHLY_BUDGET_LIMIT set to 40"
 
-        gh variable set ALERT_EMAIL_ADDRESSES --body '["celtikill@celtikill.io"]'
+        gh variable set ALERT_EMAIL_ADDRESSES --repo "$TARGET_REPO" --body '["celtikill@celtikill.io"]'
         log_success "ALERT_EMAIL_ADDRESSES set"
     fi
 
