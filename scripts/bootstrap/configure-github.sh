@@ -207,9 +207,9 @@ detect_target_repository() {
     if [[ -n "$origin_url" ]]; then
         # Extract owner/repo from git URL
         # Handles both HTTPS and SSH formats:
-        # - https://github.com/owner/repo.git
-        # - git@github.com:owner/repo.git
-        TARGET_REPO=$(echo "$origin_url" | sed -E 's#.*/([^/]+/[^/]+)(\.git)?$#\1#' | sed 's/\.git$//')
+        # - https://github.com/owner/repo.git → owner/repo
+        # - git@github.com:owner/repo.git → owner/repo
+        TARGET_REPO=$(echo "$origin_url" | sed -E 's#^(https://github.com/|git@github.com:)##' | sed 's#\.git$##')
         log_info "Detected origin: $TARGET_REPO"
     else
         log_warn "Could not detect origin remote"
