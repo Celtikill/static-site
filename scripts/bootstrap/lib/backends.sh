@@ -191,7 +191,7 @@ create_terraform_backend() {
     fi
 
     # Use existing Terraform bootstrap configuration
-    local bootstrap_dir="${BOOTSTRAP_DIR}/../../terraform/bootstrap"
+    local bootstrap_dir="${SCRIPT_DIR}/../../terraform/bootstrap"
 
     if [[ ! -d "$bootstrap_dir" ]]; then
         log_error "Bootstrap Terraform directory not found: $bootstrap_dir"
@@ -513,7 +513,7 @@ migrate_to_remote_backend() {
         return 1
     fi
 
-    local main_terraform_dir="${BOOTSTRAP_DIR}/../../terraform"
+    local main_terraform_dir="${SCRIPT_DIR}/../../terraform"
 
     if [[ ! -d "$main_terraform_dir" ]]; then
         log_error "Main Terraform directory not found: $main_terraform_dir"

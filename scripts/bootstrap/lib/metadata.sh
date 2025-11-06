@@ -9,8 +9,8 @@
 get_codeowners_path() {
     # Search for CODEOWNERS in standard GitHub locations
     local possible_paths=(
-        "${BOOTSTRAP_DIR}/../../.github/CODEOWNERS"
-        "${BOOTSTRAP_DIR}/../.github/CODEOWNERS"
+        "${SCRIPT_DIR}/../../.github/CODEOWNERS"
+        "${SCRIPT_DIR}/../.github/CODEOWNERS"
         "$(git rev-parse --show-toplevel 2>/dev/null)/.github/CODEOWNERS"
     )
 
