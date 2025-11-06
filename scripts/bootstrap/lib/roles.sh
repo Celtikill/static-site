@@ -73,6 +73,13 @@ create_iam_roles_via_terraform() {
 
     log_success "Terraform configuration valid"
 
+    # Import any existing roles into state (idempotency)
+    if ! import_existing_iam_roles; then
+        log_error "Failed to import existing IAM roles"
+        popd > /dev/null
+        return 1
+    fi
+
     # Plan for all environments
     log_info "Planning IAM role changes..."
     if ! tofu plan \
@@ -112,6 +119,94 @@ create_iam_roles_via_terraform() {
         popd > /dev/null
         return 1
     fi
+}
+
+# =============================================================================
+# STATE IMPORT FOR EXISTING ROLES (IDEMPOTENCY)
+# =============================================================================
+
+import_existing_iam_roles() {
+    log_info "Checking for existing IAM roles and importing if needed..."
+
+    local terraform_dir="${TERRAFORM_IAM_DIR}"
+    local import_count=0
+
+    # Define role names based on configuration
+    # GitHub Actions roles use pattern: GitHubActions-{ProjectShortName}-{Env}-Role
+    local github_dev_role="GitHubActions-${PROJECT_SHORT_NAME}-Dev-Role"
+    local github_staging_role="GitHubActions-${PROJECT_SHORT_NAME}-Staging-Role"
+    local github_prod_role="GitHubActions-${PROJECT_SHORT_NAME}-Prod-Role"
+
+    # ReadOnly roles use pattern: {Title(ProjectShortName)}-{env}
+    # Capitalize first letter using bash string manipulation
+    local project_capitalized="${PROJECT_SHORT_NAME^}"
+    local readonly_dev_role="${project_capitalized}-dev"
+    local readonly_staging_role="${project_capitalized}-staging"
+    local readonly_prod_role="${project_capitalized}-prod"
+
+    # Array of roles to check: module_address|role_name|account_id|description
+    local roles_to_check=(
+        "module.github_actions_dev.aws_iam_role.github_actions|${github_dev_role}|${DEV_ACCOUNT}|GitHub Actions Dev"
+        "module.github_actions_staging.aws_iam_role.github_actions|${github_staging_role}|${STAGING_ACCOUNT}|GitHub Actions Staging"
+        "module.github_actions_prod.aws_iam_role.github_actions|${github_prod_role}|${PROD_ACCOUNT}|GitHub Actions Prod"
+        "module.readonly_console_dev.aws_iam_role.readonly_console|${readonly_dev_role}|${DEV_ACCOUNT}|Read-Only Dev"
+        "module.readonly_console_staging.aws_iam_role.readonly_console|${readonly_staging_role}|${STAGING_ACCOUNT}|Read-Only Staging"
+        "module.readonly_console_prod.aws_iam_role.readonly_console|${readonly_prod_role}|${PROD_ACCOUNT}|Read-Only Prod"
+    )
+
+    for role_spec in "${roles_to_check[@]}"; do
+        IFS='|' read -r module_addr role_name account_id description <<< "$role_spec"
+
+        # Check if role already in Terraform state
+        if tofu state show "$module_addr" > /dev/null 2>&1; then
+            log_info "Role already in state: $description"
+            continue
+        fi
+
+        # Check if role exists in AWS by assuming role to the account
+        if ! assume_role "arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole" "check-role-${account_id}"; then
+            log_warn "Could not assume role in account $account_id to check for existing roles"
+            clear_assumed_role
+            continue
+        fi
+
+        # Query AWS for the role
+        if aws iam get-role --role-name "$role_name" > /dev/null 2>&1; then
+            log_info "Found existing role in AWS: $description ($role_name)"
+
+            # Clear assumed role before import (Terraform will use configured providers)
+            clear_assumed_role
+
+            # Import the role into Terraform state
+            log_info "Importing role into Terraform state: $module_addr"
+            if tofu import \
+                -var="dev_account_id=$DEV_ACCOUNT" \
+                -var="staging_account_id=$STAGING_ACCOUNT" \
+                -var="prod_account_id=$PROD_ACCOUNT" \
+                -var="project_name=$PROJECT_NAME" \
+                "$module_addr" \
+                "$role_name" \
+                > "$OUTPUT_DIR/terraform-import-${role_name}.log" 2>&1; then
+                log_success "Imported: $description"
+                ((import_count++))
+            else
+                log_error "Failed to import $description. See: $OUTPUT_DIR/terraform-import-${role_name}.log"
+                cat "$OUTPUT_DIR/terraform-import-${role_name}.log" >&2
+                return 1
+            fi
+        else
+            log_info "Role does not exist in AWS: $description (will be created)"
+            clear_assumed_role
+        fi
+    done
+
+    if [[ $import_count -gt 0 ]]; then
+        log_success "Imported $import_count existing role(s) into Terraform state"
+    else
+        log_info "No existing roles found to import"
+    fi
+
+    return 0
 }
 
 extract_terraform_outputs() {
