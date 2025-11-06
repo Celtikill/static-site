@@ -152,6 +152,10 @@ create_terraform_backend() {
         # Verify backend is functional
         if s3_bucket_exists "$bucket_name" "$region" && dynamodb_table_exists "$table_name" "$region"; then
             log_success "Backend verified and functional"
+
+            # Generate backend config even though we skipped creation
+            save_backend_config "$environment" "$bucket_name" "$table_name" "$region"
+
             clear_assumed_role
             return 0
         else
