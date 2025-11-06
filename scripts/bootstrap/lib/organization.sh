@@ -528,7 +528,7 @@ create_environment_accounts() {
     # Tag and set contact information for accounts (if Terraform library available)
     if command -v tag_account >/dev/null 2>&1 && command -v apply_account_contacts >/dev/null 2>&1; then
         # Enable trusted access for AWS Account Management (required for alternate contacts)
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             enable_account_management_trusted_access || log_warn "Could not enable trusted access for Account Management"
         fi
 
@@ -540,7 +540,7 @@ create_environment_accounts() {
             dev_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "dev"}')
             tag_account "$dev_account" "$dev_tags" || log_warn "Failed to tag dev account"
         fi
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             apply_account_contacts "$dev_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set dev account contacts"
         fi
 
@@ -550,7 +550,7 @@ create_environment_accounts() {
             staging_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "staging"}')
             tag_account "$staging_account" "$staging_tags" || log_warn "Failed to tag staging account"
         fi
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             apply_account_contacts "$staging_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set staging account contacts"
         fi
 
@@ -560,7 +560,7 @@ create_environment_accounts() {
             prod_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "prod"}')
             tag_account "$prod_account" "$prod_tags" || log_warn "Failed to tag prod account"
         fi
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             apply_account_contacts "$prod_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set prod account contacts"
         fi
 
@@ -979,7 +979,7 @@ ensure_accounts_in_project_ou() {
             tag_account "$account_id" "$account_tags" || log_warn "  Failed to update tags"
         fi
 
-        if command -v apply_account_contacts >/dev/null 2>&1 && [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if command -v apply_account_contacts >/dev/null 2>&1 && has_valid_contact_info; then
             log_info "  Updating contact information for account $account_id..."
             apply_account_contacts "$account_id" "$CONTACT_INFO_JSON" || log_warn "  Failed to update contacts"
         fi
@@ -1107,6 +1107,28 @@ enable_account_management_trusted_access() {
     fi
 }
 
+# Check if contact info JSON has required fields
+# Returns 0 if valid contact info exists, 1 otherwise
+has_valid_contact_info() {
+    local contact_json="${1:-$CONTACT_INFO_JSON}"
+
+    # Return false if empty or just {}
+    if [[ -z "$contact_json" ]] || [[ "$contact_json" == "{}" ]]; then
+        return 1
+    fi
+
+    # Check if required fields exist and are non-empty
+    local full_name phone_number
+    full_name=$(echo "$contact_json" | jq -r '.full_name // empty' 2>/dev/null)
+    phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty' 2>/dev/null)
+
+    if [[ -n "$full_name" ]] && [[ -n "$phone_number" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
 # Set account contact information
 # Usage: apply_account_contacts "123456789012" '{"full_name":"...","phone_number":"...",...}'
 apply_account_contacts() {
@@ -1123,8 +1145,8 @@ apply_account_contacts() {
 
     # Extract required fields from JSON
     local full_name phone_number
-    full_name=$(echo "$contact_json" | jq -r '.full_name // empty')
-    phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty')
+    full_name=$(echo "$contact_json" | jq -r '.full_name // empty' 2>/dev/null)
+    phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty' 2>/dev/null)
 
     # Validate required fields for alternate contacts
     if [[ -z "$full_name" ]] || [[ -z "$phone_number" ]]; then
