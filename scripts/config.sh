@@ -171,6 +171,27 @@ ACCOUNT_FILTER="${ACCOUNT_FILTER:-}"
 S3_TIMEOUT="${S3_TIMEOUT:-180}"
 
 # =============================================================================
+# METADATA (For AWS Organizations Tagging and Contacts)
+# =============================================================================
+
+# Resource tags for AWS Organizations resources (OUs, accounts)
+# Can be customized via environment variable or sourcing from CODEOWNERS
+: "${RESOURCE_TAGS_JSON:=$(cat <<EOF
+{
+  "ManagedBy": "bootstrap-scripts",
+  "Repository": "${GITHUB_REPO}",
+  "Project": "${PROJECT_SHORT_NAME}"
+}
+EOF
+)}"
+export RESOURCE_TAGS_JSON
+
+# Contact information for AWS accounts (optional)
+# Can be customized via environment variable or sourcing from CODEOWNERS
+: "${CONTACT_INFO_JSON:={}}"
+export CONTACT_INFO_JSON
+
+# =============================================================================
 # COLORS
 # =============================================================================
 

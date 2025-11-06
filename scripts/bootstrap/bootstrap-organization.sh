@@ -10,10 +10,21 @@ set -euo pipefail
 # =============================================================================
 
 # Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source unified configuration and libraries
-source "${SCRIPT_DIR}/config.sh"
+# Source unified configuration (from scripts/config.sh)
+if [[ -f "${SCRIPT_DIR}/../config.sh" ]]; then
+    source "${SCRIPT_DIR}/../config.sh"
+else
+    echo "ERROR: scripts/config.sh not found" >&2
+    exit 1
+fi
+
+# Set bootstrap-specific paths
+: "${ACCOUNTS_FILE:=${SCRIPT_DIR}/accounts.json}"
+: "${OUTPUT_DIR:=${SCRIPT_DIR}/output}"
+
+# Source bootstrap libraries
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
 source "${SCRIPT_DIR}/lib/organization.sh"
