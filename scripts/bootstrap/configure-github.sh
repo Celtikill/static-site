@@ -398,7 +398,7 @@ verify_configuration() {
 
     # Check secrets
     log_info "Verifying secrets..."
-    if gh secret list | grep -q "AWS_ASSUME_ROLE_CENTRAL"; then
+    if gh secret list --repo "$TARGET_REPO" | grep -q "AWS_ASSUME_ROLE_CENTRAL"; then
         log_success "AWS_ASSUME_ROLE_CENTRAL verified"
     else
         log_error "AWS_ASSUME_ROLE_CENTRAL not found"
@@ -426,7 +426,7 @@ verify_configuration() {
     )
 
     for var in "${required_vars[@]}"; do
-        if gh variable list | grep -q "$var"; then
+        if gh variable list --repo "$TARGET_REPO" | grep -q "$var"; then
             log_success "$var verified"
         else
             log_error "$var not found"
@@ -464,6 +464,7 @@ EOF
     fi
 
     validate_prerequisites
+    detect_target_repository
     load_accounts
     show_current_state
 
@@ -472,7 +473,7 @@ EOF
     else
         echo
         log_warn "This will configure GitHub secrets and variables using local account IDs"
-        log_info "Repository: $(gh repo view --json nameWithOwner -q .nameWithOwner)"
+        log_info "Repository: $(gh repo view "$TARGET_REPO" --json nameWithOwner -q .nameWithOwner)"
         echo
         read -p "Continue? (y/n) " -n 1 -r
         echo
