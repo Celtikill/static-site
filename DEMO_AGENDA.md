@@ -480,7 +480,7 @@ cat README.md | grep -A3 "Development Environment"
 - "Notice the green theme, different blog title, and new article content"
 - "Infrastructure created: S3 buckets, CloudWatch dashboards, IAM policies"
 - "All changes audited in CloudTrail"
-- "Can swap back to Version A by: `git checkout main -- src/index.html`"
+- "Can swap back to Version A by: `cp src/index-blog-v1.html src/index.html`"
 
 **⏰ CHECKPOINT**: Should be at minute 40
 
@@ -696,9 +696,9 @@ gh run watch
 gh run view --log | grep "Website URL"
 curl -I <website-url>
 
-# Swap between blog versions
+# Swap between blog versions during demo
+cp src/index-blog-v1.html src/index.html  # Switch to Version A (blue)
 cp src/index-blog-v2.html src/index.html  # Switch to Version B (green)
-git checkout main -- src/index.html        # Restore Version A (blue)
 ```
 
 ### Documentation Quick Links
