@@ -1139,7 +1139,11 @@ apply_account_contacts() {
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY-RUN] Would apply the following contact information:"
-        echo "$contact_json" | jq '.'
+        if has_valid_contact_info "$contact_json"; then
+            echo "$contact_json" | jq '.'
+        else
+            echo "  (no contact info configured)"
+        fi
         return 0
     fi
 
