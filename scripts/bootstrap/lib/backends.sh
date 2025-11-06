@@ -223,6 +223,7 @@ create_terraform_backend() {
         -var="environment=$environment" \
         -var="aws_account_id=$account_id" \
         -var="aws_region=$region" \
+        -var="project_name=$PROJECT_NAME" \
         -out="$OUTPUT_DIR/backend-${environment}.tfplan" \
         > "$OUTPUT_DIR/terraform-plan-${environment}.log" 2>&1; then
         log_error "Terraform plan failed. See: $OUTPUT_DIR/terraform-plan-${environment}.log"
