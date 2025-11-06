@@ -1,6 +1,6 @@
 # 60-Minute Technical Demo: AWS Multi-Account Infrastructure
 
-**Last Updated**: 2025-10-31
+**Last Updated**: 2025-11-05
 **Duration**: 60 minutes
 **Format**: Technical demonstration with live deployment
 **Target Audience**: Engineers, architects, technical decision-makers
@@ -21,7 +21,10 @@ This demonstration showcases enterprise-grade AWS multi-account infrastructure d
 
 - [ ] **Bootstrap AWS infrastructure**
   ```bash
+  # Stage 1: Create AWS Organization structure and accounts (AWS CLI-based)
   ./scripts/bootstrap/bootstrap-organization.sh
+
+  # Stage 2: Create OIDC providers, IAM roles, and state backends (Terraform-based)
   ./scripts/bootstrap/bootstrap-foundation.sh
   ```
 
@@ -239,7 +242,9 @@ terraform/
 ```
 
 **Explain the tiers**:
-- **Tier 0 (Bootstrap)**: Creates the state backend infrastructure
+- **Tier 0 (Bootstrap)**: Two-stage process
+  - Stage 1 (bootstrap-organization.sh): AWS CLI-based account/OU creation, trusted access setup
+  - Stage 2 (bootstrap-foundation.sh): Terraform-based state backends, OIDC, IAM roles
 - **Tier 1 (Foundations)**: One-time account setup, rarely changes
 - **Tier 2 (Environments)**: Environment-specific configurations
 - **Tier 3 (Workloads)**: Application infrastructure, changes frequently
@@ -591,9 +596,11 @@ This architecture is template-ready:
    - Publish to internal registry
 
 2. Bootstrap Scripts
+   - Stage 1: AWS CLI-based (organization structure, no Terraform dependency)
+   - Stage 2: Terraform-based (OIDC, IAM, state backends)
+   - macOS compatible (bash 3.x)
    - Parameterize for different projects
    - Add to project templates
-   - Document in internal wiki
 
 3. GitHub Workflows
    - Copy .github/workflows/ to new repos
@@ -630,6 +637,12 @@ A: "Multi-region S3 replication enabled. For production, would add Route53 healt
 
 **Q: How confident are you in this for production?**
 A: "The patterns are production-ready. This specific implementation is MVP - shows the architecture, but needs hardening (WAF, GuardDuty, Config). Documented path to production-ready state."
+
+**Q: Why split bootstrap into two stages?**
+A: "Stage 1 (bootstrap-organization.sh) uses AWS CLI to create accounts and OUs - this avoids chicken-and-egg problems with Terraform state backends that don't exist yet. Stage 2 (bootstrap-foundation.sh) uses Terraform once accounts exist to create the infrastructure for deploying more Terraform. It also enables trusted access for AWS Account Management, allowing us to set alternate contacts on member accounts."
+
+**Q: Does this work on macOS?**
+A: "Yes! We've ensured bash 3.x compatibility throughout. macOS ships with bash 3.2 by default, and all scripts work without requiring bash 4+ features. This was a key requirement during development."
 
 ---
 

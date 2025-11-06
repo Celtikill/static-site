@@ -27,7 +27,7 @@ permissions:
 
 env:
   AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
-  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION }}
+  OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION || '1.8.4' }}
   TF_IN_AUTOMATION: true
   TF_CLI_ARGS: "-no-color"
 

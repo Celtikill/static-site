@@ -112,9 +112,9 @@ main() {
     print_header "AWS Bootstrap Foundation - Stage 2"
 
     # Set total steps for progress tracking
-    local total_steps=8
+    local total_steps=10
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        total_steps=10
+        total_steps=11
     fi
     set_steps $total_steps
     start_timer
@@ -177,34 +177,54 @@ main() {
         die "Failed to create IAM roles"
     fi
 
-    # Step 5: Create Terraform backends
+    # Step 5: Verify OIDC and IAM roles (allows IAM propagation time)
+    step "Verifying OIDC providers and IAM roles"
+    log_info "Verifying OIDC providers are accessible..."
+    if ! verify_oidc_authentication; then
+        log_warn "OIDC verification had issues, but continuing..."
+    fi
+
+    # Wait for IAM role propagation (AWS typically takes 30-60 seconds, but can be longer)
+    log_info "Waiting 120 seconds for IAM roles to propagate globally..."
+    log_info "This ensures roles are available for S3 bucket policy references..."
+    log_info "Note: AWS IAM has eventual consistency; longer wait prevents timing errors"
+    if [[ "$DRY_RUN" != "true" ]]; then
+        sleep 120
+    else
+        log_info "[DRY-RUN] Would wait 120 seconds for IAM propagation"
+    fi
+    log_success "IAM propagation window complete"
+
+    # Step 6: Create Terraform backends
     step "Creating Terraform backends"
     if ! create_all_terraform_backends; then
         die "Failed to create Terraform backends"
     fi
 
-    # Step 6: Generate backend configurations
+    # Step 7: Generate backend configurations
     step "Generating backend configurations"
     log_success "Backend configurations saved to: $OUTPUT_DIR/backend-config-*.hcl"
 
-    # Step 7: Generate console URLs
+    # Step 8: Generate console URLs
     step "Generating console URLs"
     generate_console_urls_file
 
-    # Step 8: Summary
+    # Step 9: Verify backends
+    if [[ "$SKIP_VERIFICATION" != "true" ]]; then
+        step "Verifying Terraform backends"
+        if ! verify_backends; then
+            log_warn "Backend verification had issues. Review the output above."
+        fi
+    fi
+
+    # Step 10: Summary
     step "Generating summary"
     end_timer
     enhance_bootstrap_report
 
-    # Optional verification steps
+    # Optional full verification
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        # Step 8: Run verification
-        step "Running verification tests"
-        if ! run_full_verification; then
-            log_warn "Some verification checks failed. Review the output above."
-        fi
-
-        # Step 9: Generate report
+        # Step 11: Generate verification report
         step "Generating verification report"
         generate_verification_report
     fi

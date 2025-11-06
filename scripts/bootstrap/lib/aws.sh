@@ -106,15 +106,67 @@ clear_assumed_role() {
 
 s3_bucket_exists() {
     local bucket_name="$1"
+    local region="${2:-$AWS_DEFAULT_REGION}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_debug "[DRY-RUN] Would check if S3 bucket exists: $bucket_name"
         return 1
     fi
 
-    if aws s3api head-bucket --bucket "$bucket_name" 2>/dev/null; then
+    # Use head-bucket with explicit region
+    # Returns 0 if bucket exists and we have access, non-zero otherwise
+    local check_result
+    check_result=$(aws s3api head-bucket --bucket "$bucket_name" --region "$region" 2>&1)
+    local exit_code=$?
+
+    if [[ $exit_code -eq 0 ]]; then
+        log_debug "Bucket exists and accessible: $bucket_name"
         return 0
     else
+        # Log at info level for troubleshooting
+        log_info "Bucket check returned exit code $exit_code for: $bucket_name"
+        if [[ -n "$check_result" ]]; then
+            log_debug "Error details: $check_result"
+        fi
+        return 1
+    fi
+}
+
+delete_s3_bucket() {
+    local bucket_name="$1"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would delete S3 bucket: $bucket_name"
+        return 0
+    fi
+
+    # Delete all versions and delete markers (for versioned buckets)
+    log_debug "Removing all object versions from bucket: $bucket_name"
+    aws s3api delete-objects \
+        --bucket "$bucket_name" \
+        --delete "$(aws s3api list-object-versions \
+            --bucket "$bucket_name" \
+            --output json \
+            --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null || echo '{"Objects":[]}')" \
+        2>/dev/null || true
+
+    # Delete all delete markers
+    aws s3api delete-objects \
+        --bucket "$bucket_name" \
+        --delete "$(aws s3api list-object-versions \
+            --bucket "$bucket_name" \
+            --output json \
+            --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null || echo '{"Objects":[]}')" \
+        2>/dev/null || true
+
+    # Delete all objects (for non-versioned or remaining objects)
+    aws s3 rm "s3://${bucket_name}" --recursive 2>/dev/null || true
+
+    # Delete the bucket
+    if aws s3api delete-bucket --bucket "$bucket_name" 2>&1; then
+        return 0
+    else
+        log_error "Failed to delete S3 bucket: $bucket_name"
         return 1
     fi
 }
