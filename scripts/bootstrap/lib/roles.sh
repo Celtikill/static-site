@@ -137,9 +137,26 @@ import_existing_iam_roles() {
     local github_staging_role="GitHubActions-${PROJECT_SHORT_NAME}-Staging-Role"
     local github_prod_role="GitHubActions-${PROJECT_SHORT_NAME}-Prod-Role"
 
+    # Bash 3.2 compatible title case function (replicates Terraform's title())
+    # Converts "static-site" to "Static-Site"
+    title_case() {
+        echo "$1" | awk '{
+            result = ""
+            for (i = 1; i <= length($0); i++) {
+                char = substr($0, i, 1)
+                if (i == 1 || substr($0, i-1, 1) ~ /[-_ ]/) {
+                    result = result toupper(char)
+                } else {
+                    result = result char
+                }
+            }
+            print result
+        }'
+    }
+
     # ReadOnly roles use pattern: {Title(ProjectShortName)}-{env}
-    # Capitalize first letter using bash string manipulation
-    local project_capitalized="${PROJECT_SHORT_NAME^}"
+    # Use bash 3.2 compatible title case function (matches Terraform's title())
+    local project_capitalized="$(title_case "${PROJECT_SHORT_NAME}")"
     local readonly_dev_role="${project_capitalized}-dev"
     local readonly_staging_role="${project_capitalized}-staging"
     local readonly_prod_role="${project_capitalized}-prod"
