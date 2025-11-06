@@ -151,6 +151,11 @@ generate_console_urls_file() {
 
     mkdir -p "$OUTPUT_DIR"
 
+    # Generate console role switching URLs
+    local CONSOLE_URL_DEV="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-dev&account=${DEV_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-dev-readonly"
+    local CONSOLE_URL_STAGING="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-staging&account=${STAGING_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-staging-readonly"
+    local CONSOLE_URL_PROD="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-prod&account=${PROD_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-prod-readonly"
+
     cat > "$output_file" <<EOF
 ========================================================================
 AWS Console Role Switching URLs - ${PROJECT_NAME}
