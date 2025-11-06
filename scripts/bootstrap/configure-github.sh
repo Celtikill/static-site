@@ -271,11 +271,11 @@ show_current_state() {
     log_section "Current GitHub Configuration"
 
     log_info "Current Secrets:"
-    gh secret list 2>&1 | head -10 || log_warn "Could not list secrets"
+    gh secret list --repo "$TARGET_REPO" 2>&1 | head -10 || log_warn "Could not list secrets"
 
     echo
     log_info "Current Variables:"
-    gh variable list 2>&1 | head -15 || log_warn "Could not list variables"
+    gh variable list --repo "$TARGET_REPO" 2>&1 | head -15 || log_warn "Could not list variables"
 
     echo
 }
