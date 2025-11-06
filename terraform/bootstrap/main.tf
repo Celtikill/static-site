@@ -192,7 +192,7 @@ resource "aws_s3_bucket_policy" "terraform_state" {
         Sid    = "AllowDeploymentRole"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-Static-site-${title(var.environment)}-Role"
+          AWS = "arn:aws:iam::${var.aws_account_id}:role/GitHubActions-StaticSite-${title(var.environment)}-Role"
         }
         Action = [
           "s3:ListBucket",
