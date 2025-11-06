@@ -13,6 +13,12 @@ terraform {
 }
 
 # Environment-specific variables with 12-factor defaults
+variable "project_name" {
+  description = "Full project name including owner prefix (e.g., 'celtikill-static-site')"
+  type        = string
+  # Passed via TF_VAR_project_name from GitHub workflow
+}
+
 variable "aws_account_id_prod" {
   description = "AWS Account ID for production environment"
   type        = string
@@ -87,6 +93,7 @@ provider "aws" {
 module "static_website" {
   source = "../../workloads/static-site"
 
+  project_name      = var.project_name
   environment       = "prod"
   github_repository = var.github_repository
   replica_region    = "us-west-2"

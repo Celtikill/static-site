@@ -3,9 +3,9 @@
 
 # Project Configuration
 variable "project_name" {
-  description = "Name of the project (used for resource naming)"
+  description = "Full project name including owner prefix (e.g., 'celtikill-static-site') used for resource naming and IAM policy matching"
   type        = string
-  default     = "static-website"
+  # No default - must be passed from environment configuration
 
   validation {
     condition     = can(regex("^[a-z0-9-]+$", var.project_name))
@@ -13,8 +13,8 @@ variable "project_name" {
   }
 
   validation {
-    condition     = length(var.project_name) >= 3 && length(var.project_name) <= 32
-    error_message = "Project name must be between 3 and 32 characters long."
+    condition     = length(var.project_name) >= 3 && length(var.project_name) <= 50
+    error_message = "Project name must be between 3 and 50 characters long."
   }
 }
 
