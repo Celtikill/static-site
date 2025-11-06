@@ -32,6 +32,7 @@ source "${SCRIPT_DIR}/lib/oidc.sh"
 source "${SCRIPT_DIR}/lib/roles.sh"
 source "${SCRIPT_DIR}/lib/backends.sh"
 source "${SCRIPT_DIR}/lib/verify.sh"
+source "${SCRIPT_DIR}/lib/policies.sh"
 
 # =============================================================================
 # USAGE
@@ -176,7 +177,16 @@ main() {
         die "Failed to create or verify central state bucket"
     fi
 
-    # Step 3: Create OIDC providers
+    # Step 3: Generate IAM policies from templates
+    step "Generating IAM policies from templates"
+    if ! generate_all_policies; then
+        log_warn "Policy generation had issues, but continuing with bootstrap"
+        log_info "You may need to manually create/update policy files"
+    fi
+    validate_generated_policies || log_warn "Some policies may have validation issues"
+    show_policies_summary
+
+    # Step 4: Create OIDC providers
     step "Creating OIDC providers"
     if ! create_all_oidc_providers; then
         die "Failed to create OIDC providers"
