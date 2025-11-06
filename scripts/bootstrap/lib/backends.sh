@@ -128,11 +128,31 @@ create_terraform_backend() {
     log_info "Checking bucket: $bucket_name (region: $region)"
     log_info "Checking table: $table_name (region: $region)"
 
-    if s3_bucket_exists "$bucket_name" "$region"; then
+    # Use region-aware check to detect wrong-region buckets
+    if s3_bucket_exists_in_region "$bucket_name" "$region"; then
         bucket_exists=true
-        log_warn "S3 bucket already exists: $bucket_name"
+        log_success "S3 bucket exists in correct region: $bucket_name ($region)"
     else
-        log_info "S3 bucket does not exist or check failed: $bucket_name"
+        # Check if bucket exists but in wrong region
+        if s3_bucket_exists "$bucket_name" "$region"; then
+            local actual_region
+            actual_region=$(get_s3_bucket_region "$bucket_name")
+            if [[ -n "$actual_region" ]] && [[ "$actual_region" != "$region" ]]; then
+                log_warn "S3 bucket exists but in WRONG region!"
+                log_warn "  Bucket: $bucket_name"
+                log_warn "  Expected: $region"
+                log_warn "  Actual:   $actual_region"
+                log_warn "  Will recreate bucket in correct region"
+
+                # Mark for recreation by setting RECREATE_BACKENDS for this bucket
+                export RECREATE_BACKENDS=true
+                bucket_exists=true  # Set true so deletion logic triggers
+            else
+                log_info "S3 bucket does not exist: $bucket_name"
+            fi
+        else
+            log_info "S3 bucket does not exist: $bucket_name"
+        fi
     fi
 
     if dynamodb_table_exists "$table_name" "$region"; then
