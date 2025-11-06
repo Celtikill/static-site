@@ -288,28 +288,8 @@ create_terraform_backend() {
         log_info "DynamoDB table does not exist or check failed: $table_name"
     fi
 
-    # If resources exist, check if we should recreate them
-    if [[ "$bucket_exists" == "true" ]] && [[ "$table_exists" == "true" ]]; then
-        log_success "Backend resources already exist for $environment"
-        log_info "Bucket: $bucket_name"
-        log_info "Table: $table_name"
-        log_info "Skipping recreation to avoid AWS eventual consistency delays"
-
-        # Verify backend is functional
-        if s3_bucket_exists "$bucket_name" "$region" && dynamodb_table_exists "$table_name" "$region"; then
-            log_success "Backend verified and functional"
-
-            # Generate backend config even though we skipped creation
-            save_backend_config "$environment" "$bucket_name" "$table_name" "$region"
-
-            clear_assumed_role
-            return 0
-        else
-            log_warn "Backend verification failed, will attempt recreation"
-        fi
-    fi
-
-    # Only delete if explicitly recreating (controlled by RECREATE_BACKENDS env var)
+    # Check if we need to recreate due to region mismatch or explicit flag
+    # IMPORTANT: Check RECREATE_BACKENDS before "already exists" logic
     if [[ "${RECREATE_BACKENDS:-false}" == "true" ]] && { [[ "$bucket_exists" == "true" ]] || [[ "$table_exists" == "true" ]]; }; then
         log_warn "RECREATE_BACKENDS=true: Destroying existing resources before recreating..."
 
@@ -354,6 +334,25 @@ create_terraform_backend() {
         fi
 
         log_success "Cleaned up existing backend resources"
+    elif [[ "$bucket_exists" == "true" ]] && [[ "$table_exists" == "true" ]]; then
+        # Resources exist and we're NOT recreating - skip creation
+        log_success "Backend resources already exist for $environment"
+        log_info "Bucket: $bucket_name"
+        log_info "Table: $table_name"
+        log_info "Skipping recreation to avoid AWS eventual consistency delays"
+
+        # Verify backend is functional
+        if s3_bucket_exists "$bucket_name" "$region" && dynamodb_table_exists "$table_name" "$region"; then
+            log_success "Backend verified and functional"
+
+            # Generate backend config even though we skipped creation
+            save_backend_config "$environment" "$bucket_name" "$table_name" "$region"
+
+            clear_assumed_role
+            return 0
+        else
+            log_warn "Backend verification failed, will attempt recreation"
+        fi
     fi
 
     # Use existing Terraform bootstrap configuration

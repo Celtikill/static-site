@@ -99,7 +99,7 @@ readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"
 readonly PROJECT_PATTERNS=(
     "${PROJECT_SHORT_NAME}"
     "${PROJECT_NAME}"
-    "$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
+    "$(_title_case "${PROJECT_SHORT_NAME}")"
     "terraform-state"
     "GitHubActions"
     "cloudtrail-logs"
