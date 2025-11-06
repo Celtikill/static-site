@@ -468,13 +468,25 @@ create_environment_accounts() {
             log_info "Prod account already exists and is ACTIVE: $existing_prod"
             prod_account="$existing_prod"
         elif [[ "$prod_status" == "SUSPENDED" ]] || [[ "$prod_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Prod account $existing_prod is $prod_status - creating replacement (timestamp: $(date -Iseconds))"
+            log_warn "Prod account $existing_prod is $prod_status - searching for existing replacement..."
 
-            if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
-                log_error "Failed to create replacement prod account"
-                return 1
+            # Search for any ACTIVE prod account before creating a new one
+            local existing_active_prod
+            existing_active_prod=$(aws organizations list-accounts \
+                --query "Accounts[?Status=='ACTIVE' && starts_with(Name, '${ACCOUNT_NAME_PREFIX}-prod')].Id" \
+                --output text 2>/dev/null | head -1 || echo "")
+
+            if [[ -n "$existing_active_prod" ]]; then
+                log_info "Found existing ACTIVE prod account: $existing_active_prod"
+                prod_account="$existing_active_prod"
+            else
+                log_info "No existing ACTIVE prod account found, creating new one (timestamp: $(date -Iseconds))"
+                if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
+                    log_error "Failed to create replacement prod account"
+                    return 1
+                fi
+                log_success "Created replacement prod account: $prod_account"
             fi
-            log_success "Created replacement prod account: $prod_account"
         else
             log_info "Prod account not found or invalid, creating new account"
             if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
