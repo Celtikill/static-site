@@ -303,7 +303,7 @@ generate_verification_report() {
 
     cat > "$report_file" <<EOF
 {
-  "timestamp": "$(date -Iseconds)",
+  "timestamp": "$(get_iso_timestamp)",
   "organization": {
     "id": "$(aws organizations describe-organization --query 'Organization.Id' --output text 2>/dev/null || echo 'N/A')",
     "master_account": "$(aws organizations describe-organization --query 'Organization.MasterAccountId' --output text 2>/dev/null || echo 'N/A')"

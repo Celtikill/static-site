@@ -394,7 +394,7 @@ create_environment_accounts() {
                 log_info "Found existing ACTIVE dev account: $existing_active_dev"
                 dev_account="$existing_active_dev"
             else
-                log_info "No existing ACTIVE dev account found, creating new one (timestamp: $(date -Iseconds))"
+                log_info "No existing ACTIVE dev account found, creating new one (timestamp: $(get_iso_timestamp))"
                 if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
                     log_error "Failed to create replacement dev account"
                     return 1
@@ -437,7 +437,7 @@ create_environment_accounts() {
                 log_info "Found existing ACTIVE staging account: $existing_active_staging"
                 staging_account="$existing_active_staging"
             else
-                log_info "No existing ACTIVE staging account found, creating new one (timestamp: $(date -Iseconds))"
+                log_info "No existing ACTIVE staging account found, creating new one (timestamp: $(get_iso_timestamp))"
                 if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
                     log_error "Failed to create replacement staging account"
                     return 1
@@ -480,7 +480,7 @@ create_environment_accounts() {
                 log_info "Found existing ACTIVE prod account: $existing_active_prod"
                 prod_account="$existing_active_prod"
             else
-                log_info "No existing ACTIVE prod account found, creating new one (timestamp: $(date -Iseconds))"
+                log_info "No existing ACTIVE prod account found, creating new one (timestamp: $(get_iso_timestamp))"
                 if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
                     log_error "Failed to create replacement prod account"
                     return 1

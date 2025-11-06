@@ -272,7 +272,8 @@ save_accounts() {
         }')
 
     # Add _replaced section if REPLACED_ACCOUNTS exists and has entries
-    if [[ -v REPLACED_ACCOUNTS ]] && [[ ${#REPLACED_ACCOUNTS[@]} -gt 0 ]]; then
+    # Note: Using ${REPLACED_ACCOUNTS+x} for bash 3.2 compatibility (macOS default bash)
+    if [[ -n "${REPLACED_ACCOUNTS+x}" ]] && [[ ${#REPLACED_ACCOUNTS[@]} -gt 0 ]]; then
         local replaced_json="{}"
         for env in "${!REPLACED_ACCOUNTS[@]}"; do
             IFS='|' read -r old_id status timestamp <<< "${REPLACED_ACCOUNTS[$env]}"

@@ -31,6 +31,18 @@ log_step() {
     echo -e "\n${BOLD}${BLUE}→${NC} ${BOLD}$*${NC}" >&2
 }
 
+# Cross-platform ISO 8601 timestamp
+# Returns: YYYY-MM-DDTHH:MM:SS+TZ format compatible with both GNU and BSD date
+get_iso_timestamp() {
+    # Try GNU date first (Linux)
+    if date -Iseconds >/dev/null 2>&1; then
+        date -Iseconds
+    else
+        # Fall back to BSD date (macOS)
+        date -u +"%Y-%m-%dT%H:%M:%S+00:00"
+    fi
+}
+
 # =============================================================================
 # PROGRESS TRACKING
 # =============================================================================
@@ -70,7 +82,7 @@ write_report() {
     mkdir -p "$OUTPUT_DIR"
     cat > "$OUTPUT_DIR/bootstrap-report.json" <<EOF
 {
-  "timestamp": "$(date -Iseconds)",
+  "timestamp": "$(get_iso_timestamp)",
   "status": "$status",
   "duration_seconds": $duration,
   "stages_completed": $stages_done,
@@ -159,7 +171,7 @@ generate_console_urls_file() {
     cat > "$output_file" <<EOF
 ========================================================================
 AWS Console Role Switching URLs - ${PROJECT_NAME}
-Generated: $(date -Iseconds)
+Generated: $(get_iso_timestamp)
 ========================================================================
 
 READ-ONLY CONSOLE ACCESS:
@@ -222,7 +234,7 @@ enhance_bootstrap_report() {
     else
         # Create basic report structure if it doesn't exist
         existing_report='{
-  "timestamp": "'$(date -Iseconds)'",
+  "timestamp": "'$(get_iso_timestamp)'",
   "status": "success",
   "duration_seconds": 0,
   "stages_completed": 0,
