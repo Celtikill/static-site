@@ -265,7 +265,7 @@ configure_variables() {
         echo "  AWS_ACCOUNT_ID_PROD:       $PROD_ACCOUNT"
         echo "  AWS_DEFAULT_REGION:        $AWS_DEFAULT_REGION"
         echo "  REPLICA_REGION:            us-west-2"
-        echo "  OPENTOFU_VERSION:          1.6.1"
+        echo "  OPENTOFU_VERSION:          1.8.4"
         echo "  DEFAULT_ENVIRONMENT:       dev"
         echo "  MONTHLY_BUDGET_LIMIT:      40"
         echo "  ALERT_EMAIL_ADDRESSES:     [\"celtikill@celtikill.io\"]"
@@ -294,8 +294,8 @@ configure_variables() {
 
         echo
         log_info "Setting infrastructure variables..."
-        gh variable set OPENTOFU_VERSION --body "1.6.1"
-        log_success "OPENTOFU_VERSION set to 1.6.1"
+        gh variable set OPENTOFU_VERSION --body "1.8.4"
+        log_success "OPENTOFU_VERSION set to 1.8.4"
 
         gh variable set DEFAULT_ENVIRONMENT --body "dev"
         log_success "DEFAULT_ENVIRONMENT set to dev"
