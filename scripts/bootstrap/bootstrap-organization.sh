@@ -183,7 +183,7 @@ ${BOLD}Tags Applied:${NC}
 $(if [[ -n "$RESOURCE_TAGS_JSON" ]]; then echo "$RESOURCE_TAGS_JSON" | jq -r 'to_entries[] | "  \(.key): \(.value)"'; else echo "  (no tags configured)"; fi)
 
 ${BOLD}Contact Information:${NC}
-$(if [[ -n "$CONTACT_INFO_JSON" ]]; then
+$(if has_valid_contact_info; then
     echo "  Name:    $(echo "$CONTACT_INFO_JSON" | jq -r '.full_name // "(not set)"')"
     echo "  Company: $(echo "$CONTACT_INFO_JSON" | jq -r '.company_name // "(not set)"')"
     echo "  City:    $(echo "$CONTACT_INFO_JSON" | jq -r '.city // "(not set)"'), $(echo "$CONTACT_INFO_JSON" | jq -r '.state_or_region // "(not set)"')"
