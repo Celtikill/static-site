@@ -144,7 +144,7 @@ jobs:
 
           # Construct bucket name using PROJECT_NAME (matches bootstrap script)
           STATE_BUCKET="${{ vars.PROJECT_NAME }}-state-${TARGET_ENV}-${ACCOUNT_ID}"
-          LOCK_TABLE="${{ vars.PROJECT_SHORT_NAME }}-locks-${TARGET_ENV}"
+          LOCK_TABLE="${{ vars.PROJECT_NAME }}-locks-${TARGET_ENV}"
 
           echo "- Bucket: \`${STATE_BUCKET}\`" >> $GITHUB_STEP_SUMMARY
           echo "- Lock Table: \`${LOCK_TABLE}\`" >> $GITHUB_STEP_SUMMARY
@@ -228,7 +228,7 @@ jobs:
 
           # Construct bucket name using PROJECT_NAME (matches bootstrap script)
           STATE_BUCKET="${{ vars.PROJECT_NAME }}-state-${TARGET_ENV}-${ACCOUNT_ID}"
-          LOCK_TABLE="${{ vars.PROJECT_SHORT_NAME }}-locks-${TARGET_ENV}"
+          LOCK_TABLE="${{ vars.PROJECT_NAME }}-locks-${TARGET_ENV}"
 
           # Initialize to read outputs using dynamic backend config
           timeout 60s tofu init -no-color \

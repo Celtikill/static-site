@@ -241,8 +241,8 @@ EXAMPLES:
    - Saved to `output/console-urls.txt`
 
 5. **Terraform Backends** (per account):
-   - S3 bucket: `static-site-state-{env}-{account-id}`
-   - DynamoDB table: `static-site-locks-{env}`
+   - S3 bucket: `{project-name}-state-{env}-{account-id}`
+   - DynamoDB table: `{project-name}-locks-{env}`
    - KMS key for encryption
    - Backend config files: `output/backend-config-{env}.hcl`
 

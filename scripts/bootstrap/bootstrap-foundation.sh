@@ -274,9 +274,9 @@ IAM Roles (Created via Terraform):
   ✓ ${READONLY_ROLE_PREFIX}-prod (Read-Only Console)
 
 Terraform Backends:
-  ✓ static-site-state-dev-${DEV_ACCOUNT}
-  ✓ static-site-state-staging-${STAGING_ACCOUNT}
-  ✓ static-site-state-prod-${PROD_ACCOUNT}
+  ✓ ${PROJECT_NAME}-state-dev-${DEV_ACCOUNT}
+  ✓ ${PROJECT_NAME}-state-staging-${STAGING_ACCOUNT}
+  ✓ ${PROJECT_NAME}-state-prod-${PROD_ACCOUNT}
 
 Backend Configurations: ${OUTPUT_DIR}/backend-config-*.hcl
 
