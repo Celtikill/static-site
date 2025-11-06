@@ -291,7 +291,7 @@ configure_secrets() {
         log_info "[DRY-RUN] Would set AWS_ASSUME_ROLE_CENTRAL: $CENTRAL_ROLE_ARN"
     else
         log_info "Setting AWS_ASSUME_ROLE_CENTRAL..."
-        echo "$CENTRAL_ROLE_ARN" | gh secret set AWS_ASSUME_ROLE_CENTRAL
+        echo "$CENTRAL_ROLE_ARN" | gh secret set AWS_ASSUME_ROLE_CENTRAL --repo "$TARGET_REPO"
         log_success "AWS_ASSUME_ROLE_CENTRAL configured"
     fi
 
