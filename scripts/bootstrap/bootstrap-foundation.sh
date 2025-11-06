@@ -23,7 +23,12 @@ fi
 # Set bootstrap-specific paths
 : "${ACCOUNTS_FILE:=${SCRIPT_DIR}/accounts.json}"
 : "${OUTPUT_DIR:=${SCRIPT_DIR}/output}"
-: "${TERRAFORM_IAM_DIR:=${SCRIPT_DIR}/../../terraform/modules/iam}"
+
+# Resolve TERRAFORM_IAM_DIR to absolute path
+if [[ -z "${TERRAFORM_IAM_DIR:-}" ]]; then
+    TERRAFORM_IAM_DIR="$(cd "${SCRIPT_DIR}/../../terraform/foundations/iam-roles" && pwd)"
+    readonly TERRAFORM_IAM_DIR
+fi
 
 # Source bootstrap libraries
 source "${SCRIPT_DIR}/lib/common.sh"
