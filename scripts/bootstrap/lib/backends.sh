@@ -191,6 +191,7 @@ import_existing_backend_resources() {
                 -var="aws_account_id=$account_id" \
                 -var="aws_region=$region" \
                 -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
                 aws_dynamodb_table.terraform_locks \
                 "$table_name" \
                 > "$OUTPUT_DIR/terraform-import-dynamodb-${environment}.log" 2>&1; then

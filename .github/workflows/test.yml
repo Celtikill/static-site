@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: ["BUILD - Code Validation and Artifact Creation"]
     types: [completed]
-    branches: [main]
+    branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
   workflow_dispatch:
     inputs:
       skip_build_check:
