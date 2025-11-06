@@ -86,7 +86,8 @@ jobs:
       - name: Configure Production Authentication
         id: config
         run: |
-          TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/GitHubActions-static-site-Prod-Role"
+          PROJECT_SHORT_NAME="${{ vars.PROJECT_SHORT_NAME }}"
+          TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/GitHubActions-${PROJECT_SHORT_NAME}-Prod-Role"
           AWS_REGION="us-east-1"
 
           echo "target_role_arn=$TARGET_ROLE" >> $GITHUB_OUTPUT

@@ -180,17 +180,18 @@ jobs:
           TARGET_ENV="${{ needs.info.outputs.target_environment }}"
 
           # Environment-specific role mapping
+          PROJECT_SHORT_NAME="${{ vars.PROJECT_SHORT_NAME }}"
           case "$TARGET_ENV" in
             dev)
-              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-static-site-Dev-Role"
+              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_DEV }}:role/GitHubActions-${PROJECT_SHORT_NAME}-Dev-Role"
               AWS_REGION="${{ vars.AWS_DEFAULT_REGION }}"
               ;;
             staging)
-              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_STAGING }}:role/GitHubActions-static-site-Staging-Role"
+              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_STAGING }}:role/GitHubActions-${PROJECT_SHORT_NAME}-Staging-Role"
               AWS_REGION="${{ vars.AWS_DEFAULT_REGION }}"
               ;;
             prod)
-              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/GitHubActions-static-site-Prod-Role"
+              TARGET_ROLE="arn:aws:iam::${{ vars.AWS_ACCOUNT_ID_PROD }}:role/GitHubActions-${PROJECT_SHORT_NAME}-Prod-Role"
               AWS_REGION="${{ vars.AWS_DEFAULT_REGION }}"
               ;;
             *)
