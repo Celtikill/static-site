@@ -194,6 +194,47 @@ validate_prerequisites() {
 }
 
 # =============================================================================
+# DETECT TARGET REPOSITORY
+# =============================================================================
+
+detect_target_repository() {
+    log_section "Detecting Target Repository"
+
+    # Try to detect the fork (origin) repository
+    local origin_url
+    origin_url=$(git remote get-url origin 2>/dev/null || echo "")
+
+    if [[ -n "$origin_url" ]]; then
+        # Extract owner/repo from git URL
+        # Handles both HTTPS and SSH formats:
+        # - https://github.com/owner/repo.git
+        # - git@github.com:owner/repo.git
+        TARGET_REPO=$(echo "$origin_url" | sed -E 's#.*/([^/]+/[^/]+)(\.git)?$#\1#' | sed 's/\.git$//')
+        log_info "Detected origin: $TARGET_REPO"
+    else
+        log_warn "Could not detect origin remote"
+        TARGET_REPO=""
+    fi
+
+    # Verify the repository is accessible
+    if [[ -n "$TARGET_REPO" ]]; then
+        if gh repo view "$TARGET_REPO" --json nameWithOwner -q .nameWithOwner &>/dev/null; then
+            log_success "Target repository: $TARGET_REPO"
+        else
+            log_error "Repository $TARGET_REPO is not accessible via GitHub CLI"
+            log_info "Ensure you have permissions to the fork repository"
+            exit 1
+        fi
+    else
+        log_error "Could not determine target repository"
+        log_info "Ensure 'origin' remote is configured: git remote -v"
+        exit 1
+    fi
+
+    echo
+}
+
+# =============================================================================
 # LOAD ACCOUNT IDS
 # =============================================================================
 
