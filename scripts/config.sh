@@ -81,6 +81,9 @@ _capitalize_first_char() {
 }
 readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
 
+# Read-only console role naming: {PROJECT_SHORT_NAME_CAPITALIZED}-{Env}-ReadOnly
+readonly READONLY_ROLE_PREFIX="$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
+
 # Account naming: {PREFIX}-{env}
 readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"
 
