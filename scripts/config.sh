@@ -111,7 +111,9 @@ readonly AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 
 # Management Account ID (12 digits)
 # GitHub Actions: Set via vars.MANAGEMENT_ACCOUNT_ID
-readonly MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-223938610551}"
+# Local/Script: Loaded dynamically from AWS credentials or accounts.json
+# Note: Not readonly to allow dynamic detection in bootstrap scripts
+MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-}"
 
 # Environment-specific Account IDs (loaded dynamically from accounts.json or env vars)
 # GitHub Actions: Set via vars.AWS_ACCOUNT_ID_DEV, vars.AWS_ACCOUNT_ID_STAGING, vars.AWS_ACCOUNT_ID_PROD
@@ -224,6 +226,11 @@ load_accounts() {
         DEV_ACCOUNT=$(jq -r '.dev // ""' "$accounts_file" 2>/dev/null || echo "")
         STAGING_ACCOUNT=$(jq -r '.staging // ""' "$accounts_file" 2>/dev/null || echo "")
         PROD_ACCOUNT=$(jq -r '.prod // ""' "$accounts_file" 2>/dev/null || echo "")
+
+        # Set MANAGEMENT_ACCOUNT_ID from accounts.json if not already set
+        if [[ -z "$MANAGEMENT_ACCOUNT_ID" ]] && [[ -n "$MGMT_ACCOUNT" ]]; then
+            MANAGEMENT_ACCOUNT_ID="$MGMT_ACCOUNT"
+        fi
     else
         MGMT_ACCOUNT="$MANAGEMENT_ACCOUNT_ID"
         DEV_ACCOUNT=""
@@ -231,7 +238,7 @@ load_accounts() {
         PROD_ACCOUNT=""
     fi
 
-    export MGMT_ACCOUNT DEV_ACCOUNT STAGING_ACCOUNT PROD_ACCOUNT
+    export MGMT_ACCOUNT DEV_ACCOUNT STAGING_ACCOUNT PROD_ACCOUNT MANAGEMENT_ACCOUNT_ID
 
     # Also export as array for destroy scripts
     MEMBER_ACCOUNT_IDS=()

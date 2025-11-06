@@ -145,6 +145,11 @@ main() {
     MGMT_ACCOUNT=$(verify_aws_credentials)
     log_info "Management Account: $MGMT_ACCOUNT"
 
+    # Set MANAGEMENT_ACCOUNT_ID from detected credentials for resource naming
+    # This ensures bucket names use the actual authenticated account, not hardcoded defaults
+    MANAGEMENT_ACCOUNT_ID="$MGMT_ACCOUNT"
+    export MANAGEMENT_ACCOUNT_ID
+
     # Load account IDs
     load_accounts
     if ! require_accounts; then

@@ -123,6 +123,11 @@ main() {
     MGMT_ACCOUNT=$(verify_aws_credentials)
     log_info "Management Account: $MGMT_ACCOUNT"
 
+    # Set MANAGEMENT_ACCOUNT_ID from detected credentials for resource naming
+    # This ensures consistent account ID usage across all scripts
+    MANAGEMENT_ACCOUNT_ID="$MGMT_ACCOUNT"
+    export MANAGEMENT_ACCOUNT_ID
+
     # Step 2: Create organization
     step "Creating AWS Organization"
     if ! create_organization; then
