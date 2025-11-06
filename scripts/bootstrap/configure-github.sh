@@ -268,8 +268,7 @@ configure_variables() {
         log_info "[DRY-RUN] Would set the following variables:"
         echo ""
         echo "  Project Identity:"
-        echo "    GITHUB_REPO:          $GITHUB_REPO"
-        echo "    GITHUB_OWNER:         $GITHUB_OWNER"
+        echo "    (REPO_FULL_NAME and REPO_OWNER use GitHub built-in context)"
         echo "    PROJECT_NAME:         $PROJECT_NAME"
         echo "    PROJECT_SHORT_NAME:   $PROJECT_SHORT_NAME"
         echo "    EXTERNAL_ID:          $EXTERNAL_ID"
@@ -289,12 +288,8 @@ configure_variables() {
         echo "    ALERT_EMAIL_ADDRESSES:    [\"celtikill@celtikill.io\"]"
     else
         # Project Identity Variables
+        # Note: REPO_FULL_NAME and REPO_OWNER are not set - workflows use github.repository and github.repository_owner
         log_info "Setting project identity variables..."
-        gh variable set GITHUB_REPO --body "$GITHUB_REPO"
-        log_success "GITHUB_REPO set to $GITHUB_REPO"
-
-        gh variable set GITHUB_OWNER --body "$GITHUB_OWNER"
-        log_success "GITHUB_OWNER set to $GITHUB_OWNER"
 
         gh variable set PROJECT_NAME --body "$PROJECT_NAME"
         log_success "PROJECT_NAME set to $PROJECT_NAME"
@@ -374,7 +369,10 @@ verify_configuration() {
 
     # Required variables
     local required_vars=(
-        "AWS_ACCOUNT_ID_MANAGEMENT"
+        "PROJECT_NAME"
+        "PROJECT_SHORT_NAME"
+        "EXTERNAL_ID"
+        "MANAGEMENT_ACCOUNT_ID"
         "AWS_ACCOUNT_ID_DEV"
         "AWS_ACCOUNT_ID_STAGING"
         "AWS_ACCOUNT_ID_PROD"

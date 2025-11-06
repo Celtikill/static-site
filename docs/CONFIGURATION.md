@@ -70,13 +70,13 @@ cd scripts/bootstrap
 
 #### Project Identity
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GITHUB_REPO` | Full repository path (org/repo) | `Celtikill/static-site` |
-| `GITHUB_OWNER` | GitHub organization or user | `Celtikill` |
-| `PROJECT_NAME` | Full project name for globally unique resources | `celtikill-static-site` |
-| `PROJECT_SHORT_NAME` | Short name for resource naming | `static-site` |
-| `EXTERNAL_ID` | External ID for cross-account IAM roles | `github-actions-static-site` |
+| Variable | Description | Example | Notes |
+|----------|-------------|---------|-------|
+| `PROJECT_NAME` | Full project name for globally unique resources | `celtikill-static-site` | Set as repository variable |
+| `PROJECT_SHORT_NAME` | Short name for resource naming | `static-site` | Set as repository variable |
+| `EXTERNAL_ID` | External ID for cross-account IAM roles | `github-actions-static-site` | Set as repository variable |
+
+**Note:** Repository name and owner are automatically provided by GitHub Actions via built-in context variables `github.repository` and `github.repository_owner`. No need to set `GITHUB_REPO` or `GITHUB_OWNER` variables (GitHub doesn't allow variables starting with `GITHUB_`).
 
 #### AWS Configuration
 
