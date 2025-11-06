@@ -382,13 +382,25 @@ create_environment_accounts() {
             log_info "Dev account already exists and is ACTIVE: $existing_dev"
             dev_account="$existing_dev"
         elif [[ "$dev_status" == "SUSPENDED" ]] || [[ "$dev_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Dev account $existing_dev is $dev_status - creating replacement (timestamp: $(date -Iseconds))"
+            log_warn "Dev account $existing_dev is $dev_status - searching for existing replacement..."
 
-            if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
-                log_error "Failed to create replacement dev account"
-                return 1
+            # Search for any ACTIVE dev account before creating a new one
+            local existing_active_dev
+            existing_active_dev=$(aws organizations list-accounts \
+                --query "Accounts[?Status=='ACTIVE' && starts_with(Name, '${ACCOUNT_NAME_PREFIX}-dev')].Id" \
+                --output text 2>/dev/null | head -1 || echo "")
+
+            if [[ -n "$existing_active_dev" ]]; then
+                log_info "Found existing ACTIVE dev account: $existing_active_dev"
+                dev_account="$existing_active_dev"
+            else
+                log_info "No existing ACTIVE dev account found, creating new one (timestamp: $(date -Iseconds))"
+                if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
+                    log_error "Failed to create replacement dev account"
+                    return 1
+                fi
+                log_success "Created replacement dev account: $dev_account"
             fi
-            log_success "Created replacement dev account: $dev_account"
         else
             log_info "Dev account not found or invalid, creating new account"
             if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
@@ -413,13 +425,25 @@ create_environment_accounts() {
             log_info "Staging account already exists and is ACTIVE: $existing_staging"
             staging_account="$existing_staging"
         elif [[ "$staging_status" == "SUSPENDED" ]] || [[ "$staging_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Staging account $existing_staging is $staging_status - creating replacement (timestamp: $(date -Iseconds))"
+            log_warn "Staging account $existing_staging is $staging_status - searching for existing replacement..."
 
-            if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
-                log_error "Failed to create replacement staging account"
-                return 1
+            # Search for any ACTIVE staging account before creating a new one
+            local existing_active_staging
+            existing_active_staging=$(aws organizations list-accounts \
+                --query "Accounts[?Status=='ACTIVE' && starts_with(Name, '${ACCOUNT_NAME_PREFIX}-staging')].Id" \
+                --output text 2>/dev/null | head -1 || echo "")
+
+            if [[ -n "$existing_active_staging" ]]; then
+                log_info "Found existing ACTIVE staging account: $existing_active_staging"
+                staging_account="$existing_active_staging"
+            else
+                log_info "No existing ACTIVE staging account found, creating new one (timestamp: $(date -Iseconds))"
+                if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
+                    log_error "Failed to create replacement staging account"
+                    return 1
+                fi
+                log_success "Created replacement staging account: $staging_account"
             fi
-            log_success "Created replacement staging account: $staging_account"
         else
             log_info "Staging account not found or invalid, creating new account"
             if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
