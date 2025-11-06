@@ -58,7 +58,9 @@ generate_all_policies() {
     local templates_dir="${1:-${SCRIPT_DIR}/../../policies}"
     local output_dir="${2:-${OUTPUT_DIR}/policies}"
 
-    log_section "Generating IAM Policies from Templates"
+    echo
+    echo "Generating IAM Policies from Templates"
+    echo "========================================"
 
     # Ensure templates directory exists
     if [[ ! -d "$templates_dir" ]]; then

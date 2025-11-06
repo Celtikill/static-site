@@ -192,13 +192,13 @@ main() {
         die "Failed to create OIDC providers"
     fi
 
-    # Step 4: Create IAM roles via Terraform
+    # Step 5: Create IAM roles via Terraform
     step "Creating IAM roles via Terraform"
     if ! create_all_iam_roles; then
         die "Failed to create IAM roles"
     fi
 
-    # Step 5: Verify OIDC and IAM roles (allows IAM propagation time)
+    # Step 6: Verify OIDC and IAM roles (allows IAM propagation time)
     step "Verifying OIDC providers and IAM roles"
     log_info "Verifying OIDC providers are accessible..."
     if ! verify_oidc_authentication; then
@@ -216,21 +216,21 @@ main() {
     fi
     log_success "IAM propagation window complete"
 
-    # Step 6: Create Terraform backends
+    # Step 7: Create Terraform backends
     step "Creating Terraform backends"
     if ! create_all_terraform_backends; then
         die "Failed to create Terraform backends"
     fi
 
-    # Step 7: Generate backend configurations
+    # Step 8: Generate backend configurations
     step "Generating backend configurations"
     log_success "Backend configurations saved to: $OUTPUT_DIR/backend-config-*.hcl"
 
-    # Step 8: Generate console URLs
+    # Step 9: Generate console URLs
     step "Generating console URLs"
     generate_console_urls_file
 
-    # Step 9: Verify backends
+    # Step 10: Verify backends
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
         step "Verifying Terraform backends"
         if ! verify_backends; then
@@ -238,14 +238,14 @@ main() {
         fi
     fi
 
-    # Step 10: Summary
+    # Step 11: Summary
     step "Generating summary"
     end_timer
     enhance_bootstrap_report
 
     # Optional full verification
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        # Step 11: Generate verification report
+        # Step 12: Generate verification report
         step "Generating verification report"
         generate_verification_report
     fi
