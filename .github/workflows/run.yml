@@ -39,9 +39,9 @@ env:
   AWS_ACCOUNT_ID_STAGING: ${{ vars.AWS_ACCOUNT_ID_STAGING }}
   AWS_ACCOUNT_ID_PROD: ${{ vars.AWS_ACCOUNT_ID_PROD }}
 
-  # Project Identity
-  GITHUB_REPO: ${{ vars.GITHUB_REPO || github.repository }}
-  GITHUB_OWNER: ${{ vars.GITHUB_OWNER || github.repository_owner }}
+  # Project Identity (use built-in GitHub context vars)
+  REPO_FULL_NAME: ${{ github.repository }}
+  REPO_OWNER: ${{ github.repository_owner }}
   PROJECT_NAME: ${{ vars.PROJECT_NAME || 'celtikill-static-site' }}
   PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME || 'static-site' }}
   EXTERNAL_ID: ${{ vars.EXTERNAL_ID || 'github-actions-static-site' }}

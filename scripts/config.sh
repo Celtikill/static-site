@@ -27,13 +27,16 @@ export AWS_PAGER=""
 # PROJECT IDENTITY
 # =============================================================================
 
-# GitHub repository (org/repo format)
+# Repository name (org/repo format)
 # Example: "YourOrg/your-repo"
-# GitHub Actions: Set via vars.GITHUB_REPO
-readonly GITHUB_REPO="${GITHUB_REPO:-Celtikill/static-site}"
+# GitHub Actions: Set via vars.REPO_FULL_NAME (or use built-in github.repository)
+# Local/Script: Can also use GITHUB_REPO env var for backward compatibility
+readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-Celtikill/static-site}}"
 
-# GitHub owner (extracted from repository)
-readonly GITHUB_OWNER="${GITHUB_OWNER:-${GITHUB_REPO%%/*}}"
+# Repository owner (extracted from repository)
+# GitHub Actions: Set via vars.REPO_OWNER (or use built-in github.repository_owner)
+# Local/Script: Can also use GITHUB_OWNER env var for backward compatibility
+readonly GITHUB_OWNER="${REPO_OWNER:-${GITHUB_OWNER:-${GITHUB_REPO%%/*}}}"
 
 # Short project name (used for resource naming within accounts)
 # Example: "your-repo"
