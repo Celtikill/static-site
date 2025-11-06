@@ -687,14 +687,18 @@ cat scripts/demo/demo-reference.txt
 # Live demo commands
 ./scripts/bootstrap/configure-github.sh
 git checkout -b feature/demo-$(date +%Y%m%d-%H%M)
-echo "<!-- Demo: $(date) -->" >> src/index.html
-git add src/index.html && git commit -m "demo: live deployment"
-git push -u origin feature/demo-*
+cp src/index-blog-v2.html src/index.html
+git add src/index.html && git commit -m "demo: switch to blog version B"
+git push -u origin HEAD
 gh run watch
 
 # Verification
 gh run view --log | grep "Website URL"
 curl -I <website-url>
+
+# Swap between blog versions
+cp src/index-blog-v2.html src/index.html  # Switch to Version B (green)
+git checkout main -- src/index.html        # Restore Version A (blue)
 ```
 
 ### Documentation Quick Links
@@ -727,6 +731,28 @@ curl -I <website-url>
 3. **Explain error handling**: Workflow rollback, CloudTrail audit
 4. **Show previous success**: `gh run list` - point to successful runs
 5. **Discuss**: "This is why we have dev/staging/prod isolation"
+
+**Common Failure: OIDC Authentication Error**
+
+If you see "Not authorized to perform sts:AssumeRoleWithWebIdentity":
+
+```bash
+# Check GitHub variables are correct
+gh variable list | grep AWS_ACCOUNT_ID
+
+# Verify the account IDs match AWS profiles
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+
+# If mismatch, update GitHub variables
+gh variable set AWS_ACCOUNT_ID_DEV --body "859340968804"
+gh variable set AWS_ACCOUNT_ID_STAGING --body "927588814642"
+gh variable set AWS_ACCOUNT_ID_PROD --body "546274483801"
+
+# Re-run the workflow
+gh run rerun <run-id>
+```
+
+**Explain to audience**: "This happened recently - our dev account was recreated and the GitHub variable wasn't updated. This is why configuration management is critical."
 
 **Alternative path**:
 - Continue with architecture discussion
