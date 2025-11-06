@@ -426,7 +426,7 @@ jobs:
           # Initialize to read outputs using dynamic backend config
           timeout 60s tofu init -no-color \
             -backend-config="bucket=${STATE_BUCKET}" \
-            -backend-config="key=workloads/static-site/terraform.tfstate" \
+            -backend-config="key=environments/${TARGET_ENV}/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_DEFAULT_REGION }}" \
             -backend-config="dynamodb_table=${LOCK_TABLE}" \
             -backend-config="encrypt=true"
