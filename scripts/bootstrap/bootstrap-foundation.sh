@@ -145,6 +145,37 @@ main() {
     MGMT_ACCOUNT=$(verify_aws_credentials)
     log_info "Management Account: $MGMT_ACCOUNT"
 
+    # Check if running with default values (fork detection)
+    if [[ "$GITHUB_REPO" == "OWNER/REPO" ]] || [[ "$PROJECT_NAME" == "owner-my-project" ]]; then
+        log_warn "========================================="
+        log_warn "FORK DETECTED: Using placeholder values!"
+        log_warn "========================================="
+        log_warn "You appear to be using the default placeholder values."
+        log_warn "Please update the following before running bootstrap:"
+        log_warn ""
+        log_warn "1. Edit scripts/config.sh and replace:"
+        log_warn "   - OWNER/REPO with your GitHub repository"
+        log_warn "   - owner-my-project with your project name"
+        log_warn "   - my-project with your short project name"
+        log_warn ""
+        log_warn "2. OR set environment variables:"
+        log_warn "   export GITHUB_REPO='YourOrg/your-repo'"
+        log_warn "   export PROJECT_NAME='yourorg-your-project'"
+        log_warn "   export PROJECT_SHORT_NAME='your-project'"
+        log_warn ""
+        log_warn "3. OR configure GitHub Actions variables:"
+        log_warn "   https://github.com/YOUR_ORG/YOUR_REPO/settings/variables/actions"
+        log_warn "========================================="
+
+        read -p "Do you want to continue with placeholder values? (not recommended) [y/N]: " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            log_info "Bootstrap cancelled. Please update configuration and try again."
+            exit 0
+        fi
+        log_warn "Continuing with placeholder values - resources will need to be renamed later!"
+    fi
+
     # Set MANAGEMENT_ACCOUNT_ID from detected credentials for resource naming
     # This ensures bucket names use the actual authenticated account, not hardcoded defaults
     MANAGEMENT_ACCOUNT_ID="$MGMT_ACCOUNT"
