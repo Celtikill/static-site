@@ -266,12 +266,17 @@ jobs:
             while [ $attempt -le $max_attempts ]; do
               echo "⏳ Attempt $attempt/$max_attempts..."
 
-              if timeout ${timeout_duration}s "$@"; then
+              # Run command with timeout and capture exit code properly
+              set +e  # Temporarily disable exit-on-error to capture exit code
+              timeout ${timeout_duration}s "$@"
+              local exit_code=$?
+              set -e  # Re-enable exit-on-error
+
+              if [ $exit_code -eq 0 ]; then
                 echo "✅ Command succeeded on attempt $attempt"
                 return 0
               fi
 
-              local exit_code=$?
               if [ $exit_code -eq 124 ]; then
                 echo "⚠️ Command timed out after ${timeout_duration}s"
               else
@@ -290,6 +295,74 @@ jobs:
               fi
             done
             # Should never reach here, but return failure if we do
+            return 1
+          }
+
+          # Terraform plan+apply retry function (creates fresh plan each attempt)
+          retry_terraform_deployment() {
+            local max_attempts=3
+            local attempt=1
+            local delay=10
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "🔄 Terraform deployment attempt $attempt/$max_attempts..."
+
+              # Create fresh plan on each attempt (prevents stale plan errors)
+              echo "📋 Creating deployment plan (attempt $attempt)..."
+              set +e
+              timeout 300s tofu plan -no-color -out=deployment-attempt-$attempt.tfplan
+              local plan_exit=$?
+              set -e
+
+              if [ $plan_exit -ne 0 ]; then
+                if [ $plan_exit -eq 124 ]; then
+                  echo "⚠️ Plan timed out after 300s"
+                else
+                  echo "⚠️ Plan failed with exit code $plan_exit"
+                fi
+
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "⏳ Waiting ${delay}s before retry..."
+                  sleep $delay
+                  delay=$((delay * 2))
+                  attempt=$((attempt + 1))
+                  continue
+                else
+                  echo "❌ All plan attempts exhausted"
+                  return $plan_exit
+                fi
+              fi
+
+              # Apply the fresh plan
+              echo "🚀 Applying infrastructure changes (attempt $attempt)..."
+              set +e
+              timeout 180s tofu apply -no-color -auto-approve deployment-attempt-$attempt.tfplan
+              local apply_exit=$?
+              set -e
+
+              if [ $apply_exit -eq 0 ]; then
+                echo "✅ Apply succeeded on attempt $attempt"
+                return 0
+              fi
+
+              if [ $apply_exit -eq 124 ]; then
+                echo "⚠️ Apply timed out after 180s"
+              else
+                echo "⚠️ Apply failed with exit code $apply_exit"
+              fi
+
+              if [ $attempt -lt $max_attempts ]; then
+                echo "⏳ Waiting ${delay}s before retry..."
+                sleep $delay
+                delay=$((delay * 2))
+                attempt=$((attempt + 1))
+              else
+                echo "❌ All apply attempts exhausted"
+                return $apply_exit
+              fi
+            done
+
+            # Should never reach here
             return 1
           }
 
@@ -322,26 +395,16 @@ jobs:
             -backend-config="encrypt=true"
 
           # Plan deployment with retry logic
-          echo "📋 Creating deployment plan..."
-          if ! retry_with_backoff 300 tofu plan -no-color -out=deployment.tfplan; then
-            PLAN_EXIT_CODE=$?
-            echo "❌ Failed to create deployment plan (exit code: $PLAN_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
+          # Deploy infrastructure with integrated plan+apply retry logic
+          echo "🚀 Starting infrastructure deployment..."
+          if ! retry_terraform_deployment; then
+            EXIT_CODE=$?
+            echo "❌ Failed to deploy infrastructure (exit code: $EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
             echo "deployment_status=failed" >> $GITHUB_OUTPUT
-            echo "::error::Terraform plan failed with exit code $PLAN_EXIT_CODE"
+            echo "::error::Terraform deployment failed with exit code $EXIT_CODE"
             exit 1
           fi
-          echo "✅ Deployment plan created successfully" >> $GITHUB_STEP_SUMMARY
-
-          # Apply deployment with retry logic
-          echo "🚀 Applying infrastructure changes..."
-          if ! retry_with_backoff 180 tofu apply -no-color -auto-approve deployment.tfplan; then
-            APPLY_EXIT_CODE=$?
-            echo "❌ Failed to apply infrastructure changes (exit code: $APPLY_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
-            echo "deployment_status=failed" >> $GITHUB_OUTPUT
-            echo "::error::Terraform apply failed with exit code $APPLY_EXIT_CODE"
-            exit 1
-          fi
-          echo "✅ Infrastructure changes applied successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Infrastructure deployment completed successfully" >> $GITHUB_STEP_SUMMARY
 
           # Get outputs (filter out warnings)
           echo "📊 Retrieving infrastructure outputs..."
