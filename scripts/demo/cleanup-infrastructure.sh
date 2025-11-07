@@ -280,7 +280,7 @@ destroy_buckets_in_region() {
     fi
 }
 
-# Delete Terraform state file for environment
+# Delete Terraform state file and all versions for environment
 delete_terraform_state() {
     local env=$1
     local account_id=$2
@@ -289,18 +289,58 @@ delete_terraform_state() {
     local state_bucket="${PROJECT_NAME}-state-${env}-${account_id}"
     local state_key="environments/${env}/terraform.tfstate"
 
-    log_info "Deleting Terraform state file..."
+    log_info "Deleting Terraform state file and versions..."
     log_debug "  Bucket: $state_bucket"
     log_debug "  Key: $state_key"
 
+    # Check if state file exists
     if aws s3 ls "s3://${state_bucket}/${state_key}" --region "$region" 2>/dev/null; then
-        if aws s3 rm "s3://${state_bucket}/${state_key}" --region "$region" 2>&1; then
-            log_info "  ✓ Deleted state file: s3://${state_bucket}/${state_key}"
-        else
-            log_warn "  Failed to delete state file (may not exist)"
+        log_info "  Deleting all versions of state file (fixes digest mismatch errors)..."
+
+        # Delete all versions of the state file
+        local versions
+        versions=$(aws s3api list-object-versions \
+            --bucket "$state_bucket" \
+            --prefix "$state_key" \
+            --region "$region" \
+            --output json 2>/dev/null || echo '{}')
+
+        if echo "$versions" | jq -e '.Versions | length > 0' >/dev/null 2>&1; then
+            log_debug "    Deleting object versions..."
+            echo "$versions" | jq '{Objects: [.Versions[]? | {Key: .Key, VersionId: .VersionId}], Quiet: true}' > /tmp/delete-state-versions.json
+            aws s3api delete-objects \
+                --bucket "$state_bucket" \
+                --region "$region" \
+                --delete file:///tmp/delete-state-versions.json >/dev/null 2>&1 || true
         fi
+
+        if echo "$versions" | jq -e '.DeleteMarkers | length > 0' >/dev/null 2>&1; then
+            log_debug "    Deleting delete markers..."
+            echo "$versions" | jq '{Objects: [.DeleteMarkers[]? | {Key: .Key, VersionId: .VersionId}], Quiet: true}' > /tmp/delete-state-markers.json
+            aws s3api delete-objects \
+                --bucket "$state_bucket" \
+                --region "$region" \
+                --delete file:///tmp/delete-state-markers.json >/dev/null 2>&1 || true
+        fi
+
+        # Delete current version
+        aws s3 rm "s3://${state_bucket}/${state_key}" --region "$region" 2>/dev/null || true
+
+        log_info "  ✓ Deleted state file and all versions: s3://${state_bucket}/${state_key}"
     else
         log_info "  State file does not exist (already clean)"
+    fi
+
+    # Clean up DynamoDB lock table entry if it exists
+    local lock_table="${PROJECT_NAME}-locks-${env}-${account_id}"
+    local lock_id="celtikill-static-site-state-${env}-${account_id}/environments/${env}/terraform.tfstate-md5"
+
+    log_debug "  Checking for lock table entry..."
+    if aws dynamodb delete-item \
+        --table-name "$lock_table" \
+        --key "{\"LockID\": {\"S\": \"${lock_id}\"}}" \
+        --region "$region" 2>/dev/null; then
+        log_debug "  ✓ Cleared lock table entry"
     fi
 }
 
