@@ -10,10 +10,21 @@ set -euo pipefail
 # =============================================================================
 
 # Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source unified configuration and libraries
-source "${SCRIPT_DIR}/config.sh"
+# Source unified configuration (from scripts/config.sh)
+if [[ -f "${SCRIPT_DIR}/../config.sh" ]]; then
+    source "${SCRIPT_DIR}/../config.sh"
+else
+    echo "ERROR: scripts/config.sh not found" >&2
+    exit 1
+fi
+
+# Set bootstrap-specific paths
+: "${ACCOUNTS_FILE:=${SCRIPT_DIR}/accounts.json}"
+: "${OUTPUT_DIR:=${SCRIPT_DIR}/output}"
+
+# Source bootstrap libraries
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
 source "${SCRIPT_DIR}/lib/organization.sh"
@@ -172,7 +183,7 @@ ${BOLD}Tags Applied:${NC}
 $(if [[ -n "$RESOURCE_TAGS_JSON" ]]; then echo "$RESOURCE_TAGS_JSON" | jq -r 'to_entries[] | "  \(.key): \(.value)"'; else echo "  (no tags configured)"; fi)
 
 ${BOLD}Contact Information:${NC}
-$(if [[ -n "$CONTACT_INFO_JSON" ]]; then
+$(if has_valid_contact_info; then
     echo "  Name:    $(echo "$CONTACT_INFO_JSON" | jq -r '.full_name // "(not set)"')"
     echo "  Company: $(echo "$CONTACT_INFO_JSON" | jq -r '.company_name // "(not set)"')"
     echo "  City:    $(echo "$CONTACT_INFO_JSON" | jq -r '.city // "(not set)"'), $(echo "$CONTACT_INFO_JSON" | jq -r '.state_or_region // "(not set)"')"

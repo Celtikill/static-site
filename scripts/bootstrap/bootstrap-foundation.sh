@@ -10,10 +10,27 @@ set -euo pipefail
 # =============================================================================
 
 # Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Source unified configuration and libraries
-source "${SCRIPT_DIR}/config.sh"
+# Source unified configuration (from scripts/config.sh)
+if [[ -f "${SCRIPT_DIR}/../config.sh" ]]; then
+    source "${SCRIPT_DIR}/../config.sh"
+else
+    echo "ERROR: scripts/config.sh not found" >&2
+    exit 1
+fi
+
+# Set bootstrap-specific paths
+: "${ACCOUNTS_FILE:=${SCRIPT_DIR}/accounts.json}"
+: "${OUTPUT_DIR:=${SCRIPT_DIR}/output}"
+
+# Resolve TERRAFORM_IAM_DIR to absolute path
+if [[ -z "${TERRAFORM_IAM_DIR:-}" ]]; then
+    TERRAFORM_IAM_DIR="$(cd "${SCRIPT_DIR}/../../terraform/foundations/iam-roles" && pwd)"
+    readonly TERRAFORM_IAM_DIR
+fi
+
+# Source bootstrap libraries
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
 source "${SCRIPT_DIR}/lib/organization.sh"
@@ -21,6 +38,7 @@ source "${SCRIPT_DIR}/lib/oidc.sh"
 source "${SCRIPT_DIR}/lib/roles.sh"
 source "${SCRIPT_DIR}/lib/backends.sh"
 source "${SCRIPT_DIR}/lib/verify.sh"
+source "${SCRIPT_DIR}/lib/policies.sh"
 
 # =============================================================================
 # USAGE
@@ -42,6 +60,8 @@ ENVIRONMENT VARIABLES:
     DRY_RUN               Set to 'true' for dry-run mode
     VERBOSE               Set to 'true' for verbose output
     SKIP_VERIFICATION     Set to 'true' to skip verification
+    RECREATE_BACKENDS     Set to 'true' to force recreation of existing backends
+                          (WARNING: Causes AWS eventual consistency delays)
 
 DESCRIPTION:
     This script performs Stage 2 of the bootstrap process:
@@ -165,19 +185,28 @@ main() {
         die "Failed to create or verify central state bucket"
     fi
 
-    # Step 3: Create OIDC providers
+    # Step 3: Generate IAM policies from templates
+    step "Generating IAM policies from templates"
+    if ! generate_all_policies; then
+        log_warn "Policy generation had issues, but continuing with bootstrap"
+        log_info "You may need to manually create/update policy files"
+    fi
+    validate_generated_policies || log_warn "Some policies may have validation issues"
+    show_policies_summary
+
+    # Step 4: Create OIDC providers
     step "Creating OIDC providers"
     if ! create_all_oidc_providers; then
         die "Failed to create OIDC providers"
     fi
 
-    # Step 4: Create IAM roles via Terraform
+    # Step 5: Create IAM roles via Terraform
     step "Creating IAM roles via Terraform"
     if ! create_all_iam_roles; then
         die "Failed to create IAM roles"
     fi
 
-    # Step 5: Verify OIDC and IAM roles (allows IAM propagation time)
+    # Step 6: Verify OIDC and IAM roles (allows IAM propagation time)
     step "Verifying OIDC providers and IAM roles"
     log_info "Verifying OIDC providers are accessible..."
     if ! verify_oidc_authentication; then
@@ -195,21 +224,21 @@ main() {
     fi
     log_success "IAM propagation window complete"
 
-    # Step 6: Create Terraform backends
+    # Step 7: Create Terraform backends
     step "Creating Terraform backends"
     if ! create_all_terraform_backends; then
         die "Failed to create Terraform backends"
     fi
 
-    # Step 7: Generate backend configurations
+    # Step 8: Generate backend configurations
     step "Generating backend configurations"
     log_success "Backend configurations saved to: $OUTPUT_DIR/backend-config-*.hcl"
 
-    # Step 8: Generate console URLs
+    # Step 9: Generate console URLs
     step "Generating console URLs"
     generate_console_urls_file
 
-    # Step 9: Verify backends
+    # Step 10: Verify backends
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
         step "Verifying Terraform backends"
         if ! verify_backends; then
@@ -217,25 +246,34 @@ main() {
         fi
     fi
 
-    # Step 10: Summary
+    # Step 11: Summary
     step "Generating summary"
     end_timer
     enhance_bootstrap_report
 
     # Optional full verification
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        # Step 11: Generate verification report
+        # Step 12: Generate verification report
         step "Generating verification report"
         generate_verification_report
     fi
 
     print_summary "Foundation Bootstrap Complete"
 
+    # Define variables for summary output
+    local GITHUB_ACTIONS_DEV_ROLE_ARN="arn:aws:iam::${DEV_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Dev-Role"
+    local GITHUB_ACTIONS_STAGING_ROLE_ARN="arn:aws:iam::${STAGING_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Staging-Role"
+    local GITHUB_ACTIONS_PROD_ROLE_ARN="arn:aws:iam::${PROD_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Prod-Role"
+
+    local CONSOLE_URL_DEV="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-dev&account=${DEV_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-dev-readonly"
+    local CONSOLE_URL_STAGING="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-staging&account=${STAGING_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-staging-readonly"
+    local CONSOLE_URL_PROD="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-prod&account=${PROD_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-prod-readonly"
+
     cat <<EOF
 ${BOLD}Bootstrap Foundation Created:${NC}
 
 Central State Bucket:
-  ✓ static-site-terraform-state-${MANAGEMENT_ACCOUNT_ID}
+  ✓ ${PROJECT_NAME}-terraform-state-${MANAGEMENT_ACCOUNT_ID}
   Purpose: Stores foundation state (OIDC, IAM management, org management)
   Access: Shared by all engineers with management account credentials
 
@@ -253,9 +291,9 @@ IAM Roles (Created via Terraform):
   ✓ ${READONLY_ROLE_PREFIX}-prod (Read-Only Console)
 
 Terraform Backends:
-  ✓ static-site-state-dev-${DEV_ACCOUNT}
-  ✓ static-site-state-staging-${STAGING_ACCOUNT}
-  ✓ static-site-state-prod-${PROD_ACCOUNT}
+  ✓ ${PROJECT_NAME}-state-dev-${DEV_ACCOUNT}
+  ✓ ${PROJECT_NAME}-state-staging-${STAGING_ACCOUNT}
+  ✓ ${PROJECT_NAME}-state-prod-${PROD_ACCOUNT}
 
 Backend Configurations: ${OUTPUT_DIR}/backend-config-*.hcl
 

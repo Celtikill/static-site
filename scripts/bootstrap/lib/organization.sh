@@ -382,13 +382,25 @@ create_environment_accounts() {
             log_info "Dev account already exists and is ACTIVE: $existing_dev"
             dev_account="$existing_dev"
         elif [[ "$dev_status" == "SUSPENDED" ]] || [[ "$dev_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Dev account $existing_dev is $dev_status - creating replacement (timestamp: $(date -Iseconds))"
+            log_warn "Dev account $existing_dev is $dev_status - searching for existing replacement..."
 
-            if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
-                log_error "Failed to create replacement dev account"
-                return 1
+            # Search for any ACTIVE dev account before creating a new one
+            local existing_active_dev
+            existing_active_dev=$(aws organizations list-accounts \
+                --query "Accounts[?Status=='ACTIVE' && starts_with(Name, '${ACCOUNT_NAME_PREFIX}-dev')].Id" \
+                --output text 2>/dev/null | head -1 || echo "")
+
+            if [[ -n "$existing_active_dev" ]]; then
+                log_info "Found existing ACTIVE dev account: $existing_active_dev"
+                dev_account="$existing_active_dev"
+            else
+                log_info "No existing ACTIVE dev account found, creating new one (timestamp: $(get_iso_timestamp))"
+                if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-dev-${timestamp}@example.com" "$project_ou_id"); then
+                    log_error "Failed to create replacement dev account"
+                    return 1
+                fi
+                log_success "Created replacement dev account: $dev_account"
             fi
-            log_success "Created replacement dev account: $dev_account"
         else
             log_info "Dev account not found or invalid, creating new account"
             if ! dev_account=$(create_account "${ACCOUNT_NAME_PREFIX}-dev" "${ACCOUNT_EMAIL_PREFIX}-dev@example.com" "$project_ou_id"); then
@@ -413,13 +425,25 @@ create_environment_accounts() {
             log_info "Staging account already exists and is ACTIVE: $existing_staging"
             staging_account="$existing_staging"
         elif [[ "$staging_status" == "SUSPENDED" ]] || [[ "$staging_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Staging account $existing_staging is $staging_status - creating replacement (timestamp: $(date -Iseconds))"
+            log_warn "Staging account $existing_staging is $staging_status - searching for existing replacement..."
 
-            if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
-                log_error "Failed to create replacement staging account"
-                return 1
+            # Search for any ACTIVE staging account before creating a new one
+            local existing_active_staging
+            existing_active_staging=$(aws organizations list-accounts \
+                --query "Accounts[?Status=='ACTIVE' && starts_with(Name, '${ACCOUNT_NAME_PREFIX}-staging')].Id" \
+                --output text 2>/dev/null | head -1 || echo "")
+
+            if [[ -n "$existing_active_staging" ]]; then
+                log_info "Found existing ACTIVE staging account: $existing_active_staging"
+                staging_account="$existing_active_staging"
+            else
+                log_info "No existing ACTIVE staging account found, creating new one (timestamp: $(get_iso_timestamp))"
+                if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-staging-${timestamp}@example.com" "$project_ou_id"); then
+                    log_error "Failed to create replacement staging account"
+                    return 1
+                fi
+                log_success "Created replacement staging account: $staging_account"
             fi
-            log_success "Created replacement staging account: $staging_account"
         else
             log_info "Staging account not found or invalid, creating new account"
             if ! staging_account=$(create_account "${ACCOUNT_NAME_PREFIX}-staging" "${ACCOUNT_EMAIL_PREFIX}-staging@example.com" "$project_ou_id"); then
@@ -444,13 +468,25 @@ create_environment_accounts() {
             log_info "Prod account already exists and is ACTIVE: $existing_prod"
             prod_account="$existing_prod"
         elif [[ "$prod_status" == "SUSPENDED" ]] || [[ "$prod_status" == "PENDING_CLOSURE" ]]; then
-            log_warn "Prod account $existing_prod is $prod_status - creating replacement (timestamp: $(date -Iseconds))"
+            log_warn "Prod account $existing_prod is $prod_status - searching for existing replacement..."
 
-            if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
-                log_error "Failed to create replacement prod account"
-                return 1
+            # Search for any ACTIVE prod account before creating a new one
+            local existing_active_prod
+            existing_active_prod=$(aws organizations list-accounts \
+                --query "Accounts[?Status=='ACTIVE' && starts_with(Name, '${ACCOUNT_NAME_PREFIX}-prod')].Id" \
+                --output text 2>/dev/null | head -1 || echo "")
+
+            if [[ -n "$existing_active_prod" ]]; then
+                log_info "Found existing ACTIVE prod account: $existing_active_prod"
+                prod_account="$existing_active_prod"
+            else
+                log_info "No existing ACTIVE prod account found, creating new one (timestamp: $(get_iso_timestamp))"
+                if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod-${timestamp}" "${ACCOUNT_EMAIL_PREFIX}-prod-${timestamp}@example.com" "$project_ou_id"); then
+                    log_error "Failed to create replacement prod account"
+                    return 1
+                fi
+                log_success "Created replacement prod account: $prod_account"
             fi
-            log_success "Created replacement prod account: $prod_account"
         else
             log_info "Prod account not found or invalid, creating new account"
             if ! prod_account=$(create_account "${ACCOUNT_NAME_PREFIX}-prod" "${ACCOUNT_EMAIL_PREFIX}-prod@example.com" "$project_ou_id"); then
@@ -492,7 +528,7 @@ create_environment_accounts() {
     # Tag and set contact information for accounts (if Terraform library available)
     if command -v tag_account >/dev/null 2>&1 && command -v apply_account_contacts >/dev/null 2>&1; then
         # Enable trusted access for AWS Account Management (required for alternate contacts)
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             enable_account_management_trusted_access || log_warn "Could not enable trusted access for Account Management"
         fi
 
@@ -504,7 +540,7 @@ create_environment_accounts() {
             dev_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "dev"}')
             tag_account "$dev_account" "$dev_tags" || log_warn "Failed to tag dev account"
         fi
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             apply_account_contacts "$dev_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set dev account contacts"
         fi
 
@@ -514,7 +550,7 @@ create_environment_accounts() {
             staging_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "staging"}')
             tag_account "$staging_account" "$staging_tags" || log_warn "Failed to tag staging account"
         fi
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             apply_account_contacts "$staging_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set staging account contacts"
         fi
 
@@ -524,7 +560,7 @@ create_environment_accounts() {
             prod_tags=$(echo "$RESOURCE_TAGS_JSON" | jq '. + {"Environment": "prod"}')
             tag_account "$prod_account" "$prod_tags" || log_warn "Failed to tag prod account"
         fi
-        if [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if has_valid_contact_info; then
             apply_account_contacts "$prod_account" "$CONTACT_INFO_JSON" || log_warn "Failed to set prod account contacts"
         fi
 
@@ -943,7 +979,7 @@ ensure_accounts_in_project_ou() {
             tag_account "$account_id" "$account_tags" || log_warn "  Failed to update tags"
         fi
 
-        if command -v apply_account_contacts >/dev/null 2>&1 && [[ -n "$CONTACT_INFO_JSON" ]]; then
+        if command -v apply_account_contacts >/dev/null 2>&1 && has_valid_contact_info; then
             log_info "  Updating contact information for account $account_id..."
             apply_account_contacts "$account_id" "$CONTACT_INFO_JSON" || log_warn "  Failed to update contacts"
         fi
@@ -1071,6 +1107,28 @@ enable_account_management_trusted_access() {
     fi
 }
 
+# Check if contact info JSON has required fields
+# Returns 0 if valid contact info exists, 1 otherwise
+has_valid_contact_info() {
+    local contact_json="${1:-$CONTACT_INFO_JSON}"
+
+    # Return false if empty or just {}
+    if [[ -z "$contact_json" ]] || [[ "$contact_json" == "{}" ]]; then
+        return 1
+    fi
+
+    # Check if required fields exist and are non-empty
+    local full_name phone_number
+    full_name=$(echo "$contact_json" | jq -r '.full_name // empty' 2>/dev/null)
+    phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty' 2>/dev/null)
+
+    if [[ -n "$full_name" ]] && [[ -n "$phone_number" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
 # Set account contact information
 # Usage: apply_account_contacts "123456789012" '{"full_name":"...","phone_number":"...",...}'
 apply_account_contacts() {
@@ -1081,14 +1139,18 @@ apply_account_contacts() {
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY-RUN] Would apply the following contact information:"
-        echo "$contact_json" | jq '.'
+        if has_valid_contact_info "$contact_json"; then
+            echo "$contact_json" | jq '.'
+        else
+            echo "  (no contact info configured)"
+        fi
         return 0
     fi
 
     # Extract required fields from JSON
     local full_name phone_number
-    full_name=$(echo "$contact_json" | jq -r '.full_name // empty')
-    phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty')
+    full_name=$(echo "$contact_json" | jq -r '.full_name // empty' 2>/dev/null)
+    phone_number=$(echo "$contact_json" | jq -r '.phone_number // empty' 2>/dev/null)
 
     # Validate required fields for alternate contacts
     if [[ -z "$full_name" ]] || [[ -z "$phone_number" ]]; then

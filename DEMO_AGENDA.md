@@ -1,6 +1,6 @@
 # 60-Minute Technical Demo: AWS Multi-Account Infrastructure
 
-**Last Updated**: 2025-11-05
+**Last Updated**: 2025-11-06
 **Duration**: 60 minutes
 **Format**: Technical demonstration with live deployment
 **Target Audience**: Engineers, architects, technical decision-makers
@@ -12,6 +12,30 @@
 This demonstration showcases enterprise-grade AWS multi-account infrastructure deployed via Infrastructure as Code with automated CI/CD pipelines, comprehensive security scanning, and GitOps workflows.
 
 **Key Message**: "From bootstrap to deployment in under 20 minutes, using nothing but code."
+
+---
+
+## Recent Changes (November 2025)
+
+### Configuration System Refactoring
+- **GitHub Variables Fix**: Updated `AWS_ACCOUNT_ID_DEV` to correct account (859340968804)
+- **Unified Configuration**: All scripts now use `scripts/config.sh` as single source of truth
+- **macOS Compatibility**: Ensured bash 3.x compatibility throughout all scripts
+
+### Policy Template System
+- **Template-Based Policies**: Converted all IAM policies to `.json.tpl` templates with placeholders
+- **Automated Generation**: Policy generation integrated into `bootstrap-foundation.sh` (Step 3)
+- **Dynamic Substitution**: Repository names, account IDs, and regions automatically replaced
+
+### Demo Content Update
+- **Simple Blog Homepage**: Replaced AWS architecture showcase with clean personal blog
+- **Version A vs B**: Two distinct blog versions for clear visual demo of deployments
+- **Easier to Understand**: Blog content more relatable than technical AWS documentation
+
+### OIDC Authentication Fix
+- **Account ID Correction**: GitHub Actions now uses correct dev account ID
+- **Trust Policies Verified**: All IAM roles have correct OIDC trust relationships
+- **Cross-Account Access**: Proper role assumption configured for all environments
 
 ---
 
@@ -341,26 +365,28 @@ cd /home/user0/workspace/github/celtikill/static-site
 
 ---
 
-#### Part 2: Create Feature Branch & Make Change (2 min) [00:32 - 00:34]
+#### Part 2: Create Feature Branch & Swap Blog Version (2 min) [00:32 - 00:34]
 
 **Explain**:
-"Now I'll create a feature branch with a visible change to demonstrate the automatic deployment workflow."
+"Now I'll create a feature branch and swap to a different blog version to demonstrate the automatic deployment workflow. This makes the changes very visible - different colors, different content."
 
 **Execute**:
 ```bash
 # Create timestamped feature branch
 git checkout -b feature/demo-$(date +%Y%m%d-%H%M)
 
-# Make a visible change
-echo "<!-- Live Demo: $(date '+%Y-%m-%d %H:%M:%S') -->" >> src/index.html
+# Swap to blog Version B (green theme with different content)
+cp src/index-blog-v2.html src/index.html
 
 # Show the change
-tail -1 src/index.html
+echo "Swapped to blog Version B - check the diff:"
+git diff src/index.html | head -30
 ```
 
 **Narrate**:
 - "Feature branches automatically deploy to dev environment"
-- "This timestamp will be visible on the website after deployment"
+- "Version B has a green theme instead of blue, and different blog posts"
+- "This swap will be clearly visible on the deployed website"
 - "Every commit triggers BUILD → TEST → RUN pipeline"
 
 ---
@@ -371,10 +397,10 @@ tail -1 src/index.html
 ```bash
 # Stage and commit
 git add src/index.html
-git commit -m "demo: live deployment at $(date +%H:%M)"
+git commit -m "demo: switch to blog version B at $(date +%H:%M)"
 
 # Push to trigger deployment
-git push -u origin feature/demo-*
+git push -u origin HEAD
 
 # Immediately start watching the workflow
 gh run watch
@@ -384,6 +410,7 @@ gh run watch
 - "This push triggers the BUILD workflow immediately"
 - "Security scans run first - if they fail, deployment stops"
 - "GitHub Actions will authenticate via OIDC to AWS dev account"
+- "The green-themed blog will be live in about 3-4 minutes"
 
 ---
 
@@ -444,14 +471,16 @@ cat README.md | grep -A3 "Development Environment"
 **Open website in browser**:
 ```bash
 # Copy URL from logs and open in browser
-# Show that the timestamp we added is visible
+# Show the green-themed blog with different posts
+# Point out: "Innovation Hub" title, green gradient, different articles
 ```
 
 **Narrate**:
 - "Complete deployment from commit to live website in under 5 minutes"
+- "Notice the green theme, different blog title, and new article content"
 - "Infrastructure created: S3 buckets, CloudWatch dashboards, IAM policies"
 - "All changes audited in CloudTrail"
-- "Can rollback by reverting commit and re-deploying"
+- "Can swap back to Version A by: `git checkout main -- src/index.html`"
 
 **⏰ CHECKPOINT**: Should be at minute 40
 
@@ -658,14 +687,18 @@ cat scripts/demo/demo-reference.txt
 # Live demo commands
 ./scripts/bootstrap/configure-github.sh
 git checkout -b feature/demo-$(date +%Y%m%d-%H%M)
-echo "<!-- Demo: $(date) -->" >> src/index.html
-git add src/index.html && git commit -m "demo: live deployment"
-git push -u origin feature/demo-*
+cp src/index-blog-v2.html src/index.html
+git add src/index.html && git commit -m "demo: switch to blog version B"
+git push -u origin HEAD
 gh run watch
 
 # Verification
 gh run view --log | grep "Website URL"
 curl -I <website-url>
+
+# Swap between blog versions
+cp src/index-blog-v2.html src/index.html  # Switch to Version B (green)
+git checkout main -- src/index.html        # Restore Version A (blue)
 ```
 
 ### Documentation Quick Links
@@ -698,6 +731,28 @@ curl -I <website-url>
 3. **Explain error handling**: Workflow rollback, CloudTrail audit
 4. **Show previous success**: `gh run list` - point to successful runs
 5. **Discuss**: "This is why we have dev/staging/prod isolation"
+
+**Common Failure: OIDC Authentication Error**
+
+If you see "Not authorized to perform sts:AssumeRoleWithWebIdentity":
+
+```bash
+# Check GitHub variables are correct
+gh variable list | grep AWS_ACCOUNT_ID
+
+# Verify the account IDs match AWS profiles
+AWS_PROFILE=dev-deploy aws sts get-caller-identity
+
+# If mismatch, update GitHub variables
+gh variable set AWS_ACCOUNT_ID_DEV --body "859340968804"
+gh variable set AWS_ACCOUNT_ID_STAGING --body "927588814642"
+gh variable set AWS_ACCOUNT_ID_PROD --body "546274483801"
+
+# Re-run the workflow
+gh run rerun <run-id>
+```
+
+**Explain to audience**: "This happened recently - our dev account was recreated and the GitHub variable wasn't updated. This is why configuration management is critical."
 
 **Alternative path**:
 - Continue with architecture discussion

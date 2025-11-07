@@ -12,7 +12,7 @@
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:Celtikill/static-site:*"
+          "token.actions.githubusercontent.com:sub": "repo:{GITHUB_REPO}:*"
         }
       }
     }

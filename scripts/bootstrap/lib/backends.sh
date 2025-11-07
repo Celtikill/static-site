@@ -142,10 +142,26 @@ create_terraform_backend() {
         log_info "DynamoDB table does not exist or check failed: $table_name"
     fi
 
-    # If resources exist, destroy and recreate (for demo/testing)
-    if [[ "$bucket_exists" == "true" ]] || [[ "$table_exists" == "true" ]]; then
-        log_warn "Backend resources already exist for $environment"
-        log_info "Destroying existing resources before recreating..."
+    # If resources exist, check if we should recreate them
+    if [[ "$bucket_exists" == "true" ]] && [[ "$table_exists" == "true" ]]; then
+        log_success "Backend resources already exist for $environment"
+        log_info "Bucket: $bucket_name"
+        log_info "Table: $table_name"
+        log_info "Skipping recreation to avoid AWS eventual consistency delays"
+
+        # Verify backend is functional
+        if s3_bucket_exists "$bucket_name" "$region" && dynamodb_table_exists "$table_name" "$region"; then
+            log_success "Backend verified and functional"
+            clear_assumed_role
+            return 0
+        else
+            log_warn "Backend verification failed, will attempt recreation"
+        fi
+    fi
+
+    # Only delete if explicitly recreating (controlled by RECREATE_BACKENDS env var)
+    if [[ "${RECREATE_BACKENDS:-false}" == "true" ]] && { [[ "$bucket_exists" == "true" ]] || [[ "$table_exists" == "true" ]]; }; then
+        log_warn "RECREATE_BACKENDS=true: Destroying existing resources before recreating..."
 
         # Delete KMS alias and key first (S3 bucket depends on it)
         local kms_alias="alias/${bucket_name}"
@@ -191,7 +207,7 @@ create_terraform_backend() {
     fi
 
     # Use existing Terraform bootstrap configuration
-    local bootstrap_dir="${BOOTSTRAP_DIR}/../../terraform/bootstrap"
+    local bootstrap_dir="${SCRIPT_DIR}/../../terraform/bootstrap"
 
     if [[ ! -d "$bootstrap_dir" ]]; then
         log_error "Bootstrap Terraform directory not found: $bootstrap_dir"
@@ -513,7 +529,7 @@ migrate_to_remote_backend() {
         return 1
     fi
 
-    local main_terraform_dir="${BOOTSTRAP_DIR}/../../terraform"
+    local main_terraform_dir="${SCRIPT_DIR}/../../terraform"
 
     if [[ ! -d "$main_terraform_dir" ]]; then
         log_error "Main Terraform directory not found: $main_terraform_dir"

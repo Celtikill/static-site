@@ -249,7 +249,7 @@ generate_deployment_policy() {
         "dynamodb:PutItem",
         "dynamodb:DeleteItem"
       ],
-      "Resource": "arn:aws:dynamodb:*:*:table/${PROJECT_SHORT_NAME}-locks-*"
+      "Resource": "arn:aws:dynamodb:*:*:table/${PROJECT_NAME}-locks-*"
     },
     {
       "Sid": "S3WebsiteBucketManagement",

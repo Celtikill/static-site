@@ -303,7 +303,7 @@ generate_verification_report() {
 
     cat > "$report_file" <<EOF
 {
-  "timestamp": "$(date -Iseconds)",
+  "timestamp": "$(get_iso_timestamp)",
   "organization": {
     "id": "$(aws organizations describe-organization --query 'Organization.Id' --output text 2>/dev/null || echo 'N/A')",
     "master_account": "$(aws organizations describe-organization --query 'Organization.MasterAccountId' --output text 2>/dev/null || echo 'N/A')"
@@ -323,9 +323,9 @@ generate_verification_report() {
     }
   },
   "backends": {
-    "dev": "static-site-state-dev-${DEV_ACCOUNT}",
-    "staging": "static-site-state-staging-${STAGING_ACCOUNT}",
-    "prod": "static-site-state-prod-${PROD_ACCOUNT}"
+    "dev": "${PROJECT_NAME}-state-dev-${DEV_ACCOUNT}",
+    "staging": "${PROJECT_NAME}-state-staging-${STAGING_ACCOUNT}",
+    "prod": "${PROJECT_NAME}-state-prod-${PROD_ACCOUNT}"
   },
   "github_repo": "$GITHUB_REPO",
   "bootstrap_version": "1.0.0"

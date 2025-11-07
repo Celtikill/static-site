@@ -31,6 +31,18 @@ log_step() {
     echo -e "\n${BOLD}${BLUE}→${NC} ${BOLD}$*${NC}" >&2
 }
 
+# Cross-platform ISO 8601 timestamp
+# Returns: YYYY-MM-DDTHH:MM:SS+TZ format compatible with both GNU and BSD date
+get_iso_timestamp() {
+    # Try GNU date first (Linux)
+    if date -Iseconds >/dev/null 2>&1; then
+        date -Iseconds
+    else
+        # Fall back to BSD date (macOS)
+        date -u +"%Y-%m-%dT%H:%M:%S+00:00"
+    fi
+}
+
 # =============================================================================
 # PROGRESS TRACKING
 # =============================================================================
@@ -70,7 +82,7 @@ write_report() {
     mkdir -p "$OUTPUT_DIR"
     cat > "$OUTPUT_DIR/bootstrap-report.json" <<EOF
 {
-  "timestamp": "$(date -Iseconds)",
+  "timestamp": "$(get_iso_timestamp)",
   "status": "$status",
   "duration_seconds": $duration,
   "stages_completed": $stages_done,
@@ -151,10 +163,15 @@ generate_console_urls_file() {
 
     mkdir -p "$OUTPUT_DIR"
 
+    # Generate console role switching URLs
+    local CONSOLE_URL_DEV="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-dev&account=${DEV_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-dev-readonly"
+    local CONSOLE_URL_STAGING="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-staging&account=${STAGING_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-staging-readonly"
+    local CONSOLE_URL_PROD="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-prod&account=${PROD_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-prod-readonly"
+
     cat > "$output_file" <<EOF
 ========================================================================
 AWS Console Role Switching URLs - ${PROJECT_NAME}
-Generated: $(date -Iseconds)
+Generated: $(get_iso_timestamp)
 ========================================================================
 
 READ-ONLY CONSOLE ACCESS:
@@ -201,6 +218,15 @@ enhance_bootstrap_report() {
 
     local report_file="$OUTPUT_DIR/bootstrap-report.json"
 
+    # Generate console URLs and role ARNs for report enhancement
+    local CONSOLE_URL_DEV="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-dev&account=${DEV_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-dev-readonly"
+    local CONSOLE_URL_STAGING="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-staging&account=${STAGING_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-staging-readonly"
+    local CONSOLE_URL_PROD="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-prod&account=${PROD_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-prod-readonly"
+
+    local GITHUB_ACTIONS_DEV_ROLE_ARN="arn:aws:iam::${DEV_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Dev-Role"
+    local GITHUB_ACTIONS_STAGING_ROLE_ARN="arn:aws:iam::${STAGING_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Staging-Role"
+    local GITHUB_ACTIONS_PROD_ROLE_ARN="arn:aws:iam::${PROD_ACCOUNT}:role/${IAM_ROLE_PREFIX}-Prod-Role"
+
     # Read existing report if it exists
     local existing_report=""
     if [[ -f "$report_file" ]]; then
@@ -208,7 +234,7 @@ enhance_bootstrap_report() {
     else
         # Create basic report structure if it doesn't exist
         existing_report='{
-  "timestamp": "'$(date -Iseconds)'",
+  "timestamp": "'$(get_iso_timestamp)'",
   "status": "success",
   "duration_seconds": 0,
   "stages_completed": 0,
