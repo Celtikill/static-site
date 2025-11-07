@@ -426,7 +426,7 @@ verify_configuration() {
     )
 
     for var in "${required_vars[@]}"; do
-        if gh variable list --repo "$TARGET_REPO" | grep -q "$var"; then
+        if gh variable list --repo "$TARGET_REPO" --limit 100 | grep -qw "$var"; then
             log_success "$var verified"
         else
             log_error "$var not found"
