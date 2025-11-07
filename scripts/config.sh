@@ -32,7 +32,7 @@ export AWS_PAGER=""
 # GitHub Actions: Set via vars.REPO_FULL_NAME (or use built-in github.repository)
 # Local/Script: Can also use GITHUB_REPO env var for backward compatibility
 # IMPORTANT: Replace OWNER/REPO with your actual repository (e.g., "YourOrg/your-repo")
-readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-Celtikill/static-site}}"
+readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-mhanyc/demo-cicd-terraform}}"
 
 # Repository owner (extracted from repository)
 # GitHub Actions: Set via vars.REPO_OWNER (or use built-in github.repository_owner)
@@ -43,14 +43,14 @@ readonly GITHUB_OWNER="${REPO_OWNER:-${GITHUB_OWNER:-${GITHUB_REPO%%/*}}}"
 # Example: "your-repo"
 # GitHub Actions: Set via vars.PROJECT_SHORT_NAME
 # IMPORTANT: Replace "my-project" with your actual project name
-readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:static-site}"
+readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:demo-cicd-terraform}"
 
 # Full project name (used for globally unique resources like S3 buckets)
 # Format: {owner-lowercase}-{repo-name}
 # Example: "yourorg-your-repo"
 # GitHub Actions: Set via vars.PROJECT_NAME
 # IMPORTANT: Replace "owner-demo-cicd-terraformmy-project" with your actual project (e.g., "yourorg-your-repo")
-readonly PROJECT_NAME="${PROJECT_NAME:-celtikill-static-site}"
+readonly PROJECT_NAME="${PROJECT_NAME:mhanyc-demo-cicd-terraform}"
 
 # Project OU name (extracted from repository name)
 readonly PROJECT_OU_NAME="${GITHUB_REPO##*/}"
