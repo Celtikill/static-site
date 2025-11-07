@@ -34,7 +34,8 @@ variable "aws_account_id_management" {
 variable "default_region" {
   description = "Default AWS region"
   type        = string
-  default     = "us-east-1"
+  # No default - must be provided by TF_VAR_default_region from workflow
+  # This ensures fork-friendly, externalized configuration (12-factor app)
 }
 
 variable "github_repository" {

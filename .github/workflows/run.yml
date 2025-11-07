@@ -54,6 +54,7 @@ env:
 
   # Terraform Variables (pass to Terraform via TF_VAR_ prefix)
   TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+  TF_VAR_default_region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
 
 concurrency:
   # Ensure per-environment serialization to prevent Terraform state lock conflicts
@@ -398,8 +399,8 @@ jobs:
           echo "🔍 Checking for existing KMS alias..."
           KMS_ALIAS="alias/${PROJECT_NAME}-${TARGET_ENV}"
 
-          # Check if alias exists in AWS
-          if aws kms describe-alias --alias-name "$KMS_ALIAS" --region "${AWS_REGION}" 2>/dev/null; then
+          # Check if alias exists in AWS (use same region as Terraform)
+          if aws kms describe-alias --alias-name "$KMS_ALIAS" --region "${{ vars.AWS_DEFAULT_REGION }}" 2>/dev/null; then
             echo "📦 KMS alias $KMS_ALIAS exists in AWS"
 
             # Check if it's in Terraform state
