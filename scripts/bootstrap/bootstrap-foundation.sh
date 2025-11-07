@@ -364,18 +364,21 @@ See workflow documentation: ${BLUE}.github/workflows/README.md${NC}
 
 ${BOLD}Verification:${NC}
 EOF
+)"
 
     if [[ "$SKIP_VERIFICATION" != "true" ]]; then
-        cat <<EOF
+        printf '%b\n' "$(cat <<EOF
   Verification report: ${OUTPUT_DIR}/verification-report.json
   Test results: See output above
 EOF
+)"
     else
-        cat <<EOF
+        printf '%b\n' "$(cat <<EOF
   ${YELLOW}Verification skipped (--skip-verify flag used)${NC}
   Run verification manually:
   ${BLUE}./scripts/bootstrap/lib/verify.sh${NC}
 EOF
+)"
     fi
 
     echo ""

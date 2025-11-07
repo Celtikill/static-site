@@ -172,7 +172,7 @@ main() {
 
     print_summary "Organization Bootstrap Complete"
 
-    cat <<EOF
+    printf '%b\n' "$(cat <<EOF
 ${BOLD}Organization Structure Created:${NC}
 
 Management Account: ${MGMT_ACCOUNT}
