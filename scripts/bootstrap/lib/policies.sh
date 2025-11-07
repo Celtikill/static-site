@@ -36,6 +36,9 @@ generate_policy_from_template() {
     content=$(echo "$content" | sed "s|{AWS_DEFAULT_REGION}|${AWS_DEFAULT_REGION}|g")
     content=$(echo "$content" | sed "s|{MANAGEMENT_ACCOUNT_ID}|${MANAGEMENT_ACCOUNT_ID}|g")
     content=$(echo "$content" | sed "s|{ACCOUNT_ID}|${account_id}|g")
+    content=$(echo "$content" | sed "s|{DEV_ACCOUNT}|${DEV_ACCOUNT}|g")
+    content=$(echo "$content" | sed "s|{STAGING_ACCOUNT}|${STAGING_ACCOUNT}|g")
+    content=$(echo "$content" | sed "s|{PROD_ACCOUNT}|${PROD_ACCOUNT}|g")
 
     # Validate JSON
     if ! echo "$content" | jq empty 2>/dev/null; then

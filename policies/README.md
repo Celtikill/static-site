@@ -57,9 +57,10 @@ This directory contains policy examples and templates used throughout the AWS St
 
 | File | Attached To | Purpose |
 |------|-------------|---------|
-| `iam-github-actions-oidc-trust.json` | GitHub Actions roles | OIDC trust policy template |
+| `iam-github-actions-oidc-trust.json.tpl` | GitHub Actions roles | OIDC trust policy template |
 | `iam-github-actions-deployment.json` | GitHub Actions roles | Infrastructure deployment permissions |
 | `iam-readonly-console-trust.json` | Read-only console roles | Cross-account console access trust |
+| `iam-management-user-cross-account-assume.json.tpl` | Management account users | Cross-account role assumption policy |
 | `iam-terraform-state.json` | Deployment roles | S3/DynamoDB state access |
 | `iam-static-website.json` | Deployment roles | Infrastructure management |
 
@@ -67,6 +68,38 @@ This directory contains policy examples and templates used throughout the AWS St
 - ✅ `GitHubActions-Static-site-{env}` - GitHub Actions OIDC deployment role
 - ✅ `static-site-ReadOnly-{env}` - Read-only console access role
 - ✅ AWS ReadOnlyAccess (managed policy) - Attached to console access roles
+
+**Management Account User Policy**:
+
+The `iam-management-user-cross-account-assume.json.tpl` template generates a policy that grants IAM users in the management account permission to assume the read-only console roles in dev, staging, and prod environments.
+
+**Why This Is Needed**:
+Cross-account role assumption requires TWO things:
+1. Trust policy on the target role (automatically configured) ✅
+2. Permission policy on the source identity (MUST be manually applied) ⚠️
+
+Without the permission policy, users get: *"The selected session doesn't have permission to switch to that role"*
+
+**How to Apply**:
+```bash
+# The policy is generated during bootstrap
+cat scripts/bootstrap/output/policies/iam-management-user-cross-account-assume.json
+
+# Create the policy in the management account
+aws iam create-policy \
+  --policy-name static-site-CrossAccountRoleAssumePolicy \
+  --policy-document file://scripts/bootstrap/output/policies/iam-management-user-cross-account-assume.json
+
+# Attach to a user
+aws iam attach-user-policy \
+  --user-name YOUR_USERNAME \
+  --policy-arn arn:aws:iam::MANAGEMENT_ACCOUNT_ID:policy/static-site-CrossAccountRoleAssumePolicy
+
+# Or attach to a group (recommended for multiple engineers)
+aws iam attach-group-policy \
+  --group-name Engineers \
+  --policy-arn arn:aws:iam::MANAGEMENT_ACCOUNT_ID:policy/static-site-CrossAccountRoleAssumePolicy
+```
 
 ### 4. S3 Bucket Policies (`.json`)
 **Purpose**: S3 bucket access control
@@ -87,9 +120,10 @@ This directory contains policy examples and templates used throughout the AWS St
 - `conftest.yaml` - Configuration for Conftest policy runner
 - `scp-workload-guardrails.json` - Example SCP for workload accounts
 - `scp-sandbox-restrictions.json` - Example SCP for sandbox accounts
-- `iam-github-actions-oidc-trust.json` - OIDC trust policy for GitHub Actions roles
+- `iam-github-actions-oidc-trust.json.tpl` - OIDC trust policy template for GitHub Actions roles
 - `iam-github-actions-deployment.json` - Deployment permissions for GitHub Actions roles
 - `iam-readonly-console-trust.json` - Trust policy for read-only console access roles
+- `iam-management-user-cross-account-assume.json.tpl` - Cross-account assume role policy template for management account users
 - `iam-terraform-state.json` - Example IAM policy for state management
 - `iam-static-website.json` - Example IAM policy for infrastructure
 - `s3-state-bucket-policy.json` - Template for state bucket access

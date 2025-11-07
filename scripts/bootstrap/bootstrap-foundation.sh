@@ -360,6 +360,30 @@ ${YELLOW}Bookmark these URLs in your browser for quick access${NC}
 
 Console URLs also saved to: ${OUTPUT_DIR}/console-urls.txt
 
+${BOLD}Management Account User Permissions:${NC}
+
+${YELLOW}IMPORTANT: IAM users in the management account need permissions to assume these roles!${NC}
+
+A policy has been generated for you:
+  ${OUTPUT_DIR}/policies/iam-management-user-cross-account-assume.json
+
+To enable console role switching for IAM users:
+
+1. ${BOLD}Create IAM Policy in Management Account:${NC}
+   - Go to IAM Console → Policies → Create Policy
+   - Use JSON from file above
+   - Name it: ${PROJECT_SHORT_NAME}-CrossAccountRoleAssumePolicy
+
+2. ${BOLD}Attach Policy to Users or Groups:${NC}
+   ${BLUE}aws iam attach-user-policy --user-name YOUR_USERNAME \\
+     --policy-arn arn:aws:iam::${MANAGEMENT_ACCOUNT_ID}:policy/${PROJECT_SHORT_NAME}-CrossAccountRoleAssumePolicy${NC}
+
+   Or attach to a group for all engineers:
+   ${BLUE}aws iam attach-group-policy --group-name Engineers \\
+     --policy-arn arn:aws:iam::${MANAGEMENT_ACCOUNT_ID}:policy/${PROJECT_SHORT_NAME}-CrossAccountRoleAssumePolicy${NC}
+
+${YELLOW}Without this policy, users will get "selected session doesn't have permission" errors!${NC}
+
 ${BOLD}Next Steps:${NC}
 
 1. Review bootstrap outputs:
