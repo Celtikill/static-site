@@ -261,8 +261,11 @@ destroy_buckets_in_region() {
     log_info "Searching for $env environment buckets in $region..."
 
     # Pattern variations to catch all possible bucket names
+    # Include both PROJECT_NAME and known hardcoded names for robustness
     local patterns=(
         "${PROJECT_NAME}-${env}-"
+        "celtikill-static-site-${env}-"
+        "static-website-${env}-"
     )
 
     local found=0
