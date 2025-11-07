@@ -348,6 +348,8 @@ resource "aws_kms_alias" "main" {
 
   lifecycle {
     create_before_destroy = true
+    # Ignore if alias exists pointing to a different key (handles state drift)
+    ignore_changes = [target_key_id]
   }
 }
 

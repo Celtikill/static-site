@@ -199,6 +199,7 @@ resource "aws_iam_role_policy" "deployment" {
         ]
         Resource = [
           "arn:aws:iam::*:role/${var.project_short_name}-*",
+          "arn:aws:iam::*:role/${var.project_name}-*",
           "arn:aws:iam::*:role/github-actions-workload-deployment"
         ]
       },
