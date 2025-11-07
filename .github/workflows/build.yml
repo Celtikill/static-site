@@ -36,9 +36,9 @@ env:
   # Project Identity (use built-in GitHub context vars)
   REPO_FULL_NAME: ${{ github.repository }}
   REPO_OWNER: ${{ github.repository_owner }}
-  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'celtikill-static-site' }}
-  PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME || 'static-site' }}
-  EXTERNAL_ID: ${{ vars.EXTERNAL_ID || 'github-actions-static-site' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+  PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME }}
+  EXTERNAL_ID: ${{ vars.EXTERNAL_ID }}
 
   # Infrastructure Tools
   OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION || '1.8.4' }}
