@@ -656,6 +656,11 @@ destroy_iam_roles_via_terraform() {
         -var="dev_account_id=$DEV_ACCOUNT" \
         -var="staging_account_id=$STAGING_ACCOUNT" \
         -var="prod_account_id=$PROD_ACCOUNT" \
+        -var="project_name=$PROJECT_NAME" \
+        -var="management_account_id=$MANAGEMENT_ACCOUNT_ID" \
+        -var="github_repo=$GITHUB_REPO" \
+        -var="project_short_name=$PROJECT_SHORT_NAME" \
+        -var="role_name_prefix=GitHubActions" \
         > "$OUTPUT_DIR/terraform-iam-destroy.log" 2>&1; then
         log_success "IAM roles destroyed successfully"
         popd > /dev/null
