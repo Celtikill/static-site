@@ -375,7 +375,6 @@ delete_terraform_state() {
 # Delete IAM roles created by Terraform (prevents EntityAlreadyExists errors)
 delete_iam_roles() {
     local env=$1
-    local region=$2
 
     log_info "Deleting IAM roles (fixes EntityAlreadyExists errors)..."
 
@@ -387,15 +386,14 @@ delete_iam_roles() {
     for role_name in "${role_names[@]}"; do
         log_debug "  Checking role: $role_name"
 
-        # Check if role exists
-        if aws iam get-role --role-name "$role_name" --region "$region" 2>/dev/null >/dev/null; then
+        # Check if role exists (IAM is global, no region needed)
+        if aws iam get-role --role-name "$role_name" 2>/dev/null >/dev/null; then
             log_info "  Deleting role: $role_name"
 
             # Detach all managed policies first
             local attached_policies
             attached_policies=$(aws iam list-attached-role-policies \
                 --role-name "$role_name" \
-                --region "$region" \
                 --query 'AttachedPolicies[].PolicyArn' \
                 --output text 2>/dev/null || echo "")
 
@@ -405,8 +403,7 @@ delete_iam_roles() {
                         log_debug "    Detaching policy: $policy_arn"
                         aws iam detach-role-policy \
                             --role-name "$role_name" \
-                            --policy-arn "$policy_arn" \
-                            --region "$region" 2>/dev/null || true
+                            --policy-arn "$policy_arn" 2>/dev/null || true
                     fi
                 done
             fi
@@ -415,7 +412,6 @@ delete_iam_roles() {
             local inline_policies
             inline_policies=$(aws iam list-role-policies \
                 --role-name "$role_name" \
-                --region "$region" \
                 --query 'PolicyNames' \
                 --output text 2>/dev/null || echo "")
 
@@ -425,14 +421,13 @@ delete_iam_roles() {
                         log_debug "    Deleting inline policy: $policy_name"
                         aws iam delete-role-policy \
                             --role-name "$role_name" \
-                            --policy-name "$policy_name" \
-                            --region "$region" 2>/dev/null || true
+                            --policy-name "$policy_name" 2>/dev/null || true
                     fi
                 done
             fi
 
             # Delete the role
-            if aws iam delete-role --role-name "$role_name" --region "$region" 2>/dev/null; then
+            if aws iam delete-role --role-name "$role_name" 2>/dev/null; then
                 log_info "  ✓ Deleted role: $role_name"
             else
                 log_warn "  Failed to delete role: $role_name"
@@ -476,7 +471,7 @@ cleanup_environment() {
     destroy_buckets_in_region "$env" "us-east-2"
 
     # Delete IAM roles created by Terraform
-    delete_iam_roles "$env" "${AWS_DEFAULT_REGION}"
+    delete_iam_roles "$env"
 
     # Delete Terraform state file
     delete_terraform_state "$env" "$account_id" "${AWS_DEFAULT_REGION}"
