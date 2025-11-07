@@ -276,6 +276,12 @@ module "cloudfront" {
 module "monitoring" {
   source = "../../modules/observability/monitoring"
 
+  # Explicitly use primary region provider (not cloudfront provider)
+  # This ensures monitoring resources (SNS, CloudWatch) are created in the primary region
+  providers = {
+    aws = aws
+  }
+
   project_name                    = local.project_name
   environment                     = var.environment
   cloudfront_distribution_id      = var.enable_cloudfront ? module.cloudfront[0].distribution_id : ""
@@ -397,6 +403,12 @@ resource "aws_route53_health_check" "website" {
 # Cost Projection Module - Automated cost calculations and budget tracking
 module "cost_projection" {
   source = "../../modules/observability/cost-projection"
+
+  # Explicitly use primary region provider
+  # Cost and budget resources are regional and should be in the primary region
+  providers = {
+    aws = aws
+  }
 
   # Environment configuration
   environment  = var.environment
