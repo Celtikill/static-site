@@ -193,7 +193,9 @@ module "s3" {
   replication_role_arn        = var.enable_cross_region_replication ? aws_iam_role.s3_replication[0].arn : ""
   common_tags                 = local.common_tags
 
+  # Explicitly configure both primary and replica providers
   providers = {
+    aws         = aws
     aws.replica = aws.replica
   }
 }
@@ -275,6 +277,12 @@ module "cloudfront" {
 # Monitoring Module - Comprehensive observability and alerting
 module "monitoring" {
   source = "../../modules/observability/monitoring"
+
+  # Explicitly use primary region provider (not cloudfront provider)
+  # This ensures monitoring resources (SNS, CloudWatch) are created in the primary region
+  providers = {
+    aws = aws
+  }
 
   project_name                    = local.project_name
   environment                     = var.environment
@@ -397,6 +405,12 @@ resource "aws_route53_health_check" "website" {
 # Cost Projection Module - Automated cost calculations and budget tracking
 module "cost_projection" {
   source = "../../modules/observability/cost-projection"
+
+  # Explicitly use primary region provider
+  # Cost and budget resources are regional and should be in the primary region
+  providers = {
+    aws = aws
+  }
 
   # Environment configuration
   environment  = var.environment
