@@ -355,15 +355,20 @@ delete_terraform_state() {
     fi
 
     # Clean up DynamoDB lock table entry if it exists
-    local lock_table="${PROJECT_NAME}-locks-${env}-${account_id}"
-    local lock_id="celtikill-static-site-state-${env}-${account_id}/environments/${env}/terraform.tfstate-md5"
+    local lock_table="${PROJECT_NAME}-locks-${env}"
+    local lock_id="${PROJECT_NAME}-state-${env}-${account_id}/environments/${env}/terraform.tfstate-md5"
 
-    log_debug "  Checking for lock table entry..."
+    log_info "  Clearing DynamoDB lock table entry (fixes digest mismatch errors)..."
+    log_debug "    Table: $lock_table"
+    log_debug "    LockID: $lock_id"
+
     if aws dynamodb delete-item \
         --table-name "$lock_table" \
         --key "{\"LockID\": {\"S\": \"${lock_id}\"}}" \
         --region "$region" 2>/dev/null; then
-        log_debug "  ✓ Cleared lock table entry"
+        log_info "  ✓ Cleared lock table digest entry"
+    else
+        log_debug "  No lock table entry found (or already cleared)"
     fi
 }
 
