@@ -398,7 +398,7 @@ verify_configuration() {
 
     # Check secrets
     log_info "Verifying secrets..."
-    if gh secret list --repo "$TARGET_REPO" --limit 100 | grep -qw "AWS_ASSUME_ROLE_CENTRAL"; then
+    if gh secret list --repo "$TARGET_REPO" | grep -qw "AWS_ASSUME_ROLE_CENTRAL"; then
         log_success "AWS_ASSUME_ROLE_CENTRAL verified"
     else
         log_error "AWS_ASSUME_ROLE_CENTRAL not found"
@@ -426,7 +426,7 @@ verify_configuration() {
     )
 
     for var in "${required_vars[@]}"; do
-        if gh variable list --repo "$TARGET_REPO" --limit 100 | grep -qw "$var"; then
+        if gh variable list --repo "$TARGET_REPO" | grep -qw "$var"; then
             log_success "$var verified"
         else
             log_error "$var not found"
