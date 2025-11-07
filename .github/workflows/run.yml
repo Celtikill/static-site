@@ -214,7 +214,7 @@ jobs:
   deploy_infrastructure:
     name: "🏗️ Infrastructure Deployment"
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 30
     needs: [info, setup]
     if: always() && needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
     env:
@@ -394,7 +394,29 @@ jobs:
             -backend-config="dynamodb_table=${LOCK_TABLE}" \
             -backend-config="encrypt=true"
 
-          # Plan deployment with retry logic
+          # Check for existing KMS alias and import if needed (prevents AlreadyExistsException)
+          echo "🔍 Checking for existing KMS alias..."
+          KMS_ALIAS="alias/${PROJECT_NAME}-${TARGET_ENV}"
+
+          # Check if alias exists in AWS
+          if aws kms describe-alias --alias-name "$KMS_ALIAS" --region "${AWS_REGION}" 2>/dev/null; then
+            echo "📦 KMS alias $KMS_ALIAS exists in AWS"
+
+            # Check if it's in Terraform state
+            if ! tofu state show 'module.static_website.aws_kms_alias.main[0]' 2>/dev/null; then
+              echo "📥 Importing existing KMS alias into Terraform state..."
+              if tofu import 'module.static_website.aws_kms_alias.main[0]' "$KMS_ALIAS"; then
+                echo "✅ KMS alias imported successfully"
+              else
+                echo "⚠️ Failed to import KMS alias, deployment may encounter issues"
+              fi
+            else
+              echo "✅ KMS alias already in Terraform state"
+            fi
+          else
+            echo "ℹ️ KMS alias does not exist, will be created"
+          fi
+
           # Deploy infrastructure with integrated plan+apply retry logic
           echo "🚀 Starting infrastructure deployment..."
           if ! retry_terraform_deployment; then
