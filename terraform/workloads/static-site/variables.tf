@@ -62,7 +62,7 @@ variable "force_destroy_bucket" {
 variable "enable_versioning" {
   description = "Enable S3 bucket versioning"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "enable_cross_region_replication" {
