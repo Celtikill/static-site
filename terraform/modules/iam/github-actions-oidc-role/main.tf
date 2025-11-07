@@ -212,7 +212,10 @@ resource "aws_iam_role_policy" "deployment" {
           "sns:List*",
           "sns:*Tag*"
         ]
-        Resource = "arn:aws:sns:*:*:${var.project_name}-website-*"
+        Resource = [
+          "arn:aws:sns:*:*:${var.project_name}-alerts",
+          "arn:aws:sns:*:*:${var.project_name}-website-*"
+        ]
       },
       {
         Sid    = "BudgetManagement"
