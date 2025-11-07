@@ -398,7 +398,7 @@ verify_configuration() {
 
     # Check secrets
     log_info "Verifying secrets..."
-    if gh secret list --repo "$TARGET_REPO" | grep -q "AWS_ASSUME_ROLE_CENTRAL"; then
+    if gh secret list --repo "$TARGET_REPO" --limit 100 | grep -qw "AWS_ASSUME_ROLE_CENTRAL"; then
         log_success "AWS_ASSUME_ROLE_CENTRAL verified"
     else
         log_error "AWS_ASSUME_ROLE_CENTRAL not found"
