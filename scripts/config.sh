@@ -50,7 +50,7 @@ readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:-demo-cicd-terraform}"
 # Example: "yourorg-your-repo"
 # GitHub Actions: Set via vars.PROJECT_NAME
 # IMPORTANT: Replace "owner-demo-cicd-terraformmy-project" with your actual project (e.g., "yourorg-your-repo")
-readonly PROJECT_NAME="${PROJECT_NAME:- eoin-demo-cicd-terraform}"
+readonly PROJECT_NAME="${PROJECT_NAME:-eoin-demo-cicd-terraform}"
 
 # Project OU name (extracted from repository name)
 readonly PROJECT_OU_NAME="${GITHUB_REPO##*/}"
