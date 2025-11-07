@@ -19,6 +19,7 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly CONFIG_FILE="${SCRIPT_DIR}/../config.sh"
+readonly ACCOUNTS_FILE="${SCRIPT_DIR}/../bootstrap/accounts.json"
 
 # Source unified configuration if available (includes color codes)
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -40,6 +41,28 @@ else
     else
         readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
     fi
+fi
+
+# Load account IDs from accounts.json (created during bootstrap)
+# This makes the script truly fork-friendly - no hardcoded account IDs needed
+if [[ -f "$ACCOUNTS_FILE" ]]; then
+    log_debug() {
+        if [[ "${DEBUG:-}" == "true" ]]; then
+            echo -e "${BLUE:-}[DEBUG]${NC:-} $*" >&2
+        fi
+    }
+    log_debug "Loading account IDs from $ACCOUNTS_FILE"
+
+    # Read account IDs from JSON file
+    MANAGEMENT_ACCOUNT_ID=$(jq -r '.management // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+    AWS_ACCOUNT_ID_DEV=$(jq -r '.dev // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+    AWS_ACCOUNT_ID_STAGING=$(jq -r '.staging // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+    AWS_ACCOUNT_ID_PROD=$(jq -r '.prod // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+
+    # Export for use in functions
+    export MANAGEMENT_ACCOUNT_ID AWS_ACCOUNT_ID_DEV AWS_ACCOUNT_ID_STAGING AWS_ACCOUNT_ID_PROD
+
+    log_debug "Loaded management account: ${MANAGEMENT_ACCOUNT_ID:-not found}"
 fi
 
 # =============================================================================
@@ -472,6 +495,17 @@ main() {
         exit 1
     fi
 
+    # Verify accounts.json exists (created during bootstrap)
+    if [[ ! -f "$ACCOUNTS_FILE" ]]; then
+        log_error "accounts.json not found at: $ACCOUNTS_FILE"
+        log_error ""
+        log_error "This file is created during bootstrap. Please run:"
+        log_error "  ./scripts/bootstrap/bootstrap-organization.sh"
+        log_error ""
+        log_error "For forks: ensure you've run the bootstrap process in your forked environment"
+        exit 1
+    fi
+
     echo -e "${BOLD}Cross-Account Infrastructure Cleanup${NC}"
     echo "========================================="
     echo ""
@@ -496,6 +530,22 @@ main() {
     local current_account
     current_account=$(aws sts get-caller-identity --query 'Account' --output text 2>&1)
     log_info "Current AWS Account: $current_account"
+
+    # Verify running from management account (required for cross-account role assumption)
+    if [[ -n "${MANAGEMENT_ACCOUNT_ID}" ]] && [[ "$current_account" != "${MANAGEMENT_ACCOUNT_ID}" ]]; then
+        log_error "This script must run from the management account (${MANAGEMENT_ACCOUNT_ID})"
+        log_error "Current account: $current_account"
+        log_error ""
+        log_error "Please ensure your AWS CLI is configured with management account credentials"
+        log_error "Example: unset AWS_PROFILE or use: export AWS_PROFILE=<management-account-profile>"
+        exit 1
+    fi
+
+    if [[ -z "${MANAGEMENT_ACCOUNT_ID}" ]]; then
+        log_warn "Management account ID not found in accounts.json"
+        log_warn "Proceeding without management account validation"
+        log_warn "This may fail if cross-account role assumption is required"
+    fi
 
     # Execute cleanup based on environment
     case "$environment" in
