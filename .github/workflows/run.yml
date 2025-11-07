@@ -42,15 +42,18 @@ env:
   # Project Identity (use built-in GitHub context vars)
   REPO_FULL_NAME: ${{ github.repository }}
   REPO_OWNER: ${{ github.repository_owner }}
-  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'celtikill-static-site' }}
-  PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME || 'static-site' }}
-  EXTERNAL_ID: ${{ vars.EXTERNAL_ID || 'github-actions-static-site' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+  PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME }}
+  EXTERNAL_ID: ${{ vars.EXTERNAL_ID }}
 
   # Infrastructure Tools
   OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION || '1.8.4' }}
   TF_IN_AUTOMATION: true
   TF_CLI_ARGS: "-no-color"
   NO_COLOR: 1
+
+  # Terraform Variables (pass to Terraform via TF_VAR_ prefix)
+  TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
 
 concurrency:
   # Ensure per-environment serialization to prevent Terraform state lock conflicts
@@ -211,7 +214,7 @@ jobs:
   deploy_infrastructure:
     name: "🏗️ Infrastructure Deployment"
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 30
     needs: [info, setup]
     if: always() && needs.info.result == 'success' && needs.setup.result == 'success' && needs.info.outputs.deploy_infrastructure == 'true'
     env:
@@ -263,12 +266,17 @@ jobs:
             while [ $attempt -le $max_attempts ]; do
               echo "⏳ Attempt $attempt/$max_attempts..."
 
-              if timeout ${timeout_duration}s "$@"; then
+              # Run command with timeout and capture exit code properly
+              set +e  # Temporarily disable exit-on-error to capture exit code
+              timeout ${timeout_duration}s "$@"
+              local exit_code=$?
+              set -e  # Re-enable exit-on-error
+
+              if [ $exit_code -eq 0 ]; then
                 echo "✅ Command succeeded on attempt $attempt"
                 return 0
               fi
 
-              local exit_code=$?
               if [ $exit_code -eq 124 ]; then
                 echo "⚠️ Command timed out after ${timeout_duration}s"
               else
@@ -287,6 +295,74 @@ jobs:
               fi
             done
             # Should never reach here, but return failure if we do
+            return 1
+          }
+
+          # Terraform plan+apply retry function (creates fresh plan each attempt)
+          retry_terraform_deployment() {
+            local max_attempts=3
+            local attempt=1
+            local delay=10
+
+            while [ $attempt -le $max_attempts ]; do
+              echo "🔄 Terraform deployment attempt $attempt/$max_attempts..."
+
+              # Create fresh plan on each attempt (prevents stale plan errors)
+              echo "📋 Creating deployment plan (attempt $attempt)..."
+              set +e
+              timeout 300s tofu plan -no-color -out=deployment-attempt-$attempt.tfplan
+              local plan_exit=$?
+              set -e
+
+              if [ $plan_exit -ne 0 ]; then
+                if [ $plan_exit -eq 124 ]; then
+                  echo "⚠️ Plan timed out after 300s"
+                else
+                  echo "⚠️ Plan failed with exit code $plan_exit"
+                fi
+
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "⏳ Waiting ${delay}s before retry..."
+                  sleep $delay
+                  delay=$((delay * 2))
+                  attempt=$((attempt + 1))
+                  continue
+                else
+                  echo "❌ All plan attempts exhausted"
+                  return $plan_exit
+                fi
+              fi
+
+              # Apply the fresh plan
+              echo "🚀 Applying infrastructure changes (attempt $attempt)..."
+              set +e
+              timeout 180s tofu apply -no-color -auto-approve deployment-attempt-$attempt.tfplan
+              local apply_exit=$?
+              set -e
+
+              if [ $apply_exit -eq 0 ]; then
+                echo "✅ Apply succeeded on attempt $attempt"
+                return 0
+              fi
+
+              if [ $apply_exit -eq 124 ]; then
+                echo "⚠️ Apply timed out after 180s"
+              else
+                echo "⚠️ Apply failed with exit code $apply_exit"
+              fi
+
+              if [ $attempt -lt $max_attempts ]; then
+                echo "⏳ Waiting ${delay}s before retry..."
+                sleep $delay
+                delay=$((delay * 2))
+                attempt=$((attempt + 1))
+              else
+                echo "❌ All apply attempts exhausted"
+                return $apply_exit
+              fi
+            done
+
+            # Should never reach here
             return 1
           }
 
@@ -318,27 +394,39 @@ jobs:
             -backend-config="dynamodb_table=${LOCK_TABLE}" \
             -backend-config="encrypt=true"
 
-          # Plan deployment with retry logic
-          echo "📋 Creating deployment plan..."
-          if ! retry_with_backoff 300 tofu plan -no-color -out=deployment.tfplan; then
-            PLAN_EXIT_CODE=$?
-            echo "❌ Failed to create deployment plan (exit code: $PLAN_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
-            echo "deployment_status=failed" >> $GITHUB_OUTPUT
-            echo "::error::Terraform plan failed with exit code $PLAN_EXIT_CODE"
-            exit 1
-          fi
-          echo "✅ Deployment plan created successfully" >> $GITHUB_STEP_SUMMARY
+          # Check for existing KMS alias and import if needed (prevents AlreadyExistsException)
+          echo "🔍 Checking for existing KMS alias..."
+          KMS_ALIAS="alias/${PROJECT_NAME}-${TARGET_ENV}"
 
-          # Apply deployment with retry logic
-          echo "🚀 Applying infrastructure changes..."
-          if ! retry_with_backoff 180 tofu apply -no-color -auto-approve deployment.tfplan; then
-            APPLY_EXIT_CODE=$?
-            echo "❌ Failed to apply infrastructure changes (exit code: $APPLY_EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
+          # Check if alias exists in AWS
+          if aws kms describe-alias --alias-name "$KMS_ALIAS" --region "${AWS_REGION}" 2>/dev/null; then
+            echo "📦 KMS alias $KMS_ALIAS exists in AWS"
+
+            # Check if it's in Terraform state
+            if ! tofu state show 'module.static_website.aws_kms_alias.main[0]' 2>/dev/null; then
+              echo "📥 Importing existing KMS alias into Terraform state..."
+              if tofu import 'module.static_website.aws_kms_alias.main[0]' "$KMS_ALIAS"; then
+                echo "✅ KMS alias imported successfully"
+              else
+                echo "⚠️ Failed to import KMS alias, deployment may encounter issues"
+              fi
+            else
+              echo "✅ KMS alias already in Terraform state"
+            fi
+          else
+            echo "ℹ️ KMS alias does not exist, will be created"
+          fi
+
+          # Deploy infrastructure with integrated plan+apply retry logic
+          echo "🚀 Starting infrastructure deployment..."
+          if ! retry_terraform_deployment; then
+            EXIT_CODE=$?
+            echo "❌ Failed to deploy infrastructure (exit code: $EXIT_CODE)" >> $GITHUB_STEP_SUMMARY
             echo "deployment_status=failed" >> $GITHUB_OUTPUT
-            echo "::error::Terraform apply failed with exit code $APPLY_EXIT_CODE"
+            echo "::error::Terraform deployment failed with exit code $EXIT_CODE"
             exit 1
           fi
-          echo "✅ Infrastructure changes applied successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Infrastructure deployment completed successfully" >> $GITHUB_STEP_SUMMARY
 
           # Get outputs (filter out warnings)
           echo "📊 Retrieving infrastructure outputs..."

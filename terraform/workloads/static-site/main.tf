@@ -32,7 +32,7 @@ data "aws_region" "current" {}
 # S3 Replication IAM Role for cross-region replication
 resource "aws_iam_role" "s3_replication" {
   count = var.enable_cross_region_replication ? 1 : 0
-  name  = "static-site-s3-replication"
+  name  = "${var.project_name}-s3-replication"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -48,7 +48,7 @@ resource "aws_iam_role" "s3_replication" {
             "aws:SourceAccount" = data.aws_caller_identity.current.account_id
           }
           StringLike = {
-            "aws:SourceArn" = "arn:aws:s3:::*static-site*"
+            "aws:SourceArn" = "arn:aws:s3:::${var.project_name}*"
           }
         }
       }
@@ -61,7 +61,7 @@ resource "aws_iam_role" "s3_replication" {
 # IAM Policy for S3 Replication Role
 resource "aws_iam_role_policy" "s3_replication_policy" {
   count = var.enable_cross_region_replication ? 1 : 0
-  name  = "static-site-s3-replication-policy"
+  name  = "${var.project_name}-s3-replication-policy"
   role  = aws_iam_role.s3_replication[0].id
 
   policy = jsonencode({
@@ -75,7 +75,7 @@ resource "aws_iam_role_policy" "s3_replication_policy" {
           "s3:GetObjectVersionAcl"
         ]
         Resource = [
-          "arn:aws:s3:::static-site-${var.environment}-*/*"
+          "arn:aws:s3:::${var.project_name}-${var.environment}-*/*"
         ]
       },
       {
@@ -86,7 +86,7 @@ resource "aws_iam_role_policy" "s3_replication_policy" {
           "s3:ReplicateDelete"
         ]
         Resource = [
-          "arn:aws:s3:::static-site-${var.environment}-*/*"
+          "arn:aws:s3:::${var.project_name}-${var.environment}-*/*"
         ]
       },
       {
@@ -96,7 +96,7 @@ resource "aws_iam_role_policy" "s3_replication_policy" {
           "s3:ListBucket"
         ]
         Resource = [
-          "arn:aws:s3:::static-site-${var.environment}-*"
+          "arn:aws:s3:::${var.project_name}-${var.environment}-*"
         ]
       }
     ]

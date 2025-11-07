@@ -31,7 +31,8 @@ export AWS_PAGER=""
 # Example: "YourOrg/your-repo"
 # GitHub Actions: Set via vars.REPO_FULL_NAME (or use built-in github.repository)
 # Local/Script: Can also use GITHUB_REPO env var for backward compatibility
-readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-Celtikill/static-site}}"
+# IMPORTANT: Replace OWNER/REPO with your actual repository (e.g., "YourOrg/your-repo")
+readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-mhanyc/demo-cicd-terraform}}"
 
 # Repository owner (extracted from repository)
 # GitHub Actions: Set via vars.REPO_OWNER (or use built-in github.repository_owner)
@@ -41,19 +42,22 @@ readonly GITHUB_OWNER="${REPO_OWNER:-${GITHUB_OWNER:-${GITHUB_REPO%%/*}}}"
 # Short project name (used for resource naming within accounts)
 # Example: "your-repo"
 # GitHub Actions: Set via vars.PROJECT_SHORT_NAME
-readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:-static-site}"
+# IMPORTANT: Replace "my-project" with your actual project name
+readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:-demo-cicd-terraform}"
 
 # Full project name (used for globally unique resources like S3 buckets)
 # Format: {owner-lowercase}-{repo-name}
 # Example: "yourorg-your-repo"
 # GitHub Actions: Set via vars.PROJECT_NAME
-readonly PROJECT_NAME="${PROJECT_NAME:-celtikill-static-site}"
+# IMPORTANT: Replace "owner-demo-cicd-terraformmy-project" with your actual project (e.g., "yourorg-your-repo")
+readonly PROJECT_NAME="${PROJECT_NAME:-eoin-demo-cicd-terraform}"
 
 # Project OU name (extracted from repository name)
 readonly PROJECT_OU_NAME="${GITHUB_REPO##*/}"
 
 # External ID for cross-account role assumption
 # GitHub Actions: Set via vars.EXTERNAL_ID
+# Note: Dynamically generated from PROJECT_SHORT_NAME
 readonly EXTERNAL_ID="${EXTERNAL_ID:-github-actions-${PROJECT_SHORT_NAME}}"
 
 # =============================================================================
@@ -72,17 +76,21 @@ readonly LOCK_TABLE_PREFIX="${PROJECT_NAME}"
 readonly KMS_KEY_PREFIX="${PROJECT_NAME}"
 
 # IAM role naming: GitHubActions-{PREFIX}-{Env}-Role
-# Note: Using tr for case conversion (macOS Bash 3.x compatible)
-_capitalize_first_char() {
-    local str="$1"
-    local first_char="${str:0:1}"
-    local rest="${str:1}"
-    printf '%s' "$(echo "$first_char" | tr '[:lower:]' '[:upper:]')${rest}"
+# Note: Bash 3.2 compatible title case function (matches Terraform's title())
+# Capitalizes first letter of each word (separated by hyphens, spaces, underscores)
+_title_case() {
+    echo "$1" | awk -F'-' '{
+        for(i=1; i<=NF; i++) {
+            $i = toupper(substr($i,1,1)) substr($i,2)
+        }
+        print
+    }' OFS='-'
 }
-readonly IAM_ROLE_PREFIX="GitHubActions-$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
+readonly IAM_ROLE_PREFIX="GitHubActions-$(_title_case "${PROJECT_SHORT_NAME}")"
 
-# Read-only console role naming: {PROJECT_SHORT_NAME_CAPITALIZED}-{Env}-ReadOnly
-readonly READONLY_ROLE_PREFIX="$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
+# Read-only console role naming: {Title(PROJECT_SHORT_NAME)}-{env}
+# Must match Terraform's title() output: "static-site" -> "Static-Site"
+readonly READONLY_ROLE_PREFIX="$(_title_case "${PROJECT_SHORT_NAME}")"
 
 # Account naming: {PREFIX}-{env}
 readonly ACCOUNT_NAME_PREFIX="${PROJECT_SHORT_NAME}"
@@ -95,7 +103,7 @@ readonly ACCOUNT_EMAIL_PREFIX="aws+${PROJECT_SHORT_NAME}"
 readonly PROJECT_PATTERNS=(
     "${PROJECT_SHORT_NAME}"
     "${PROJECT_NAME}"
-    "$(_capitalize_first_char "${PROJECT_SHORT_NAME}")"
+    "$(_title_case "${PROJECT_SHORT_NAME}")"
     "terraform-state"
     "GitHubActions"
     "cloudtrail-logs"
@@ -111,7 +119,9 @@ readonly AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 
 # Management Account ID (12 digits)
 # GitHub Actions: Set via vars.MANAGEMENT_ACCOUNT_ID
-readonly MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-223938610551}"
+# Local/Script: Loaded dynamically from AWS credentials or accounts.json
+# Note: Not readonly to allow dynamic detection in bootstrap scripts
+MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-}"
 
 # Environment-specific Account IDs (loaded dynamically from accounts.json or env vars)
 # GitHub Actions: Set via vars.AWS_ACCOUNT_ID_DEV, vars.AWS_ACCOUNT_ID_STAGING, vars.AWS_ACCOUNT_ID_PROD
@@ -224,6 +234,11 @@ load_accounts() {
         DEV_ACCOUNT=$(jq -r '.dev // ""' "$accounts_file" 2>/dev/null || echo "")
         STAGING_ACCOUNT=$(jq -r '.staging // ""' "$accounts_file" 2>/dev/null || echo "")
         PROD_ACCOUNT=$(jq -r '.prod // ""' "$accounts_file" 2>/dev/null || echo "")
+
+        # Set MANAGEMENT_ACCOUNT_ID from accounts.json if not already set
+        if [[ -z "$MANAGEMENT_ACCOUNT_ID" ]] && [[ -n "$MGMT_ACCOUNT" ]]; then
+            MANAGEMENT_ACCOUNT_ID="$MGMT_ACCOUNT"
+        fi
     else
         MGMT_ACCOUNT="$MANAGEMENT_ACCOUNT_ID"
         DEV_ACCOUNT=""
@@ -231,7 +246,7 @@ load_accounts() {
         PROD_ACCOUNT=""
     fi
 
-    export MGMT_ACCOUNT DEV_ACCOUNT STAGING_ACCOUNT PROD_ACCOUNT
+    export MGMT_ACCOUNT DEV_ACCOUNT STAGING_ACCOUNT PROD_ACCOUNT MANAGEMENT_ACCOUNT_ID
 
     # Also export as array for destroy scripts
     MEMBER_ACCOUNT_IDS=()

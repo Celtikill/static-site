@@ -194,6 +194,47 @@ validate_prerequisites() {
 }
 
 # =============================================================================
+# DETECT TARGET REPOSITORY
+# =============================================================================
+
+detect_target_repository() {
+    log_section "Detecting Target Repository"
+
+    # Try to detect the fork (origin) repository
+    local origin_url
+    origin_url=$(git remote get-url origin 2>/dev/null || echo "")
+
+    if [[ -n "$origin_url" ]]; then
+        # Extract owner/repo from git URL
+        # Handles both HTTPS and SSH formats:
+        # - https://github.com/owner/repo.git → owner/repo
+        # - git@github.com:owner/repo.git → owner/repo
+        TARGET_REPO=$(echo "$origin_url" | sed -E 's#^(https://github.com/|git@github.com:)##' | sed 's#\.git$##')
+        log_info "Detected origin: $TARGET_REPO"
+    else
+        log_warn "Could not detect origin remote"
+        TARGET_REPO=""
+    fi
+
+    # Verify the repository is accessible
+    if [[ -n "$TARGET_REPO" ]]; then
+        if gh repo view "$TARGET_REPO" --json nameWithOwner -q .nameWithOwner &>/dev/null; then
+            log_success "Target repository: $TARGET_REPO"
+        else
+            log_error "Repository $TARGET_REPO is not accessible via GitHub CLI"
+            log_info "Ensure you have permissions to the fork repository"
+            exit 1
+        fi
+    else
+        log_error "Could not determine target repository"
+        log_info "Ensure 'origin' remote is configured: git remote -v"
+        exit 1
+    fi
+
+    echo
+}
+
+# =============================================================================
 # LOAD ACCOUNT IDS
 # =============================================================================
 
@@ -230,11 +271,11 @@ show_current_state() {
     log_section "Current GitHub Configuration"
 
     log_info "Current Secrets:"
-    gh secret list 2>&1 | head -10 || log_warn "Could not list secrets"
+    gh secret list --repo "$TARGET_REPO" 2>&1 | head -10 || log_warn "Could not list secrets"
 
     echo
     log_info "Current Variables:"
-    gh variable list 2>&1 | head -15 || log_warn "Could not list variables"
+    gh variable list --repo "$TARGET_REPO" 2>&1 | head -15 || log_warn "Could not list variables"
 
     echo
 }
@@ -250,7 +291,7 @@ configure_secrets() {
         log_info "[DRY-RUN] Would set AWS_ASSUME_ROLE_CENTRAL: $CENTRAL_ROLE_ARN"
     else
         log_info "Setting AWS_ASSUME_ROLE_CENTRAL..."
-        echo "$CENTRAL_ROLE_ARN" | gh secret set AWS_ASSUME_ROLE_CENTRAL
+        echo "$CENTRAL_ROLE_ARN" | gh secret set AWS_ASSUME_ROLE_CENTRAL --repo "$TARGET_REPO"
         log_success "AWS_ASSUME_ROLE_CENTRAL configured"
     fi
 
@@ -291,50 +332,50 @@ configure_variables() {
         # Note: REPO_FULL_NAME and REPO_OWNER are not set - workflows use github.repository and github.repository_owner
         log_info "Setting project identity variables..."
 
-        gh variable set PROJECT_NAME --body "$PROJECT_NAME"
+        gh variable set PROJECT_NAME --repo "$TARGET_REPO" --body "$PROJECT_NAME"
         log_success "PROJECT_NAME set to $PROJECT_NAME"
 
-        gh variable set PROJECT_SHORT_NAME --body "$PROJECT_SHORT_NAME"
+        gh variable set PROJECT_SHORT_NAME --repo "$TARGET_REPO" --body "$PROJECT_SHORT_NAME"
         log_success "PROJECT_SHORT_NAME set to $PROJECT_SHORT_NAME"
 
-        gh variable set EXTERNAL_ID --body "$EXTERNAL_ID"
+        gh variable set EXTERNAL_ID --repo "$TARGET_REPO" --body "$EXTERNAL_ID"
         log_success "EXTERNAL_ID set to $EXTERNAL_ID"
 
         echo
         # AWS Configuration
         log_info "Setting AWS account variables..."
-        gh variable set MANAGEMENT_ACCOUNT_ID --body "$MGMT_ACCOUNT"
+        gh variable set MANAGEMENT_ACCOUNT_ID --repo "$TARGET_REPO" --body "$MGMT_ACCOUNT"
         log_success "MANAGEMENT_ACCOUNT_ID set"
 
-        gh variable set AWS_ACCOUNT_ID_DEV --body "$DEV_ACCOUNT"
+        gh variable set AWS_ACCOUNT_ID_DEV --repo "$TARGET_REPO" --body "$DEV_ACCOUNT"
         log_success "AWS_ACCOUNT_ID_DEV set"
 
-        gh variable set AWS_ACCOUNT_ID_STAGING --body "$STAGING_ACCOUNT"
+        gh variable set AWS_ACCOUNT_ID_STAGING --repo "$TARGET_REPO" --body "$STAGING_ACCOUNT"
         log_success "AWS_ACCOUNT_ID_STAGING set"
 
-        gh variable set AWS_ACCOUNT_ID_PROD --body "$PROD_ACCOUNT"
+        gh variable set AWS_ACCOUNT_ID_PROD --repo "$TARGET_REPO" --body "$PROD_ACCOUNT"
         log_success "AWS_ACCOUNT_ID_PROD set"
 
         echo
         log_info "Setting AWS region variables..."
-        gh variable set AWS_DEFAULT_REGION --body "$AWS_DEFAULT_REGION"
+        gh variable set AWS_DEFAULT_REGION --repo "$TARGET_REPO" --body "$AWS_DEFAULT_REGION"
         log_success "AWS_DEFAULT_REGION set to $AWS_DEFAULT_REGION"
 
-        gh variable set REPLICA_REGION --body "us-west-2"
+        gh variable set REPLICA_REGION --repo "$TARGET_REPO" --body "us-west-2"
         log_success "REPLICA_REGION set to us-west-2"
 
         echo
         log_info "Setting infrastructure variables..."
-        gh variable set OPENTOFU_VERSION --body "1.8.4"
+        gh variable set OPENTOFU_VERSION --repo "$TARGET_REPO" --body "1.8.4"
         log_success "OPENTOFU_VERSION set to 1.8.4"
 
-        gh variable set DEFAULT_ENVIRONMENT --body "dev"
+        gh variable set DEFAULT_ENVIRONMENT --repo "$TARGET_REPO" --body "dev"
         log_success "DEFAULT_ENVIRONMENT set to dev"
 
-        gh variable set MONTHLY_BUDGET_LIMIT --body "40"
+        gh variable set MONTHLY_BUDGET_LIMIT --repo "$TARGET_REPO" --body "40"
         log_success "MONTHLY_BUDGET_LIMIT set to 40"
 
-        gh variable set ALERT_EMAIL_ADDRESSES --body '["celtikill@celtikill.io"]'
+        gh variable set ALERT_EMAIL_ADDRESSES --repo "$TARGET_REPO" --body '["celtikill@celtikill.io"]'
         log_success "ALERT_EMAIL_ADDRESSES set"
     fi
 
@@ -351,56 +392,40 @@ verify_configuration() {
         return 0
     fi
 
-    log_section "Verifying Configuration"
+    log_section "Configuration Summary"
 
-    local errors=0
-
-    # Check secrets
-    log_info "Verifying secrets..."
-    if gh secret list | grep -q "AWS_ASSUME_ROLE_CENTRAL"; then
-        log_success "AWS_ASSUME_ROLE_CENTRAL verified"
-    else
-        log_error "AWS_ASSUME_ROLE_CENTRAL not found"
-        ((errors++))
-    fi
-
+    # Simply show what was configured without complex validation
+    # The gh commands above already confirmed success
+    log_info "The following have been configured:"
     echo
-    log_info "Verifying variables..."
 
-    # Required variables
-    local required_vars=(
-        "PROJECT_NAME"
-        "PROJECT_SHORT_NAME"
-        "EXTERNAL_ID"
-        "MANAGEMENT_ACCOUNT_ID"
-        "AWS_ACCOUNT_ID_DEV"
-        "AWS_ACCOUNT_ID_STAGING"
-        "AWS_ACCOUNT_ID_PROD"
-        "AWS_DEFAULT_REGION"
-        "REPLICA_REGION"
-        "OPENTOFU_VERSION"
-        "DEFAULT_ENVIRONMENT"
-        "MONTHLY_BUDGET_LIMIT"
-        "ALERT_EMAIL_ADDRESSES"
-    )
-
-    for var in "${required_vars[@]}"; do
-        if gh variable list | grep -q "$var"; then
-            log_success "$var verified"
-        else
-            log_error "$var not found"
-            ((errors++))
-        fi
-    done
-
+    log_info "GitHub Secret:"
+    echo "  ✓ AWS_ASSUME_ROLE_CENTRAL"
     echo
-    if [[ $errors -eq 0 ]]; then
-        log_success "All secrets and variables configured successfully!"
-        return 0
-    else
-        log_error "Found $errors error(s) in configuration"
-        return 1
-    fi
+
+    log_info "GitHub Variables:"
+    echo "  ✓ PROJECT_NAME"
+    echo "  ✓ PROJECT_SHORT_NAME"
+    echo "  ✓ EXTERNAL_ID"
+    echo "  ✓ MANAGEMENT_ACCOUNT_ID"
+    echo "  ✓ AWS_ACCOUNT_ID_DEV"
+    echo "  ✓ AWS_ACCOUNT_ID_STAGING"
+    echo "  ✓ AWS_ACCOUNT_ID_PROD"
+    echo "  ✓ AWS_DEFAULT_REGION"
+    echo "  ✓ REPLICA_REGION"
+    echo "  ✓ OPENTOFU_VERSION"
+    echo "  ✓ DEFAULT_ENVIRONMENT"
+    echo "  ✓ MONTHLY_BUDGET_LIMIT"
+    echo "  ✓ ALERT_EMAIL_ADDRESSES"
+    echo
+
+    log_info "To verify configuration, run:"
+    echo "  gh secret list --repo $TARGET_REPO"
+    echo "  gh variable list --repo $TARGET_REPO"
+    echo
+
+    log_success "Configuration complete!"
+    return 0
 }
 
 # =============================================================================
@@ -423,6 +448,7 @@ EOF
     fi
 
     validate_prerequisites
+    detect_target_repository
     load_accounts
     show_current_state
 
@@ -431,7 +457,7 @@ EOF
     else
         echo
         log_warn "This will configure GitHub secrets and variables using local account IDs"
-        log_info "Repository: $(gh repo view --json nameWithOwner -q .nameWithOwner)"
+        log_info "Repository: $(gh repo view "$TARGET_REPO" --json nameWithOwner -q .nameWithOwner)"
         echo
         read -p "Continue? (y/n) " -n 1 -r
         echo

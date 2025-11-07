@@ -90,6 +90,132 @@ ensure_central_state_bucket() {
 }
 
 # =============================================================================
+# BACKEND RESOURCE IMPORT (IDEMPOTENCY)
+# =============================================================================
+
+import_existing_backend_resources() {
+    local account_id="$1"
+    local environment="$2"
+    local region="$3"
+    local bucket_name="$4"
+    local table_name="$5"
+
+    log_info "Checking for existing backend resources to import..."
+
+    local import_count=0
+
+    # Check and import S3 bucket
+    if s3_bucket_exists "$bucket_name" "$region"; then
+        log_info "Found existing S3 bucket: $bucket_name"
+        if ! tofu state show aws_s3_bucket.terraform_state > /dev/null 2>&1; then
+            log_info "Importing S3 bucket into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
+                aws_s3_bucket.terraform_state \
+                "$bucket_name" \
+                > "$OUTPUT_DIR/terraform-import-s3-${environment}.log" 2>&1; then
+                log_success "Imported S3 bucket: $bucket_name"
+                ((import_count++))
+            else
+                log_warn "Failed to import S3 bucket (may not be critical)"
+                cat "$OUTPUT_DIR/terraform-import-s3-${environment}.log" >&2
+            fi
+        else
+            log_info "S3 bucket already in Terraform state"
+        fi
+    fi
+
+    # Check and import KMS key
+    local kms_alias="alias/${bucket_name}"
+    log_info "Checking for KMS key alias: $kms_alias"
+    local kms_key_id
+    kms_key_id=$(aws kms list-aliases --region "$region" --query "Aliases[?AliasName=='${kms_alias}'].TargetKeyId" --output text 2>/dev/null || echo "")
+
+    if [[ -n "$kms_key_id" ]] && [[ "$kms_key_id" != "None" ]]; then
+        log_info "Found existing KMS key: $kms_key_id"
+
+        # Import KMS key
+        if ! tofu state show aws_kms_key.terraform_state > /dev/null 2>&1; then
+            log_info "Importing KMS key into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
+                aws_kms_key.terraform_state \
+                "$kms_key_id" \
+                > "$OUTPUT_DIR/terraform-import-kms-key-${environment}.log" 2>&1; then
+                log_success "Imported KMS key: $kms_key_id"
+                ((import_count++))
+            else
+                log_warn "Failed to import KMS key (may not be critical)"
+            fi
+        else
+            log_info "KMS key already in Terraform state"
+        fi
+
+        # Import KMS alias
+        if ! tofu state show aws_kms_alias.terraform_state > /dev/null 2>&1; then
+            log_info "Importing KMS alias into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
+                aws_kms_alias.terraform_state \
+                "$kms_alias" \
+                > "$OUTPUT_DIR/terraform-import-kms-alias-${environment}.log" 2>&1; then
+                log_success "Imported KMS alias: $kms_alias"
+                ((import_count++))
+            else
+                log_warn "Failed to import KMS alias (may not be critical)"
+            fi
+        else
+            log_info "KMS alias already in Terraform state"
+        fi
+    fi
+
+    # Check and import DynamoDB table
+    if dynamodb_table_exists "$table_name" "$region"; then
+        log_info "Found existing DynamoDB table: $table_name"
+        if ! tofu state show aws_dynamodb_table.terraform_locks > /dev/null 2>&1; then
+            log_info "Importing DynamoDB table into Terraform state..."
+            if tofu import \
+                -var="environment=$environment" \
+                -var="aws_account_id=$account_id" \
+                -var="aws_region=$region" \
+                -var="project_name=$PROJECT_NAME" \
+                -var="project_short_name=$PROJECT_SHORT_NAME" \
+                aws_dynamodb_table.terraform_locks \
+                "$table_name" \
+                > "$OUTPUT_DIR/terraform-import-dynamodb-${environment}.log" 2>&1; then
+                log_success "Imported DynamoDB table: $table_name"
+                ((import_count++))
+            else
+                log_warn "Failed to import DynamoDB table (may not be critical)"
+                cat "$OUTPUT_DIR/terraform-import-dynamodb-${environment}.log" >&2
+            fi
+        else
+            log_info "DynamoDB table already in Terraform state"
+        fi
+    fi
+
+    if [[ $import_count -gt 0 ]]; then
+        log_success "Imported $import_count existing backend resource(s) into Terraform state"
+    else
+        log_info "No backend resources needed import"
+    fi
+
+    return 0
+}
+
+# =============================================================================
 # BACKEND CREATION
 # =============================================================================
 
@@ -128,11 +254,31 @@ create_terraform_backend() {
     log_info "Checking bucket: $bucket_name (region: $region)"
     log_info "Checking table: $table_name (region: $region)"
 
-    if s3_bucket_exists "$bucket_name" "$region"; then
+    # Use region-aware check to detect wrong-region buckets
+    if s3_bucket_exists_in_region "$bucket_name" "$region"; then
         bucket_exists=true
-        log_warn "S3 bucket already exists: $bucket_name"
+        log_success "S3 bucket exists in correct region: $bucket_name ($region)"
     else
-        log_info "S3 bucket does not exist or check failed: $bucket_name"
+        # Check if bucket exists but in wrong region
+        if s3_bucket_exists "$bucket_name" "$region"; then
+            local actual_region
+            actual_region=$(get_s3_bucket_region "$bucket_name")
+            if [[ -n "$actual_region" ]] && [[ "$actual_region" != "$region" ]]; then
+                log_warn "S3 bucket exists but in WRONG region!"
+                log_warn "  Bucket: $bucket_name"
+                log_warn "  Expected: $region"
+                log_warn "  Actual:   $actual_region"
+                log_warn "  Will recreate bucket in correct region"
+
+                # Mark for recreation by setting RECREATE_BACKENDS for this bucket
+                export RECREATE_BACKENDS=true
+                bucket_exists=true  # Set true so deletion logic triggers
+            else
+                log_info "S3 bucket does not exist: $bucket_name"
+            fi
+        else
+            log_info "S3 bucket does not exist: $bucket_name"
+        fi
     fi
 
     if dynamodb_table_exists "$table_name" "$region"; then
@@ -142,24 +288,8 @@ create_terraform_backend() {
         log_info "DynamoDB table does not exist or check failed: $table_name"
     fi
 
-    # If resources exist, check if we should recreate them
-    if [[ "$bucket_exists" == "true" ]] && [[ "$table_exists" == "true" ]]; then
-        log_success "Backend resources already exist for $environment"
-        log_info "Bucket: $bucket_name"
-        log_info "Table: $table_name"
-        log_info "Skipping recreation to avoid AWS eventual consistency delays"
-
-        # Verify backend is functional
-        if s3_bucket_exists "$bucket_name" "$region" && dynamodb_table_exists "$table_name" "$region"; then
-            log_success "Backend verified and functional"
-            clear_assumed_role
-            return 0
-        else
-            log_warn "Backend verification failed, will attempt recreation"
-        fi
-    fi
-
-    # Only delete if explicitly recreating (controlled by RECREATE_BACKENDS env var)
+    # Check if we need to recreate due to region mismatch or explicit flag
+    # IMPORTANT: Check RECREATE_BACKENDS before "already exists" logic
     if [[ "${RECREATE_BACKENDS:-false}" == "true" ]] && { [[ "$bucket_exists" == "true" ]] || [[ "$table_exists" == "true" ]]; }; then
         log_warn "RECREATE_BACKENDS=true: Destroying existing resources before recreating..."
 
@@ -204,6 +334,25 @@ create_terraform_backend() {
         fi
 
         log_success "Cleaned up existing backend resources"
+    elif [[ "${RECREATE_BACKENDS:-false}" != "true" ]] && [[ "$bucket_exists" == "true" ]] && [[ "$table_exists" == "true" ]]; then
+        # Resources exist and we're NOT recreating - skip creation
+        log_success "Backend resources already exist for $environment"
+        log_info "Bucket: $bucket_name"
+        log_info "Table: $table_name"
+        log_info "Skipping recreation to avoid AWS eventual consistency delays"
+
+        # Verify backend is functional
+        if s3_bucket_exists "$bucket_name" "$region" && dynamodb_table_exists "$table_name" "$region"; then
+            log_success "Backend verified and functional"
+
+            # Generate backend config even though we skipped creation
+            save_backend_config "$environment" "$bucket_name" "$table_name" "$region"
+
+            clear_assumed_role
+            return 0
+        else
+            log_warn "Backend verification failed, will attempt recreation"
+        fi
     fi
 
     # Use existing Terraform bootstrap configuration
@@ -233,6 +382,11 @@ create_terraform_backend() {
         return 1
     fi
 
+    # Import existing backend resources for idempotency
+    if ! import_existing_backend_resources "$account_id" "$environment" "$region" "$bucket_name" "$table_name"; then
+        log_warn "Import had issues, but continuing with plan..."
+    fi
+
     # Plan backend creation
     log_info "Planning backend creation for $environment..."
     if ! tofu plan \
@@ -240,6 +394,7 @@ create_terraform_backend() {
         -var="aws_account_id=$account_id" \
         -var="aws_region=$region" \
         -var="project_name=$PROJECT_NAME" \
+        -var="project_short_name=$PROJECT_SHORT_NAME" \
         -out="$OUTPUT_DIR/backend-${environment}.tfplan" \
         > "$OUTPUT_DIR/terraform-plan-${environment}.log" 2>&1; then
         log_error "Terraform plan failed. See: $OUTPUT_DIR/terraform-plan-${environment}.log"

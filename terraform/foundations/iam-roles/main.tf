@@ -16,6 +16,7 @@ module "github_actions_dev" {
   environment           = "dev"
   github_repo           = var.github_repo
   project_short_name    = var.project_short_name
+  project_name          = var.project_name
   role_name_prefix      = var.role_name_prefix
   management_account_id = var.management_account_id
 }
@@ -48,6 +49,7 @@ module "github_actions_staging" {
   environment           = "staging"
   github_repo           = var.github_repo
   project_short_name    = var.project_short_name
+  project_name          = var.project_name
   role_name_prefix      = var.role_name_prefix
   management_account_id = var.management_account_id
 }
@@ -80,6 +82,7 @@ module "github_actions_prod" {
   environment           = "prod"
   github_repo           = var.github_repo
   project_short_name    = var.project_short_name
+  project_name          = var.project_name
   role_name_prefix      = var.role_name_prefix
   management_account_id = var.management_account_id
 }

@@ -33,6 +33,11 @@ variable "project_short_name" {
   type        = string
 }
 
+variable "project_name" {
+  description = "Full project name including owner prefix (e.g., 'owner-repo') used for S3 bucket naming"
+  type        = string
+}
+
 variable "role_name_prefix" {
   description = "Prefix for the IAM role name"
   type        = string

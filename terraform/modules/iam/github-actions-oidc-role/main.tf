@@ -64,8 +64,8 @@ resource "aws_iam_role_policy" "deployment" {
           "s3:GetBucketLocation"
         ]
         Resource = [
-          "arn:aws:s3:::${var.project_short_name}-state-*",
-          "arn:aws:s3:::${var.project_short_name}-state-*/*"
+          "arn:aws:s3:::${var.project_name}-state-*",
+          "arn:aws:s3:::${var.project_name}-state-*/*"
         ]
       },
       {
@@ -77,7 +77,7 @@ resource "aws_iam_role_policy" "deployment" {
           "dynamodb:PutItem",
           "dynamodb:DeleteItem"
         ]
-        Resource = "arn:aws:dynamodb:*:*:table/${var.project_short_name}-locks-*"
+        Resource = "arn:aws:dynamodb:*:*:table/${var.project_name}-locks-*"
       },
       {
         Sid    = "S3WebsiteBucketManagement"
@@ -91,10 +91,10 @@ resource "aws_iam_role_policy" "deployment" {
           "s3:DeleteObject"
         ]
         Resource = [
-          "arn:aws:s3:::${var.project_short_name}-*",
-          "arn:aws:s3:::${var.project_short_name}-*/*",
-          "arn:aws:s3:::${var.project_short_name}-website-*",
-          "arn:aws:s3:::${var.project_short_name}-website-*/*"
+          "arn:aws:s3:::${var.project_name}-*",
+          "arn:aws:s3:::${var.project_name}-*/*",
+          "arn:aws:s3:::${var.project_name}-website-*",
+          "arn:aws:s3:::${var.project_name}-website-*/*"
         ]
       },
       {
@@ -199,6 +199,7 @@ resource "aws_iam_role_policy" "deployment" {
         ]
         Resource = [
           "arn:aws:iam::*:role/${var.project_short_name}-*",
+          "arn:aws:iam::*:role/${var.project_name}-*",
           "arn:aws:iam::*:role/github-actions-workload-deployment"
         ]
       },
@@ -212,7 +213,10 @@ resource "aws_iam_role_policy" "deployment" {
           "sns:List*",
           "sns:*Tag*"
         ]
-        Resource = "arn:aws:sns:*:*:${var.project_short_name}-website-*"
+        Resource = [
+          "arn:aws:sns:*:*:${var.project_name}-alerts",
+          "arn:aws:sns:*:*:${var.project_name}-website-*"
+        ]
       },
       {
         Sid    = "BudgetManagement"

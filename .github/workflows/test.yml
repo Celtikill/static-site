@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: ["BUILD - Code Validation and Artifact Creation"]
     types: [completed]
-    branches: [main]
+    branches: [main, 'feature/*', 'bugfix/*', 'hotfix/*']
   workflow_dispatch:
     inputs:
       skip_build_check:
@@ -36,13 +36,16 @@ env:
   # Project Identity (use built-in GitHub context vars)
   REPO_FULL_NAME: ${{ github.repository }}
   REPO_OWNER: ${{ github.repository_owner }}
-  PROJECT_NAME: ${{ vars.PROJECT_NAME || 'celtikill-static-site' }}
-  PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME || 'static-site' }}
-  EXTERNAL_ID: ${{ vars.EXTERNAL_ID || 'github-actions-static-site' }}
+  PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+  PROJECT_SHORT_NAME: ${{ vars.PROJECT_SHORT_NAME }}
+  EXTERNAL_ID: ${{ vars.EXTERNAL_ID }}
 
   # Infrastructure Tools
   OPENTOFU_VERSION: ${{ vars.OPENTOFU_VERSION || '1.8.4' }}
   TF_IN_AUTOMATION: true
+
+  # Terraform Variables (pass to Terraform via TF_VAR_ prefix)
+  TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
 
 concurrency:
   group: test-${{ github.ref }}

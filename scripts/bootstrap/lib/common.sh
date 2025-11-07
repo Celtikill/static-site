@@ -180,33 +180,36 @@ READ-ONLY CONSOLE ACCESS:
 Dev Environment:
   Account: ${DEV_ACCOUNT}
   Role: ${READONLY_ROLE_PREFIX}-dev
-  URL:
-${CONSOLE_URL_DEV}
+  URL: ${CONSOLE_URL_DEV}
 
 Staging Environment:
   Account: ${STAGING_ACCOUNT}
   Role: ${READONLY_ROLE_PREFIX}-staging
-  URL:
-${CONSOLE_URL_STAGING}
+  URL: ${CONSOLE_URL_STAGING}
 
 Production Environment:
   Account: ${PROD_ACCOUNT}
   Role: ${READONLY_ROLE_PREFIX}-prod
-  URL:
-${CONSOLE_URL_PROD}
+  URL: ${CONSOLE_URL_PROD}
 
 ========================================================================
 USAGE INSTRUCTIONS:
-1. Ensure you're logged into the AWS Management Account (${MANAGEMENT_ACCOUNT_ID})
-2. Click any URL above - browser will prompt to switch roles
-3. Browser loads AWS Console in target environment with read-only access
+1. Log into AWS Management Account (${MANAGEMENT_ACCOUNT_ID}) as an IAM user
+   ⚠️  ROOT USER CANNOT ASSUME ROLES - Use an IAM user with admin rights
+2. Click any URL above (or copy/paste into browser)
+3. Browser will prompt to switch roles and load the target environment
 4. Bookmark URLs in browser for quick future access
+
+TROUBLESHOOTING "Permission Denied" Errors:
+- ✗ Using root user? Switch to an IAM user (root cannot assume IAM roles)
+- ✗ IAM user lacks permissions? User needs sts:AssumeRole on these role ARNs
+- ✗ Not logged into management account? Must use account ${MANAGEMENT_ACCOUNT_ID}
 
 SECURITY NOTES:
 - These roles provide READ-ONLY access (AWS ReadOnlyAccess policy)
-- Cannot be assumed by root user (AWS restriction)
+- Cannot be assumed by root user (AWS security restriction)
 - Session duration: 1 hour maximum
-- Requires permissions in management account to assume roles
+- IAM users need sts:AssumeRole permission (included in AdministratorAccess)
 ========================================================================
 EOF
 

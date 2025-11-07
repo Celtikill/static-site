@@ -3,10 +3,10 @@
 
 locals {
   env_capitalized = title(var.environment)
-  role_name       = "${var.project_short_name}-ReadOnly-${var.environment}"
+  role_name       = "${title(var.project_short_name)}-${var.environment}"
 
   # Pre-configured console switchrole URL
-  console_url = "https://signin.aws.amazon.com/switchrole?account=${var.account_id}&roleName=${local.role_name}&displayName=${replace(title(var.project_short_name), "-", "")}-${local.env_capitalized}-ReadOnly"
+  console_url = "https://signin.aws.amazon.com/switchrole?account=${var.account_id}&roleName=${local.role_name}&displayName=${replace(title(var.project_short_name), "-", "")}-${local.env_capitalized}"
 }
 
 # IAM Role with cross-account trust policy
