@@ -207,6 +207,7 @@ ${BOLD}Next Steps:${NC}
    ${BLUE}./bootstrap-foundation.sh${NC}
 
 EOF
+)"
 
     # Write report
     local duration=$(($(date +%s) - START_TIME))
