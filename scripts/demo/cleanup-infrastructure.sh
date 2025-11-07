@@ -20,7 +20,7 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly CONFIG_FILE="${SCRIPT_DIR}/../config.sh"
 
-# Source unified configuration if available
+# Source unified configuration if available (includes color codes)
 if [[ -f "$CONFIG_FILE" ]]; then
     # shellcheck source=../config.sh
     source "$CONFIG_FILE"
@@ -28,18 +28,18 @@ else
     # Fallback configuration for standalone execution
     readonly PROJECT_NAME="${PROJECT_NAME:-celtikill-static-site}"
     readonly AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-2}"
-fi
 
-# Color codes for output
-if [[ -t 1 ]]; then
-    readonly RED='\033[0;31m'
-    readonly GREEN='\033[0;32m'
-    readonly YELLOW='\033[1;33m'
-    readonly BLUE='\033[0;34m'
-    readonly BOLD='\033[1m'
-    readonly NC='\033[0m'
-else
-    readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
+    # Color codes for output
+    if [[ -t 1 ]]; then
+        readonly RED='\033[0;31m'
+        readonly GREEN='\033[0;32m'
+        readonly YELLOW='\033[1;33m'
+        readonly BLUE='\033[0;34m'
+        readonly BOLD='\033[1m'
+        readonly NC='\033[0m'
+    else
+        readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
+    fi
 fi
 
 # =============================================================================
