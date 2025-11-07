@@ -334,7 +334,7 @@ create_terraform_backend() {
         fi
 
         log_success "Cleaned up existing backend resources"
-    elif [[ "$bucket_exists" == "true" ]] && [[ "$table_exists" == "true" ]]; then
+    elif [[ "${RECREATE_BACKENDS:-false}" != "true" ]] && [[ "$bucket_exists" == "true" ]] && [[ "$table_exists" == "true" ]]; then
         # Resources exist and we're NOT recreating - skip creation
         log_success "Backend resources already exist for $environment"
         log_info "Bucket: $bucket_name"
