@@ -193,7 +193,9 @@ module "s3" {
   replication_role_arn        = var.enable_cross_region_replication ? aws_iam_role.s3_replication[0].arn : ""
   common_tags                 = local.common_tags
 
+  # Explicitly configure both primary and replica providers
   providers = {
+    aws         = aws
     aws.replica = aws.replica
   }
 }
