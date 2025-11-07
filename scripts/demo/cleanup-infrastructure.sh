@@ -19,6 +19,7 @@ set -euo pipefail
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly CONFIG_FILE="${SCRIPT_DIR}/../config.sh"
+readonly ACCOUNTS_FILE="${SCRIPT_DIR}/../bootstrap/accounts.json"
 
 # Source unified configuration if available (includes color codes)
 if [[ -f "$CONFIG_FILE" ]]; then
@@ -40,6 +41,28 @@ else
     else
         readonly RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
     fi
+fi
+
+# Load account IDs from accounts.json (created during bootstrap)
+# This makes the script truly fork-friendly - no hardcoded account IDs needed
+if [[ -f "$ACCOUNTS_FILE" ]]; then
+    log_debug() {
+        if [[ "${DEBUG:-}" == "true" ]]; then
+            echo -e "${BLUE:-}[DEBUG]${NC:-} $*" >&2
+        fi
+    }
+    log_debug "Loading account IDs from $ACCOUNTS_FILE"
+
+    # Read account IDs from JSON file
+    MANAGEMENT_ACCOUNT_ID=$(jq -r '.management // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+    AWS_ACCOUNT_ID_DEV=$(jq -r '.dev // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+    AWS_ACCOUNT_ID_STAGING=$(jq -r '.staging // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+    AWS_ACCOUNT_ID_PROD=$(jq -r '.prod // empty' "$ACCOUNTS_FILE" 2>/dev/null || echo "")
+
+    # Export for use in functions
+    export MANAGEMENT_ACCOUNT_ID AWS_ACCOUNT_ID_DEV AWS_ACCOUNT_ID_STAGING AWS_ACCOUNT_ID_PROD
+
+    log_debug "Loaded management account: ${MANAGEMENT_ACCOUNT_ID:-not found}"
 fi
 
 # =============================================================================
@@ -332,16 +355,87 @@ delete_terraform_state() {
     fi
 
     # Clean up DynamoDB lock table entry if it exists
-    local lock_table="${PROJECT_NAME}-locks-${env}-${account_id}"
-    local lock_id="celtikill-static-site-state-${env}-${account_id}/environments/${env}/terraform.tfstate-md5"
+    local lock_table="${PROJECT_NAME}-locks-${env}"
+    local lock_id="${PROJECT_NAME}-state-${env}-${account_id}/environments/${env}/terraform.tfstate-md5"
 
-    log_debug "  Checking for lock table entry..."
+    log_info "  Clearing DynamoDB lock table entry (fixes digest mismatch errors)..."
+    log_debug "    Table: $lock_table"
+    log_debug "    LockID: $lock_id"
+
     if aws dynamodb delete-item \
         --table-name "$lock_table" \
         --key "{\"LockID\": {\"S\": \"${lock_id}\"}}" \
         --region "$region" 2>/dev/null; then
-        log_debug "  ✓ Cleared lock table entry"
+        log_info "  ✓ Cleared lock table digest entry"
+    else
+        log_debug "  No lock table entry found (or already cleared)"
     fi
+}
+
+# Delete IAM roles created by Terraform (prevents EntityAlreadyExists errors)
+delete_iam_roles() {
+    local env=$1
+
+    log_info "Deleting IAM roles (fixes EntityAlreadyExists errors)..."
+
+    # List of IAM role names created by the static website module
+    local role_names=(
+        "${PROJECT_NAME}-s3-replication"
+    )
+
+    for role_name in "${role_names[@]}"; do
+        log_debug "  Checking role: $role_name"
+
+        # Check if role exists (IAM is global, no region needed)
+        if aws iam get-role --role-name "$role_name" 2>/dev/null >/dev/null; then
+            log_info "  Deleting role: $role_name"
+
+            # Detach all managed policies first
+            local attached_policies
+            attached_policies=$(aws iam list-attached-role-policies \
+                --role-name "$role_name" \
+                --query 'AttachedPolicies[].PolicyArn' \
+                --output text 2>/dev/null || echo "")
+
+            if [[ -n "$attached_policies" ]]; then
+                echo "$attached_policies" | tr '\t' '\n' | while read -r policy_arn; do
+                    if [[ -n "$policy_arn" ]]; then
+                        log_debug "    Detaching policy: $policy_arn"
+                        aws iam detach-role-policy \
+                            --role-name "$role_name" \
+                            --policy-arn "$policy_arn" 2>/dev/null || true
+                    fi
+                done
+            fi
+
+            # Delete all inline policies
+            local inline_policies
+            inline_policies=$(aws iam list-role-policies \
+                --role-name "$role_name" \
+                --query 'PolicyNames' \
+                --output text 2>/dev/null || echo "")
+
+            if [[ -n "$inline_policies" ]]; then
+                echo "$inline_policies" | tr '\t' '\n' | while read -r policy_name; do
+                    if [[ -n "$policy_name" ]]; then
+                        log_debug "    Deleting inline policy: $policy_name"
+                        aws iam delete-role-policy \
+                            --role-name "$role_name" \
+                            --policy-name "$policy_name" 2>/dev/null || true
+                    fi
+                done
+            fi
+
+            # Delete the role
+            if aws iam delete-role --role-name "$role_name" 2>/dev/null; then
+                log_info "  ✓ Deleted role: $role_name"
+            else
+                log_warn "  Failed to delete role: $role_name"
+            fi
+        else
+            log_debug "  Role does not exist: $role_name"
+        fi
+    done
 }
 
 # Cleanup environment infrastructure
@@ -375,6 +469,9 @@ cleanup_environment() {
     # Clean up buckets in both regions (us-east-1 for CloudFront resources, us-east-2 for primary)
     destroy_buckets_in_region "$env" "us-east-1"
     destroy_buckets_in_region "$env" "us-east-2"
+
+    # Delete IAM roles created by Terraform
+    delete_iam_roles "$env"
 
     # Delete Terraform state file
     delete_terraform_state "$env" "$account_id" "${AWS_DEFAULT_REGION}"
@@ -472,6 +569,17 @@ main() {
         exit 1
     fi
 
+    # Verify accounts.json exists (created during bootstrap)
+    if [[ ! -f "$ACCOUNTS_FILE" ]]; then
+        log_error "accounts.json not found at: $ACCOUNTS_FILE"
+        log_error ""
+        log_error "This file is created during bootstrap. Please run:"
+        log_error "  ./scripts/bootstrap/bootstrap-organization.sh"
+        log_error ""
+        log_error "For forks: ensure you've run the bootstrap process in your forked environment"
+        exit 1
+    fi
+
     echo -e "${BOLD}Cross-Account Infrastructure Cleanup${NC}"
     echo "========================================="
     echo ""
@@ -496,6 +604,22 @@ main() {
     local current_account
     current_account=$(aws sts get-caller-identity --query 'Account' --output text 2>&1)
     log_info "Current AWS Account: $current_account"
+
+    # Verify running from management account (required for cross-account role assumption)
+    if [[ -n "${MANAGEMENT_ACCOUNT_ID}" ]] && [[ "$current_account" != "${MANAGEMENT_ACCOUNT_ID}" ]]; then
+        log_error "This script must run from the management account (${MANAGEMENT_ACCOUNT_ID})"
+        log_error "Current account: $current_account"
+        log_error ""
+        log_error "Please ensure your AWS CLI is configured with management account credentials"
+        log_error "Example: unset AWS_PROFILE or use: export AWS_PROFILE=<management-account-profile>"
+        exit 1
+    fi
+
+    if [[ -z "${MANAGEMENT_ACCOUNT_ID}" ]]; then
+        log_warn "Management account ID not found in accounts.json"
+        log_warn "Proceeding without management account validation"
+        log_warn "This may fail if cross-account role assumption is required"
+    fi
 
     # Execute cleanup based on environment
     case "$environment" in
