@@ -31,7 +31,8 @@ export AWS_PAGER=""
 # Example: "YourOrg/your-repo"
 # GitHub Actions: Set via vars.REPO_FULL_NAME (or use built-in github.repository)
 # Local/Script: Can also use GITHUB_REPO env var for backward compatibility
-readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-Celtikill/static-site}}"
+# IMPORTANT: Replace OWNER/REPO with your actual repository (e.g., "YourOrg/your-repo")
+readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-OWNER/REPO}}"
 
 # Repository owner (extracted from repository)
 # GitHub Actions: Set via vars.REPO_OWNER (or use built-in github.repository_owner)
@@ -41,19 +42,22 @@ readonly GITHUB_OWNER="${REPO_OWNER:-${GITHUB_OWNER:-${GITHUB_REPO%%/*}}}"
 # Short project name (used for resource naming within accounts)
 # Example: "your-repo"
 # GitHub Actions: Set via vars.PROJECT_SHORT_NAME
-readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:-static-site}"
+# IMPORTANT: Replace "my-project" with your actual project name
+readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:-my-project}"
 
 # Full project name (used for globally unique resources like S3 buckets)
 # Format: {owner-lowercase}-{repo-name}
 # Example: "yourorg-your-repo"
 # GitHub Actions: Set via vars.PROJECT_NAME
-readonly PROJECT_NAME="${PROJECT_NAME:-celtikill-static-site}"
+# IMPORTANT: Replace "owner-my-project" with your actual project (e.g., "yourorg-your-repo")
+readonly PROJECT_NAME="${PROJECT_NAME:-owner-my-project}"
 
 # Project OU name (extracted from repository name)
 readonly PROJECT_OU_NAME="${GITHUB_REPO##*/}"
 
 # External ID for cross-account role assumption
 # GitHub Actions: Set via vars.EXTERNAL_ID
+# Note: Dynamically generated from PROJECT_SHORT_NAME
 readonly EXTERNAL_ID="${EXTERNAL_ID:-github-actions-${PROJECT_SHORT_NAME}}"
 
 # =============================================================================

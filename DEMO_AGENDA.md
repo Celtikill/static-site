@@ -14,31 +14,6 @@ This demonstration showcases enterprise-grade AWS multi-account infrastructure d
 **Key Message**: "From bootstrap to deployment in under 20 minutes, using nothing but code."
 
 ---
-
-## Recent Changes (November 2025)
-
-### Configuration System Refactoring
-- **GitHub Variables Fix**: Updated `AWS_ACCOUNT_ID_DEV` to correct account (859340968804)
-- **Unified Configuration**: All scripts now use `scripts/config.sh` as single source of truth
-- **macOS Compatibility**: Ensured bash 3.x compatibility throughout all scripts
-
-### Policy Template System
-- **Template-Based Policies**: Converted all IAM policies to `.json.tpl` templates with placeholders
-- **Automated Generation**: Policy generation integrated into `bootstrap-foundation.sh` (Step 3)
-- **Dynamic Substitution**: Repository names, account IDs, and regions automatically replaced
-
-### Demo Content Update
-- **Simple Blog Homepage**: Replaced AWS architecture showcase with clean personal blog
-- **Version A vs B**: Two distinct blog versions for clear visual demo of deployments
-- **Easier to Understand**: Blog content more relatable than technical AWS documentation
-
-### OIDC Authentication Fix
-- **Account ID Correction**: GitHub Actions now uses correct dev account ID
-- **Trust Policies Verified**: All IAM roles have correct OIDC trust relationships
-- **Cross-Account Access**: Proper role assumption configured for all environments
-
----
-
 ## Pre-Demo Checklist
 
 **Complete 24-48 hours before demo:**
