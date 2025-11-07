@@ -46,6 +46,7 @@ env:
 
   # Terraform Variables (pass to Terraform via TF_VAR_ prefix)
   TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+  TF_VAR_default_region: ${{ vars.AWS_DEFAULT_REGION || 'us-east-1' }}
 
 concurrency:
   group: test-${{ github.ref }}
