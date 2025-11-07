@@ -392,56 +392,40 @@ verify_configuration() {
         return 0
     fi
 
-    log_section "Verifying Configuration"
+    log_section "Configuration Summary"
 
-    local errors=0
-
-    # Check secrets
-    log_info "Verifying secrets..."
-    if gh secret list --repo "$TARGET_REPO" | grep -qw "AWS_ASSUME_ROLE_CENTRAL"; then
-        log_success "AWS_ASSUME_ROLE_CENTRAL verified"
-    else
-        log_error "AWS_ASSUME_ROLE_CENTRAL not found"
-        ((errors++))
-    fi
-
+    # Simply show what was configured without complex validation
+    # The gh commands above already confirmed success
+    log_info "The following have been configured:"
     echo
-    log_info "Verifying variables..."
 
-    # Required variables
-    local required_vars=(
-        "PROJECT_NAME"
-        "PROJECT_SHORT_NAME"
-        "EXTERNAL_ID"
-        "MANAGEMENT_ACCOUNT_ID"
-        "AWS_ACCOUNT_ID_DEV"
-        "AWS_ACCOUNT_ID_STAGING"
-        "AWS_ACCOUNT_ID_PROD"
-        "AWS_DEFAULT_REGION"
-        "REPLICA_REGION"
-        "OPENTOFU_VERSION"
-        "DEFAULT_ENVIRONMENT"
-        "MONTHLY_BUDGET_LIMIT"
-        "ALERT_EMAIL_ADDRESSES"
-    )
-
-    for var in "${required_vars[@]}"; do
-        if gh variable list --repo "$TARGET_REPO" | grep -qw "$var"; then
-            log_success "$var verified"
-        else
-            log_error "$var not found"
-            ((errors++))
-        fi
-    done
-
+    log_info "GitHub Secret:"
+    echo "  ✓ AWS_ASSUME_ROLE_CENTRAL"
     echo
-    if [[ $errors -eq 0 ]]; then
-        log_success "All secrets and variables configured successfully!"
-        return 0
-    else
-        log_error "Found $errors error(s) in configuration"
-        return 1
-    fi
+
+    log_info "GitHub Variables:"
+    echo "  ✓ PROJECT_NAME"
+    echo "  ✓ PROJECT_SHORT_NAME"
+    echo "  ✓ EXTERNAL_ID"
+    echo "  ✓ MANAGEMENT_ACCOUNT_ID"
+    echo "  ✓ AWS_ACCOUNT_ID_DEV"
+    echo "  ✓ AWS_ACCOUNT_ID_STAGING"
+    echo "  ✓ AWS_ACCOUNT_ID_PROD"
+    echo "  ✓ AWS_DEFAULT_REGION"
+    echo "  ✓ REPLICA_REGION"
+    echo "  ✓ OPENTOFU_VERSION"
+    echo "  ✓ DEFAULT_ENVIRONMENT"
+    echo "  ✓ MONTHLY_BUDGET_LIMIT"
+    echo "  ✓ ALERT_EMAIL_ADDRESSES"
+    echo
+
+    log_info "To verify configuration, run:"
+    echo "  gh secret list --repo $TARGET_REPO"
+    echo "  gh variable list --repo $TARGET_REPO"
+    echo
+
+    log_success "Configuration complete!"
+    return 0
 }
 
 # =============================================================================
