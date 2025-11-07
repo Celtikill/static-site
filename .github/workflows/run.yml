@@ -541,16 +541,39 @@ jobs:
           echo "- **S3 Bucket**: $BUCKET_NAME" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront ID**: $CLOUDFRONT_ID" >> $GITHUB_STEP_SUMMARY
 
-          # Sync website content
-          echo "📤 Syncing website content to S3..."
-          timeout 120s aws s3 sync ../../../src/ s3://$BUCKET_NAME --delete --sse AES256
+          # Sync website content with cache-control headers for demo freshness
+          echo "📤 Syncing website content to S3 with cache-control headers..."
+          timeout 120s aws s3 sync ../../../src/ s3://$BUCKET_NAME \
+            --delete \
+            --sse AES256 \
+            --cache-control "max-age=0, no-cache, must-revalidate" \
+            --metadata-directive REPLACE
 
-          # Invalidate CloudFront cache if distribution exists
+          # Invalidate CloudFront cache if distribution exists and wait for completion
           if [ -n "$CLOUDFRONT_ID" ]; then
             echo "🔄 Invalidating CloudFront cache..."
-            timeout 60s aws cloudfront create-invalidation \
+            INVALIDATION_OUTPUT=$(timeout 60s aws cloudfront create-invalidation \
               --distribution-id $CLOUDFRONT_ID \
-              --paths "/*"
+              --paths "/*" \
+              --output json)
+
+            INVALIDATION_ID=$(echo "$INVALIDATION_OUTPUT" | jq -r '.Invalidation.Id')
+
+            if [ -n "$INVALIDATION_ID" ] && [ "$INVALIDATION_ID" != "null" ]; then
+              echo "📋 Invalidation ID: $INVALIDATION_ID"
+              echo "⏳ Waiting for invalidation to complete (polls every 20s, max 10 minutes)..."
+
+              # Wait for invalidation to complete (30 checks * 20s = 10 minutes max)
+              if timeout 600s aws cloudfront wait invalidation-completed \
+                --distribution-id $CLOUDFRONT_ID \
+                --id "$INVALIDATION_ID"; then
+                echo "✅ CloudFront cache invalidation completed successfully"
+              else
+                echo "⚠️ Invalidation wait timed out, but invalidation is in progress"
+              fi
+            else
+              echo "⚠️ Could not extract invalidation ID from response"
+            fi
           else
             echo "ℹ️ No CloudFront distribution to invalidate (cost-optimized S3-only deployment)"
           fi
@@ -636,8 +659,12 @@ jobs:
           S3_ENDPOINT=$(normalize_url "${{ needs.deploy_website.outputs.s3_endpoint }}")
           DASHBOARD_URL=$(normalize_url "${{ needs.deploy_website.outputs.dashboard_url }}")
 
+          # Add cache-busting timestamp to URLs for demo freshness
+          TIMESTAMP=$(date +%s)
+
           if [ -n "$DEPLOY_URL" ]; then
-            echo "| Primary URL | [$DEPLOY_URL]($DEPLOY_URL) |" >> $GITHUB_STEP_SUMMARY
+            DEPLOY_URL_CACHE_BUST="${DEPLOY_URL}?t=${TIMESTAMP}"
+            echo "| Primary URL | [$DEPLOY_URL_CACHE_BUST]($DEPLOY_URL_CACHE_BUST) |" >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ -n "$CLOUDFRONT_URL" ]; then
@@ -663,7 +690,8 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "🎉 **DEPLOYMENT SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
             if [ -n "$DEPLOY_URL" ]; then
-              echo "🌐 **Visit**: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
+              echo "🌐 **Visit**: $DEPLOY_URL_CACHE_BUST" >> $GITHUB_STEP_SUMMARY
+              echo "💡 **Tip**: Hard refresh (Ctrl+Shift+R / Cmd+Shift+R) to see latest changes" >> $GITHUB_STEP_SUMMARY
               if [ -n "$CLOUDFRONT_URL" ]; then
                 echo "⚡ **CDN**: $CLOUDFRONT_URL (Global distribution)" >> $GITHUB_STEP_SUMMARY
               else

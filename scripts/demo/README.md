@@ -45,6 +45,54 @@ These scripts help presenters prepare for professional technical demos by:
 
 ---
 
+### `switch-theme.sh`
+
+**Purpose**: Easily switch between website themes for visual demo impact
+
+**When to run**: During demos to show live deployment updates with visible changes
+
+**What it does**:
+- Detects current website theme (blue or green)
+- Switches between `index-blog-v1.html` (blue) and `index-blog-v2.html` (green)
+- Creates backup of current `index.html`
+- Provides next steps for committing and deploying
+
+**Usage**:
+```bash
+# Check current theme
+./scripts/demo/switch-theme.sh status
+
+# Switch to green theme
+./scripts/demo/switch-theme.sh green
+
+# Switch to blue theme
+./scripts/demo/switch-theme.sh blue
+```
+
+**Output**:
+```
+✅ Successfully switched to GREEN theme!
+
+📝 Next steps:
+  1. Commit the change: git add src/index.html && git commit -m 'Switch to green theme'
+  2. Push to trigger deployment: git push
+  3. Wait for GitHub Actions to deploy (~2-3 minutes)
+  4. Visit the website URL from the workflow summary
+
+💡 The updated workflow now:
+  • Sets cache-control headers for instant updates
+  • Waits for CloudFront invalidation to complete
+  • Provides cache-busting URLs in the summary
+```
+
+**Theme colors**:
+- Blue theme: `#2563eb` (index-blog-v1.html)
+- Green theme: `#059669` (index-blog-v2.html)
+
+**Demo impact**: Visual color changes make deployments immediately obvious to demo participants, eliminating confusion about whether the deployment actually updated.
+
+---
+
 ## GitHub Configuration (Moved to Bootstrap Suite)
 
 **GitHub configuration is now part of the bootstrap process** and has been relocated to:
@@ -126,13 +174,16 @@ All these paths are in `.gitignore` to prevent accidental commits of sensitive d
    ./scripts/bootstrap/configure-github.sh
    ```
 
-2. **Create feature branch (minute 32-34)**:
+2. **Create feature branch and switch theme (minute 32-34)**:
    ```bash
    # Create timestamped feature branch
    git checkout -b feature/demo-$(date +%Y%m%d-%H%M)
 
-   # Make visible change
-   echo "<!-- Demo: $(date '+%Y-%m-%d %H:%M:%S') -->" >> src/index.html
+   # Switch to green theme for visual impact
+   ./scripts/demo/switch-theme.sh green
+
+   # Alternative: Make a small visible change
+   # echo "<!-- Demo: $(date '+%Y-%m-%d %H:%M:%S') -->" >> src/index.html
    ```
 
 3. **Trigger deployment (minute 34-38)**:
