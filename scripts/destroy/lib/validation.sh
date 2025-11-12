@@ -146,8 +146,8 @@ generate_dry_run_report() {
     local report_file="/tmp/destruction-report-$(date +%Y%m%d-%H%M%S).txt"
     local total_resources=0
 
-    # Export AWS region for all AWS CLI commands (ADR-009: environment variable configuration)
-    export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
+    # AWS_DEFAULT_REGION already exported from config.sh (ADR-009: environment variable configuration)
+    # No need to re-export here - it's already available
 
     {
         echo "==============================================="
