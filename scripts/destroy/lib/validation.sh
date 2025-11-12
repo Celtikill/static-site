@@ -170,16 +170,12 @@ generate_dry_run_report() {
             current_account=$(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null)
 
             if [[ "$current_account" == "$MANAGEMENT_ACCOUNT_ID" ]]; then
-                local -A account_env_map=(
-                    ["822529998967"]="Dev"
-                    ["927588814642"]="Staging"
-                    ["546274483801"]="Prod"
-                )
-
+                # Get environment names from config.sh (bash 3.2 compatible)
                 local cross_account_count=0
                 for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
                     if check_account_filter "$account_id"; then
-                        local env_name="${account_env_map[$account_id]}"
+                        local env_name
+                        env_name=$(get_env_name_for_account "$account_id")
                         echo "  - GitHubActions-StaticSite-${env_name}-Role in account $account_id"
                         ((cross_account_count++)) || true
                     fi

@@ -190,20 +190,15 @@ close_member_accounts() {
     log_warn "   - Outstanding fees and Reserved Instance charges still apply"
     log_warn "   - AWS Marketplace subscriptions must be manually canceled"
 
-    # Map account IDs to environment names
-    local -A account_env_map=(
-        ["822529998967"]="Dev"
-        ["927588814642"]="Staging"
-        ["546274483801"]="Prod"
-    )
-
+    # Get environment names from config.sh (bash 3.2 compatible)
     for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
         if ! check_account_filter "$account_id"; then
             log_info "Skipping account closure for $account_id - not in account filter"
             continue
         fi
 
-        local env_name="${account_env_map[$account_id]}"
+        local env_name
+        env_name=$(get_env_name_for_account "$account_id")
 
         # Check account status first
         local account_status

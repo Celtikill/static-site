@@ -260,6 +260,38 @@ load_accounts() {
 # HELPER FUNCTIONS
 # =============================================================================
 
+# Get environment name for account ID (bash 3.2 compatible)
+# Returns: "Management", "Dev", "Staging", "Prod", or "Unknown"
+get_env_name_for_account() {
+    local account_id="$1"
+
+    # Handle empty input
+    if [[ -z "$account_id" ]]; then
+        echo "Unknown"
+        return 1
+    fi
+
+    # Match against known account IDs
+    case "$account_id" in
+        "$MANAGEMENT_ACCOUNT_ID"|"$MGMT_ACCOUNT")
+            echo "Management"
+            ;;
+        "$DEV_ACCOUNT"|"$AWS_ACCOUNT_ID_DEV")
+            echo "Dev"
+            ;;
+        "$STAGING_ACCOUNT"|"$AWS_ACCOUNT_ID_STAGING")
+            echo "Staging"
+            ;;
+        "$PROD_ACCOUNT"|"$AWS_ACCOUNT_ID_PROD")
+            echo "Prod"
+            ;;
+        *)
+            echo "Unknown"
+            return 1
+            ;;
+    esac
+}
+
 require_accounts() {
     if [[ -z "$DEV_ACCOUNT" ]] || [[ -z "$STAGING_ACCOUNT" ]] || [[ -z "$PROD_ACCOUNT" ]]; then
         echo -e "${RED}ERROR:${NC} accounts.json not found or incomplete" >&2
