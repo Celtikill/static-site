@@ -1,93 +1,13 @@
-# ADR-005: Deployment Documentation Architecture
+# 5. Deployment Documentation Architecture
 
-**Status**: Partially Implemented
-**Date**: 2025-10-16
-**Deciders**: Codeowner
-**Related**: ADR-001, ADR-002, ADR-003, ADR-004
+Date: 2024-10-16
+Status: Partially Implemented
+Deciders: Engineering Team
+Technical Story: Documentation proliferation requires layered architecture for different user journeys
 
-> **📝 Implementation Note**: The proposed structure in this ADR was implemented with modifications. The `deployment.md` file was merged into `DEPLOYMENT.md` along with `QUICK-START.md` as a single unified deployment guide with progressive disclosure. See [docs/README.md](../README.md) for current documentation structure (Phase 3 updates, 2025-11-04).
-
-## Implementation Variance
-
-**What Was Planned** (October 2025):
-This ADR proposed creating a layered documentation architecture with:
-- `docs/QUICK-START.md` - 5-minute deployment guide
-- `docs/RELEASE-PROCESS.md` - Production release workflow
-- `docs/archive/2025-10-16-pipeline-test-plan.md` - Archived test plan
-- Separate ADR documents (ADR-001 through ADR-005)
-- Enhanced README.md with quick links
-
-**What Was Actually Implemented** (October-November 2025):
-The project evolved the documentation structure differently:
-
-✅ **Fully Implemented**:
-- ADR documents (ADR-001 through ADR-006) created as planned
-- Enhanced README.md with quick links and status
-- docs/CONTRIBUTING.md created for developer workflow
-- Comprehensive docs/README.md as documentation index
-
-⚠️ **Implemented Differently**:
-- Quick-start content merged into unified DEPLOYMENT.md instead of separate file
-- Release process documented in CONTRIBUTING.md and ROADMAP.md instead of dedicated file
-- Progressive disclosure achieved through docs/README.md navigation structure
-
-❌ **Not Implemented**:
-- Standalone docs/QUICK-START.md file
-- Standalone docs/RELEASE-PROCESS.md file
-- docs/archive/ directory and archived pipeline test plan
-
-**Rationale for Variance**:
-1. **Unified Deployment Guide**: Team found single DEPLOYMENT.md with sections more maintainable than multiple small files
-2. **Release Process Integration**: Release workflow fits naturally in CONTRIBUTING.md alongside PR workflow
-3. **Archive Decision**: Original test plan information captured in ADR-001, separate archive deemed unnecessary
-4. **Progressive Disclosure Achieved**: docs/README.md navigation provides intended user journey without file proliferation
-
-**Current Documentation Structure** (November 2025):
-```
-Repository Root
-├── README.md (Project status, quick links)
-├── CONTRIBUTING.md (Dev workflow, releases)
-│
-├── docs/
-│   ├── README.md (Documentation index, navigation)
-│   ├── DEPLOYMENT.md (Unified deployment guide)
-│   ├── ROADMAP.md (Project planning)
-│   ├── deployment-reference.md (Advanced patterns)
-│   ├── ci-cd.md (Pipeline architecture)
-│   ├── workflows.md (Workflow routing)
-│   │
-│   └── architecture/
-│       ├── ADR-001-iam-permission-strategy.md
-│       ├── ADR-002-branch-based-deployment-routing.md
-│       ├── ADR-003-manual-semantic-versioning.md
-│       ├── ADR-004-conventional-commits-enforcement.md
-│       ├── ADR-005-deployment-documentation-architecture.md
-│       └── ADR-006-terraform-over-bash-for-resources.md
-```
-
-**Impact Assessment**:
-The actual implementation achieves the ADR's core objectives:
-- ✅ Clear user journeys (via docs/README.md navigation)
-- ✅ Progressive disclosure (section-based organization)
-- ✅ Reduced duplication (unified files prevent drift)
-- ✅ Multiple audiences served (index directs to appropriate docs)
-- ✅ Maintainability (fewer files to keep in sync)
-
-The variance represents an evolution based on team experience, not a failure to implement. The spirit of the ADR (layered, audience-driven documentation) was achieved through different file organization.
-
-**Lessons Learned**:
-- Fewer, well-organized files > many small files for small teams
-- Navigation layer (docs/README.md) sufficient for progressive disclosure
-- Integration (release process in CONTRIBUTING.md) better than separation
-- ADRs capture decisions; implementation can adapt to reality
-
----
-
-## Context
+## Context and Problem Statement
 
 The static website infrastructure project accumulated multiple overlapping documentation files during rapid development. Three documents covered deployment information with significant overlap, causing confusion about which document to consult for specific tasks.
-
-### Problem Statement
 
 **Existing Documentation State**:
 - `PIPELINE-TEST-PLAN.md` (490 lines): Detailed testing plan and IAM permission evolution
@@ -95,319 +15,162 @@ The static website infrastructure project accumulated multiple overlapping docum
 - `docs/ci-cd.md` (642 lines): Complete CI/CD pipeline documentation
 
 **Issues Identified**:
-
 1. **Overlap**: All three documents covered deployment workflows
 2. **Discovery**: Unclear which document to read first
 3. **Maintenance**: Updates required in multiple places
 4. **Audience**: Different documents for different skill levels mixed together
 5. **Historical Context**: Important decision context buried in test plans
 
-### Requirements
+How should we organize deployment documentation to serve multiple audiences (new users, experienced operators, architects) while minimizing duplication and maintaining historical context?
 
-**Clear Information Architecture**:
-- Logical progression for new users (quick start → deep dive)
-- Separation of concerns (how-to vs. why vs. reference)
-- Minimize duplication while preserving important context
+## Decision Drivers
 
-**Discoverable Documentation**:
-- Clear naming that indicates document purpose
-- README.md links to appropriate starting points
-- Breadcrumbs and cross-references between documents
+* **Clear user journeys**: Logical progression from quick start to deep dive
+* **Separation of concerns**: How-to vs. why vs. reference documentation
+* **Minimize duplication**: Single source of truth for each topic
+* **Discoverability**: Clear naming indicating document purpose
+* **Maintainability**: Easy to update without breaking references
+* **Multiple audiences**: Quick start (<10 min), reference, deep dive, historical context
+* **Time to value**: New developers productive within 10 minutes
+* **Historical preservation**: Decision context not lost over time
 
-**Maintainable Structure**:
-- Single source of truth for each topic
-- Historical decisions preserved in architecture records
-- Easy to update without breaking references
+## Considered Options
 
-**Multiple Audiences**:
-- Quick start for new developers (time to first deploy: <10 min)
-- Reference for experienced users (command lookup)
-- Deep dive for architectural understanding
-- Historical context for decision rationale
+* **Option 1**: Layered Documentation Architecture with ADRs (Chosen)
+* **Option 2**: Single comprehensive deployment guide
+* **Option 3**: Wiki-style linked documentation
+* **Option 4**: Code-adjacent documentation (docs in scripts/)
 
-## Decision
+## Decision Outcome
 
-We will implement a **Layered Documentation Architecture** organized by user journey and purpose, with historical documentation archived for reference.
+**Chosen option: "Layered Documentation Architecture with ADRs"** because it provides clear separation between quick-start, reference, and architectural rationale while preserving historical context.
 
-### Documentation Structure
+### Implementation
 
+**Planned Structure** (October 2024):
 ```
 Repository Root
 ├── README.md (Quick links, current status)
 ├── CONTRIBUTING.md (Development workflow, PR guidelines)
 │
 ├── docs/
-│   ├── QUICK-START.md ⭐ NEW (5-minute deployment guide)
-│   ├── RELEASE-PROCESS.md ⭐ NEW (Production release workflow)
-│   │
+│   ├── QUICK-START.md (5-minute deployment guide)
+│   ├── RELEASE-PROCESS.md (Production release workflow)
 │   ├── deployment.md (Advanced strategies)
 │   ├── ci-cd.md (Pipeline deep dive)
 │   │
 │   ├── architecture/
-│   │   ├── ADR-001-iam-permission-strategy.md ⭐ NEW
-│   │   ├── ADR-002-branch-based-deployment-routing.md ⭐ NEW
-│   │   ├── ADR-003-manual-semantic-versioning.md ⭐ NEW
-│   │   ├── ADR-004-conventional-commits-enforcement.md ⭐ NEW
-│   │   └── ADR-005-deployment-documentation-architecture.md ⭐ NEW
+│   │   ├── ADR-001-iam-permission-strategy.md
+│   │   ├── ADR-002-branch-based-deployment-routing.md
+│   │   ├── ADR-003-manual-semantic-versioning.md
+│   │   ├── ADR-004-conventional-commits-enforcement.md
+│   │   └── ADR-005-deployment-documentation-architecture.md
 │   │
 │   └── archive/
-│       └── 2025-10-16-pipeline-test-plan.md ⭐ ARCHIVED
+│       └── 2024-10-16-pipeline-test-plan.md
 ```
+
+**Actual Implementation** (October-November 2024):
+The project evolved differently based on team experience:
+- Quick-start content merged into unified `DEPLOYMENT.md` instead of separate file
+- Release process documented in `CONTRIBUTING.md` and `ROADMAP.md` instead of dedicated file
+- Progressive disclosure achieved through `docs/README.md` navigation structure
+- ADR documents created as planned
+- Archive directory deemed unnecessary (context captured in ADRs)
+
+**Implementation Variance Rationale**:
+1. **Unified Deployment Guide**: Single `DEPLOYMENT.md` with sections more maintainable than multiple small files
+2. **Release Process Integration**: Release workflow fits naturally in `CONTRIBUTING.md` alongside PR workflow
+3. **Archive Decision**: Original test plan information captured in ADR-001, separate archive unnecessary
+4. **Progressive Disclosure**: `docs/README.md` navigation provides intended user journey without file proliferation
 
 ### Document Purposes
 
 **Quick Start Documents** (Time to value: <10 minutes):
-
-1. **`README.md`**
-   - Current deployment status (dev/staging/prod)
-   - Quick links to documentation
-   - Environment URLs and health status
-   - "How do I...?" common task links
-
-2. **`docs/QUICK-START.md`** (NEW)
-   - Prerequisites (AWS accounts, GitHub CLI)
-   - Bootstrap new environment (single command)
-   - Deploy website (3 commands)
-   - Verify deployment (1 command)
-   - Troubleshooting quick links
-
-3. **`CONTRIBUTING.md`** (NEW)
-   - Developer workflow (branch → PR → merge)
-   - Conventional Commits format
-   - PR title requirements
-   - Release process overview
-
-4. **`docs/RELEASE-PROCESS.md`** (NEW)
-   - Production release checklist
-   - Version number guidelines (SemVer)
-   - GitHub Release creation
-   - Post-deployment validation
+- `README.md`: Current deployment status, quick links, environment URLs
+- `CONTRIBUTING.md`: Developer workflow, conventional commits, PR requirements
+- `DEPLOYMENT.md`: Unified deployment guide with progressive disclosure
 
 **Deep Dive Documents** (Reference and understanding):
-
-5. **`docs/deployment.md`**
-   - Advanced deployment strategies
-   - Environment-specific configuration
-   - Cost optimization patterns
-   - Rollback procedures
-   - Security considerations
-
-6. **`docs/ci-cd.md`**
-   - BUILD → TEST → RUN pipeline architecture
-   - Workflow routing logic
-   - Security gates and validation
-   - Performance metrics
-   - Troubleshooting failures
+- `docs/deployment.md`: Advanced deployment strategies, cost optimization, rollback procedures
+- `docs/ci-cd.md`: BUILD → TEST → RUN pipeline architecture, workflow routing, troubleshooting
 
 **Architectural Context** (Why decisions were made):
-
-7. **`docs/architecture/ADR-*.md`** (NEW)
-   - ADR-001: IAM Permission Strategy
-   - ADR-002: Branch-Based Deployment Routing
-   - ADR-003: Manual Semantic Versioning
-   - ADR-004: Conventional Commits Enforcement
-   - ADR-005: Documentation Architecture (this document)
-
-**Historical Archive** (Preserved for context):
-
-8. **`docs/archive/2025-10-16-pipeline-test-plan.md`** (ARCHIVED)
-   - Original PIPELINE-TEST-PLAN.md
-   - IAM permission evolution and testing
-   - Phase 1 implementation evidence
-   - Historical context for ADR-001
+- `docs/architecture/ADR-*.md`: Architecture Decision Records documenting rationale for major decisions
 
 ### Information Flow
 
-```mermaid
-%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph TD
-    accTitle: Documentation Navigation and Information Architecture
-    accDescr: Progressive documentation discovery flow designed for user journey from initial contact to successful deployment or contribution. New users arrive at README.md which provides project status, pipeline health badges, and quick navigation links establishing context and credibility. README directs users to QUICK-START.md for rapid 5-minute deployment enabling immediate value demonstration and hands-on experience. The quick start creates early success building confidence and engagement. After initial deployment, users encounter a decision point based on their goals and needs. Production deployment users navigate to RELEASE-PROCESS.md documenting semantic versioning, GitHub Releases workflow, and production promotion procedures. Contributors navigate to CONTRIBUTING.md covering PR workflow, conventional commits requirements, code review process, and merge strategies. Users seeking advanced deployment patterns access deployment.md for progressive promotion strategies, rollback procedures, and multi-environment orchestration. Pipeline architecture learners access ci-cd.md documenting the BUILD-TEST-RUN workflow, security gates, and automation patterns. Decision rationale seekers access ADR documents explaining architectural choices, tradeoffs evaluated, and context for major decisions. All paths converge to successful outcomes whether deployment completion, contribution submission, or deep understanding of system design. This architecture implements progressive disclosure revealing complexity gradually as users advance from quick start through advanced topics. The hub-and-spoke pattern from README provides clear entry points while decision-based routing matches content to user intent.
-
-    A["👋 New User Arrives"] --> B["📖 README.md<br/>Status & Quick Links"]
-    B --> C["⚡ QUICK-START.md<br/>Deploy in 5 minutes"]
-    C --> D{"Need More?"}
-
-    D -->|"Deploy to Prod"| E["📦 RELEASE-PROCESS.md<br/>Version & Release"]
-    D -->|"Contribute Code"| F["🤝 CONTRIBUTING.md<br/>PR Workflow"]
-    D -->|"Advanced Patterns"| G["🚀 deployment.md<br/>Strategies"]
-    D -->|"Pipeline Details"| H["⚙️ ci-cd.md<br/>Architecture"]
-    D -->|"Why Decision?"| I["📋 ADR-*.md<br/>Rationale"]
-
-    E --> J["✅ Deployed Successfully"]
-    F --> J
-    G --> J
-    H --> J
-    I --> J
-
-    style B fill:#e1f5fe
-    style C fill:#c8e6c9
-    style I fill:#fff9c4
-
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
-    linkStyle 6 stroke:#333333,stroke-width:2px
-    linkStyle 7 stroke:#333333,stroke-width:2px
-    linkStyle 8 stroke:#333333,stroke-width:2px
-    linkStyle 9 stroke:#333333,stroke-width:2px
-    linkStyle 10 stroke:#333333,stroke-width:2px
-    linkStyle 11 stroke:#333333,stroke-width:2px
-    linkStyle 12 stroke:#333333,stroke-width:2px
+```
+New User → README.md → QUICK-START/DEPLOYMENT.md → Success
+Developer → CONTRIBUTING.md → PR Workflow → Merge
+Release Manager → RELEASE-PROCESS → Deploy Production
+Architect → ADR Documents → Understand Rationale
 ```
 
-## Rationale
+### Positive Consequences
 
-### Why Archive PIPELINE-TEST-PLAN.md (Not Delete)?
+* **Clear user journeys**: Readers know where to start based on their role
+* **Reduced duplication**: Single source of truth per topic
+* **Maintainability**: Updates in one place, cross-references stay valid
+* **Discoverability**: Meaningful names aid navigation (QUICK-START vs. deployment.md)
+* **Onboarding speed**: New developers productive in 5-10 minutes
+* **Historical preservation**: ADRs document decision context and evolution
+* **Flexible evolution**: Actual implementation adapted to team needs while maintaining core objectives
 
-**Decision**: Move to `docs/archive/` with date prefix, not delete
+### Negative Consequences
 
-**Reasoning**:
+* **Navigation required**: Can't read single document for full picture
+* **Cross-references maintenance**: Links between documents must stay updated
+* **Learning curve**: New contributors must learn documentation structure
+* **Redundancy risk**: Temptation to duplicate content instead of linking
 
-1. **Historical Context**: Documents evolution of IAM permissions
-   - Shows problem analysis that led to ADR-001
-   - Evidence of testing and validation
-   - Explains "middle-way" approach decision rationale
+## Pros and Cons of the Options
 
-2. **Audit Trail**: Proves decisions were researched
-   - Links to best practices research
-   - Timeline of implementation (45 minutes)
-   - Evidence of successful deployment (Run ID: 18567763990)
+### Option 1: Layered Documentation Architecture (Chosen)
 
-3. **Future Reference**: Useful when evaluating alternatives
-   - "Why didn't we use two-role architecture?" → See archived plan Phase 2
-   - "What permission errors occurred?" → See archived error logs
-   - "How long did implementation take?" → See archived timeline
+* Good, because provides clear entry points for different audiences
+* Good, because separates concerns (how-to vs. why vs. reference)
+* Good, because minimizes duplication while preserving context
+* Good, because ADRs create reusable architectural knowledge
+* Good, because progressive disclosure reveals complexity gradually
+* Good, because supports multiple learning styles and speeds
+* Bad, because requires navigation between multiple files
+* Bad, because cross-references need maintenance
+* Bad, because more files to manage
 
-4. **Git History Alone Insufficient**: Plan contains analysis, not just code
-   - Git shows file changes, not decision reasoning
-   - Plan includes research findings and comparisons
-   - Provides context beyond commit messages
+### Option 2: Single Comprehensive Deployment Guide
 
-5. **Low Cost**: Archive directory organizes historical docs
-   - Date prefix shows when archived
-   - Doesn't clutter main docs/ directory
-   - Easy to find if needed (search for "pipeline test")
+* Good, because everything in one place
+* Good, because no cross-references to maintain
+* Good, because simple mental model
+* Bad, because too long for quick reference (hundreds of lines)
+* Bad, because intimidates new users
+* Bad, because mixes audiences (beginner and advanced)
+* Bad, because difficult to maintain (changes affect entire document)
+* Bad, because no separation between how-to and why
 
-**Alternative Rejected - Delete Entirely**:
-- Loses valuable context
-- Forces re-research for future decisions
-- Git history doesn't capture analysis quality
-- Team onboarding harder (no decision journey)
+### Option 3: Wiki-Style Linked Documentation
 
-### Why Create QUICK-START.md (Not Enhance Existing Docs)?
+* Good, because flexible organization
+* Good, because easy to add new pages
+* Bad, because lacks structure and navigation
+* Bad, because wiki separate from codebase (synchronization issues)
+* Bad, because no version control with code
+* Bad, because search-dependent (discoverability issues)
+* Bad, because links break easily
 
-**Decision**: New dedicated quick-start guide
+### Option 4: Code-Adjacent Documentation
 
-**Reasoning**:
+* Good, because documentation lives with relevant code
+* Good, because reduces context switching
+* Bad, because hard to find documentation starting point
+* Bad, because duplicates documentation across scripts
+* Bad, because no high-level overview or architecture view
+* Bad, because doesn't serve non-code documentation needs
 
-1. **Different Audience**: New users vs. experienced operators
-   - New user: "How do I deploy?" (needs 5-minute guide)
-   - Experienced user: "How do I configure feature X?" (needs deployment.md)
-   - Mixing audiences causes confusion
+## Implementation Details
 
-2. **Time to Value**: Fast path to first deployment
-   - Quick-start: ~5 minutes to working deployment
-   - Full deployment.md: ~30 minutes to read and understand
-   - Most users just need quick-start
-
-3. **Separate Concerns**: How-to vs. why vs. reference
-   - Quick-start: Step-by-step commands (imperative)
-   - deployment.md: Strategies and patterns (conceptual)
-   - ADRs: Why decisions were made (rationale)
-
-4. **Discoverability**: Clear naming signals purpose
-   - "QUICK-START" immediately tells user what to expect
-   - "deployment.md" implies comprehensive coverage
-   - User picks appropriate document for their goal
-
-5. **Maintenance**: Easier to update targeted documents
-   - Quick-start rarely changes (basic workflow stable)
-   - deployment.md changes with new patterns
-   - No need to update both when adding advanced feature
-
-**Alternative Rejected - Add Quick Start Section to deployment.md**:
-- Quick-start gets buried in long document
-- Advanced content intimidates new users
-- Harder to maintain single source of truth
-- Document becomes unfocused (trying to serve all audiences)
-
-### Why Extract ADRs (Not Keep in PIPELINE-TEST-PLAN.md)?
-
-**Decision**: Extract architectural decisions into separate ADR documents
-
-**Reasoning**:
-
-1. **Reusability**: Decisions apply beyond single test plan
-   - IAM permission strategy (ADR-001) informs all deployments
-   - Branch routing (ADR-002) affects developer workflow
-   - Versioning (ADR-003) used for every release
-   - Commit format (ADR-004) enforced on all PRs
-
-2. **Discoverability**: ADRs are indexed and searchable
-   - Architecture directory shows all decisions in one place
-   - Can link to specific ADR from multiple documents
-   - New team members can read decision history
-
-3. **Linking**: Cross-reference between related decisions
-   - ADR-002 references ADR-001 (routing depends on permissions)
-   - ADR-003 references ADR-004 (versioning needs commits)
-   - Creates web of architectural knowledge
-
-4. **Future Decisions**: Template for new architecture choices
-   - Established ADR format
-   - Precedent for documenting rationale
-   - Shows level of detail expected
-
-5. **Separation of Concerns**: Test plan ≠ architecture decision
-   - Test plan is temporal (specific to Phase 1)
-   - ADRs are timeless (decisions remain valid)
-   - Different document lifecycles
-
-**ADR Format Benefits**:
-- **Status**: Accepted/Rejected/Deprecated
-- **Date**: When decision made
-- **Context**: What problem solved
-- **Decision**: What was chosen
-- **Rationale**: Why this choice
-- **Consequences**: Trade-offs accepted
-- **References**: Related files and docs
-
-### Why Create CONTRIBUTING.md and RELEASE-PROCESS.md?
-
-**Decision**: Dedicated documents for contributor and release workflows
-
-**Reasoning**:
-
-1. **Standard Location**: CONTRIBUTING.md is GitHub convention
-   - Appears in PR creation UI
-   - Expected by open source contributors
-   - Linked from repository insights
-
-2. **Workflow Focus**: Different workflows, different docs
-   - CONTRIBUTING.md: Daily developer workflow
-   - RELEASE-PROCESS.md: Infrequent production releases
-   - Separation prevents conflation
-
-3. **Audience Specificity**:
-   - CONTRIBUTING.md: All developers (frequent)
-   - RELEASE-PROCESS.md: Release managers only (rare)
-   - Different access patterns
-
-4. **Versioning Guidance**: SemVer rules need dedicated space
-   - Too detailed for CONTRIBUTING.md
-   - Too important to bury in deployment.md
-   - RELEASE-PROCESS.md provides focused guidance
-
-**Alternative Rejected - Single DEVELOPMENT.md**:
-- Mixes frequent (contributing) with rare (releasing)
-- Harder to find specific workflow
-- Document becomes catch-all
-
-### Document Organization Principles
+### Documentation Organization Principles
 
 **Principle 1: Progressive Disclosure**
 - Start simple (quick-start), reveal complexity as needed (advanced)
@@ -431,154 +194,45 @@ graph TD
 - deployment.md (implies comprehensive)
 - ADR-NNN (implies decision record)
 
-## Consequences
-
-### Positive
-
-1. **Clear User Journeys**: Readers know where to start
-   - New user: README → QUICK-START
-   - Contributor: CONTRIBUTING → PR workflow
-   - Release manager: RELEASE-PROCESS
-   - Architect: ADRs → Decision context
-
-2. **Reduced Duplication**: Single source of truth per topic
-   - IAM permissions: ADR-001
-   - Branch routing: ADR-002
-   - Quick deployment: QUICK-START.md
-   - Advanced patterns: deployment.md
-
-3. **Maintainability**: Updates in one place
-   - Change IAM strategy? Update ADR-001
-   - New deployment pattern? Update deployment.md
-   - Workflow change? Update CONTRIBUTING.md
-
-4. **Discoverability**: Meaningful names aid navigation
-   - QUICK-START vs. deployment.md signals complexity
-   - ADR-001 vs. ci-cd.md signals decision vs. process
-   - archive/ clearly indicates historical docs
-
-5. **Onboarding Speed**: New developers productive faster
-   - Quick-start: Deploy in 5 minutes
-   - Contributing: PR in 10 minutes
-   - Full context available when needed (ADRs)
-
-6. **Historical Preservation**: Context not lost
-   - Archived pipeline test plan shows decision evolution
-   - ADRs document why decisions made
-   - Git history preserves what changed
-
-### Negative
-
-1. **More Files**: 9 new documentation files
-   - Could feel overwhelming initially
-   - Directory structure more complex
-   - More files to search through
-
-2. **Navigation Required**: Must follow links
-   - Can't read single document for full picture
-   - Requires jumping between files
-   - Could lose context when navigating
-
-3. **Maintenance Coordination**: Cross-references must stay updated
-   - Links between documents can break
-   - Renaming requires updating multiple files
-   - Need to remember to update related docs
-
-4. **Redundancy Risk**: Temptation to duplicate content
-   - Easier to copy-paste than link
-   - Snippets repeated in multiple places
-   - Gradual drift if not disciplined
-
-### Risks and Mitigations
+### Risk Mitigations
 
 **Risk**: Users don't discover appropriate documentation
-- **Mitigation**: README.md has clear "How do I...?" links
-- **Mitigation**: Each doc cross-references related docs
-- **Mitigation**: Breadcrumbs at top of each document
+- README.md has clear "How do I...?" links
+- Each doc cross-references related docs
+- Breadcrumbs at top of each document
 
 **Risk**: Documentation becomes stale
-- **Mitigation**: Each ADR has review date
-- **Mitigation**: CI/CD checks for broken links (future)
-- **Mitigation**: PR template includes "Update docs?" checklist
-
-**Risk**: Historical archive becomes bloated
-- **Mitigation**: Archive only significant historical docs
-- **Mitigation**: Date prefix enables cleanup of old archives
-- **Mitigation**: Annual review of archive relevance
+- Each ADR has review date
+- PR template includes "Update docs?" checklist
+- Quarterly documentation review
 
 **Risk**: ADRs proliferate excessively
-- **Mitigation**: Only create ADR for significant architectural decision
-- **Mitigation**: Combine related decisions in single ADR
-- **Mitigation**: Update existing ADR vs. create new when appropriate
+- Only create ADR for significant architectural decision
+- Combine related decisions in single ADR
+- Update existing ADR vs. create new when appropriate
 
-### Future Evolution
+### Impact Assessment
 
-**Documentation Site** (when documentation grows further):
-```
-Use tools like:
-- MkDocs (Python-based static site generator)
-- Docusaurus (React-based documentation framework)
-- Just the Docs (Jekyll theme for GitHub Pages)
-```
+The actual implementation achieves the ADR's core objectives:
+- ✅ Clear user journeys (via docs/README.md navigation)
+- ✅ Progressive disclosure (section-based organization)
+- ✅ Reduced duplication (unified files prevent drift)
+- ✅ Multiple audiences served (index directs to appropriate docs)
+- ✅ Maintainability (fewer files to keep in sync)
 
-**Automated Link Checking** (prevent broken references):
-```yaml
-# .github/workflows/docs-validation.yml
-- name: Check Markdown Links
-  uses: gaurav-nelson/github-action-markdown-link-check@v1
-```
+The variance represents evolution based on team experience, not failure to implement. The spirit of the ADR (layered, audience-driven documentation) was achieved through different file organization.
 
-**Diagrams as Code** (current mermaid approach scales):
-```
-Continue using Mermaid for:
-- Architecture diagrams (already in ADRs)
-- User journey flows (already in this ADR)
-- Deployment workflows (already in docs)
-```
+## Links
 
-**Versioned Documentation** (if multiple versions need support):
-```
-docs/
-├── v1.x/
-│   └── deployment.md (for v1.x releases)
-├── v2.x/
-│   └── deployment.md (for v2.x releases)
-└── latest → v2.x/
-```
-
-## References
-
-### Files Created
-- `docs/QUICK-START.md` - 5-minute deployment guide
-- `docs/RELEASE-PROCESS.md` - Production release workflow
-- `CONTRIBUTING.md` - Developer contribution guidelines
-- `docs/architecture/ADR-001-iam-permission-strategy.md`
-- `docs/architecture/ADR-002-branch-based-deployment-routing.md`
-- `docs/architecture/ADR-003-manual-semantic-versioning.md`
-- `docs/architecture/ADR-004-conventional-commits-enforcement.md`
-- `docs/architecture/ADR-005-deployment-documentation-architecture.md`
-
-### Files Archived
-- `PIPELINE-TEST-PLAN.md` → `docs/archive/2025-10-16-pipeline-test-plan.md`
-
-### Existing Files (Enhanced with Cross-References)
-- `README.md` - Enhanced with quick links
-- `docs/deployment.md` - Advanced strategies (linked from quick-start)
-- `docs/ci-cd.md` - Pipeline architecture (linked from ADRs)
-
-### Documentation Best Practices
-- [**Diátaxis Framework**](https://diataxis.fr/): Tutorial, how-to, reference, explanation
-- [**Write the Docs**](https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/): Documentation structure and maintenance
-- [**Documentation as Code**](https://www.writethedocs.org/guide/docs-as-code/): Version control, CI/CD, reviews
-- [**ADR Pattern**](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions): Nygard's Architecture Decision Records
-
-### Examples of Good Documentation Architecture
-- [**Kubernetes**](https://kubernetes.io/docs/): Concepts, Tasks, Tutorials, Reference
-- [**Next.js**](https://nextjs.org/docs): Getting Started, Guides, API Reference, Architecture
-- [**Terraform**](https://www.terraform.io/docs): Intro, Guides, Language, Registry
-- [**AWS Well-Architected**](https://aws.amazon.com/architecture/well-architected/): Pillars, Best Practices, Whitepapers
+* **Implementation**: [docs/README.md](../README.md) - Documentation index and navigation
+* **Implementation**: [CONTRIBUTING.md](../../CONTRIBUTING.md) - Developer workflow guide
+* **Implementation**: [DEPLOYMENT.md](../../DEPLOYMENT.md) - Unified deployment guide
+* **Related ADRs**: ADR-001 (IAM Permission Strategy), ADR-002 (Branch-Based Routing), ADR-003 (Manual Versioning), ADR-004 (Conventional Commits)
+* **Diátaxis Framework**: https://diataxis.fr/ - Tutorial, how-to, reference, explanation
+* **Write the Docs**: https://www.writethedocs.org/guide/writing/beginners-guide-to-docs/ - Documentation structure
+* **ADR Pattern**: https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions - Nygard's Architecture Decision Records
 
 ---
 
-**Last Updated**: 2025-10-16
-**Review Date**: 2026-01-16 (3 months - evaluate documentation effectiveness)
+**Last Updated**: 2024-10-16
+**Review Date**: 2025-01-16 (3 months - evaluate documentation effectiveness)

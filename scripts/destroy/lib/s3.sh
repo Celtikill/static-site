@@ -465,12 +465,6 @@ destroy_replica_s3_buckets() {
 destroy_cross_account_s3_buckets() {
     log_info "🪣 Scanning for S3 buckets in member accounts..."
 
-    local -A account_env_map=(
-        ["822529998967"]="Dev"
-        ["927588814642"]="Staging"
-        ["546274483801"]="Prod"
-    )
-
     local total_destroyed=0
     local total_failed=0
 
@@ -478,12 +472,14 @@ destroy_cross_account_s3_buckets() {
     local current_account
     current_account=$(get_current_account)
 
+    # Get environment names from config.sh (bash 3.2 compatible)
     for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
         if ! check_account_filter "$account_id"; then
             continue
         fi
 
-        local env_name="${account_env_map[$account_id]}"
+        local env_name
+        env_name=$(get_env_name_for_account "$account_id")
         log_info "🪣 Scanning for S3 buckets in $env_name account ($account_id)..."
 
         # Skip cross-account role assumption if we're already in the target account

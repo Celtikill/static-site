@@ -1,17 +1,13 @@
-# ADR-006: Prefer Terraform Modules Over Bash for AWS Resource Management
+# 6. Prefer Terraform Modules Over Bash for AWS Resource Management
 
-**Status**: Accepted
-**Date**: 2025-11-05
-**Deciders**: Codeowner
-**Related**: ADR-001 (IAM Permissions), Bootstrap Scripts, Resource Tagging, Account Contacts
+Date: 2024-11-05
+Status: Accepted
+Deciders: Engineering Team
+Technical Story: Bootstrap process requires idempotent resource management with state tracking
 
----
-
-## Context
+## Context and Problem Statement
 
 The bootstrap scripts (`scripts/bootstrap/`) automate the initial setup of AWS Organizations infrastructure, including creating organizational units, member accounts, IAM roles, OIDC providers, and Terraform backends. These scripts were initially implemented using bash with direct AWS CLI calls.
-
-### Problem Statement
 
 As the bootstrap process evolved to support additional features (tagging, contact information, compliance requirements), several limitations became apparent:
 
@@ -22,32 +18,34 @@ As the bootstrap process evolved to support additional features (tagging, contac
 5. **Resource Lifecycle**: No declarative way to manage resource updates and deletions
 6. **Duplication**: Logic for resource management duplicated between bash and Terraform
 
-### Research Findings
+How should we manage AWS resources in bootstrap scripts to achieve idempotency, state tracking, and testability while maintaining orchestration flexibility?
 
-Research into 2025 infrastructure-as-code best practices revealed several patterns:
+## Decision Drivers
 
-**Pure Bash with AWS CLI**:
-- Pros: Simple, no dependencies, works everywhere
-- Cons: Imperative, no idempotency, no state tracking, hard to test
+* **Idempotency**: Bootstrap scripts must handle "already exists" gracefully
+* **State management**: Track what's deployed and detect drift
+* **Testability**: Ability to unit test resource management logic
+* **Declarative configuration**: Express desired state, not imperative steps
+* **Reusability**: Modules usable across different environments and projects
+* **Maintainability**: Clear separation between orchestration and resource management
+* **Community practices**: Align with infrastructure-as-code best practices
+* **Team skills**: Leverage existing Terraform knowledge
 
-**Pure Terraform**:
-- Pros: Declarative, idempotent, state-managed, testable
-- Cons: Can't orchestrate complex multi-step processes, limited scripting capabilities
+## Considered Options
 
-**Hybrid Approach (Bash Orchestration + Terraform Modules)**:
-- Pros: Bash handles orchestration and logic, Terraform handles AWS resources
-- Cons: Requires both tools, adds complexity to bootstrap process
-- Pattern: Widely adopted in enterprise environments (Terraform wrapper scripts)
+* **Option 1**: Hybrid Terraform-First Strategy - Bash orchestration + Terraform modules (Chosen)
+* **Option 2**: Pure Bash with AWS CLI
+* **Option 3**: Pure Terraform for entire bootstrap
+* **Option 4**: Use Terragrunt as orchestration layer
+* **Option 5**: CloudFormation StackSets
 
-## Decision
+## Decision Outcome
 
-We will implement a **Hybrid Terraform-First Strategy** where:
-1. **Terraform modules** manage AWS resource operations (create, update, tag, configure)
-2. **Bash scripts** orchestrate the bootstrap process and call Terraform modules
-3. **Metadata** is stored in `.github/CODEOWNERS` for single source of truth
+**Chosen option: "Hybrid Terraform-First Strategy"** because it provides the best balance between orchestration flexibility (bash) and resource management robustness (Terraform).
 
-### Architecture Pattern
+### Implementation
 
+**Architecture Pattern**:
 ```
 Bootstrap Script (Bash)
     │
@@ -63,8 +61,7 @@ Bootstrap Script (Bash)
          └── (future modules)
 ```
 
-### Module Invocation Pattern
-
+**Module Invocation Pattern**:
 ```bash
 # In lib/terraform.sh
 apply_resource_tagging() {
@@ -96,9 +93,9 @@ EOF
 }
 ```
 
-### Scope of Terraform Usage
+**Scope of Terraform Usage**:
 
-**Use Terraform modules for**:
+Use Terraform modules for:
 - AWS resource creation, updates, deletions
 - Resource tagging (Organizations resources)
 - Account contact information
@@ -106,7 +103,7 @@ EOF
 - OIDC provider configuration
 - Terraform backend setup (S3, DynamoDB, KMS)
 
-**Keep bash for**:
+Keep bash for:
 - Orchestration and sequencing
 - Conditional logic and branching
 - User input and interaction
@@ -116,34 +113,80 @@ EOF
 - Git operations
 - AWS credential verification
 
-## Consequences
+### Positive Consequences
 
-### Positive
+* **Idempotency**: Terraform automatically handles "already exists" scenarios
+* **State Management**: Know what's deployed, detect drift, track changes
+* **Declarative**: Resource configuration expressed as desired state
+* **Testability**: Modules can be unit tested independently
+* **Reusability**: Modules work in any AWS Organizations setup
+* **Validation**: Built-in type checking and constraint validation
+* **Documentation**: Variables and outputs serve as documentation
+* **Community**: Leverage Terraform ecosystem and best practices
 
-✅ **Idempotency**: Terraform automatically handles "already exists" scenarios
-✅ **State Management**: Know what's deployed, detect drift, track changes
-✅ **Declarative**: Resource configuration expressed as desired state
-✅ **Testability**: Modules can be unit tested independently
-✅ **Reusability**: Modules work in any AWS Organizations setup
-✅ **Validation**: Built-in type checking and constraint validation
-✅ **Documentation**: Variables and outputs serve as documentation
-✅ **Community**: Leverage Terraform ecosystem and best practices
+### Negative Consequences
 
-### Negative
+* **Additional Dependency**: Requires Terraform/OpenTofu in addition to bash
+* **Learning Curve**: Team needs to understand both bash and Terraform
+* **Temporary State**: Modules invoked from bash use temporary workspaces (stateless)
+* **Performance**: Terraform init/plan/apply adds overhead vs direct AWS CLI
+* **Debugging**: Stack traces span bash + Terraform layers
 
-⚠️ **Additional Dependency**: Requires Terraform/OpenTofu in addition to bash
-⚠️ **Learning Curve**: Team needs to understand both bash and Terraform
-⚠️ **Temporary State**: Modules invoked from bash use temporary workspaces (stateless)
-⚠️ **Performance**: Terraform init/plan/apply adds overhead vs direct AWS CLI
-⚠️ **Debugging**: Stack traces span bash + Terraform layers
+## Pros and Cons of the Options
 
-### Neutral
+### Option 1: Hybrid Terraform-First Strategy (Chosen)
 
-🔵 **Workspace Management**: Terraform workspaces created in `/tmp` and cleaned up after use
-🔵 **No Persistent State**: Bootstrap operations are one-time, so persistent state not critical
-🔵 **DRY_RUN Support**: Must be implemented in bash layer before calling Terraform
+* Good, because combines orchestration flexibility (bash) with resource robustness (Terraform)
+* Good, because Terraform handles idempotency automatically
+* Good, because modules are testable and reusable
+* Good, because declarative resource management
+* Good, because aligns with infrastructure-as-code best practices
+* Good, because leverages team's existing Terraform skills
+* Bad, because requires both bash and Terraform expertise
+* Bad, because temporary workspaces add complexity
+* Bad, because Terraform init/plan/apply slower than direct AWS CLI
 
-## Implementation
+### Option 2: Pure Bash with AWS CLI
+
+* Good, because simple, no dependencies, works everywhere
+* Good, because team familiar with bash scripting
+* Good, because direct AWS API control
+* Bad, because imperative (not declarative)
+* Bad, because no built-in idempotency
+* Bad, because no state tracking or drift detection
+* Bad, because complex error handling required
+* Bad, because difficult to test
+* Bad, because resource lifecycle management manual
+
+### Option 3: Pure Terraform
+
+* Good, because fully declarative infrastructure-as-code
+* Good, because idempotent by design
+* Good, because state-managed and testable
+* Bad, because Terraform not designed for complex orchestration logic
+* Bad, because limited ability to handle conditional flows
+* Bad, because difficult to implement progress tracking and user interaction
+* Bad, because overkill for one-time bootstrap operations
+
+### Option 4: Use Terragrunt
+
+* Good, because provides orchestration layer for Terraform
+* Good, because DRY configuration management
+* Bad, because additional tool dependency (Terragrunt + Terraform)
+* Bad, because learning curve for Terragrunt patterns
+* Bad, because Terragrunt designed for managing persistent infrastructure, not one-time bootstrapping
+* Bad, because team already familiar with bash scripting
+
+### Option 5: CloudFormation StackSets
+
+* Good, because AWS native IaC tooling
+* Good, because no third-party dependencies
+* Bad, because project already standardized on Terraform/OpenTofu
+* Bad, because CloudFormation lacks advanced features (count, for_each)
+* Bad, because limited community modules compared to Terraform Registry
+* Bad, because vendor lock-in to AWS
+
+## Implementation Details
 
 ### Phase 1: Foundation (Completed)
 
@@ -183,131 +226,29 @@ All Terraform modules must include:
 - `versions.tf` - Terraform and provider version constraints
 - `README.md` - Usage documentation and examples
 
-## Alternatives Considered
-
-### Alternative 1: Pure Bash
-
-Continue using bash with AWS CLI for all operations.
-
-**Rejected because**:
-- No idempotency without extensive conditional logic
-- No state management or drift detection
-- Difficult to test and maintain
-- Error handling becomes increasingly complex
-
-### Alternative 2: Pure Terraform
-
-Rewrite entire bootstrap process in Terraform.
-
-**Rejected because**:
-- Terraform not designed for complex orchestration logic
-- Limited ability to handle conditional flows
-- Difficult to implement progress tracking and user interaction
-- Overkill for one-time bootstrap operations
-
-### Alternative 3: Use Terragrunt
-
-Use Terragrunt as orchestration layer instead of bash.
-
-**Rejected because**:
-- Additional tool dependency (Terragrunt + Terraform)
-- Team familiarity with bash scripting
-- Bash provides sufficient orchestration capabilities
-- Terragrunt designed for managing persistent infrastructure, not one-time bootstrapping
-
-### Alternative 4: CloudFormation StackSets
-
-Use AWS native IaC tooling.
-
-**Rejected because**:
-- Project already standardized on Terraform/OpenTofu
-- CloudFormation lacks advanced features (count, for_each, etc.)
-- Limited community modules compared to Terraform Registry
-- Vendor lock-in to AWS
-
-## References
-
-- [Terraform CLI Documentation](https://www.terraform.io/cli)
-- [Terraform Module Best Practices](https://www.terraform.io/docs/modules/index.html)
-- [AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [Idempotent Shell Scripts with Terraform](https://thepracticalsysadmin.com/idempotent-shell-scripts-with-terraform/)
-
-## Related Architecture
-
-- **[Architecture Guide](../architecture.md)** - See "Technology Stack" section for infrastructure-as-code implementation using this Terraform-first approach
-
-## Related Files
-
-### Terraform Modules
-- `terraform/modules/management/resource-tagging/` - Resource tagging module
-- `terraform/modules/management/account-contacts/` - Account contacts module
-
-### Bootstrap Scripts
-- `scripts/bootstrap/lib/terraform.sh` - Terraform invocation library
-- `scripts/bootstrap/lib/metadata.sh` - CODEOWNERS metadata parser
-- `scripts/bootstrap/config.sh` - Configuration loader with metadata integration
-- `scripts/bootstrap/lib/organization.sh` - Organization management with tagging
-- `scripts/bootstrap/bootstrap-organization.sh` - Main bootstrap orchestrator
-
-### Configuration
-- `.github/CODEOWNERS` - Metadata source of truth
-
-## Examples
-
-### Example 1: Tag an Organizational Unit
-
-```bash
-# From bootstrap script
-source lib/terraform.sh
-
-# Load tags from CODEOWNERS
-tags_json=$(get_tags_json)
-
-# Tag OU using Terraform module
-tag_ou "ou-abcd-12345678" "$tags_json"
-```
-
-### Example 2: Set Account Contacts
-
-```bash
-# From bootstrap script
-source lib/terraform.sh
-
-# Load contact info from CODEOWNERS
-contact_json=$(get_contact_json)
-
-# Set contacts using Terraform module
-apply_account_contacts "123456789012" "$contact_json"
-```
-
-### Example 3: Batch Tag Resources
-
-```bash
-# Tag multiple resources with same tags
-resource_ids='["ou-1234","123456789012","987654321098"]'
-tags='{"ManagedBy":"bootstrap","Project":"static-site"}'
-
-batch_tag_resources "$resource_ids" "$tags"
-```
-
-## Validation
+### Validation
 
 This decision will be validated by:
 
 1. **Idempotency**: Running bootstrap scripts multiple times produces consistent results
 2. **Testability**: Terraform modules can be tested independently
 3. **Maintainability**: Reduced lines of bash code, clearer separation of concerns
-4. **Documentation**: Module READMEs provide clear usage examples
+4. **Documentation**: Module READMs provide clear usage examples
 5. **Migration Success**: Future bash-to-Terraform migrations follow this pattern
 
-## Review
+## Links
 
-This ADR will be reviewed:
-- **Quarterly**: Assess if pattern is working well
-- **When adding new features**: Ensure new features follow Terraform-first approach
-- **If problems arise**: Document issues and potential alternatives
+* **Implementation**: [terraform/modules/management/resource-tagging/](../../terraform/modules/management/resource-tagging/) - Resource tagging module
+* **Implementation**: [terraform/modules/management/account-contacts/](../../terraform/modules/management/account-contacts/) - Account contacts module
+* **Implementation**: [scripts/bootstrap/lib/terraform.sh](../../scripts/bootstrap/lib/terraform.sh) - Terraform invocation library
+* **Implementation**: [scripts/bootstrap/lib/metadata.sh](../../scripts/bootstrap/lib/metadata.sh) - CODEOWNERS metadata parser
+* **Related ADRs**: ADR-001 (IAM Permissions), ADR-008 (Bash 3.2 Compatibility)
+* **Related Documentation**: [ROADMAP.md](../../ROADMAP.md) - Phase 2 migration plan
+* **Terraform CLI Documentation**: https://www.terraform.io/cli
+* **Terraform Module Best Practices**: https://www.terraform.io/docs/modules/index.html
+* **AWS Provider Documentation**: https://registry.terraform.io/providers/hashicorp/aws/latest/docs
 
 ---
 
-**Last Updated**: 2025-11-05
-**Review Date**: 2026-05-05 (6 months - evaluate pattern effectiveness)
+**Last Updated**: 2024-11-05
+**Review Date**: 2025-05-05 (6 months - evaluate pattern effectiveness)

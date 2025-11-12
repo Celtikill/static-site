@@ -1,63 +1,67 @@
 #!/bin/bash
 # Unified Configuration for Bootstrap and Destroy Scripts
-# Single source of truth for all project configuration
+# Pure environment variable configuration with interactive prompts
 #
-# CONFIGURATION HIERARCHY:
-# 1. Environment variables (highest priority - set by GitHub Actions via repository variables)
-# 2. Hardcoded defaults (fallback for local execution)
+# CONFIGURATION APPROACH:
+# 1. ALL configuration comes from environment variables (no hardcoded defaults)
+# 2. Interactive prompts handle missing required variables
+# 3. Optional values can be left unset
 #
 # FOR GITHUB ACTIONS:
 # Set repository variables at: https://github.com/OWNER/REPO/settings/variables/actions
-# These will automatically override defaults when running in CI/CD
 #
 # FOR LOCAL EXECUTION:
-# Hardcoded defaults are used unless environment variables are explicitly set
-# No environment variables are required - scripts work out of the box
+# Option 1: Create .env file (see .env.example)
+# Option 2: Set environment variables in your shell
+# Option 3: Let scripts prompt you interactively
 #
 # FOR FORKING:
-# 1. Update repository variables in GitHub (recommended)
-# 2. OR update the hardcoded defaults below (alternative)
+# Update repository variables in GitHub or create local .env file
 
 set -euo pipefail
 
 # Disable AWS CLI pager for non-interactive script execution
 export AWS_PAGER=""
 
+# Source interactive prompts library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/config-prompts.sh
+source "${SCRIPT_DIR}/lib/config-prompts.sh"
+
 # =============================================================================
 # PROJECT IDENTITY
 # =============================================================================
 
+# Check for required configuration and prompt if missing
+if [[ -z "${GITHUB_REPO:-}" ]] || [[ -z "${PROJECT_SHORT_NAME:-}" ]] || [[ -z "${PROJECT_NAME:-}" ]]; then
+    prompt_required_config
+fi
+
 # Repository name (org/repo format)
 # Example: "YourOrg/your-repo"
-# GitHub Actions: Set via vars.REPO_FULL_NAME (or use built-in github.repository)
-# Local/Script: Can also use GITHUB_REPO env var for backward compatibility
-# IMPORTANT: Replace OWNER/REPO with your actual repository (e.g., "YourOrg/your-repo")
-readonly GITHUB_REPO="${REPO_FULL_NAME:-${GITHUB_REPO:-Celtikill/static-site}}"
+# GitHub Actions: Set via vars.REPO_FULL_NAME
+readonly GITHUB_REPO="${GITHUB_REPO:?ERROR: GITHUB_REPO environment variable is required}"
 
-# Repository owner (extracted from repository)
-# GitHub Actions: Set via vars.REPO_OWNER (or use built-in github.repository_owner)
-# Local/Script: Can also use GITHUB_OWNER env var for backward compatibility
-readonly GITHUB_OWNER="${REPO_OWNER:-${GITHUB_OWNER:-${GITHUB_REPO%%/*}}}"
+# Repository owner (extracted from repository or set explicitly)
+# GitHub Actions: Set via vars.REPO_OWNER
+readonly GITHUB_OWNER="${GITHUB_OWNER:-${GITHUB_REPO%%/*}}"
 
 # Short project name (used for resource naming within accounts)
-# Example: "your-repo"
+# Example: "static-site"
 # GitHub Actions: Set via vars.PROJECT_SHORT_NAME
-# IMPORTANT: Replace "my-project" with your actual project name
-readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:static-site}"
+readonly PROJECT_SHORT_NAME="${PROJECT_SHORT_NAME:?ERROR: PROJECT_SHORT_NAME environment variable is required}"
 
 # Full project name (used for globally unique resources like S3 buckets)
 # Format: {owner-lowercase}-{repo-name}
-# Example: "yourorg-your-repo"
+# Example: "yourorg-static-site"
 # GitHub Actions: Set via vars.PROJECT_NAME
-# IMPORTANT: Replace "owner-demo-cicd-terraformmy-project" with your actual project (e.g., "yourorg-your-repo")
-readonly PROJECT_NAME="${PROJECT_NAME:-celtikill-static-site}"
+readonly PROJECT_NAME="${PROJECT_NAME:?ERROR: PROJECT_NAME environment variable is required}"
 
 # Project OU name (extracted from repository name)
 readonly PROJECT_OU_NAME="${GITHUB_REPO##*/}"
 
 # External ID for cross-account role assumption
 # GitHub Actions: Set via vars.EXTERNAL_ID
-# Note: Dynamically generated from PROJECT_SHORT_NAME
 readonly EXTERNAL_ID="${EXTERNAL_ID:-github-actions-${PROJECT_SHORT_NAME}}"
 
 # =============================================================================
@@ -139,7 +143,7 @@ MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-}"
 # Destroy scripts should set: SCRIPT_DIR, and we derive paths from there
 
 # Set default paths if not already set
-: "${ACCOUNTS_FILE:=$(dirname "${BASH_SOURCE[0]}")/bootstrap/accounts.json}"
+: "${ACCOUNTS_FILE:=${SCRIPT_DIR}/bootstrap/accounts.json}"
 
 # =============================================================================
 # STATE MANAGEMENT DOCUMENTATION
@@ -227,7 +231,7 @@ fi
 # =============================================================================
 
 load_accounts() {
-    local accounts_file="${ACCOUNTS_FILE:-$(dirname "${BASH_SOURCE[0]}")/bootstrap/accounts.json}"
+    local accounts_file="${ACCOUNTS_FILE:-${SCRIPT_DIR}/bootstrap/accounts.json}"
 
     if [[ -f "$accounts_file" ]]; then
         MGMT_ACCOUNT=$(jq -r '.management // ""' "$accounts_file" 2>/dev/null || echo "")
@@ -240,10 +244,20 @@ load_accounts() {
             MANAGEMENT_ACCOUNT_ID="$MGMT_ACCOUNT"
         fi
     else
+        # accounts.json not found - prompt if interactive
+        if [[ -t 0 ]]; then
+            if prompt_accounts_json "$accounts_file"; then
+                # Retry loading after creation
+                load_accounts
+                return
+            fi
+        fi
+
+        # Fall back to environment variables or empty
         MGMT_ACCOUNT="$MANAGEMENT_ACCOUNT_ID"
-        DEV_ACCOUNT=""
-        STAGING_ACCOUNT=""
-        PROD_ACCOUNT=""
+        DEV_ACCOUNT="${AWS_ACCOUNT_ID_DEV:-}"
+        STAGING_ACCOUNT="${AWS_ACCOUNT_ID_STAGING:-}"
+        PROD_ACCOUNT="${AWS_ACCOUNT_ID_PROD:-}"
     fi
 
     export MGMT_ACCOUNT DEV_ACCOUNT STAGING_ACCOUNT PROD_ACCOUNT MANAGEMENT_ACCOUNT_ID
@@ -260,6 +274,38 @@ load_accounts() {
 # HELPER FUNCTIONS
 # =============================================================================
 
+# Get environment name for account ID (bash 3.2 compatible)
+# Returns: "Management", "Dev", "Staging", "Prod", or "Unknown"
+get_env_name_for_account() {
+    local account_id="$1"
+
+    # Handle empty input
+    if [[ -z "$account_id" ]]; then
+        echo "Unknown"
+        return 1
+    fi
+
+    # Match against known account IDs
+    case "$account_id" in
+        "$MANAGEMENT_ACCOUNT_ID"|"$MGMT_ACCOUNT")
+            echo "Management"
+            ;;
+        "$DEV_ACCOUNT"|"$AWS_ACCOUNT_ID_DEV")
+            echo "Dev"
+            ;;
+        "$STAGING_ACCOUNT"|"$AWS_ACCOUNT_ID_STAGING")
+            echo "Staging"
+            ;;
+        "$PROD_ACCOUNT"|"$AWS_ACCOUNT_ID_PROD")
+            echo "Prod"
+            ;;
+        *)
+            echo "Unknown"
+            return 1
+            ;;
+    esac
+}
+
 require_accounts() {
     if [[ -z "$DEV_ACCOUNT" ]] || [[ -z "$STAGING_ACCOUNT" ]] || [[ -z "$PROD_ACCOUNT" ]]; then
         echo -e "${RED}ERROR:${NC} accounts.json not found or incomplete" >&2
@@ -269,7 +315,7 @@ require_accounts() {
 }
 
 save_accounts() {
-    local accounts_file="${ACCOUNTS_FILE:-$(dirname "${BASH_SOURCE[0]}")/bootstrap/accounts.json}"
+    local accounts_file="${ACCOUNTS_FILE:-${SCRIPT_DIR}/bootstrap/accounts.json}"
     mkdir -p "$(dirname "$accounts_file")"
 
     # Build JSON with jq to handle replacements properly

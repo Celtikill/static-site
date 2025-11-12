@@ -25,20 +25,15 @@ destroy_cross_account_roles() {
         return 0
     fi
 
-    # Map account IDs to environment names
-    local -A account_env_map=(
-        ["822529998967"]="Dev"
-        ["927588814642"]="Staging"
-        ["546274483801"]="Prod"
-    )
-
+    # Get environment names from config.sh (bash 3.2 compatible)
     for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
         if ! check_account_filter "$account_id"; then
             log_info "Skipping account $account_id - not in account filter"
             continue
         fi
 
-        local env_name="${account_env_map[$account_id]}"
+        local env_name
+        env_name=$(get_env_name_for_account "$account_id")
         local role_name="GitHubActions-StaticSite-${env_name}-Role"
         local alt_role_name="github-actions-workload-deployment"
         local org_role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"

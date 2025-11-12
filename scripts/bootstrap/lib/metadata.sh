@@ -226,6 +226,9 @@ get_tags_json() {
 
 # Get tags as bash associative array
 # Usage: declare -A TAGS && load_tags_array TAGS
+# WARNING: This function uses bash 4.3+ features (local -n, associative arrays)
+#          and is NOT bash 3.2 compatible. Currently unused in codebase.
+#          Use get_tags_json() instead for bash 3.2 compatibility.
 load_tags_array() {
     local -n tags_ref=$1
 

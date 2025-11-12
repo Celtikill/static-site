@@ -170,85 +170,24 @@ clear_role() {
     log_debug "Cleared assumed role credentials"
 }
 
-# Fast bucket emptying using batch API
-empty_bucket_fast() {
-    local bucket=$1
-    local region=$2
-
-    log_info "  Emptying bucket: $bucket (region: $region)"
-
-    # Suspend versioning first to speed up deletion
-    aws s3api put-bucket-versioning \
-        --bucket "$bucket" \
-        --versioning-configuration Status=Suspended \
-        --region "$region" 2>/dev/null || true
-
-    # Delete object versions in batches
-    local versions_exist=true
-    while $versions_exist; do
-        local versions
-        versions=$(aws s3api list-object-versions \
-            --bucket "$bucket" \
-            --region "$region" \
-            --max-items 1000 \
-            --output json 2>/dev/null || echo '{}')
-
-        if echo "$versions" | jq -e '.Versions | length > 0' >/dev/null 2>&1; then
-            log_debug "    Deleting object versions batch..."
-            echo "$versions" | jq '{Objects: [.Versions[]? | {Key: .Key, VersionId: .VersionId}], Quiet: true}' > /tmp/delete-versions.json
-            aws s3api delete-objects \
-                --bucket "$bucket" \
-                --region "$region" \
-                --delete file:///tmp/delete-versions.json >/dev/null 2>&1 || true
-        else
-            versions_exist=false
-        fi
-    done
-
-    # Delete delete markers in batches
-    local markers_exist=true
-    while $markers_exist; do
-        local markers
-        markers=$(aws s3api list-object-versions \
-            --bucket "$bucket" \
-            --region "$region" \
-            --max-items 1000 \
-            --output json 2>/dev/null || echo '{}')
-
-        if echo "$markers" | jq -e '.DeleteMarkers | length > 0' >/dev/null 2>&1; then
-            log_debug "    Deleting delete markers batch..."
-            echo "$markers" | jq '{Objects: [.DeleteMarkers[]? | {Key: .Key, VersionId: .VersionId}], Quiet: true}' > /tmp/delete-markers.json
-            aws s3api delete-objects \
-                --bucket "$bucket" \
-                --region "$region" \
-                --delete file:///tmp/delete-markers.json >/dev/null 2>&1 || true
-        else
-            markers_exist=false
-        fi
-    done
-
-    # Delete remaining current objects
-    aws s3 rm "s3://$bucket" --recursive --region "$region" 2>/dev/null || true
-
-    log_info "  ✓ Emptied: $bucket"
-}
-
-# Delete bucket after emptying
+# Fast bucket deletion using AWS CLI's optimized rb command
+# This is MUCH faster than manual batch deletion, especially for versioned buckets
 delete_bucket() {
     local bucket=$1
     local region=$2
 
     log_info "Deleting bucket: $bucket"
 
-    # Empty the bucket
-    empty_bucket_fast "$bucket" "$region"
-
-    # Delete the bucket itself
-    if aws s3api delete-bucket --bucket "$bucket" --region "$region" 2>/dev/null; then
+    # Use AWS CLI's optimized remove bucket command with --force
+    # This automatically:
+    # - Empties all objects and versions
+    # - Removes delete markers
+    # - Deletes the bucket
+    if aws s3 rb "s3://$bucket" --force --region "$region" 2>&1 | grep -v "remove_bucket"; then
         log_info "  ✓ Deleted: $bucket"
         return 0
     else
-        log_warn "  Failed to delete bucket: $bucket (may not exist)"
+        log_warn "  Failed to delete bucket: $bucket (may not exist or error occurred)"
         return 1
     fi
 }
@@ -455,8 +394,11 @@ cleanup_environment() {
     account_id=$(get_account_id "$env")
 
     if [[ -z "$account_id" ]]; then
+        # Bash 3.2 compatible uppercase conversion
+        local env_upper
+        env_upper=$(echo "$env" | tr '[:lower:]' '[:upper:]')
         log_error "No account ID configured for environment: $env"
-        log_error "Please set AWS_ACCOUNT_ID_${env^^} environment variable"
+        log_error "Please set AWS_ACCOUNT_ID_${env_upper} environment variable"
         return 1
     fi
 
