@@ -394,8 +394,11 @@ cleanup_environment() {
     account_id=$(get_account_id "$env")
 
     if [[ -z "$account_id" ]]; then
+        # Bash 3.2 compatible uppercase conversion
+        local env_upper
+        env_upper=$(echo "$env" | tr '[:lower:]' '[:upper:]')
         log_error "No account ID configured for environment: $env"
-        log_error "Please set AWS_ACCOUNT_ID_${env^^} environment variable"
+        log_error "Please set AWS_ACCOUNT_ID_${env_upper} environment variable"
         return 1
     fi
 
