@@ -192,7 +192,7 @@ generate_dry_run_report() {
         # S3 Buckets
         echo "🪣 S3 BUCKETS:"
         local buckets
-        buckets=$($AWS_CLI_TIMEOUT AWS_DEFAULT_REGION=us-east-1 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+        buckets=$(timeout 10 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
         local bucket_count=0
         for bucket in $buckets; do
             if matches_project "$bucket"; then
@@ -209,7 +209,7 @@ generate_dry_run_report() {
         # CloudFront Distributions
         echo "🌐 CLOUDFRONT DISTRIBUTIONS:"
         local distributions
-        distributions=$($AWS_CLI_TIMEOUT aws cloudfront list-distributions --query 'DistributionList.Items[].{Id:Id,Comment:Comment,DomainName:DomainName}' --output json 2>/dev/null || echo "[]")
+        distributions=$(timeout 10 aws cloudfront list-distributions --query 'DistributionList.Items[].{Id:Id,Comment:Comment,DomainName:DomainName}' --output json 2>/dev/null || echo "[]")
         local cf_count=0
         if [[ "$distributions" != "[]" ]] && [[ "$distributions" != "null" ]] && [[ -n "$distributions" ]]; then
             echo "$distributions" | jq -r '.[] | select(.Comment != null) | "  - " + .Id + " (" + .Comment + ") - " + .DomainName' | while read -r line; do
