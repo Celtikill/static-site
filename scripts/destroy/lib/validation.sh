@@ -146,8 +146,8 @@ generate_dry_run_report() {
     local report_file="/tmp/destruction-report-$(date +%Y%m%d-%H%M%S).txt"
     local total_resources=0
 
-    # Set timeout for long-running operations
-    local AWS_CLI_TIMEOUT="timeout 10"
+    # Export AWS region for all AWS CLI commands (ADR-009: environment variable configuration)
+    export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-east-1}"
 
     {
         echo "==============================================="
