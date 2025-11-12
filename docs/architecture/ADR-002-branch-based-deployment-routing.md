@@ -1,76 +1,45 @@
-# ADR-002: Branch-Based Deployment Routing Strategy
+# 2. Branch-Based Deployment Routing Strategy
 
-**Status**: Accepted
-**Date**: 2025-10-16
-**Deciders**: Codeowner 
-**Related**: ADR-001 (IAM Permissions), ADR-003 (Versioning), ADR-004 (Commit Standards)
+Date: 2024-10-16
+Status: Accepted
+Deciders: Engineering Team
+Technical Story: Three-phase CI/CD pipeline requires clear branch-to-environment mapping
 
----
-
-## Context
+## Context and Problem Statement
 
 The static website infrastructure project uses a three-phase CI/CD pipeline (BUILD→TEST→RUN) with three deployment environments (dev, staging, prod). We needed to determine how Git branches map to deployment environments and when deployments should be automatic vs. manual.
 
-### Problem Statement
-
 Several architectural questions needed resolution:
-
 1. **Branch-to-Environment Mapping**: Which Git branches trigger which environment deployments?
 2. **Automatic vs Manual**: Which deployments should be automatic vs. require human approval?
 3. **Progressive Promotion**: How should code progress from development to production?
 4. **Main Branch Strategy**: Should `main` deploy to staging or production automatically?
 5. **Release Mechanism**: How should production deployments be triggered?
 
-### Requirements
+How should we route Git branches to AWS environments to balance development velocity with production safety?
 
-**Development Environment**:
-- Fast feedback loop for developers
-- Low-cost operation (S3-only, no CloudFront)
-- Safe experimentation without production risk
+## Decision Drivers
 
-**Staging Environment**:
-- Production-like configuration (CloudFront + S3 + WAF)
-- Pre-production validation
-- Integration testing target
+* **Development velocity**: Fast feedback loop for developers
+* **Production safety**: Manual approval gate before production deployment
+* **Progressive promotion**: Validate changes at each stage before advancing
+* **Cost optimization**: Minimize AWS costs in lower environments
+* **Audit compliance**: Clear version history and deployment tracking
+* **Trunk-based development**: Enable frequent integration to main branch
+* **Immutable releases**: Ensure production deployments are versioned and reproducible
+* **Mental model clarity**: Branch names should indicate deployment target
 
-**Production Environment**:
-- Manual approval required (safety gate)
-- Full monitoring and security stack
-- Controlled release process
+## Considered Options
 
-## Decision
+* **Option 1**: Progressive Promotion with Releases - feature/* → dev, main → staging, GitHub Release → prod (Chosen)
+* **Option 2**: Main to Production - feature/* → main → prod, with manual staging deployments
+* **Option 3**: Release Branches - feature/* → main → release/X.Y → prod with branch management
+* **Option 4**: Environment Branches - feature/* → develop → staging → main (prod) GitFlow style
+* **Option 5**: Trunk-Based with Feature Flags - main → all environments, runtime feature toggles
 
-We will implement a **Progressive Promotion Model** with branch-based automatic routing and GitHub Releases for production.
+## Decision Outcome
 
-### Routing Strategy
-
-```mermaid
-%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
-graph TD
-    accTitle: Branch-Based Deployment Routing Strategy
-    accDescr: Git branch-based deployment routing implementing progressive environment promotion with automated and manual gates. Feature, bugfix, and hotfix branches automatically deploy to the Development environment on push enabling rapid iteration and experimentation without manual intervention. Development serves as the sandbox for all work-in-progress changes with automatic deployments supporting continuous integration workflows. Manual promotion from development merges changes to the main branch after validation and code review. The main branch automatically deploys to the Staging environment on merge providing pre-production validation with production-equivalent infrastructure but without live user traffic. Staging validates changes in realistic conditions before production exposure. Manual promotion from staging creates GitHub Releases requiring explicit approval for production deployment. GitHub Releases trigger manual workflow dispatch deploying to the Production environment only after human authorization implementing change control requirements. This strategy balances automation velocity in lower environments with safety gates in production. Automatic deployments in dev enable rapid feedback while manual approvals for production ensure deliberate, controlled releases. The progressive promotion pattern implements blast radius containment validating changes at each stage before advancing to higher-risk environments.
-
-    A["feature/* branches"] -->|"Automatic"| B["🧪 Dev Environment"]
-    C["bugfix/* branches"] -->|"Automatic"| B
-    D["hotfix/* branches"] -->|"Automatic"| B
-    E["main branch"] -->|"Automatic"| F["🚀 Staging Environment"]
-    G["GitHub Release"] -->|"Manual Approval"| H["🏭 Production Environment"]
-
-    B -->|"Manual promotion"| E
-    F -->|"Manual promotion"| G
-
-    style B fill:#e1f5fe
-    style F fill:#fff9c4
-    style H fill:#c8e6c9
-
-    linkStyle 0 stroke:#333333,stroke-width:2px
-    linkStyle 1 stroke:#333333,stroke-width:2px
-    linkStyle 2 stroke:#333333,stroke-width:2px
-    linkStyle 3 stroke:#333333,stroke-width:2px
-    linkStyle 4 stroke:#333333,stroke-width:2px
-    linkStyle 5 stroke:#333333,stroke-width:2px
-    linkStyle 6 stroke:#333333,stroke-width:2px
-```
+**Chosen option: "Progressive Promotion with Releases"** because it provides the best balance between development velocity, production safety, and simplicity.
 
 ### Branch-to-Environment Mapping
 
@@ -82,12 +51,89 @@ graph TD
 | `main` | staging | Automatic (on merge) | No |
 | GitHub Release | prod | Manual (workflow_dispatch) | Yes |
 
+### Promotion Flow
+
+```
+Developer → feature/* → main → GitHub Release → Production
+              ↓          ↓            ↓
+             dev      staging        prod
+          (automatic) (automatic)  (manual)
+```
+
+### Positive Consequences
+
+* **Clear mental model**: Branch name tells you where it deploys (feature/* = dev, main = staging)
+* **Safety by default**: Production requires explicit GitHub Release creation
+* **Fast development cycle**: Push to feature branch, see in dev environment within 2 minutes
+* **Immutable production versions**: Git tags provide clear history and easy rollback
+* **Flexible workflow**: Manual overrides available via workflow_dispatch for any environment
+* **Progressive validation**: Changes tested in dev, then staging, before production
+* **Continuous integration**: Main branch remains safe and deployable to staging frequently
+
+### Negative Consequences
+
+* **Main ≠ Production**: Cognitive shift for teams used to "main is production" pattern
+* **Manual production step**: Requires creating GitHub Release instead of automatic deployment
+* **No dev branch isolation**: All feature branches share single dev environment (last deploy wins)
+* **Staging deployment frequency**: Every main merge triggers staging deployment (higher AWS costs)
+* **Additional training needed**: Team must learn progressive promotion workflow
+
+## Pros and Cons of the Options
+
+### Option 1: Progressive Promotion with Releases (Chosen)
+
+* Good, because provides safety gate before production (GitHub Releases are explicit)
+* Good, because enables fast feedback in dev (automatic deployment on push)
+* Good, because immutable production versions (Git tags can't be modified)
+* Good, because auto-generated release notes from Conventional Commits
+* Good, because allows production-parity validation in staging
+* Good, because supports trunk-based development (frequent main merges)
+* Bad, because requires extra step to deploy production (create release)
+* Bad, because dev environment shared across all feature branches
+* Bad, because "main ≠ production" may confuse some developers
+
+### Option 2: Main to Production
+
+* Good, because simpler mental model ("main is production")
+* Good, because one less environment to manage
+* Bad, because no safety gate before production (very risky)
+* Bad, because accidental merges could break production immediately
+* Bad, because no production-parity pre-validation environment
+* Bad, because staging would be manual/inconsistent
+
+### Option 3: Release Branches
+
+* Good, because dedicated branches for each release version
+* Good, because clear separation between development and release
+* Bad, because additional branch maintenance overhead (release/1.0, release/1.1, etc.)
+* Bad, because release branches can be modified (not immutable like tags)
+* Bad, because confusion about which release branch is current
+* Bad, because more complex Git history to manage
+
+### Option 4: Environment Branches (GitFlow)
+
+* Good, because dedicated branches for each environment (develop, staging, main)
+* Good, because follows established GitFlow pattern
+* Bad, because long-lived branches cause frequent merge conflicts
+* Bad, because Git-flow complexity without benefits for small team
+* Bad, because "main" should be deployable, not production-only
+* Bad, because multiple permanent branches to maintain
+
+### Option 5: Trunk-Based with Feature Flags
+
+* Good, because single branch reduces complexity
+* Good, because industry best practice for large teams
+* Bad, because feature flags add runtime complexity to static site
+* Bad, because requires toggle infrastructure and management
+* Bad, because overkill for small team and simple project
+* Bad, because static sites don't benefit from runtime toggles
+
+## Implementation Details
+
 ### Workflow Implementation
 
-**File**: `.github/workflows/run.yml` (lines 88-106)
-
+**Branch Routing** (.github/workflows/run.yml, lines 88-106):
 ```yaml
-# Environment routing based on branch
 case "$BRANCH" in
   main)
     TARGET_ENV="staging"
@@ -101,275 +147,73 @@ case "$BRANCH" in
 esac
 ```
 
-**Production Deployment**:
+**Production Authorization** (release-prod.yml):
 ```yaml
-# Requires manual workflow_dispatch
-# GitHub Releases trigger via release-prod.yml workflow
 if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
   echo "Production deployments require manual authorization"
   exit 1
 fi
 ```
 
-## Rationale
+### Environment Characteristics
 
-### Why Main → Staging (Not Main → Production)?
+**Development**:
+- S3-only (no CloudFront) for cost savings (~$1-5/month)
+- Fast feedback loop (2 minute deployments)
+- Safe experimentation without production risk
+- Shared across all feature branches
 
-**Decision**: `main` branch automatically deploys to staging environment
+**Staging**:
+- Production-like configuration (CloudFront + S3 + WAF)
+- Pre-production validation environment
+- Integration testing target
+- Automatic deployment from main branch
 
-**Reasoning**:
+**Production**:
+- Full monitoring and security stack
+- Manual approval required (safety gate)
+- Controlled release process via GitHub Releases
+- Immutable version history
 
-1. **Safety Gate**: Production changes require explicit human decision
-   - Prevents accidental production deployments
-   - Allows final validation in production-like environment
-   - Creates deliberate release process
-
-2. **Continuous Integration**: Merging to `main` should be safe and frequent
-   - Developers can merge confidently without production risk
-   - Staging provides production-parity validation
-   - Fast feedback on integration issues
-
-3. **Progressive Promotion**:
-   ```
-   Developer → feature/* → main → Release → Production
-                  ↓          ↓               ↓
-                 dev      staging          prod
-   ```
-
-4. **Industry Best Practice**: "Main branch is staging" pattern
-   - Used by Heroku, Netlify, Vercel for pipeline branches
-   - Enables trunk-based development
-   - Reduces long-lived branch complexity
-
-### Why GitHub Releases for Production (Not release/* Branches)?
-
-**Decision**: Use GitHub Releases (tags) instead of `release/*` branches
-
-**Reasoning**:
-
-1. **Semantic Versioning**: GitHub Releases enforce version tags
-   - Provides immutable version history
-   - Enables rollback to specific versions
-   - Clear audit trail of what's in production
-
-2. **Release Notes**: GitHub auto-generates release notes from PRs
-   - Conventional Commits provide structured changelog
-   - Stakeholders see what changed in each release
-   - Documentation happens automatically
-
-3. **Manual Approval**: Releases are explicitly created
-   - Requires deliberate action (can't happen by accident)
-   - Can include approval workflows via GitHub Environments
-   - Aligns with change management processes
-
-4. **Artifact Immutability**: Git tags are immutable
-   - `release/*` branches can be modified (risky)
-   - Tags are permanent snapshots
-   - Ensures production consistency
-
-5. **Simplicity**: One fewer branch pattern to manage
-   - No `release/1.0`, `release/1.1` branches to maintain
-   - No confusion about which release branch is current
-   - Clean Git history
-
-### Why Feature/* → Dev (Not Feature/* → Nothing)?
-
-**Decision**: Feature branches automatically deploy to dev
-
-**Reasoning**:
-
-1. **Fast Feedback**: Developers see changes in real AWS environment
-   - Catch environment-specific issues early
-   - Validate AWS service integration
-   - Test infrastructure changes safely
-
-2. **Low Cost**: Dev environment is S3-only (~$1-5/month)
-   - Acceptable cost for rapid iteration
-   - No CloudFront charges
-   - Minimal resource footprint
-
-3. **Parallel Development**: Multiple feature branches can coexist
-   - Each feature tested independently in dev
-   - Conflicts surface before merging to main
-   - Reduced integration surprises
-
-4. **CI/CD Validation**: Proves full pipeline works
-   - BUILD → TEST → RUN all exercised
-   - IAM permissions validated
-   - Terraform configurations tested
-
-### Alternative Approaches Considered
-
-**Option A: Main → Production** (Rejected)
-```
-feature/* → main → prod
-              ↓
-            staging (manual)
-```
-- **Rejected**: Too risky, no safety gate before production
-- **Issue**: Accidental merges could break production
-- **Issue**: No production-parity pre-validation
-
-**Option B: Release Branches** (Rejected)
-```
-feature/* → main → release/1.0 → prod
-              ↓         ↓
-            staging   staging
-```
-- **Rejected**: Additional branch maintenance overhead
-- **Issue**: Release branches can be modified (not immutable)
-- **Issue**: Confusion about current vs. old release branches
-
-**Option C: Environment Branches** (Rejected)
-```
-feature/* → develop → staging → main (prod)
-```
-- **Rejected**: Git-flow complexity without benefits
-- **Issue**: Long-lived branches cause merge conflicts
-- **Issue**: "main" should be deployable, not production-only
-
-**Option D: Trunk-Based Development (No Branches)** (Rejected)
-```
-main → all environments (feature flags control)
-```
-- **Rejected**: Feature flags add complexity to static site
-- **Issue**: Requires runtime toggle infrastructure
-- **Issue**: Overkill for small team and simple project
-
-## Consequences
-
-### Positive
-
-1. **Clear Mental Model**: Branch name tells you where it deploys
-   - `feature/new-design` → automatically goes to dev
-   - Merge to `main` → automatically goes to staging
-   - Create GitHub Release → manually deploy to prod
-
-2. **Safety by Default**: Production requires explicit action
-   - No accidental production deployments
-   - Staging validates production configuration
-   - Multiple opportunities to catch issues
-
-3. **Fast Development Cycle**:
-   ```
-   Write code → Push feature/* → See in dev (2 min)
-   Test in dev → Merge to main → See in staging (2 min)
-   Validate staging → Create release → Deploy to prod (manual)
-   ```
-
-4. **Immutable Production Versions**: Git tags provide clear history
-   - Easy rollback: redeploy previous release tag
-   - Clear changelog: GitHub release notes
-   - Audit compliance: who deployed what when
-
-5. **Flexible Workflow**:
-   - Developers can deploy to any environment manually
-   - Automatic deployments for rapid iteration
-   - Manual override via `workflow_dispatch`
-
-### Negative
-
-1. **Main ≠ Production**: Cognitive shift for some teams
-   - Developers used to "main is production" must adapt
-   - Requires documentation and team training
-   - Could confuse contributors unfamiliar with pattern
-
-2. **Manual Production Step**: Extra step vs. automatic
-   - Production deploys require creating GitHub Release
-   - Slightly slower than automatic push-to-prod
-   - Could be perceived as "extra work"
-
-3. **No Dev Branch Isolation**: All feature branches share dev environment
-   - Concurrent feature testing might conflict
-   - Last deploy wins (could overwrite teammate's test)
-   - Mitigated by: developers can deploy to staging manually
-
-4. **Staging Gets All Main Merges**: Higher staging deployment frequency
-   - Every PR merge triggers staging deployment
-   - Staging environment has higher AWS costs
-   - Could lead to "deploy fatigue" in staging
-
-### Risks and Mitigations
+### Risk Mitigations
 
 **Risk**: Developers bypass staging and deploy directly to production
-- **Mitigation**: Production authorization check in workflow
-- **Mitigation**: IAM permissions require manual workflow_dispatch
-- **Mitigation**: GitHub Environment protection rules (future)
+- Production authorization check in workflow
+- IAM permissions require manual workflow_dispatch
+- GitHub Environment protection rules (future enhancement)
 
 **Risk**: Feature branches conflict in shared dev environment
-- **Mitigation**: Short-lived feature branches (merge quickly)
-- **Mitigation**: Developers can manually deploy to staging for isolation
-- **Mitigation**: Communication about who's testing in dev
+- Short-lived feature branches (merge quickly)
+- Manual deployment to staging for isolation testing
+- Team communication about active testing
 
 **Risk**: Staging costs increase with frequent deployments
-- **Mitigation**: Budget alerts at $75 threshold
-- **Mitigation**: Cost-optimized staging configuration
-- **Mitigation**: Monitor and adjust if costs exceed expectations
+- Budget alerts at $75 threshold
+- Cost-optimized staging configuration
+- Monitoring and adjustment as needed
 
-**Risk**: Confusion about what version is in each environment
-- **Mitigation**: README.md updated with deployment URLs and timestamps
-- **Mitigation**: GitHub Actions summary shows deployed commit SHA
-- **Mitigation**: CloudWatch dashboards tagged with version info
+### Future Enhancements
 
-### Future Evolution
+**Phase 2** (when team grows beyond 2-3 developers):
+1. Environment isolation for feature branches (isolated stacks)
+2. GitHub Environments with approval workflows
+3. Deployment freeze windows during maintenance
+4. Canary deployments for gradual production rollout
 
-**Phase 2 Enhancements** (when team grows):
+## Links
 
-1. **Environment Isolation**: Deploy feature branches to isolated stacks
-   ```bash
-   feature/new-design → dev-new-design (isolated S3 bucket)
-   ```
-
-2. **GitHub Environments**: Add approval workflows
-   ```yaml
-   environment: production
-   required_reviewers: [@lead-developer]
-   ```
-
-3. **Deployment Freezes**: Prevent production deploys during maintenance
-   ```yaml
-   if: github.event.schedule != 'maintenance-window'
-   ```
-
-4. **Canary Deployments**: Gradual rollout to production
-   ```yaml
-   deploy 10% → validate → deploy 50% → validate → deploy 100%
-   ```
-
-## References
-
-### Implementation Files
-- `.github/workflows/run.yml` (lines 88-106) - Branch routing logic
-- `.github/workflows/release-prod.yml` - Production release workflow
-- `docs/RELEASE-PROCESS.md` - Release process documentation
-
-### Related ADRs
-- **ADR-001**: IAM Permission Strategy - Permissions enabling this routing
-- **ADR-003**: Manual Semantic Versioning - How versions are determined
-- **ADR-004**: Conventional Commits Enforcement - Clean changelog for releases
-
-### Related Documentation
-- **docs/ci-cd.md** - Full pipeline documentation
-- **docs/deployment.md** - Deployment procedures
-- **CONTRIBUTING.md** - Developer workflow guide
-
-### Related Architecture
-- **[Architecture Guide](../architecture.md)** - See "CI/CD Pipeline Architecture" section for implementation of progressive deployment strategy
-
-### Research and Best Practices
-- [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow): Feature branches + main + releases
-- [Trunk-Based Development](https://trunkbaseddevelopment.com/): Main as integration point
-- [GitLab Flow](https://docs.gitlab.com/ee/topics/gitlab_flow.html): Environment branches (staging, production)
-- [Heroku Flow](https://www.heroku.com/flow): Main is staging, releases to production
-- [Netlify Deploy Previews](https://docs.netlify.com/site-deploys/deploy-previews/): Branch-based deployment patterns
-- [Vercel Git Integration](https://vercel.com/docs/deployments/git): Automatic deployments from branches
-
-### Validation Evidence
-- Dev environment: Operational with feature/* branch deployments
-- Staging environment: Ready for bootstrap
-- Production environment: Configured for manual release workflow
+* **Implementation**: [.github/workflows/run.yml](../../.github/workflows/run.yml) (lines 88-106) - Branch routing logic
+* **Implementation**: [.github/workflows/release-prod.yml](../../.github/workflows/release-prod.yml) - Production release workflow
+* **Related ADRs**: ADR-001 (IAM Permission Strategy), ADR-003 (Manual Semantic Versioning), ADR-004 (Conventional Commits Enforcement)
+* **Documentation**: [docs/ci-cd.md](../ci-cd.md) - Full pipeline documentation
+* **Documentation**: [docs/deployment.md](../deployment.md) - Deployment procedures
+* **Documentation**: [docs/architecture.md](../architecture.md) - CI/CD Pipeline Architecture
+* **Documentation**: [CONTRIBUTING.md](../../CONTRIBUTING.md) - Developer workflow guide
+* **GitHub Flow**: https://docs.github.com/en/get-started/using-github/github-flow
+* **Trunk-Based Development**: https://trunkbaseddevelopment.com/
+* **Heroku Flow**: https://www.heroku.com/flow - Main as staging pattern
 
 ---
 
-**Last Updated**: 2025-11-05
-**Review Date**: 2026-04-16 (6 months - evaluate developer feedback)
+**Last Updated**: 2024-11-05
+**Review Date**: 2025-04-16 (6 months - evaluate developer feedback)
