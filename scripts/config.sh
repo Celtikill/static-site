@@ -144,7 +144,8 @@ MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-}"
 # Destroy scripts should set: SCRIPT_DIR, and we derive paths from there
 
 # Set default paths if not already set
-: "${ACCOUNTS_FILE:=${SCRIPT_DIR}/bootstrap/accounts.json}"
+# Use CONFIG_DIR (location of config.sh) for accounts.json since it's in scripts/bootstrap/
+: "${ACCOUNTS_FILE:=${CONFIG_DIR}/bootstrap/accounts.json}"
 
 # =============================================================================
 # STATE MANAGEMENT DOCUMENTATION
