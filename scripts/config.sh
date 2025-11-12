@@ -24,12 +24,10 @@ set -euo pipefail
 export AWS_PAGER=""
 
 # Source interactive prompts library
-# Bash 3.2 compatible: Only set SCRIPT_DIR if not already set (avoid readonly variable error)
-if [[ -z "${SCRIPT_DIR:-}" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-fi
+# Use CONFIG_DIR to avoid conflicts with SCRIPT_DIR in calling scripts
+readonly CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/config-prompts.sh
-source "${SCRIPT_DIR}/lib/config-prompts.sh"
+source "${CONFIG_DIR}/lib/config-prompts.sh"
 
 # =============================================================================
 # PROJECT IDENTITY
