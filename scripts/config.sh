@@ -233,7 +233,7 @@ fi
 # =============================================================================
 
 load_accounts() {
-    local accounts_file="${ACCOUNTS_FILE:-${SCRIPT_DIR}/bootstrap/accounts.json}"
+    local accounts_file="${ACCOUNTS_FILE:-${CONFIG_DIR}/bootstrap/accounts.json}"
 
     if [[ -f "$accounts_file" ]]; then
         MGMT_ACCOUNT=$(jq -r '.management // ""' "$accounts_file" 2>/dev/null || echo "")
