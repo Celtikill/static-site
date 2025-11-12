@@ -317,7 +317,7 @@ require_accounts() {
 }
 
 save_accounts() {
-    local accounts_file="${ACCOUNTS_FILE:-${SCRIPT_DIR}/bootstrap/accounts.json}"
+    local accounts_file="${ACCOUNTS_FILE:-${CONFIG_DIR}/bootstrap/accounts.json}"
     mkdir -p "$(dirname "$accounts_file")"
 
     # Build JSON with jq to handle replacements properly
