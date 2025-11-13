@@ -442,14 +442,28 @@ save_backend_config() {
 
     local config_file="$OUTPUT_DIR/backend-config-${environment}.hcl"
 
-    cat > "$config_file" <<EOF
+    local config_content
+    config_content=$(cat <<EOF
 bucket         = "$bucket"
 key            = "environments/${environment}/terraform.tfstate"
 region         = "$region"
 dynamodb_table = "$table"
 encrypt        = true
 EOF
+)
 
+    # DRY-RUN: Show preview without writing
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_info "[DRY-RUN] Would save backend config to: $config_file"
+        log_info "[DRY-RUN] Content:"
+        echo "$config_content" | while IFS= read -r line; do
+            log_info "[DRY-RUN]   $line"
+        done
+        return 0
+    fi
+
+    # REAL MODE: Write the file
+    echo "$config_content" > "$config_file"
     log_info "Backend configuration saved to: $config_file"
 }
 

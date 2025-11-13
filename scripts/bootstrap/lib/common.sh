@@ -79,8 +79,8 @@ write_report() {
     local stages_done="$3"
     local stages_failed="$4"
 
-    mkdir -p "$OUTPUT_DIR"
-    cat > "$OUTPUT_DIR/bootstrap-report.json" <<EOF
+    local report_content
+    report_content=$(cat <<EOF
 {
   "timestamp": "$(get_iso_timestamp)",
   "status": "$status",
@@ -89,6 +89,21 @@ write_report() {
   "stages_failed": $stages_failed
 }
 EOF
+)
+
+    # DRY-RUN: Show what would be written
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_info "[DRY-RUN] Would write bootstrap report to: $OUTPUT_DIR/bootstrap-report.json"
+        log_info "[DRY-RUN] Content:"
+        echo "$report_content" | while IFS= read -r line; do
+            log_info "[DRY-RUN]   $line"
+        done
+        return 0
+    fi
+
+    # REAL MODE: Write the file
+    mkdir -p "$OUTPUT_DIR"
+    echo "$report_content" > "$OUTPUT_DIR/bootstrap-report.json"
 }
 
 # =============================================================================
@@ -161,14 +176,13 @@ generate_console_urls_file() {
 
     local output_file="${OUTPUT_DIR}/console-urls.txt"
 
-    mkdir -p "$OUTPUT_DIR"
-
     # Generate console role switching URLs
     local CONSOLE_URL_DEV="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-dev&account=${DEV_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-dev-readonly"
     local CONSOLE_URL_STAGING="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-staging&account=${STAGING_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-staging-readonly"
     local CONSOLE_URL_PROD="https://signin.aws.amazon.com/switchrole?roleName=${READONLY_ROLE_PREFIX}-prod&account=${PROD_ACCOUNT}&displayName=${PROJECT_SHORT_NAME}-prod-readonly"
 
-    cat > "$output_file" <<EOF
+    local url_content
+    url_content=$(cat <<EOF
 ========================================================================
 AWS Console Role Switching URLs - ${PROJECT_NAME}
 Generated: $(get_iso_timestamp)
@@ -212,7 +226,21 @@ SECURITY NOTES:
 - IAM users need sts:AssumeRole permission (included in AdministratorAccess)
 ========================================================================
 EOF
+)
 
+    # DRY-RUN: Show preview without writing
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_info "[DRY-RUN] Would write console URLs to: $output_file"
+        log_info "[DRY-RUN] Content preview (first 10 lines):"
+        echo "$url_content" | head -10 | while IFS= read -r line; do
+            log_info "[DRY-RUN]   $line"
+        done
+        return 0
+    fi
+
+    # REAL MODE: Write the file
+    mkdir -p "$OUTPUT_DIR"
+    echo "$url_content" > "$output_file"
     log_success "Console URLs saved to: $output_file"
 }
 
@@ -276,6 +304,17 @@ enhance_bootstrap_report() {
           }
         }')
 
+    # DRY-RUN: Show preview without writing
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_info "[DRY-RUN] Would enhance bootstrap report at: $report_file"
+        log_info "[DRY-RUN] Enhanced content preview:"
+        echo "$enhanced_report" | jq '.' | head -15 | while IFS= read -r line; do
+            log_info "[DRY-RUN]   $line"
+        done
+        return 0
+    fi
+
+    # REAL MODE: Write the file
     echo "$enhanced_report" > "$report_file"
     log_success "Bootstrap report enhanced with console URLs and role ARNs"
 }

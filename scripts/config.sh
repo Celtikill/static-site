@@ -318,7 +318,6 @@ require_accounts() {
 
 save_accounts() {
     local accounts_file="${ACCOUNTS_FILE:-${CONFIG_DIR}/bootstrap/accounts.json}"
-    mkdir -p "$(dirname "$accounts_file")"
 
     # Build JSON with jq to handle replacements properly
     local json_content
@@ -355,6 +354,18 @@ save_accounts() {
         json_content=$(echo "$json_content" | jq --argjson replaced "$replaced_json" '. + {_replaced: $replaced}')
     fi
 
+    # DRY-RUN: Show what would be written without modifying files
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_info "[DRY-RUN] Would save accounts to: $accounts_file"
+        log_info "[DRY-RUN] Content:"
+        echo "$json_content" | jq '.' | while IFS= read -r line; do
+            log_info "[DRY-RUN]   $line"
+        done
+        return 0
+    fi
+
+    # REAL MODE: Write the file
+    mkdir -p "$(dirname "$accounts_file")"
     echo "$json_content" > "$accounts_file"
 }
 

@@ -46,7 +46,18 @@ generate_policy_from_template() {
         return 1
     fi
 
-    # Write output
+    # DRY-RUN: Show preview without writing
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_debug "[DRY-RUN] Would generate policy: $(basename "$output_file")"
+        log_debug "[DRY-RUN] Output path: $output_file"
+        log_debug "[DRY-RUN] Content preview:"
+        echo "$content" | jq '.' | head -10 | while IFS= read -r line; do
+            log_debug "[DRY-RUN]   $line"
+        done
+        return 0
+    fi
+
+    # REAL MODE: Write the file
     mkdir -p "$(dirname "$output_file")"
     echo "$content" > "$output_file"
     log_debug "Generated: $(basename "$output_file")"
