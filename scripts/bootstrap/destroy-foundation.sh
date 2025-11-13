@@ -25,8 +25,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly OUTPUT_DIR="${SCRIPT_DIR}/output"
 mkdir -p "${OUTPUT_DIR}"
 
+# Resolve TERRAFORM_IAM_DIR to absolute path
+if [[ -z "${TERRAFORM_IAM_DIR:-}" ]]; then
+    TERRAFORM_IAM_DIR="$(cd "${SCRIPT_DIR}/../../terraform/foundations/iam-roles" && pwd)"
+    readonly TERRAFORM_IAM_DIR
+fi
+
 # Source unified configuration and libraries
-source "${SCRIPT_DIR}/config.sh"
+# Configuration unified at scripts/config.sh (not per-directory)
+source "${SCRIPT_DIR}/../config.sh"
 source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/aws.sh"
 source "${SCRIPT_DIR}/lib/organization.sh"

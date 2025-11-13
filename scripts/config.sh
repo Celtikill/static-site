@@ -24,9 +24,10 @@ set -euo pipefail
 export AWS_PAGER=""
 
 # Source interactive prompts library
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Use CONFIG_DIR to avoid conflicts with SCRIPT_DIR in calling scripts
+readonly CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/config-prompts.sh
-source "${SCRIPT_DIR}/lib/config-prompts.sh"
+source "${CONFIG_DIR}/lib/config-prompts.sh"
 
 # =============================================================================
 # PROJECT IDENTITY
@@ -143,7 +144,8 @@ MANAGEMENT_ACCOUNT_ID="${MANAGEMENT_ACCOUNT_ID:-}"
 # Destroy scripts should set: SCRIPT_DIR, and we derive paths from there
 
 # Set default paths if not already set
-: "${ACCOUNTS_FILE:=${SCRIPT_DIR}/bootstrap/accounts.json}"
+# Use CONFIG_DIR (location of config.sh) for accounts.json since it's in scripts/bootstrap/
+: "${ACCOUNTS_FILE:=${CONFIG_DIR}/bootstrap/accounts.json}"
 
 # =============================================================================
 # STATE MANAGEMENT DOCUMENTATION
@@ -231,7 +233,7 @@ fi
 # =============================================================================
 
 load_accounts() {
-    local accounts_file="${ACCOUNTS_FILE:-${SCRIPT_DIR}/bootstrap/accounts.json}"
+    local accounts_file="${ACCOUNTS_FILE:-${CONFIG_DIR}/bootstrap/accounts.json}"
 
     if [[ -f "$accounts_file" ]]; then
         MGMT_ACCOUNT=$(jq -r '.management // ""' "$accounts_file" 2>/dev/null || echo "")
@@ -315,7 +317,7 @@ require_accounts() {
 }
 
 save_accounts() {
-    local accounts_file="${ACCOUNTS_FILE:-${SCRIPT_DIR}/bootstrap/accounts.json}"
+    local accounts_file="${ACCOUNTS_FILE:-${CONFIG_DIR}/bootstrap/accounts.json}"
     mkdir -p "$(dirname "$accounts_file")"
 
     # Build JSON with jq to handle replacements properly
