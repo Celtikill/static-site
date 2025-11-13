@@ -301,7 +301,9 @@ generate_verification_report() {
 
     require_accounts
 
-    cat > "$report_file" <<EOF
+    # Build report content (AWS API calls are read-only, safe in dry-run)
+    local report_content
+    report_content=$(cat <<EOF
 {
   "timestamp": "$(get_iso_timestamp)",
   "organization": {
@@ -331,7 +333,20 @@ generate_verification_report() {
   "bootstrap_version": "1.0.0"
 }
 EOF
+)
 
+    # DRY-RUN: Show preview without writing
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_info "[DRY-RUN] Would save verification report to: $report_file"
+        log_info "[DRY-RUN] Content:"
+        echo "$report_content" | jq '.' | while IFS= read -r line; do
+            log_info "[DRY-RUN]   $line"
+        done
+        return 0
+    fi
+
+    # REAL MODE: Write the file
+    echo "$report_content" > "$report_file"
     log_success "Verification report saved: $report_file"
     cat "$report_file"
 }

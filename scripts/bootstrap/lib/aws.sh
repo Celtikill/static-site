@@ -19,12 +19,7 @@ verify_aws_cli() {
 verify_aws_credentials() {
     log_info "Verifying AWS credentials..."
 
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would verify AWS credentials"
-        echo "123456789012"
-        return 0
-    fi
-
+    # ALWAYS verify credentials (read-only operation, safe in dry-run)
     local caller_identity
     if ! caller_identity=$(aws sts get-caller-identity 2>&1); then
         log_error "Failed to verify AWS credentials"
@@ -48,7 +43,12 @@ verify_aws_credentials() {
     local arn
     arn=$(echo "$caller_identity" | jq -r '.Arn' 2>/dev/null)
 
-    log_info "Authenticated as: $arn"
+    # Log differently for dry-run to indicate read-only operation
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_info "[DRY-RUN] Authenticated as: $arn (read-only verification)"
+    else
+        log_info "Authenticated as: $arn"
+    fi
     log_info "Account ID: $account_id"
 
     echo "$account_id"
@@ -489,11 +489,12 @@ wait_for_account() {
 check_account_status() {
     local account_id="$1"
 
-    if [[ "$DRY_RUN" == "true" ]]; then
-        echo "ACTIVE"
-        return 0
+    # Log for dry-run but still perform the check (read-only operation)
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        log_debug "[DRY-RUN] Checking account status (read-only): $account_id"
     fi
 
+    # ALWAYS check status (read-only operation, safe in dry-run)
     local status
     status=$(aws organizations describe-account \
         --account-id "$account_id" \
