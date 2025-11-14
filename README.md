@@ -12,59 +12,59 @@ Enterprise-grade AWS static website infrastructure using OpenTofu with multi-acc
 
 <table>
 <tr>
-<td width="33%">
+<td width="50%">
 
-### 🆕 New to AWS?
-**Start here if you're deploying for the first time**
+### 🚀 First Time Deployment
+**Start here if you've forked this repository and want to deploy**
 
-**Time**: 30-60 minutes
-**Path**: [Complete Deployment Guide](DEPLOYMENT.md)
+**Time**: 20 minutes
+**Path**: [Getting Started Guide](GETTING-STARTED.md)
 
 You'll get:
-- Step-by-step instructions
-- Prerequisites explained
-- Bootstrap walkthrough
+- Configuration setup (critical first step!)
+- AWS infrastructure bootstrap
+- First deployment to dev
 - Troubleshooting help
 
-[Get Started →](DEPLOYMENT.md)
+**⭐ Recommended for all users** - includes critical configuration steps
+
+[Get Started →](GETTING-STARTED.md)
 
 </td>
-<td width="33%">
+<td width="50%">
 
-### ⚡ Experienced Operator?
-**Start here if you know AWS and want to deploy quickly**
-
-**Time**: 5 minutes
-**Path**: [Quick Start](QUICK-START.md)
-
-You'll get:
-- Single command path
-- Minimal explanation
-- Fast deployment to dev
-- Links to advanced docs
-
-[Quick Start →](QUICK-START.md)
-
-</td>
-<td width="33%">
-
-### 🔧 Want to Contribute?
+### 🔧 Development & Contribution
 **Start here if you're developing or contributing code**
 
 **Time**: 15 minutes
-**Path**: [Contributing Guide](CONTRIBUTING.md)
+**Path**: [Contributing Guide](CONTRIBUTING.md) | [Development Guide](docs/DEVELOPMENT.md)
 
 You'll get:
-- Development workflow
+- Development environment setup
+- Code patterns and conventions
+- Testing strategies
 - PR guidelines
-- Coding standards
-- Testing instructions
 
-[Contribute →](CONTRIBUTING.md)
+[Contribute →](CONTRIBUTING.md) | [Dev Guide →](docs/DEVELOPMENT.md)
 
 </td>
 </tr>
 </table>
+
+## 📚 Common Tasks
+
+| I want to... | Guide | Time |
+|--------------|-------|------|
+| **Deploy for the first time** | [Getting Started](GETTING-STARTED.md) | 20 min |
+| **Update website content** | [Cheat Sheet → Content Updates](docs/CHEAT-SHEET.md#-content-updates) | 5 min |
+| **Enable CloudFront CDN** | [Customization → CloudFront](docs/CUSTOMIZATION.md#enabling-cloudfront-cdn) | 15 min |
+| **Add a custom domain** | [Customization → Custom Domain](docs/CUSTOMIZATION.md#using-a-custom-domain) | 60 min |
+| **Add a new environment (qa, demo)** | [Customization → New Environment](docs/CUSTOMIZATION.md#adding-a-new-environment) | 20 min |
+| **Deploy to staging/prod** | [Getting Started → Next Steps](GETTING-STARTED.md#deploy-to-stagingproduction) | 10 min |
+| **Troubleshoot deployment failure** | [Troubleshooting Guide](docs/troubleshooting.md) | Variable |
+| **Understand the architecture** | [Architecture Guide](docs/architecture.md) | 30 min |
+| **Learn key concepts (OIDC, etc.)** | [Glossary](docs/GLOSSARY.md) | 15 min |
+| **Find a specific command** | [Cheat Sheet](docs/CHEAT-SHEET.md) | 2 min |
 
 ## 🎯 Key Features
 
@@ -86,29 +86,34 @@ You'll get:
 
 ## 🚀 Quick Start
 
-Deploy to development in 5 minutes:
+> **⚠️ IMPORTANT**: Configuration must be set BEFORE running these commands. See [Getting Started Guide](GETTING-STARTED.md) for complete instructions.
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/celtikill/static-site.git && cd static-site
+# Step 0: Configure (REQUIRED - do this first!)
+cp .env.example .env
+vim .env  # Set GITHUB_REPO, PROJECT_NAME, PROJECT_SHORT_NAME
+source .env
+./scripts/validate-config.sh  # Verify configuration
 
-# 2. Bootstrap infrastructure
-cd scripts/bootstrap && ./bootstrap-foundation.sh
+# Step 1: Bootstrap infrastructure
+cd scripts/bootstrap
+./bootstrap-foundation.sh
 
-# 3. Configure GitHub
+# Step 2: Configure GitHub
 ./configure-github.sh
 
-# 4. Deploy
-cd ../.. && gh workflow run run.yml \
+# Step 3: Deploy
+cd ../..
+gh workflow run run.yml \
   --field environment=dev \
   --field deploy_infrastructure=true \
   --field deploy_website=true
 
-# 5. Monitor
+# Step 4: Monitor
 gh run watch
 ```
 
-For detailed instructions, see [QUICK-START.md](QUICK-START.md) or [DEPLOYMENT.md](DEPLOYMENT.md).
+**First time?** Follow the [Getting Started Guide](GETTING-STARTED.md) for detailed walkthrough and troubleshooting.
 
 ## 🏗️ Architecture
 

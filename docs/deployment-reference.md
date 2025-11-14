@@ -1,4 +1,18 @@
-# Deployment Reference Guide
+# Deployment Reference
+
+> **📢 NOTICE**: This guide has been superseded by [CHEAT-SHEET.md](CHEAT-SHEET.md).
+>
+> The new cheat sheet consolidates:
+> - All deployment commands from this file
+> - Common troubleshooting commands
+> - Monitoring and debugging operations
+> - Better organized by task
+>
+> **👉 Use [CHEAT-SHEET.md](CHEAT-SHEET.md) instead** for the most up-to-date command reference.
+
+---
+
+# Deployment Reference (Deprecated) Guide
 
 **Quick reference for deployment commands, troubleshooting, and operational tasks.**
 

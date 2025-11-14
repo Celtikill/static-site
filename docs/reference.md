@@ -4,6 +4,20 @@ Command reference and technical specifications for AWS Static Website Infrastruc
 
 ## Command Reference
 
+> **📢 NOTICE**: This guide has been superseded by [CHEAT-SHEET.md](CHEAT-SHEET.md).
+>
+> The new cheat sheet includes:
+> - All commands from this file
+> - Additional monitoring and debugging commands
+> - Better organization and search ability
+> - Pro tips and quick links
+>
+> **👉 Use [CHEAT-SHEET.md](CHEAT-SHEET.md) instead** for the most up-to-date command reference.
+
+---
+
+# Command Reference (Deprecated)
+
 ### GitHub Workflow Commands
 
 #### Build Workflow
