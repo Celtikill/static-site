@@ -53,7 +53,8 @@ graph LR
 | **BUILD** | `build.yml` | Security scanning & artifacts | Push to any branch |
 | **TEST** | `test.yml` | Policy validation & compliance | After BUILD success |
 | **RUN** | `run.yml` | Infrastructure & website deployment | After TEST success |
-| **Bootstrap** | `bootstrap-distributed-backend.yml` | Environment initialization | Manual dispatch |
+| **PR Validation** | `pr-validation.yml` | Pull request quality checks | Pull requests |
+| **Release** | `release-prod.yml` | Production release workflow | Manual dispatch |
 
 ## Workflow Details
 
@@ -100,7 +101,10 @@ production → requires manual approval
 - ✅ **BUILD**: Fully operational
 - ✅ **TEST**: Enhanced policy reporting
 - ✅ **RUN**: Complete deployment workflow
-- ✅ **Bootstrap**: Distributed backend creation
+- ✅ **PR Validation**: Pull request quality checks
+- ✅ **Release**: Production release management
+
+> **Note**: Environment bootstrap (OIDC providers, IAM roles, state backends) is handled by bash scripts in `scripts/bootstrap/`. See [Bootstrap Documentation](../scripts/bootstrap/README.md) for details.
 
 ### Performance Metrics
 | Metric | Target | Current | Status |

@@ -12,19 +12,22 @@ This Terraform module provisions the foundational infrastructure required for re
 
 ## 🔄 Shared Usage: Scripts AND Workflows
 
-**This module is intentionally used by both:**
+**This module is used by:**
 
 1. **Bootstrap scripts** ([`scripts/bootstrap/lib/backends.sh`](../../scripts/bootstrap/lib/backends.sh))
+   - Creates OIDC providers, IAM roles, and Terraform state backends
    - Local Terraform execution
    - Fast iteration during initial setup
    - Direct CLI control
+   - **Required for initial environment setup**
 
-2. **GitHub Actions workflows** ([`.github/workflows/bootstrap-distributed-backend.yml`](../../.github/workflows/bootstrap-distributed-backend.yml))
-   - Automated backend creation via CI/CD
+2. **GitHub Actions workflows** ([`.github/workflows/run.yml`](../../.github/workflows/run.yml))
+   - Automated deployment for day-to-day operations after bootstrap
+   - Deploys infrastructure and website content
    - Version-controlled state management
    - Team collaboration with PR reviews
 
-**This is by design** - both paths create identical infrastructure using the same code, ensuring consistency regardless of deployment method.
+**Note**: Bootstrap scripts handle one-time foundational setup. GitHub Actions workflows handle ongoing deployments.
 
 **See**: [When to Use Bootstrap Scripts vs Workflows](../../scripts/bootstrap/README.md#-when-to-use-bootstrap-scripts-vs-workflows)
 
@@ -81,13 +84,15 @@ terraform init
 terraform apply -var="environment=dev" -var="aws_account_id=123456789012"
 ```
 
-### Via GitHub Actions (Recommended for Ongoing Management)
+### Via Bootstrap Scripts (Recommended)
 
 ```bash
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Bootstrap creates backends for all environments
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+
+# Or bootstrap specific environment
+AWS_PROFILE=staging-deploy ./bootstrap-foundation.sh
 ```
 
 ### Manual Terraform Execution
@@ -297,12 +302,12 @@ vim terraform/bootstrap/main.tf
 cd scripts/bootstrap
 ./bootstrap-foundation.sh --dry-run
 
-# 3. Commit and test via workflow
+# 3. Commit and test
 git commit -am "Update bootstrap module"
 git push
 
-# 4. Trigger workflow test
-gh workflow run bootstrap-distributed-backend.yml --field environment=dev
+# 4. Test deployment via GitHub Actions
+gh workflow run run.yml --field environment=dev --field deploy_infrastructure=true
 ```
 
 ### Destroying Backend (Caution!)

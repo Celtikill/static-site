@@ -119,10 +119,12 @@ gh workflow run run.yml --field environment=prod --field deploy_infrastructure=t
 
 ### Bootstrap New Environment
 ```bash
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=<env> \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Use bootstrap scripts to create backends for new environment
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+
+# Or for specific environment with AWS profile
+AWS_PROFILE=<env>-deploy ./bootstrap-foundation.sh
 ```
 
 ### Emergency Rollback

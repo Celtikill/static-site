@@ -38,10 +38,10 @@ gh workflow run run.yml \
   --field deploy_website=true
 
 # Bootstrap new environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=ENVIRONMENT \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+# Or for specific environment:
+# AWS_PROFILE=ENVIRONMENT-deploy ./bootstrap-foundation.sh
 ```
 
 ### Monitoring Commands

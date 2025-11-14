@@ -275,10 +275,11 @@ aws iam get-group --group-name CrossAccountAdmins
 initial_admin_users = ["alice", "bob"]
 ```
 
-2. Run the ORG workflow to apply:
+2. Apply via Terraform:
 ```bash
-gh workflow run organization-management.yml \
-  --field action=apply
+cd terraform/foundations/org-management
+tofu init
+tofu apply
 ```
 
 **Note**: The `terraform.tfvars` file is intentionally excluded from git (contains sensitive config). Update `terraform.tfvars.example` to document the canonical user list.
