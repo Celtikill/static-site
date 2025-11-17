@@ -2,6 +2,44 @@
 
 Modular framework for comprehensive AWS infrastructure destruction with safety features, cross-account support, and detailed reporting.
 
+---
+
+⚠️ **DANGER ZONE** ⚠️
+
+These scripts **permanently delete AWS resources**. There is no undo.
+
+**Before proceeding**:
+1. ✅ Read this entire README
+2. ✅ Run with `--dry-run` first
+3. ✅ Verify you're in the correct AWS account
+4. ✅ Have backups of critical data
+5. ✅ Get approval for production destruction
+
+**Quick Reference**:
+- **Reset dev environment preserving bootstrap**: `./destroy-environment.sh dev --force`
+- **Preview full destruction**: `./destroy-infrastructure.sh --dry-run`
+- **Full teardown**: `./destroy-infrastructure.sh --force` (⚠️ DESTRUCTIVE)
+
+**Jump to**: [Decision Guide](#scripts-overview) | [Safety Features](#security--safety) | [Examples](#common-scenarios)
+
+---
+
+## Script Directory Navigation
+
+**📍 You are here**: `scripts/destroy/`
+
+**Workflow**: Bootstrap → Demo → Destroy
+- **[Bootstrap](../bootstrap/)** - Create AWS infrastructure
+- **[Demo](../demo/)** - Prepare and execute live demonstrations
+- **[Destroy](../destroy/)** - Clean up AWS resources **(you are here)**
+
+**Related Documentation**:
+- [Testing Guide](TESTING.md)
+- [Deployment Guide](../../DEPLOYMENT.md)
+- [Bootstrap Scripts](../bootstrap/README.md)
+
+---
+
 ## 📋 Overview
 
 This framework provides safe, organized destruction of all AWS resources created by the static-site repository:
@@ -271,7 +309,40 @@ readonly MEMBER_ACCOUNT_IDS=(
 
 ## 📊 Destruction Phases
 
-The framework executes destruction in a specific order to handle dependencies:
+The framework executes destruction in dependency order to handle resource relationships:
+
+```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'14px'}}}%%
+graph TD
+    accTitle: AWS Resource Destruction Phase Sequence
+    accDescr: Destruction executes in ten phases respecting dependencies. Phases 1-2 handle cross-account cleanup and dependent resources like CloudFront and WAF. Phase 3 removes storage and logging including S3, CloudTrail, CloudWatch, and SNS. Phases 4-5 destroy compute and database resources plus DNS and networking. Phases 6-7 handle security resources like IAM and KMS which other resources depend on. Phases 8-9 clean configuration and orphaned resources. Phase 10 validates complete destruction across all regions. Each phase waits for previous to complete ensuring clean deletion without dependency errors.
+
+    P1[Phase 1: Cross-Account<br/>GitHub Actions roles, Terraform state]
+    P2[Phase 2: Dependent Resources<br/>CloudFront, WAF]
+    P3[Phase 3: Storage & Logging<br/>S3, CloudTrail, CloudWatch, SNS]
+    P4[Phase 4: Compute & Database<br/>DynamoDB]
+    P5[Phase 5: DNS & Network<br/>Route53]
+    P6[Phase 6: Identity & Security<br/>IAM, KMS]
+    P7[Phase 7: Cost & Config<br/>Budgets, SSM]
+    P8[Phase 8: Orphaned<br/>Elastic IPs]
+    P9[Phase 9: Organizations<br/>SCPs, OUs]
+    P10[Phase 10: Validation<br/>Multi-region verification]
+
+    P1-->P2-->P3-->P4-->P5-->P6-->P7-->P8-->P9-->P10
+
+    style P1 fill:#ff9999
+    style P2 fill:#ffb366
+    style P3 fill:#ffcc99
+    style P4 fill:#ffe6cc
+    style P5 fill:#fff2e6
+    style P6 fill:#ffffcc
+    style P7 fill:#e6ffe6
+    style P8 fill:#ccf2ff
+    style P9 fill:#cce6ff
+    style P10 fill:#99ccff
+```
+
+### Phase Details
 
 | Phase | Description | Services |
 |-------|-------------|----------|
@@ -458,6 +529,123 @@ generate_cost_estimate()
 generate_dry_run_report()
 ```
 
+---
+
+### Using Libraries in Custom Scripts
+
+The destroy framework libraries can be imported into custom scripts for targeted destruction tasks.
+
+**Example: Destroy S3 buckets matching pattern**
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+source "${SCRIPT_DIR}/lib/aws.sh"
+source "${SCRIPT_DIR}/lib/s3.sh"
+
+# Initialize logging
+log_info "Starting S3 bucket cleanup..."
+
+# Destroy all buckets matching project pattern
+destroy_s3_buckets
+
+log_success "S3 cleanup complete"
+```
+
+**Example: Cross-account destruction**
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+source "${SCRIPT_DIR}/lib/aws.sh"
+
+# Assume role in dev account
+DEV_ACCOUNT_ID="123456789012"
+assume_role "arn:aws:iam::${DEV_ACCOUNT_ID}:role/OrganizationAccountAccessRole" "cleanup-session"
+
+# Perform operations in dev account
+log_info "Operating in dev account: $(get_caller_identity)"
+aws s3 ls
+
+# Clear role assumption
+clear_assumed_role
+log_info "Returned to original identity: $(get_caller_identity)"
+```
+
+**Example: Custom service destruction with progress tracking**
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+source "${SCRIPT_DIR}/lib/aws.sh"
+
+destroy_custom_resources() {
+    log_info "Scanning for custom resources..."
+
+    # Use aws_cmd for automatic retry logic
+    local resources
+    resources=$(aws_cmd customservice list-resources --query 'Resources[].Id' --output text)
+
+    # Count total for progress tracking
+    local total=$(echo "$resources" | wc -w)
+    set_steps "$total"
+
+    log_info "Found $total resources to destroy"
+
+    # Iterate with progress updates
+    for resource in $resources; do
+        step "Deleting $resource"
+        if [[ "$DRY_RUN" != "true" ]]; then
+            aws_cmd customservice delete-resource --id "$resource"
+        else
+            log_info "[DRY RUN] Would delete: $resource"
+        fi
+    done
+
+    log_success "Custom resource destruction complete"
+}
+
+# Execute
+destroy_custom_resources
+```
+
+**Example: Dry-run mode with validation**
+```bash
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
+source "${SCRIPT_DIR}/lib/aws.sh"
+source "${SCRIPT_DIR}/lib/s3.sh"
+
+# Parse arguments
+DRY_RUN="${DRY_RUN:-true}"  # Default to dry-run for safety
+
+if [[ "$DRY_RUN" == "true" ]]; then
+    log_warning "Running in DRY-RUN mode - no changes will be made"
+fi
+
+# Destroy resources (respects DRY_RUN)
+destroy_s3_buckets
+
+# Generate report
+if [[ "$DRY_RUN" == "true" ]]; then
+    log_info "Dry-run complete. Review output above."
+    log_info "To execute: DRY_RUN=false $0"
+fi
+```
+
+See [Extending the Framework](#extending-the-framework) for guidance on creating new service libraries.
+
+---
+
 ## 🔄 Extending the Framework
 
 ### Adding a New Service
@@ -578,6 +766,27 @@ This framework mirrors the modular bootstrap framework:
 | **Cross-Account** | ✅ Yes | ✅ Yes |
 | **Logging** | Comprehensive | Comprehensive |
 | **Idempotent** | ✅ Yes | ⚠️ No (one-way) |
+
+## 🧪 Testing & Validation
+
+Before running destruction scripts in production:
+
+1. **Read the testing guide**: [TESTING.md](TESTING.md)
+2. **Always start with dry-run**: `./destroy-infrastructure.sh --dry-run`
+3. **Test in dev first**: `./destroy-environment.sh dev --dry-run`
+4. **Review logs**: Check `/tmp/destroy-infrastructure-*.log`
+5. **Validate results**: Framework auto-validates complete destruction
+
+**Testing Checklist** (see [TESTING.md](TESTING.md) for full checklist):
+- [ ] Backup critical data
+- [ ] Run with `--dry-run` flag
+- [ ] Review resources identified for destruction
+- [ ] Verify preserved resources are excluded
+- [ ] Test in dev before staging/prod
+
+**Known Issues**: See [TESTING.md#bug-tracking](TESTING.md#bug-tracking) for recently fixed issues and current limitations.
+
+---
 
 ## ⚠️ Important Warnings
 

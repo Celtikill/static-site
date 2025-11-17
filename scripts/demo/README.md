@@ -2,6 +2,42 @@
 
 This directory contains demo-specific scripts for preparing and executing live demonstrations of the AWS multi-account static site infrastructure.
 
+## TL;DR
+
+**Quick demo setup**:
+```bash
+# 1. Before demo - validate and capture reference
+./scripts/demo/capture-bootstrap-outputs.sh
+
+# 2. During demo - switch theme for visual impact
+./scripts/demo/switch-theme.sh green
+
+# 3. Trigger deployment
+git add src/index.html && git commit -m "demo: green theme" && git push
+```
+
+**Available scripts**: [capture-bootstrap-outputs.sh](#capture-bootstrap-outputssh) | [switch-theme.sh](#switch-themesh) | [repair-terraform-state.sh](#repair-terraform-statesh)
+
+**Jump to**: [Demo Workflow](#demo-workflow) | [Security](#security-considerations) | [Troubleshooting](#troubleshooting)
+
+---
+
+## Script Directory Navigation
+
+**📍 You are here**: `scripts/demo/`
+
+**Workflow**: Bootstrap → Demo → Destroy
+- **[Bootstrap](../bootstrap/)** - Create AWS infrastructure
+- **[Demo](../demo/)** - Prepare and execute live demonstrations **(you are here)**
+- **[Destroy](../destroy/)** - Clean up AWS resources
+
+**Related Documentation**:
+- [Demo Agenda](../../DEMO_AGENDA.md)
+- [Deployment Guide](../../DEPLOYMENT.md)
+- [Bootstrap Scripts](../bootstrap/README.md)
+
+---
+
 ## Overview
 
 These scripts help presenters prepare for professional technical demos by:
@@ -93,6 +129,115 @@ These scripts help presenters prepare for professional technical demos by:
 
 ---
 
+### `destroy-website-buckets.sh`
+
+**Purpose**: Fast cleanup of website S3 buckets during demos
+
+**Status**: ⚠️ **Deprecated** - Use `../destroy/destroy-environment.sh` instead
+
+**What it does**:
+- Empties and deletes S3 website buckets
+- Handles versioned buckets
+- Faster than full infrastructure destroy
+
+**When to use**:
+- Quick cleanup between demo runs
+- Resetting website without destroying all infrastructure
+
+**Migration path**:
+```bash
+# Old way (deprecated):
+./scripts/demo/destroy-website-buckets.sh
+
+# New way (recommended):
+./scripts/destroy/destroy-environment.sh dev --force
+```
+
+**Why deprecated**: The destroy scripts provide better safety features, comprehensive logging, cross-account support, and proper validation.
+
+---
+
+### `repair-terraform-state.sh`
+
+**Purpose**: Import existing AWS resources into Terraform state
+
+**Status**: ✅ **Active** - Use when state is out of sync with infrastructure
+
+**What it does**:
+- Detects existing AWS resources (S3 buckets, IAM roles, OIDC providers)
+- Compares with Terraform state
+- Imports missing resources into state
+- Fixes "EntityAlreadyExists" errors
+
+**When to use**:
+- After deleting Terraform state but AWS resources still exist
+- Getting "EntityAlreadyExists" errors during deployment
+- Need to sync state with actual infrastructure
+- Recovery after manual AWS Console changes
+
+**Usage**:
+```bash
+# Check what would be imported
+./scripts/demo/repair-terraform-state.sh --dry-run
+
+# Import resources
+./scripts/demo/repair-terraform-state.sh
+```
+
+**Example output**:
+```
+Scanning for existing AWS resources...
+✓ Found S3 bucket: myproject-state-dev-123456789
+✓ Found IAM role: GitHubActions-myproject-dev
+✗ OIDC provider not in Terraform state
+
+Importing resources:
+  terraform import module.state.aws_s3_bucket.state myproject-state-dev-123456789
+  terraform import module.roles.aws_iam_role.github_actions GitHubActions-myproject-dev
+
+Import complete! State is now synchronized.
+```
+
+**Safety**: Read-only operations, doesn't delete anything. Safe to run with `--dry-run` first.
+
+---
+
+### `cleanup-infrastructure.sh`
+
+**Purpose**: Cross-account infrastructure cleanup for demos
+
+**Status**: ⚠️ **Deprecated** - Use `../destroy/destroy-infrastructure.sh` instead
+
+**What it does**:
+- Assumes cross-account roles from management account
+- Destroys S3 buckets and Terraform state
+- Supports dev, staging, prod, and all environments
+
+**When to use**:
+- Cleaning up after demos
+- Resetting all environments
+
+**Migration path**:
+```bash
+# Old way (deprecated):
+./scripts/demo/cleanup-infrastructure.sh all
+
+# New way (recommended):
+./scripts/destroy/destroy-infrastructure.sh --force
+```
+
+**Why deprecated**: The newer destroy scripts provide:
+- Better safety features (dry-run mode, confirmation prompts)
+- Comprehensive logging and reporting
+- Proper validation and error handling
+- Multi-region support
+- Service-specific destruction phases
+- Post-destruction verification
+
+**Note**: If you need this functionality, use the destroy framework in `../destroy/` which provides enterprise-grade safety and logging.
+
+---
+
 ## GitHub Configuration (Moved to Bootstrap Suite)
 
 **GitHub configuration is now part of the bootstrap process** and has been relocated to:
@@ -139,6 +284,39 @@ All these paths are in `.gitignore` to prevent accidental commits of sensitive d
 ---
 
 ## Demo Workflow
+
+### Visual Demo Flow
+
+```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'14px'}}}%%
+sequenceDiagram
+    accTitle: Live Demo Workflow Sequence
+    accDescr: Pre-demo setup includes bootstrap and output capture. Live demo shows GitHub configuration, theme switching, deployment trigger, and verification. Each step builds on previous to demonstrate complete CI/CD pipeline.
+
+    participant P as Presenter
+    participant AWS as AWS Account
+    participant GH as GitHub Actions
+    participant WEB as Website
+
+    Note over P,AWS: PRE-DEMO (Complete beforehand)
+    P->>AWS: bootstrap-organization.sh (8 min)
+    AWS-->>P: accounts.json created
+    P->>AWS: bootstrap-foundation.sh (12 min)
+    AWS-->>P: OIDC/roles/backends ready
+    P->>P: capture-bootstrap-outputs.sh
+
+    Note over P,WEB: LIVE DEMO (Minutes 30-40)
+    P->>GH: configure-github.sh (2 min)
+    GH-->>P: Secrets/variables configured
+    P->>P: switch-theme.sh green
+    P->>GH: git push (trigger deployment)
+    GH->>AWS: Deploy via OIDC
+    AWS->>WEB: Update CloudFront
+    GH-->>P: Deployment URL
+    P->>WEB: Verify green theme live
+```
+
+---
 
 ### Pre-Demo Setup (Complete beforehand)
 
@@ -252,6 +430,34 @@ The secrets configuration script:
    - Consider running destroy scripts after demo
    - Rotate credentials if accidentally exposed
    - Review CloudTrail logs for unexpected activity
+
+### Live Demo Security Checklist
+
+Before presenting to an audience:
+
+**Credential Protection**:
+- [ ] Use temporary AWS credentials (expire within 1 hour)
+- [ ] Clear shell history: `history -c`
+- [ ] Use incognito/private browser windows
+- [ ] Close unrelated browser tabs
+- [ ] Set terminal font size large enough to read, small enough to hide full ARNs
+
+**Account ID Masking**:
+- [ ] Configure terminal to mask account IDs in output
+- [ ] Use environment variables instead of hardcoded IDs
+- [ ] Prepare screenshots with masked IDs beforehand
+- [ ] Review `demo-reference.txt` is not screen-shared
+
+**Screen Recording Risks**:
+- [ ] Account IDs visible in URLs, outputs, logs
+- [ ] AWS console shows account ID in top-right corner
+- [ ] Terraform outputs may include sensitive ARNs
+- [ ] Git history may show account IDs in commits
+
+**Post-Demo Cleanup**:
+- [ ] Rotate any credentials shown on screen
+- [ ] Review recording for accidental exposure before publishing
+- [ ] Run `../destroy/destroy-infrastructure.sh` if using temporary accounts
 
 ---
 

@@ -2,6 +2,38 @@
 
 Automated bootstrap scripts for AWS multi-account infrastructure supporting GitHub Actions OIDC authentication.
 
+## TL;DR
+
+**For fresh AWS accounts**:
+```bash
+cd scripts/bootstrap
+./bootstrap-organization.sh      # ~8 min - creates accounts
+./bootstrap-foundation.sh         # ~12 min - creates OIDC/roles/backends
+./configure-github.sh            # ~2 min - configures GitHub repo (optional)
+```
+
+**For existing AWS Organizations**: See [Existing Organization](#existing-organization-single-stage-bootstrap)
+
+**Jump to**: [Prerequisites](#prerequisites) | [Configuration](#configuration) | [Security](#security-considerations) | [Troubleshooting](#troubleshooting)
+
+---
+
+## Script Directory Navigation
+
+**📍 You are here**: `scripts/bootstrap/`
+
+**Workflow**: Bootstrap → Demo → Destroy
+- **[Bootstrap](../bootstrap/)** - Create AWS infrastructure **(you are here)**
+- **[Demo](../demo/)** - Prepare and execute live demonstrations
+- **[Destroy](../destroy/)** - Clean up AWS resources
+
+**Related Documentation**:
+- [Project README](../../README.md)
+- [Deployment Guide](../../DEPLOYMENT.md)
+- [Architecture Docs](../../docs/architecture.md)
+
+---
+
 ## 📋 Overview
 
 This framework automates the creation of foundational AWS infrastructure required for GitHub Actions CI/CD pipelines:
@@ -13,17 +45,45 @@ This framework automates the creation of foundational AWS infrastructure require
 
 ## 🏗️ Architecture
 
-```
-Management Account
-├── Workloads OU
-│   └── <project-name> OU (derived from GITHUB_REPO)
-│       ├── <project-name>-dev (Account)
-│       ├── <project-name>-staging (Account)
-│       └── <project-name>-prod (Account)
-└── Bootstrap Resources
-    ├── OIDC Providers (per account)
-    ├── GitHub Actions Roles (per account)
-    └── Terraform Backends (per account)
+```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'14px'}}}%%
+graph TD
+    accTitle: AWS Organizations Multi-Account Architecture
+    accDescr: Management account contains workloads organizational unit with project-specific OU derived from GitHub repository name. Project OU contains three member accounts for dev, staging, and production environments. Each account has OIDC providers, GitHub Actions deployment roles, and Terraform state backends.
+
+    MA[Management Account]
+    WOU[Workloads OU]
+    POU["&lt;project-name&gt; OU<br/><small>(from GITHUB_REPO)</small>"]
+    DEV["&lt;project-name&gt;-dev<br/><small>(Member Account)</small>"]
+    STAG["&lt;project-name&gt;-staging<br/><small>(Member Account)</small>"]
+    PROD["&lt;project-name&gt;-prod<br/><small>(Member Account)</small>"]
+
+    BR[Bootstrap Resources<br/>per account]
+    OIDC[OIDC Provider<br/>token.actions.githubusercontent.com]
+    ROLES[IAM Roles<br/>GitHubActions-*<br/>ReadOnly-*]
+    BACKEND[Terraform Backend<br/>S3 + DynamoDB + KMS]
+
+    MA --> WOU
+    WOU --> POU
+    POU --> DEV
+    POU --> STAG
+    POU --> PROD
+
+    MA -.-> BR
+    BR --> OIDC
+    BR --> ROLES
+    BR --> BACKEND
+
+    style MA fill:#e1f5ff
+    style WOU fill:#fff4e6
+    style POU fill:#ffe6f0
+    style DEV fill:#e6f7e6
+    style STAG fill:#fff9e6
+    style PROD fill:#ffe6e6
+    style BR fill:#f0f0f0
+    style OIDC fill:#e6f3ff
+    style ROLES fill:#ffe6f7
+    style BACKEND fill:#fff0e6
 ```
 
 **Note**: The project OU and account names are dynamically derived from the `GITHUB_REPO` variable in `config.sh`. For example, `GITHUB_REPO="Celtikill/static-site"` creates an OU named "static-site" with accounts "static-site-dev", "static-site-staging", and "static-site-prod".
@@ -34,13 +94,15 @@ Management Account
 scripts/bootstrap/
 ├── config.sh                      # Central configuration
 ├── lib/                           # Function libraries
-│   ├── common.sh                  # Logging and utilities
-│   ├── aws.sh                     # AWS CLI wrappers
-│   ├── organization.sh            # Organizations management
+│   ├── common.sh                  # Logging, progress, user interaction
+│   ├── aws.sh                     # AWS CLI wrappers with retry logic
+│   ├── organization.sh            # Organizations, OUs, accounts, SCPs
 │   ├── oidc.sh                    # OIDC provider functions
-│   ├── roles.sh                   # IAM role management
-│   ├── backends.sh                # Terraform backend creation
-│   └── verify.sh                  # Verification and testing
+│   ├── roles.sh                   # IAM role creation
+│   ├── policies.sh                # IAM policy document generation
+│   ├── metadata.sh                # AWS account metadata management
+│   ├── backends.sh                # Terraform state backends (S3, DynamoDB, KMS)
+│   └── verify.sh                  # Verification and validation
 ├── templates/                     # CloudFormation templates
 │   └── oidc-stackset.yaml        # OIDC provider StackSet
 ├── output/                        # Generated files (git-ignored)
@@ -50,6 +112,7 @@ scripts/bootstrap/
 ├── bootstrap-organization.sh      # Step 1: Create org structure
 ├── bootstrap-foundation.sh        # Step 2: Create OIDC/roles/backends
 ├── configure-github.sh            # Step 3: Configure GitHub repository (optional)
+├── update-role-policy.sh          # Maintenance: Update IAM deployment policies
 ├── destroy-foundation.sh          # Cleanup bootstrap resources (granular options)
 ├── accounts.json                  # Account IDs (auto-generated)
 └── accounts.json.example          # Template file
@@ -58,10 +121,22 @@ scripts/bootstrap/
 
 ### Prerequisites
 
-1. **AWS CLI** installed and configured
-2. **Terraform/OpenTofu** installed (v1.6+)
-3. **AWS credentials** for management account (admin access)
-4. **jq** installed for JSON processing
+| Tool | Minimum Version | Installation |
+|------|----------------|--------------|
+| **AWS CLI** | 2.0+ | `brew install awscli` or [AWS Docs](https://aws.amazon.com/cli/) |
+| **Terraform/OpenTofu** | 1.6+ | `brew install opentofu` or [Download](https://opentofu.org/docs/intro/install/) |
+| **jq** | 1.6+ | `brew install jq` |
+| **GitHub CLI** (Step 3 only) | 2.0+ | `brew install gh` or [GitHub Docs](https://cli.github.com/) |
+
+**Verify installation**:
+```bash
+aws --version    # Should show 2.x
+tofu version     # Should show 1.6+
+jq --version     # Should show 1.6+
+gh --version     # Should show 2.x (optional)
+```
+
+**AWS Credentials**: You must have admin access to the management account. Configure with `aws configure` or use AWS SSO.
 
 ### Fresh AWS Account (Three-Step Bootstrap)
 
@@ -129,7 +204,7 @@ cd scripts/bootstrap
 %%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
 graph TD
     accTitle: Bootstrap Path Decision and Workflow
-    accDescr: Two-path bootstrap strategy supporting both fresh AWS accounts and existing AWS Organizations with convergence to common workflow-based operations. Fresh AWS accounts start by running bootstrap-organization.sh creating a new AWS Organization with organizational units, service control policies, and account structure documented in the organizational design. The bootstrap-foundation.sh script then provisions foundational infrastructure including OIDC providers for GitHub Actions authentication, IAM roles for cross-account access, S3 state backends with encryption, and DynamoDB tables for state locking. The accounts.json file is committed to version control documenting account structure and enabling automated workflows. Existing AWS Organizations with established account structures can skip organization creation by manually updating accounts.json with existing account details then joining the common path at foundation bootstrap. After bootstrap completion, all infrastructure changes transition to workflow-based day-2 operations using GitHub Actions for consistency and audit trails. Infrastructure changes follow pull request workflows with peer review, automated testing, and approval gates before merge. Automated deployment via Actions executes after PR approval applying infrastructure changes through the BUILD-TEST-RUN pipeline ensuring security scanning, policy validation, and controlled deployment. This dual-path approach accommodates different starting points while converging to standardized operations enabling teams to adopt modern DevOps practices regardless of initial AWS configuration maturity.
+    accDescr: Bootstrap path decision flow. Fresh AWS accounts execute bootstrap-organization.sh to create AWS Organization structure, then bootstrap-foundation.sh to provision OIDC providers, IAM roles, and Terraform backends. Existing AWS Organizations skip to foundation bootstrap after updating accounts.json manually. Both paths converge to GitHub Actions workflows for day-2 operations using PR-based reviews, automated testing, and controlled deployment. This dual-path approach supports different starting points while establishing consistent operational practices.
 
     A[Fresh AWS Account] --> B[Run bootstrap-organization.sh]
     B --> C[Run bootstrap-foundation.sh]
@@ -364,39 +439,119 @@ EXAMPLES:
 - Member accounts (unless `--close-accounts` is used)
 - Application infrastructure
 
-## 🔧 Configuration
+### Update IAM Role Policies (Maintenance)
 
-### Environment Variables
+Update IAM deployment policies for existing GitHub Actions roles after policy definition changes.
 
 ```bash
-# Execution modes
+./update-role-policy.sh [OPTIONS]
+
+OPTIONS:
+  -e, --environment ENV    Target environment (dev, staging, prod, all)
+  -d, --dry-run           Preview policy changes without applying
+  -v, --verbose           Enable detailed output
+  -h, --help              Show help message
+
+EXAMPLES:
+  ./update-role-policy.sh --environment staging        # Update staging role policy
+  ./update-role-policy.sh --environment all            # Update all environments
+  ./update-role-policy.sh --environment dev --dry-run  # Preview dev policy changes
+```
+
+**When to use:**
+- After modifying IAM policy definitions in `lib/roles.sh`
+- When deployment permissions need to be updated
+- After AWS service changes require policy adjustments
+- To align existing roles with updated security requirements
+
+**What it does:**
+- Retrieves current deployment policy from IAM role
+- Generates new policy from templates in `lib/roles.sh`
+- Compares policies and shows differences
+- Updates role with new policy (unless `--dry-run`)
+- Validates policy update succeeded
+
+**Safety features:**
+- Dry-run mode shows policy diff before applying
+- Preserves role trust relationships (only updates permissions)
+- Validates syntax before applying changes
+- Can target specific environment to limit blast radius
+
+**Output:**
+```
+Updating deployment policy for environment: staging
+Current policy version: v1
+Generated new policy from templates
+
+Policy differences:
++ Added: s3:PutBucketPolicy
++ Added: cloudfront:CreateInvalidation
+- Removed: s3:DeleteBucket
+
+Apply policy update? [y/N]: y
+Policy updated successfully
+Validation: ✓ Role can be assumed
+```
+
+## 🔧 Configuration
+
+### Configuration Methods (Pick One)
+
+This project supports multiple configuration approaches:
+
+**1. Environment Variables** (Recommended for forks):
+```bash
+cp .env.example .env
+# Edit .env with your values
+source .env
+```
+
+**2. Interactive Prompts** (Easiest for first-time setup):
+```bash
+# Scripts will prompt for missing values
+./bootstrap-organization.sh
+```
+
+**3. Direct Export** (For automation):
+```bash
+export GITHUB_REPO="YourOrg/your-repo"
+export PROJECT_SHORT_NAME="your-project"
+export PROJECT_NAME="yourorg-your-project"
+```
+
+See [.env.example](../../.env.example) for all available options.
+
+### Required Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `GITHUB_REPO` | Repository in owner/repo format | `"Celtikill/static-site"` |
+| `PROJECT_SHORT_NAME` | Abbreviated name for IAM roles | `"static-site"` |
+| `PROJECT_NAME` | Full name for S3 buckets (must be globally unique) | `"celtikill-static-site"` |
+
+### Optional Variables
+
+All optional variables have sensible defaults. See [.env.example](../../.env.example) for the complete list:
+
+- `AWS_DEFAULT_REGION` - AWS region (default: `us-east-1`)
+- `MANAGEMENT_ACCOUNT_ID` - Auto-detected if not set
+- Account IDs - Loaded from `accounts.json` after organization bootstrap
+
+### Execution Mode Overrides
+
+```bash
+# Override behavior without editing config
 export DRY_RUN=true              # Simulate without changes
 export VERBOSE=true              # Enable detailed logging
 export SKIP_VERIFICATION=true    # Skip verification steps
-
-# Custom output directory
-export OUTPUT_DIR=/path/to/output
+export OUTPUT_DIR=/custom/path   # Custom output directory
 ```
-
-### Project Configuration
-
-Edit `config.sh` to customize:
-
-```bash
-readonly PROJECT_NAME="<your-project-name>"     # Used for resource naming
-readonly GITHUB_REPO="<org>/<repo>"            # GitHub repository (e.g., "Celtikill/static-site")
-readonly EXTERNAL_ID="github-actions-<project>" # External ID for IAM roles
-readonly AWS_DEFAULT_REGION="us-east-2"         # AWS region (authoritative source for all scripts)
-readonly MANAGEMENT_ACCOUNT_ID="<account-id>"   # Management account ID
-```
-
-**Important**: PROJECT_NAME should match your repository name for consistency. The project OU and account names will be derived from GITHUB_REPO.
 
 ### Account Emails
 
-Default account creation emails (modify in `lib/organization.sh`):
+Account creation emails (modify in `lib/organization.sh` if needed):
 ```bash
-# Pattern: aws+<project-name>-<env>@example.com
+# Default pattern: aws+<project-name>-<env>@example.com
 Dev:     aws+<project-name>-dev@example.com
 Staging: aws+<project-name>-staging@example.com
 Prod:    aws+<project-name>-prod@example.com
