@@ -177,12 +177,11 @@ These scripts help presenters prepare for professional technical demos by:
 
 **Usage**:
 ```bash
-# Check what would be imported
-./scripts/demo/repair-terraform-state.sh --dry-run
-
-# Import resources
+# Import missing resources into Terraform state
 ./scripts/demo/repair-terraform-state.sh
 ```
+
+**Important**: This script performs actual imports. Review the output carefully before proceeding.
 
 **Example output**:
 ```
