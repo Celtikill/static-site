@@ -690,11 +690,12 @@ aws cloudfront get-distribution --id [DISTRIBUTION_ID]
 aws organizations detach-policy --policy-id p-bfqkqfe7 --target-id ou-klz3-i6e1vrrj
 aws organizations detach-policy --policy-id p-5rx6bwz2 --target-id ou-klz3-aqvpp61l
 
-# Then trigger workflow to recreate and capture in state
-gh workflow run organization-management.yml --field action=apply
+# Then apply via Terraform to recreate and capture in state
+cd terraform/foundations/org-management
+tofu apply
 
-# Option 2: Use workflow import (automatic with continue-on-error)
-# The workflow includes import steps that handle existing attachments gracefully
+# Option 2: Import existing attachments
+# Use Terraform import to bring existing resources into state
 ```
 
 #### SCP Import ID Format Error
@@ -791,14 +792,14 @@ Resource = [
 
 ### Workflow Validation
 
-#### Check Organization Management Workflow Status
+#### Check Workflow Status
 
 ```bash
-# List recent organization-management workflow runs
-gh run list --workflow=organization-management.yml --limit 5
+# List recent workflow runs
+gh run list --limit 10
 
 # View specific run with annotations
-gh run view 18201607126
+gh run view <run-id>
 
 # Download AWS config artifact
 gh run download 18201607126 --name aws-cross-account-config
@@ -844,11 +845,10 @@ aws organizations list-organizational-units-for-parent --parent-id r-xyz
 
 **Issue**: Bootstrap required before first deployment
 ```bash
-# Staging requires distributed backend bootstrap
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Staging requires backend bootstrap via scripts
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+# Ensure staging account is included in accounts.json
 ```
 
 **Issue**: Feature parity with production

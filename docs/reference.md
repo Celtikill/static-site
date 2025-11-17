@@ -4,6 +4,20 @@ Command reference and technical specifications for AWS Static Website Infrastruc
 
 ## Command Reference
 
+> **📢 NOTICE**: This guide has been superseded by [CHEAT-SHEET.md](CHEAT-SHEET.md).
+>
+> The new cheat sheet includes:
+> - All commands from this file
+> - Additional monitoring and debugging commands
+> - Better organization and search ability
+> - Pro tips and quick links
+>
+> **👉 Use [CHEAT-SHEET.md](CHEAT-SHEET.md) instead** for the most up-to-date command reference.
+
+---
+
+# Command Reference (Deprecated)
+
 ### GitHub Workflow Commands
 
 #### Build Workflow
@@ -49,19 +63,15 @@ gh workflow run run.yml \
   --field deploy_website=true
 ```
 
-#### Bootstrap Workflow
+#### Bootstrap Scripts
 ```bash
-# Bootstrap staging distributed backend
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Bootstrap all environments (dev, staging, prod)
+cd scripts/bootstrap
+./bootstrap-foundation.sh
 
-# Bootstrap production distributed backend
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=prod \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Or bootstrap individual environments by setting environment variables
+AWS_PROFILE=staging-deploy ./bootstrap-foundation.sh
+AWS_PROFILE=prod-deploy ./bootstrap-foundation.sh
 ```
 
 #### Emergency Workflow

@@ -109,7 +109,10 @@ Located in `.github/workflows/`:
 | **BUILD** | `build.yml` | Security scanning & artifacts | Push, manual |
 | **TEST** | `test.yml` | Policy validation | After BUILD |
 | **RUN** | `run.yml` | Deployment | After TEST, manual |
-| **Bootstrap** | `bootstrap-distributed-backend.yml` | Environment initialization | Manual only |
+| **PR Validation** | `pr-validation.yml` | Pull request quality checks | Pull requests |
+| **Release** | `release-prod.yml` | Production release | Manual only |
+
+> **Note**: Environment bootstrap is handled by bash scripts in `scripts/bootstrap/`. See [Bootstrap Documentation](../scripts/bootstrap/README.md).
 
 ### Reusable Workflows
 
@@ -446,11 +449,11 @@ gh workflow run run.yml \
 gh workflow run build.yml \
   --field force_build=true
 
-# Bootstrap new environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Bootstrap new environment (use bash scripts)
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+# Or for specific environment:
+# AWS_PROFILE=staging-deploy ./bootstrap-foundation.sh
 ```
 
 #### Using GitHub UI

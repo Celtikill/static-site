@@ -16,10 +16,11 @@ Enterprise-grade AWS infrastructure for static website hosting with mult-account
 
 ## 📁 Architecture Overview
 
-### Three-Tier Pattern
+### Directory Structure
 
 ```
 terraform/
+├── bootstrap/            # State backend creation (S3 + DynamoDB)
 ├── foundations/          # Account-level foundational resources
 │   ├── org-management/   # AWS Organizations, OUs, SCPs
 │   ├── iam-management/   # Cross-account IAM roles
@@ -32,8 +33,23 @@ terraform/
 │   ├── security/waf/
 │   ├── iam/
 │   └── observability/
-└── workloads/            # Application-specific deployments
-    └── static-site/
+├── workloads/            # Application-specific deployments
+│   └── static-site/
+├── environments/         # Per-environment Terraform configurations
+│   ├── dev/              # Development environment config
+│   ├── staging/          # Staging environment config
+│   ├── prod/             # Production environment config
+│   └── backend-configs/  # Backend configuration templates
+├── accounts/             # Per-account specific configurations
+│   ├── dev/              # Dev account-specific vars
+│   ├── staging/          # Staging account-specific vars
+│   ├── prod/             # Production account-specific vars
+│   └── security/         # Security account vars
+├── platforms/            # Platform-level shared services
+│   └── security-services/ # Centralized security tooling
+├── shared/               # Shared variables across accounts
+│   └── account-variables.tf
+└── docs/                 # Terraform-specific documentation
 ```
 
 ### Module Dependency Tree
@@ -72,10 +88,14 @@ terraform/
 
 | Directory | Purpose | When to Use | State Management |
 |-----------|---------|-------------|------------------|
-| **foundations/** | Account-level resources | One-time org setup | Separate state per foundation |
-| **modules/** | Reusable components | Never deploy directly | No state (reusable code) |
-| **workloads/** | Application deployments | Deploy per environment | Per-environment state |
-| **bootstrap/** | State backend creation | Before any other Terraform | Local state initially |
+| **bootstrap/** | State backend creation (S3 + DynamoDB) | First - before any Terraform | Local state initially |
+| **foundations/** | Account-level foundational resources | One-time org setup (after bootstrap) | Separate state per foundation |
+| **modules/** | Reusable infrastructure components | Never deploy directly (called by others) | No state (reusable code) |
+| **workloads/** | Application-specific deployments | Deploy per environment | Per-environment state |
+| **environments/** | Per-environment Terraform configs | Main deployment entry point | Each has own state backend |
+| **accounts/** | Per-account configuration variables | Referenced by environments | No state (variables only) |
+| **platforms/** | Platform-level shared services | Security/monitoring tooling | Separate state |
+| **shared/** | Shared variables across accounts | Referenced by multiple modules | No state (variables only) |
 
 ### Key Differences
 
@@ -86,6 +106,18 @@ terraform/
 **foundations/ vs. workloads/**:
 - `foundations/`: Management account, one-time setup
 - `workloads/`: Workload accounts, per-environment deployment
+
+**environments/ vs. workloads/**:
+- `environments/`: Entry point with environment-specific configuration (tfvars, backends)
+- `workloads/`: Reusable workload modules called by environments
+
+**accounts/ vs. shared/**:
+- `accounts/`: Account-specific configuration (account IDs, regional preferences)
+- `shared/`: Common variables used across all accounts (project name, tags)
+
+**platforms/ vs. foundations/**:
+- `platforms/`: Centralized shared services (security tools, monitoring)
+- `foundations/`: Organizational structure and IAM setup
 
 ---
 

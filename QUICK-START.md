@@ -1,5 +1,19 @@
 # Quick Start Guide
 
+> **📢 NOTICE**: This guide has been superseded by [GETTING-STARTED.md](GETTING-STARTED.md).
+>
+> The new guide includes:
+> - **Critical configuration steps** (prevents common errors)
+> - Configuration validation script
+> - Better troubleshooting
+> - Clearer instructions for first-time users
+>
+> **👉 Use [GETTING-STARTED.md](GETTING-STARTED.md) instead** - especially if this is your first deployment.
+>
+> This file is kept for reference only and may be removed in the future.
+
+---
+
 Deploy your static website to AWS in 5 minutes.
 
 > **⏱️ Time**: 5 minutes | **Cost**: $1-5/month | **Environment**: Development

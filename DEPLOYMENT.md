@@ -69,33 +69,33 @@ EOF
 - ✅ Creates only necessary OIDC/IAM resources
 - ✅ Preserves existing governance
 
-### Using GitHub Actions Workflows Only
+### Using GitHub Actions for Deployment
 
-**Recommended for: Teams with existing Terraform state management**
+**Recommended for: Day-to-day operations after bootstrap**
 
-If you prefer to manage everything via workflows:
+After running bootstrap scripts, use GitHub Actions for all deployments:
 
 ```bash
-# 1. Manually configure GitHub secrets/variables
+# 1. Configure GitHub variables (one-time, or run configure-github.sh)
 gh variable set AWS_ACCOUNT_ID_DEV --body "123456789012"
+gh variable set PROJECT_NAME --body "yourorg-static-site"
+gh variable set PROJECT_SHORT_NAME --body "static-site"
 
-# 2. Run organization workflow (if needed)
-gh workflow run organization-management.yml
-
-# 3. Run bootstrap workflow
-gh workflow run bootstrap-distributed-backend.yml \
+# 2. Deploy infrastructure and website
+gh workflow run run.yml \
   --field environment=dev \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+  --field deploy_infrastructure=true \
+  --field deploy_website=true
 
-# 4. Deploy infrastructure
-gh workflow run run.yml --field environment=dev
+# 3. Monitor deployment
+gh run watch
 ```
 
 **Why this approach?**
 - ✅ Everything in version control
 - ✅ Full audit trail via GitHub Actions
 - ✅ Supports team collaboration with PR reviews
-- ✅ Declarative Terraform state management
+- ✅ Automated quality gates (BUILD → TEST → RUN)
 
 **See**: [GitHub Actions Workflows Documentation](.github/workflows/README.md)
 
@@ -147,20 +147,22 @@ gh run watch
 ### Deploy to Staging/Production
 
 ```bash
-# Bootstrap environment (one-time setup)
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=staging \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Note: Run bootstrap scripts first to create backends in staging/prod accounts
+# See scripts/bootstrap/README.md for multi-environment setup
 
-# Deploy
+# Deploy to staging
 gh workflow run run.yml \
   --field environment=staging \
   --field deploy_infrastructure=true \
   --field deploy_website=true
+
+# Monitor
+gh run watch
 ```
 
-**⏱️ Bootstrap: ~3 minutes | Deployment: ~2 minutes**
+**⏱️ Deployment: ~2 minutes**
+
+> **Prerequisites**: Ensure staging account has been bootstrapped with `./scripts/bootstrap/bootstrap-foundation.sh`
 
 ### Verify Deployment
 

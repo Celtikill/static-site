@@ -1,4 +1,18 @@
-# Deployment Reference Guide
+# Deployment Reference
+
+> **📢 NOTICE**: This guide has been superseded by [CHEAT-SHEET.md](CHEAT-SHEET.md).
+>
+> The new cheat sheet consolidates:
+> - All deployment commands from this file
+> - Common troubleshooting commands
+> - Monitoring and debugging operations
+> - Better organized by task
+>
+> **👉 Use [CHEAT-SHEET.md](CHEAT-SHEET.md) instead** for the most up-to-date command reference.
+
+---
+
+# Deployment Reference (Deprecated) Guide
 
 **Quick reference for deployment commands, troubleshooting, and operational tasks.**
 
@@ -38,10 +52,10 @@ gh workflow run run.yml \
   --field deploy_website=true
 
 # Bootstrap new environment
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=ENVIRONMENT \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+# Or for specific environment:
+# AWS_PROFILE=ENVIRONMENT-deploy ./bootstrap-foundation.sh
 ```
 
 ### Monitoring Commands

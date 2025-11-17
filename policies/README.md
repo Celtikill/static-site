@@ -136,9 +136,9 @@ aws iam attach-group-policy \
 | Policy Type | Deployment Method | Trigger | Location |
 |-------------|------------------|---------|----------|
 | OPA/Rego | CI/CD Pipeline | Every commit (TEST phase) | policies/*.rego |
-| SCPs | Terraform | organization-management workflow | terraform/foundations/org-management/scps.tf |
-| IAM Policies | Terraform | Automatic with role deployment | terraform/modules/iam/github-actions-oidc-role/main.tf |
-| S3 Bucket Policies | Terraform | bootstrap-distributed-backend workflow | terraform/bootstrap/main.tf |
+| SCPs | Terraform | Manual Terraform apply | terraform/foundations/org-management/scps.tf |
+| IAM Policies | Terraform | Bootstrap scripts or run.yml workflow | terraform/modules/iam/github-actions-oidc-role/main.tf |
+| S3 Bucket Policies | Terraform | Bootstrap scripts | terraform/bootstrap/main.tf |
 
 ### How to Deploy Policies
 
@@ -154,13 +154,15 @@ opa test policies/ --verbose
 git add policies/ && git commit -m "Update OPA policies" && git push
 ```
 
-**Service Control Policies** (Manual workflow):
+**Service Control Policies** (Manual Terraform apply):
 ```bash
 # Edit SCPs in Terraform
 vim terraform/foundations/org-management/scps.tf
 
-# Deploy via workflow
-gh workflow run organization-management.yml --field action=apply
+# Deploy via Terraform
+cd terraform/foundations/org-management
+tofu init
+tofu apply
 ```
 
 **IAM Policies** (Managed via Terraform modules):
@@ -185,11 +187,13 @@ tofu apply \
 
 **S3 Bucket Policies** (Automatic with bootstrap):
 ```bash
-# Policies automatically applied during bootstrap
-gh workflow run bootstrap-distributed-backend.yml \
-  --field project_name=static-site \
-  --field environment=dev \
-  --field confirm_bootstrap=BOOTSTRAP-DISTRIBUTED
+# Policies automatically applied during bootstrap scripts
+cd scripts/bootstrap
+./bootstrap-foundation.sh
+
+# This creates:
+# - State backend S3 bucket policies
+# - Website S3 bucket policies (when deploying infrastructure)
 ```
 
 ## 🧪 Testing Policies Locally
