@@ -461,10 +461,19 @@ destroy_cross_account_iam_policies() {
             continue
         fi
 
+        # Debug: Show all policies found
+        local policy_count
+        policy_count=$(echo "$policies" | jq -r '. | length')
+        log_debug "Found $policy_count total custom IAM policies in $account_name"
+        log_debug "Policies: $(echo "$policies" | jq -r '.[].PolicyName' | tr '\n' ' ')"
+
         local destroyed=0
         local failed=0
 
-        local policy_info
+        # Convert JSON array to list to avoid subshell issues
+        local policy_list
+        policy_list=$(echo "$policies" | jq -c '.[]' 2>/dev/null || true)
+
         while IFS= read -r policy_info; do
             [[ -z "$policy_info" ]] && continue
             local policy_name policy_arn
@@ -472,6 +481,7 @@ destroy_cross_account_iam_policies() {
             policy_arn=$(echo "$policy_info" | jq -r '.Arn')
 
             if matches_project "$policy_name"; then
+                log_debug "Policy matches project patterns: $policy_name"
                 if confirm_destruction "IAM Policy ($account_name)" "$policy_name"; then
                     log_action "Delete IAM policy in $account_name: $policy_name"
 
@@ -504,7 +514,7 @@ destroy_cross_account_iam_policies() {
                     fi
                 fi
             fi
-        done < <(echo "$policies" | jq -c '.[]')
+        done <<< "$policy_list"
 
         log_info "Custom IAM policies in $account_name: $destroyed destroyed, $failed failed"
     done
@@ -574,11 +584,18 @@ destroy_cross_account_oidc_providers() {
             continue
         fi
 
+        # Debug: Show all OIDC providers found
+        local provider_count
+        provider_count=$(echo "$oidc_providers" | wc -w | tr -d ' ')
+        log_debug "Found $provider_count total OIDC providers in $account_name"
+        log_debug "OIDC providers: $oidc_providers"
+
         local destroyed=0
         local failed=0
 
         for provider_arn in $oidc_providers; do
             if [[ "$provider_arn" == *"token.actions.githubusercontent.com"* ]]; then
+                log_debug "OIDC provider matches GitHub Actions pattern: $provider_arn"
                 if confirm_destruction "OIDC Provider ($account_name)" "$provider_arn"; then
                     log_action "Delete OIDC provider in $account_name: $provider_arn"
 
