@@ -34,6 +34,9 @@ readonly SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 # Source unified configuration
 source "${SCRIPT_DIR}/../config.sh"
 
+# Load account IDs from config
+load_accounts
+
 # Initialize destroy-specific paths
 readonly OUTPUT_DIR="${SCRIPT_DIR}/output"
 readonly LOG_FILE="${OUTPUT_DIR}/destroy-$(date +%Y%m%d-%H%M%S).log"
