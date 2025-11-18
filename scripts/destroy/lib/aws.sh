@@ -157,7 +157,7 @@ list_s3_buckets() {
 # List DynamoDB tables in a region
 list_dynamodb_tables() {
     local region="${1:-$AWS_DEFAULT_REGION}"
-    AWS_DEFAULT_REGION=$region aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true
+    AWS_REGION=$region aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true
 }
 
 # List IAM roles

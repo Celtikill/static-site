@@ -516,7 +516,7 @@ destroy_cross_account_s3_buckets() {
         buckets=$(AWS_ACCESS_KEY_ID="$access_key" \
                   AWS_SECRET_ACCESS_KEY="$secret_key" \
                   AWS_SESSION_TOKEN="$session_token" \
-                  AWS_DEFAULT_REGION=us-east-1 \
+                  AWS_REGION=us-east-1 \
                   aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
 
         if [[ -z "$buckets" ]]; then

@@ -240,7 +240,7 @@ generate_dry_run_report() {
                             member_buckets=$(AWS_ACCESS_KEY_ID="$access_key" \
                                            AWS_SECRET_ACCESS_KEY="$secret_key" \
                                            AWS_SESSION_TOKEN="$session_token" \
-                                           AWS_DEFAULT_REGION=us-east-1 \
+                                           AWS_REGION=us-east-1 \
                                            aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
 
                             local found_buckets=0
@@ -309,19 +309,83 @@ generate_dry_run_report() {
 
         # KMS Keys
         echo "🔐 KMS KEYS:"
+        local kms_count=0
+
+        # Scan current account (management)
+        echo "  Current account:"
         local aliases
         aliases=$(aws kms list-aliases --query 'Aliases[].{AliasName:AliasName,TargetKeyId:TargetKeyId}' --output json 2>/dev/null || echo "[]")
-        local kms_count=0
         if [[ "$aliases" != "[]" ]] && [[ "$aliases" != "null" ]] && [[ -n "$aliases" ]]; then
             echo "$aliases" | jq -c '.[]' | while read -r alias_info; do
             local alias_name
             alias_name=$(echo "$alias_info" | jq -r '.AliasName')
             if matches_project "$alias_name"; then
-                echo "  - $alias_name"
+                echo "    - $alias_name"
                     ((kms_count++)) || true
                 fi
             done
         fi
+
+        # Scan member accounts (if cross-account mode enabled)
+        if [[ "$INCLUDE_CROSS_ACCOUNT" == "true" ]]; then
+            local current_account
+            current_account=$(aws sts get-caller-identity --query 'Account' --output text 2>/dev/null)
+
+            if [[ "$current_account" == "$MANAGEMENT_ACCOUNT_ID" ]]; then
+                echo "  Member accounts:"
+                for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+                    if check_account_filter "$account_id"; then
+                        local env_name
+                        env_name=$(get_env_name_for_account "$account_id")
+
+                        echo "    Scanning $env_name account ($account_id)..." >&2
+
+                        # Assume role into member account
+                        local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
+                        local session_name="dry-run-kms-${env_name}-$(date +%s)"
+
+                        local credentials
+                        credentials=$(aws sts assume-role \
+                            --role-arn "$role_arn" \
+                            --role-session-name "$session_name" \
+                            --duration-seconds 900 \
+                            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+                            --output text 2>/dev/null)
+
+                        if [[ -n "$credentials" ]]; then
+                            local access_key secret_key session_token
+                            read -r access_key secret_key session_token <<< "$credentials"
+
+                            local member_aliases
+                            member_aliases=$(AWS_ACCESS_KEY_ID="$access_key" \
+                                           AWS_SECRET_ACCESS_KEY="$secret_key" \
+                                           AWS_SESSION_TOKEN="$session_token" \
+                                           aws kms list-aliases --query 'Aliases[].{AliasName:AliasName,TargetKeyId:TargetKeyId}' --output json 2>/dev/null || echo "[]")
+
+                            local found_keys=0
+                            if [[ "$member_aliases" != "[]" ]] && [[ "$member_aliases" != "null" ]] && [[ -n "$member_aliases" ]]; then
+                                echo "$member_aliases" | jq -c '.[]' | while read -r alias_info; do
+                                    local alias_name
+                                    alias_name=$(echo "$alias_info" | jq -r '.AliasName')
+                                    if matches_project "$alias_name"; then
+                                        echo "    - $alias_name ($env_name account)"
+                                        ((kms_count++)) || true
+                                        ((found_keys++)) || true
+                                    fi
+                                done
+                            fi
+
+                            if [[ $found_keys -eq 0 ]]; then
+                                echo "    - No matching KMS keys found in $env_name account" >&2
+                            fi
+                        else
+                            echo "    - Failed to assume role in $env_name account (role may not exist yet)" >&2
+                        fi
+                    fi
+                done
+            fi
+        fi
+
         echo "  Total: $kms_count keys"
         ((total_resources += kms_count)) || true
         echo ""

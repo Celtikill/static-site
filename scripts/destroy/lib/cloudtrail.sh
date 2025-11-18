@@ -32,13 +32,13 @@ stop_all_cloudtrail_logging() {
 
             # Check if logging is enabled (in home region)
             local is_logging
-            is_logging=$(AWS_DEFAULT_REGION="$home_region" aws cloudtrail get-trail-status \
+            is_logging=$(AWS_REGION="$home_region" aws cloudtrail get-trail-status \
                 --name "$trail_name" --query 'IsLogging' --output text 2>/dev/null || echo "false")
 
             if [[ "$is_logging" == "True" ]] || [[ "$is_logging" == "true" ]]; then
                 if [[ "$DRY_RUN" != "true" ]]; then
                     log_info "Stopping CloudTrail logging: $trail_name (region: $home_region)"
-                    if AWS_DEFAULT_REGION="$home_region" aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null; then
+                    if AWS_REGION="$home_region" aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null; then
                         log_success "Stopped CloudTrail logging: $trail_name"
                         ((stopped++)) || true
                     else
@@ -95,10 +95,10 @@ destroy_cloudtrail_resources() {
 
                     if [[ "$DRY_RUN" != "true" ]]; then
                         # Stop logging first (in home region)
-                        AWS_DEFAULT_REGION="$home_region" aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null || true
+                        AWS_REGION="$home_region" aws cloudtrail stop-logging --name "$trail_name" 2>/dev/null || true
 
                         # Delete trail (must be done from home region)
-                        if AWS_DEFAULT_REGION="$home_region" aws cloudtrail delete-trail --name "$trail_name" 2>/dev/null; then
+                        if AWS_REGION="$home_region" aws cloudtrail delete-trail --name "$trail_name" 2>/dev/null; then
                             log_success "Deleted CloudTrail trail: $trail_name"
                             ((destroyed++)) || true
                         else
