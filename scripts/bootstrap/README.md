@@ -107,8 +107,8 @@ scripts/bootstrap/
 │   └── oidc-stackset.yaml        # OIDC provider StackSet
 ├── output/                        # Generated files (git-ignored)
 │   ├── backend-config-*.hcl      # Backend configurations
-│   ├── terraform-*.log           # Terraform logs
-│   └── verification-report.json  # Verification results
+│   ├── backend-*.tfplan          # Terraform plan files
+│   └── bootstrap-report.json     # Bootstrap execution report
 ├── bootstrap-organization.sh      # Step 1: Create org structure
 ├── bootstrap-foundation.sh        # Step 2: Create OIDC/roles/backends
 ├── configure-github.sh            # Step 3: Configure GitHub repository (optional)
@@ -330,7 +330,7 @@ Terraform Backends: ✓
 
 Backend Configurations: output/backend-config-*.hcl
 Console URLs: output/console-urls.txt
-Verification Report: output/verification-report.json
+Bootstrap Report: output/bootstrap-report.json
 
 === AWS Console Access URLs ===
 
@@ -585,7 +585,7 @@ run_full_verification
 
 ### Verification Report
 
-JSON report generated at `output/verification-report.json`:
+JSON report generated at `output/bootstrap-report.json`:
 
 ```json
 {
