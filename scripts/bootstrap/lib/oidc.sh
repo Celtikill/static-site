@@ -16,6 +16,12 @@ create_oidc_provider() {
     local account_id="$1"
     local environment="$2"
 
+    # Skip if account ID is empty (single-account testing)
+    if [[ -z "$account_id" ]]; then
+        log_info "Skipping OIDC provider creation for $environment (account not configured)"
+        return 0
+    fi
+
     log_info "Creating OIDC provider in account $account_id"
 
     if [[ "$DRY_RUN" == "true" ]]; then

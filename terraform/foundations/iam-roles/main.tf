@@ -35,10 +35,11 @@ module "readonly_console_dev" {
 }
 
 # ==============================================================================
-# STAGING ENVIRONMENT
+# STAGING ENVIRONMENT (conditional - only created if staging account configured)
 # ==============================================================================
 
 module "github_actions_staging" {
+  count  = local.staging_enabled ? 1 : 0
   source = "../../modules/iam/github-actions-oidc-role"
 
   providers = {
@@ -55,6 +56,7 @@ module "github_actions_staging" {
 }
 
 module "readonly_console_staging" {
+  count  = local.staging_enabled ? 1 : 0
   source = "../../modules/iam/readonly-console-role"
 
   providers = {
@@ -68,10 +70,11 @@ module "readonly_console_staging" {
 }
 
 # ==============================================================================
-# PROD ENVIRONMENT
+# PROD ENVIRONMENT (conditional - only created if prod account configured)
 # ==============================================================================
 
 module "github_actions_prod" {
+  count  = local.prod_enabled ? 1 : 0
   source = "../../modules/iam/github-actions-oidc-role"
 
   providers = {
@@ -88,6 +91,7 @@ module "github_actions_prod" {
 }
 
 module "readonly_console_prod" {
+  count  = local.prod_enabled ? 1 : 0
   source = "../../modules/iam/readonly-console-role"
 
   providers = {

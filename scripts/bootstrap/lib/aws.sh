@@ -512,6 +512,12 @@ validate_account_active() {
     local account_id="$1"
     local env_name="${2:-unknown}"
 
+    # Skip validation for empty account IDs (single-account testing)
+    if [[ -z "$account_id" ]]; then
+        log_info "Skipping $env_name account (not configured for this test)"
+        return 0
+    fi
+
     if [[ "$DRY_RUN" == "true" ]]; then
         log_info "[DRY-RUN] Would validate account status for: $account_id"
         return 0

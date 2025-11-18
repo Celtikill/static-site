@@ -309,10 +309,17 @@ get_env_name_for_account() {
 }
 
 require_accounts() {
-    if [[ -z "$DEV_ACCOUNT" ]] || [[ -z "$STAGING_ACCOUNT" ]] || [[ -z "$PROD_ACCOUNT" ]]; then
-        echo -e "${RED}ERROR:${NC} accounts.json not found or incomplete" >&2
+    # For single-account testing, only DEV_ACCOUNT is required
+    # STAGING_ACCOUNT and PROD_ACCOUNT can be empty
+    if [[ -z "$DEV_ACCOUNT" ]]; then
+        echo -e "${RED}ERROR:${NC} accounts.json not found or DEV_ACCOUNT is missing" >&2
         echo "Run: ./bootstrap-organization.sh first" >&2
         return 1
+    fi
+
+    # Warn if staging/prod are empty but continue
+    if [[ -z "$STAGING_ACCOUNT" ]] || [[ -z "$PROD_ACCOUNT" ]]; then
+        echo -e "${YELLOW}WARNING:${NC} Running in single-account mode (only dev account configured)" >&2
     fi
 }
 

@@ -8,8 +8,8 @@ output "github_actions_role_arns" {
   description = "ARNs of GitHub Actions deployment roles"
   value = {
     dev     = module.github_actions_dev.role_arn
-    staging = module.github_actions_staging.role_arn
-    prod    = module.github_actions_prod.role_arn
+    staging = try(module.github_actions_staging[0].role_arn, null)
+    prod    = try(module.github_actions_prod[0].role_arn, null)
   }
 }
 
@@ -20,12 +20,12 @@ output "github_actions_role_arns_dev" {
 
 output "github_actions_role_arns_staging" {
   description = "Staging GitHub Actions role ARN"
-  value       = module.github_actions_staging.role_arn
+  value       = try(module.github_actions_staging[0].role_arn, null)
 }
 
 output "github_actions_role_arns_prod" {
   description = "Prod GitHub Actions role ARN"
-  value       = module.github_actions_prod.role_arn
+  value       = try(module.github_actions_prod[0].role_arn, null)
 }
 
 # ==============================================================================
@@ -36,8 +36,8 @@ output "readonly_console_role_arns" {
   description = "ARNs of read-only console roles"
   value = {
     dev     = module.readonly_console_dev.role_arn
-    staging = module.readonly_console_staging.role_arn
-    prod    = module.readonly_console_prod.role_arn
+    staging = try(module.readonly_console_staging[0].role_arn, null)
+    prod    = try(module.readonly_console_prod[0].role_arn, null)
   }
 }
 
@@ -49,8 +49,8 @@ output "console_urls" {
   description = "Pre-configured console switchrole URLs"
   value = {
     dev     = module.readonly_console_dev.console_url
-    staging = module.readonly_console_staging.console_url
-    prod    = module.readonly_console_prod.console_url
+    staging = try(module.readonly_console_staging[0].console_url, null)
+    prod    = try(module.readonly_console_prod[0].console_url, null)
   }
 }
 
@@ -61,12 +61,12 @@ output "console_urls_dev" {
 
 output "console_urls_staging" {
   description = "Staging environment console URL"
-  value       = module.readonly_console_staging.console_url
+  value       = try(module.readonly_console_staging[0].console_url, null)
 }
 
 output "console_urls_prod" {
   description = "Prod environment console URL"
-  value       = module.readonly_console_prod.console_url
+  value       = try(module.readonly_console_prod[0].console_url, null)
 }
 
 # ==============================================================================
@@ -77,8 +77,8 @@ output "console_urls_formatted" {
   description = "Formatted console URLs for terminal output"
   value       = <<-EOT
     Dev:     ${module.readonly_console_dev.console_url}
-    Staging: ${module.readonly_console_staging.console_url}
-    Prod:    ${module.readonly_console_prod.console_url}
+    Staging: ${try(module.readonly_console_staging[0].console_url, "N/A (not configured)")}
+    Prod:    ${try(module.readonly_console_prod[0].console_url, "N/A (not configured)")}
   EOT
 }
 
@@ -87,13 +87,13 @@ output "all_role_arns" {
   value = {
     github_actions = {
       dev     = module.github_actions_dev.role_arn
-      staging = module.github_actions_staging.role_arn
-      prod    = module.github_actions_prod.role_arn
+      staging = try(module.github_actions_staging[0].role_arn, null)
+      prod    = try(module.github_actions_prod[0].role_arn, null)
     }
     readonly_console = {
       dev     = module.readonly_console_dev.role_arn
-      staging = module.readonly_console_staging.role_arn
-      prod    = module.readonly_console_prod.role_arn
+      staging = try(module.readonly_console_staging[0].role_arn, null)
+      prod    = try(module.readonly_console_prod[0].role_arn, null)
     }
   }
 }

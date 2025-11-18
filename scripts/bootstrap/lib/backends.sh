@@ -224,6 +224,12 @@ create_terraform_backend() {
     local environment="$2"
     local region="${3:-$AWS_DEFAULT_REGION}"
 
+    # Skip if account ID is empty (single-account testing)
+    if [[ -z "$account_id" ]]; then
+        log_info "Skipping Terraform backend creation for $environment (account not configured)"
+        return 0
+    fi
+
     log_info "Creating Terraform backend for $environment in account $account_id"
 
     if [[ "$DRY_RUN" == "true" ]]; then
