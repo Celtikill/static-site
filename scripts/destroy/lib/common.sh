@@ -212,3 +212,25 @@ is_management_account() {
     current_account=$(get_current_account)
     [[ "$current_account" == "$MANAGEMENT_ACCOUNT_ID" ]]
 }
+
+# Get account name/environment from account ID
+get_account_name() {
+    local account_id="$1"
+
+    if [[ "$account_id" == "$DEV_ACCOUNT" ]]; then
+        echo "Dev"
+    elif [[ "$account_id" == "$STAGING_ACCOUNT" ]]; then
+        echo "Staging"
+    elif [[ "$account_id" == "$PROD_ACCOUNT" ]]; then
+        echo "Prod"
+    elif [[ "$account_id" == "$MANAGEMENT_ACCOUNT_ID" ]]; then
+        echo "Management"
+    else
+        echo "Unknown"
+    fi
+}
+
+# Alias for compatibility with s3.sh
+get_env_name_for_account() {
+    get_account_name "$1"
+}
