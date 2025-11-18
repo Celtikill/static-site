@@ -218,12 +218,14 @@ generate_dry_run_report() {
                         local env_name
                         env_name=$(get_env_name_for_account "$account_id")
 
+                        echo "    Scanning $env_name account ($account_id)..." >&2
+
                         # Assume role into member account
                         local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
                         local session_name="dry-run-s3-${env_name}-$(date +%s)"
 
                         local credentials
-                        credentials=$(timeout 30 aws sts assume-role \
+                        credentials=$(aws sts assume-role \
                             --role-arn "$role_arn" \
                             --role-session-name "$session_name" \
                             --duration-seconds 900 \
@@ -239,8 +241,9 @@ generate_dry_run_report() {
                                            AWS_SECRET_ACCESS_KEY="$secret_key" \
                                            AWS_SESSION_TOKEN="$session_token" \
                                            AWS_DEFAULT_REGION=us-east-1 \
-                                           timeout 10 aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
+                                           aws s3api list-buckets --query 'Buckets[].Name' --output text 2>/dev/null || true)
 
+                            local found_buckets=0
                             for bucket in $member_buckets; do
                                 if matches_project "$bucket"; then
                                     local size
@@ -250,10 +253,15 @@ generate_dry_run_report() {
                                          aws s3 ls "s3://$bucket" --recursive --summarize 2>/dev/null | grep "Total Size:" | cut -d: -f2 | xargs || echo "Unknown")
                                     echo "    - $bucket ($env_name account) (Size: $size bytes)"
                                     ((bucket_count++)) || true
+                                    ((found_buckets++)) || true
                                 fi
                             done
+
+                            if [[ $found_buckets -eq 0 ]]; then
+                                echo "    - No matching buckets found in $env_name account" >&2
+                            fi
                         else
-                            echo "    - Failed to assume role in $env_name account ($account_id)"
+                            echo "    - Failed to assume role in $env_name account (role may not exist yet)" >&2
                         fi
                     fi
                 done
