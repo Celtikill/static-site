@@ -323,17 +323,22 @@ main() {
     destroy_all_s3_buckets
     destroy_cloudtrail_resources
     destroy_cloudwatch_resources
+    destroy_cross_account_cloudwatch_resources
     destroy_cloudwatch_dashboards
     destroy_sns_resources
 
     log_info "Phase 4: Destroying compute and database resources..."
     destroy_dynamodb_tables
+    destroy_cross_account_dynamodb_tables
 
     log_info "Phase 5: Destroying DNS and network resources..."
     destroy_route53_resources
 
     log_info "Phase 6: Destroying identity and security..."
     destroy_iam_resources
+    destroy_cross_account_iam_roles
+    destroy_cross_account_iam_policies
+    destroy_cross_account_oidc_providers
     destroy_kms_keys
 
     log_info "Phase 7: Destroying cost and configuration management..."

@@ -294,15 +294,56 @@ generate_dry_run_report() {
 
         # DynamoDB Tables
         echo "🗃️ DYNAMODB TABLES:"
+        local table_count=0
+
+        # Scan current account (management)
+        echo "  Current account:"
         local tables
         tables=$(aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true)
-        local table_count=0
         for table in $tables; do
             if matches_project "$table"; then
                 echo "  - $table"
                 ((table_count++)) || true
             fi
         done
+
+        # Scan member accounts if cross-account mode enabled
+        if [[ "$INCLUDE_CROSS_ACCOUNT" == "true" ]]; then
+            echo "  Member accounts:"
+
+            # Save original credentials
+            local orig_access_key="$AWS_ACCESS_KEY_ID"
+            local orig_secret_key="$AWS_SECRET_ACCESS_KEY"
+            local orig_session_token="$AWS_SESSION_TOKEN"
+
+            for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+                local account_name
+                account_name=$(get_account_name "$account_id")
+                echo "    Scanning $account_name ($account_id)..."
+
+                local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
+
+                if assume_role "$role_arn" "destroy-scan-dynamodb-${account_id}" 2>/dev/null; then
+                    local member_tables
+                    member_tables=$(aws dynamodb list-tables --query 'TableNames[]' --output text 2>/dev/null || true)
+
+                    for table in $member_tables; do
+                        if matches_project "$table"; then
+                            echo "    - $table ($account_name)"
+                            ((table_count++)) || true
+                        fi
+                    done
+
+                    # Restore original credentials
+                    export AWS_ACCESS_KEY_ID="$orig_access_key"
+                    export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
+                    export AWS_SESSION_TOKEN="$orig_session_token"
+                else
+                    echo "    - Unable to access $account_name"
+                fi
+            done
+        fi
+
         echo "  Total: $table_count tables"
         ((total_resources += table_count)) || true
         echo ""
@@ -396,61 +437,177 @@ generate_dry_run_report() {
 
         # IAM Resources
         echo "👤 IAM RESOURCES:"
+        local role_count=0
+        local policy_count=0
+        local oidc_count=0
+
+        # Scan current account (management)
+        echo "  Current account:"
+        echo "    Roles:"
         local roles
         roles=$(aws iam list-roles --query 'Roles[].RoleName' --output text 2>/dev/null || true)
-        local role_count=0
-        echo "  Roles:"
         for role in $roles; do
             if matches_project "$role"; then
-                echo "    - $role"
+                echo "      - $role"
                 ((role_count++)) || true
             fi
         done
 
+        echo "    Policies:"
         local policies
         policies=$(aws iam list-policies --scope Local --query 'Policies[].PolicyName' --output text 2>/dev/null || true)
-        local policy_count=0
-        echo "  Policies:"
         for policy in $policies; do
             if matches_project "$policy"; then
-                echo "    - $policy"
+                echo "      - $policy"
                 ((policy_count++)) || true
             fi
         done
 
-        local oidc_count
-        oidc_count=$(aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text 2>/dev/null | grep -c "token.actions.githubusercontent.com" || echo 0)
-        # Ensure oidc_count is a single number
-        oidc_count=$(echo "$oidc_count" | head -1 | tr -d '[:space:]')
-        [[ ! "$oidc_count" =~ ^[0-9]+$ ]] && oidc_count=0
-        echo "  OIDC Providers: $oidc_count"
+        echo "    OIDC Providers:"
+        local current_oidc
+        current_oidc=$(aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text 2>/dev/null | grep -c "token.actions.githubusercontent.com" || echo 0)
+        current_oidc=$(echo "$current_oidc" | head -1 | tr -d '[:space:]')
+        [[ ! "$current_oidc" =~ ^[0-9]+$ ]] && current_oidc=0
+        if [[ $current_oidc -gt 0 ]]; then
+            echo "      - GitHub OIDC Provider"
+        fi
+        ((oidc_count += current_oidc)) || true
+
+        # Scan member accounts if cross-account mode enabled
+        if [[ "$INCLUDE_CROSS_ACCOUNT" == "true" ]]; then
+            echo "  Member accounts:"
+
+            # Save original credentials
+            local orig_access_key="$AWS_ACCESS_KEY_ID"
+            local orig_secret_key="$AWS_SECRET_ACCESS_KEY"
+            local orig_session_token="$AWS_SESSION_TOKEN"
+
+            for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+                local account_name
+                account_name=$(get_account_name "$account_id")
+                echo "    Scanning $account_name ($account_id)..."
+
+                local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
+
+                if assume_role "$role_arn" "destroy-scan-iam-${account_id}" 2>/dev/null; then
+                    # Scan roles
+                    local member_roles
+                    member_roles=$(aws iam list-roles --query 'Roles[].RoleName' --output text 2>/dev/null || true)
+                    for role in $member_roles; do
+                        if matches_project "$role"; then
+                            echo "      - Role: $role ($account_name)"
+                            ((role_count++)) || true
+                        fi
+                    done
+
+                    # Scan policies
+                    local member_policies
+                    member_policies=$(aws iam list-policies --scope Local --query 'Policies[].PolicyName' --output text 2>/dev/null || true)
+                    for policy in $member_policies; do
+                        if matches_project "$policy"; then
+                            echo "      - Policy: $policy ($account_name)"
+                            ((policy_count++)) || true
+                        fi
+                    done
+
+                    # Scan OIDC providers
+                    local member_oidc
+                    member_oidc=$(aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text 2>/dev/null | grep -c "token.actions.githubusercontent.com" || echo 0)
+                    member_oidc=$(echo "$member_oidc" | head -1 | tr -d '[:space:]')
+                    [[ ! "$member_oidc" =~ ^[0-9]+$ ]] && member_oidc=0
+                    if [[ $member_oidc -gt 0 ]]; then
+                        echo "      - OIDC Provider: GitHub ($account_name)"
+                    fi
+                    ((oidc_count += member_oidc)) || true
+
+                    # Restore original credentials
+                    export AWS_ACCESS_KEY_ID="$orig_access_key"
+                    export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
+                    export AWS_SESSION_TOKEN="$orig_session_token"
+                else
+                    echo "      - Unable to access $account_name"
+                fi
+            done
+        fi
+
         echo "  Total: $((role_count + policy_count + oidc_count)) IAM resources"
         ((total_resources += role_count + policy_count + oidc_count)) || true
         echo ""
 
         # CloudWatch Resources
         echo "📊 CLOUDWATCH RESOURCES:"
+        local lg_count=0
+        local alarm_count=0
+
+        # Scan current account (management)
+        echo "  Current account:"
+        echo "    Log Groups:"
         local log_groups
         log_groups=$(aws logs describe-log-groups --query 'logGroups[].logGroupName' --output text 2>/dev/null || true)
-        local lg_count=0
-        echo "  Log Groups:"
         for lg in $log_groups; do
             if matches_project "$lg" || [[ "$lg" == *"/aws/cloudtrail"* ]]; then
-                echo "    - $lg"
+                echo "      - $lg"
                 ((lg_count++)) || true
             fi
         done
 
+        echo "    Alarms:"
         local alarms
         alarms=$(aws cloudwatch describe-alarms --query 'MetricAlarms[].AlarmName' --output text 2>/dev/null || true)
-        local alarm_count=0
-        echo "  Alarms:"
         for alarm in $alarms; do
             if matches_project "$alarm"; then
-                echo "    - $alarm"
+                echo "      - $alarm"
                 ((alarm_count++)) || true
             fi
         done
+
+        # Scan member accounts if cross-account mode enabled
+        if [[ "$INCLUDE_CROSS_ACCOUNT" == "true" ]]; then
+            echo "  Member accounts:"
+
+            # Save original credentials
+            local orig_access_key="$AWS_ACCESS_KEY_ID"
+            local orig_secret_key="$AWS_SECRET_ACCESS_KEY"
+            local orig_session_token="$AWS_SESSION_TOKEN"
+
+            for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+                local account_name
+                account_name=$(get_account_name "$account_id")
+                echo "    Scanning $account_name ($account_id)..."
+
+                local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
+
+                if assume_role "$role_arn" "destroy-scan-cloudwatch-${account_id}" 2>/dev/null; then
+                    # Scan log groups
+                    local member_log_groups
+                    member_log_groups=$(aws logs describe-log-groups --query 'logGroups[].logGroupName' --output text 2>/dev/null || true)
+                    for lg in $member_log_groups; do
+                        if matches_project "$lg" || [[ "$lg" == *"/aws/cloudtrail"* ]]; then
+                            echo "      - Log Group: $lg ($account_name)"
+                            ((lg_count++)) || true
+                        fi
+                    done
+
+                    # Scan alarms
+                    local member_alarms
+                    member_alarms=$(aws cloudwatch describe-alarms --query 'MetricAlarms[].AlarmName' --output text 2>/dev/null || true)
+                    for alarm in $member_alarms; do
+                        if matches_project "$alarm"; then
+                            echo "      - Alarm: $alarm ($account_name)"
+                            ((alarm_count++)) || true
+                        fi
+                    done
+
+                    # Restore original credentials
+                    export AWS_ACCESS_KEY_ID="$orig_access_key"
+                    export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
+                    export AWS_SESSION_TOKEN="$orig_session_token"
+                else
+                    echo "      - Unable to access $account_name"
+                fi
+            done
+        fi
+
         echo "  Total: $((lg_count + alarm_count)) CloudWatch resources"
         ((total_resources += lg_count + alarm_count)) || true
         echo ""

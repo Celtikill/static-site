@@ -268,6 +268,336 @@ destroy_oidc_providers() {
 }
 
 # =============================================================================
+# CROSS-ACCOUNT IAM OPERATIONS
+# =============================================================================
+
+# Destroy IAM roles across all member accounts
+destroy_cross_account_iam_roles() {
+    if [[ "$INCLUDE_CROSS_ACCOUNT" != "true" ]]; then
+        log_debug "Cross-account mode disabled, skipping member account IAM role destruction"
+        return 0
+    fi
+
+    log_info "👤 Destroying IAM roles across member accounts..."
+
+    local current_account
+    current_account=$(get_current_account)
+
+    # Process each member account
+    for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+        if ! check_account_filter "$account_id"; then
+            continue
+        fi
+
+        local account_name
+        account_name=$(get_account_name "$account_id")
+        log_info "👤 Scanning for IAM roles in $account_name ($account_id)..."
+
+        # Skip cross-account role assumption if we're already in the target account
+        if [[ "$current_account" == "$account_id" ]]; then
+            log_info "Already in $account_name ($account_id) - scanning directly without role assumption"
+            destroy_iam_roles
+            continue
+        fi
+
+        # Assume role into member account
+        local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
+        local session_name="destroy-iam-roles-${account_name}-$(date +%s)"
+
+        local credentials
+        credentials=$(aws sts assume-role \
+            --role-arn "$role_arn" \
+            --role-session-name "$session_name" \
+            --duration-seconds 3600 \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+            --output text 2>/dev/null)
+
+        if [[ -z "$credentials" ]]; then
+            log_error "Failed to assume role in $account_name ($account_id)"
+            continue
+        fi
+
+        # Parse credentials
+        local access_key secret_key session_token
+        read -r access_key secret_key session_token <<< "$credentials"
+
+        # List roles in member account
+        local roles
+        roles=$(AWS_ACCESS_KEY_ID="$access_key" \
+                AWS_SECRET_ACCESS_KEY="$secret_key" \
+                AWS_SESSION_TOKEN="$session_token" \
+                timeout 15 aws iam list-roles --query 'Roles[].{RoleName:RoleName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
+
+        if [[ "$roles" == "null" ]] || [[ "$roles" == "[]" ]] || [[ -z "$roles" ]]; then
+            log_info "No IAM roles found in $account_name"
+            continue
+        fi
+
+        local destroyed=0
+        local failed=0
+
+        echo "$roles" | jq -c '.[]' | while read -r role_info; do
+            local role_name role_arn_value
+            role_name=$(echo "$role_info" | jq -r '.RoleName')
+            role_arn_value=$(echo "$role_info" | jq -r '.Arn')
+
+            if matches_project "$role_name"; then
+                if confirm_destruction "IAM Role ($account_name)" "$role_name"; then
+                    log_action "Delete IAM role in $account_name: $role_name"
+
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        # Detach managed policies
+                        AWS_ACCESS_KEY_ID="$access_key" \
+                        AWS_SECRET_ACCESS_KEY="$secret_key" \
+                        AWS_SESSION_TOKEN="$session_token" \
+                        aws iam list-attached-role-policies --role-name "$role_name" --query 'AttachedPolicies[].PolicyArn' --output text 2>/dev/null | \
+                            while read -r policy_arn; do
+                                [[ -n "$policy_arn" ]] && AWS_ACCESS_KEY_ID="$access_key" \
+                                    AWS_SECRET_ACCESS_KEY="$secret_key" \
+                                    AWS_SESSION_TOKEN="$session_token" \
+                                    aws iam detach-role-policy --role-name "$role_name" --policy-arn "$policy_arn" 2>/dev/null || true
+                            done
+
+                        # Delete inline policies
+                        AWS_ACCESS_KEY_ID="$access_key" \
+                        AWS_SECRET_ACCESS_KEY="$secret_key" \
+                        AWS_SESSION_TOKEN="$session_token" \
+                        aws iam list-role-policies --role-name "$role_name" --query 'PolicyNames[]' --output text 2>/dev/null | \
+                            while read -r policy_name; do
+                                [[ -n "$policy_name" ]] && AWS_ACCESS_KEY_ID="$access_key" \
+                                    AWS_SECRET_ACCESS_KEY="$secret_key" \
+                                    AWS_SESSION_TOKEN="$session_token" \
+                                    aws iam delete-role-policy --role-name "$role_name" --policy-name "$policy_name" 2>/dev/null || true
+                            done
+
+                        # Delete role
+                        if AWS_ACCESS_KEY_ID="$access_key" \
+                           AWS_SECRET_ACCESS_KEY="$secret_key" \
+                           AWS_SESSION_TOKEN="$session_token" \
+                           aws iam delete-role --role-name "$role_name" 2>/dev/null; then
+                            log_success "Deleted IAM role in $account_name: $role_name"
+                            ((destroyed++)) || true
+                        else
+                            log_error "Failed to delete IAM role in $account_name: $role_name"
+                            ((failed++)) || true
+                        fi
+                    fi
+                fi
+            fi
+        done
+
+        log_info "IAM roles in $account_name: $destroyed destroyed, $failed failed"
+    done
+
+    log_success "Completed cross-account IAM role destruction"
+}
+
+# Destroy IAM policies across all member accounts
+destroy_cross_account_iam_policies() {
+    if [[ "$INCLUDE_CROSS_ACCOUNT" != "true" ]]; then
+        log_debug "Cross-account mode disabled, skipping member account IAM policy destruction"
+        return 0
+    fi
+
+    log_info "📋 Destroying IAM policies across member accounts..."
+
+    local current_account
+    current_account=$(get_current_account)
+
+    # Process each member account
+    for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+        if ! check_account_filter "$account_id"; then
+            continue
+        fi
+
+        local account_name
+        account_name=$(get_account_name "$account_id")
+        log_info "📋 Scanning for IAM policies in $account_name ($account_id)..."
+
+        # Skip cross-account role assumption if we're already in the target account
+        if [[ "$current_account" == "$account_id" ]]; then
+            log_info "Already in $account_name ($account_id) - scanning directly without role assumption"
+            destroy_iam_policies
+            continue
+        fi
+
+        # Assume role into member account
+        local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
+        local session_name="destroy-iam-policies-${account_name}-$(date +%s)"
+
+        local credentials
+        credentials=$(aws sts assume-role \
+            --role-arn "$role_arn" \
+            --role-session-name "$session_name" \
+            --duration-seconds 3600 \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+            --output text 2>/dev/null)
+
+        if [[ -z "$credentials" ]]; then
+            log_error "Failed to assume role in $account_name ($account_id)"
+            continue
+        fi
+
+        # Parse credentials
+        local access_key secret_key session_token
+        read -r access_key secret_key session_token <<< "$credentials"
+
+        # List policies in member account
+        local policies
+        policies=$(AWS_ACCESS_KEY_ID="$access_key" \
+                   AWS_SECRET_ACCESS_KEY="$secret_key" \
+                   AWS_SESSION_TOKEN="$session_token" \
+                   timeout 15 aws iam list-policies --scope Local --query 'Policies[].{PolicyName:PolicyName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
+
+        if [[ "$policies" == "null" ]] || [[ "$policies" == "[]" ]] || [[ -z "$policies" ]]; then
+            log_info "No custom IAM policies found in $account_name"
+            continue
+        fi
+
+        local destroyed=0
+        local failed=0
+
+        local policy_info
+        while IFS= read -r policy_info; do
+            [[ -z "$policy_info" ]] && continue
+            local policy_name policy_arn
+            policy_name=$(echo "$policy_info" | jq -r '.PolicyName')
+            policy_arn=$(echo "$policy_info" | jq -r '.Arn')
+
+            if matches_project "$policy_name"; then
+                if confirm_destruction "IAM Policy ($account_name)" "$policy_name"; then
+                    log_action "Delete IAM policy in $account_name: $policy_name"
+
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        # Delete all policy versions except default
+                        local version_ids
+                        version_ids=$(AWS_ACCESS_KEY_ID="$access_key" \
+                                      AWS_SECRET_ACCESS_KEY="$secret_key" \
+                                      AWS_SESSION_TOKEN="$session_token" \
+                                      aws iam list-policy-versions --policy-arn "$policy_arn" --query 'Versions[?!IsDefaultVersion].VersionId' --output text 2>/dev/null)
+
+                        for version_id in $version_ids; do
+                            [[ -n "$version_id" ]] && AWS_ACCESS_KEY_ID="$access_key" \
+                                AWS_SECRET_ACCESS_KEY="$secret_key" \
+                                AWS_SESSION_TOKEN="$session_token" \
+                                aws iam delete-policy-version --policy-arn "$policy_arn" --version-id "$version_id" 2>/dev/null || true
+                        done
+
+                        # Delete policy
+                        if AWS_ACCESS_KEY_ID="$access_key" \
+                           AWS_SECRET_ACCESS_KEY="$secret_key" \
+                           AWS_SESSION_TOKEN="$session_token" \
+                           aws iam delete-policy --policy-arn "$policy_arn" 2>/dev/null; then
+                            log_success "Deleted IAM policy in $account_name: $policy_name"
+                            ((destroyed++)) || true
+                        else
+                            log_error "Failed to delete IAM policy in $account_name: $policy_name"
+                            ((failed++)) || true
+                        fi
+                    fi
+                fi
+            fi
+        done < <(echo "$policies" | jq -c '.[]')
+
+        log_info "Custom IAM policies in $account_name: $destroyed destroyed, $failed failed"
+    done
+
+    log_success "Completed cross-account IAM policy destruction"
+}
+
+# Destroy OIDC providers across all member accounts
+destroy_cross_account_oidc_providers() {
+    if [[ "$INCLUDE_CROSS_ACCOUNT" != "true" ]]; then
+        log_debug "Cross-account mode disabled, skipping member account OIDC provider destruction"
+        return 0
+    fi
+
+    log_info "🔗 Destroying OIDC providers across member accounts..."
+
+    local current_account
+    current_account=$(get_current_account)
+
+    # Process each member account
+    for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
+        if ! check_account_filter "$account_id"; then
+            continue
+        fi
+
+        local account_name
+        account_name=$(get_account_name "$account_id")
+        log_info "🔗 Scanning for OIDC providers in $account_name ($account_id)..."
+
+        # Skip cross-account role assumption if we're already in the target account
+        if [[ "$current_account" == "$account_id" ]]; then
+            log_info "Already in $account_name ($account_id) - scanning directly without role assumption"
+            destroy_oidc_providers
+            continue
+        fi
+
+        # Assume role into member account
+        local role_arn="arn:aws:iam::${account_id}:role/OrganizationAccountAccessRole"
+        local session_name="destroy-oidc-${account_name}-$(date +%s)"
+
+        local credentials
+        credentials=$(aws sts assume-role \
+            --role-arn "$role_arn" \
+            --role-session-name "$session_name" \
+            --duration-seconds 3600 \
+            --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+            --output text 2>/dev/null)
+
+        if [[ -z "$credentials" ]]; then
+            log_error "Failed to assume role in $account_name ($account_id)"
+            continue
+        fi
+
+        # Parse credentials
+        local access_key secret_key session_token
+        read -r access_key secret_key session_token <<< "$credentials"
+
+        # List OIDC providers in member account
+        local oidc_providers
+        oidc_providers=$(AWS_ACCESS_KEY_ID="$access_key" \
+                         AWS_SECRET_ACCESS_KEY="$secret_key" \
+                         AWS_SESSION_TOKEN="$session_token" \
+                         aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[].Arn' --output text 2>/dev/null || true)
+
+        if [[ -z "$oidc_providers" ]]; then
+            log_info "No OIDC providers found in $account_name"
+            continue
+        fi
+
+        local destroyed=0
+        local failed=0
+
+        for provider_arn in $oidc_providers; do
+            if [[ "$provider_arn" == *"token.actions.githubusercontent.com"* ]]; then
+                if confirm_destruction "OIDC Provider ($account_name)" "$provider_arn"; then
+                    log_action "Delete OIDC provider in $account_name: $provider_arn"
+
+                    if [[ "$DRY_RUN" != "true" ]]; then
+                        if AWS_ACCESS_KEY_ID="$access_key" \
+                           AWS_SECRET_ACCESS_KEY="$secret_key" \
+                           AWS_SESSION_TOKEN="$session_token" \
+                           aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$provider_arn" 2>/dev/null; then
+                            log_success "Deleted OIDC provider in $account_name: $provider_arn"
+                            ((destroyed++)) || true
+                        else
+                            log_error "Failed to delete OIDC provider in $account_name: $provider_arn"
+                            ((failed++)) || true
+                        fi
+                    fi
+                fi
+            fi
+        done
+
+        log_info "OIDC providers in $account_name: $destroyed destroyed, $failed failed"
+    done
+
+    log_success "Completed cross-account OIDC provider destruction"
+}
+
+# =============================================================================
 # IAM USER OPERATIONS
 # =============================================================================
 
