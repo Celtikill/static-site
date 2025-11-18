@@ -45,10 +45,12 @@ cleanup_terraform_state() {
             # Initialize terraform if needed
             if [[ ! -d ".terraform" ]]; then
                 log_info "Initializing Terraform..."
-                if ! tofu init -upgrade; then
-                    log_error "Failed to initialize Terraform"
+                if ! tofu init -upgrade 2>&1; then
+                    log_warn "Failed to initialize Terraform - skipping state cleanup"
+                    log_warn "This is not critical - AWS resources can still be destroyed"
+                    log_warn "You may need to manually clean up Terraform state later"
                     popd >/dev/null 2>&1 || true
-                    return 1
+                    return 0  # Continue with destroy process
                 fi
             fi
 
@@ -56,6 +58,13 @@ cleanup_terraform_state() {
             log_info "Checking for cross-account role resources in state..."
             local state_resources
             state_resources=$(tofu state list 2>/dev/null | grep -E "(cross_account|cross-account)" || true)
+
+            # If state list fails completely, warn and continue
+            if ! tofu state list >/dev/null 2>&1; then
+                log_warn "Unable to access Terraform state - skipping state cleanup"
+                popd >/dev/null 2>&1 || true
+                return 0
+            fi
 
             if [[ -n "$state_resources" ]]; then
                 log_info "Found cross-account resources in state:"
