@@ -316,11 +316,13 @@ generate_dry_run_report() {
         local aliases
         aliases=$(aws kms list-aliases --query 'Aliases[].{AliasName:AliasName,TargetKeyId:TargetKeyId}' --output json 2>/dev/null || echo "[]")
         if [[ "$aliases" != "[]" ]] && [[ "$aliases" != "null" ]] && [[ -n "$aliases" ]]; then
-            echo "$aliases" | jq -c '.[]' | while read -r alias_info; do
-            local alias_name
-            alias_name=$(echo "$alias_info" | jq -r '.AliasName')
-            if matches_project "$alias_name"; then
-                echo "    - $alias_name"
+            # Extract alias names for pattern matching
+            local alias_list
+            alias_list=$(echo "$aliases" | jq -r '.[].AliasName' 2>/dev/null || true)
+
+            for alias_name in $alias_list; do
+                if matches_project "$alias_name"; then
+                    echo "    - $alias_name"
                     ((kms_count++)) || true
                 fi
             done
@@ -364,9 +366,11 @@ generate_dry_run_report() {
 
                             local found_keys=0
                             if [[ "$member_aliases" != "[]" ]] && [[ "$member_aliases" != "null" ]] && [[ -n "$member_aliases" ]]; then
-                                echo "$member_aliases" | jq -c '.[]' | while read -r alias_info; do
-                                    local alias_name
-                                    alias_name=$(echo "$alias_info" | jq -r '.AliasName')
+                                # Extract alias names for pattern matching
+                                local member_alias_list
+                                member_alias_list=$(echo "$member_aliases" | jq -r '.[].AliasName' 2>/dev/null || true)
+
+                                for alias_name in $member_alias_list; do
                                     if matches_project "$alias_name"; then
                                         echo "    - $alias_name ($env_name account)"
                                         ((kms_count++)) || true
