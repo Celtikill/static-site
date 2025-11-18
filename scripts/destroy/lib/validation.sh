@@ -311,10 +311,10 @@ generate_dry_run_report() {
         if [[ "$INCLUDE_CROSS_ACCOUNT" == "true" ]]; then
             echo "  Member accounts:"
 
-            # Save original credentials
-            local orig_access_key="$AWS_ACCESS_KEY_ID"
-            local orig_secret_key="$AWS_SECRET_ACCESS_KEY"
-            local orig_session_token="$AWS_SESSION_TOKEN"
+            # Save original credentials (may be unset)
+            local orig_access_key="${AWS_ACCESS_KEY_ID:-}"
+            local orig_secret_key="${AWS_SECRET_ACCESS_KEY:-}"
+            local orig_session_token="${AWS_SESSION_TOKEN:-}"
 
             for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
                 local account_name
@@ -335,9 +335,13 @@ generate_dry_run_report() {
                     done
 
                     # Restore original credentials
-                    export AWS_ACCESS_KEY_ID="$orig_access_key"
-                    export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
-                    export AWS_SESSION_TOKEN="$orig_session_token"
+                    if [[ -n "$orig_access_key" ]]; then
+                        export AWS_ACCESS_KEY_ID="$orig_access_key"
+                        export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
+                        export AWS_SESSION_TOKEN="$orig_session_token"
+                    else
+                        unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN 2>/dev/null || true
+                    fi
                 else
                     echo "    - Unable to access $account_name"
                 fi
@@ -477,10 +481,10 @@ generate_dry_run_report() {
         if [[ "$INCLUDE_CROSS_ACCOUNT" == "true" ]]; then
             echo "  Member accounts:"
 
-            # Save original credentials
-            local orig_access_key="$AWS_ACCESS_KEY_ID"
-            local orig_secret_key="$AWS_SECRET_ACCESS_KEY"
-            local orig_session_token="$AWS_SESSION_TOKEN"
+            # Save original credentials (may be unset)
+            local orig_access_key="${AWS_ACCESS_KEY_ID:-}"
+            local orig_secret_key="${AWS_SECRET_ACCESS_KEY:-}"
+            local orig_session_token="${AWS_SESSION_TOKEN:-}"
 
             for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
                 local account_name
@@ -521,9 +525,13 @@ generate_dry_run_report() {
                     ((oidc_count += member_oidc)) || true
 
                     # Restore original credentials
-                    export AWS_ACCESS_KEY_ID="$orig_access_key"
-                    export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
-                    export AWS_SESSION_TOKEN="$orig_session_token"
+                    if [[ -n "$orig_access_key" ]]; then
+                        export AWS_ACCESS_KEY_ID="$orig_access_key"
+                        export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
+                        export AWS_SESSION_TOKEN="$orig_session_token"
+                    else
+                        unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN 2>/dev/null || true
+                    fi
                 else
                     echo "      - Unable to access $account_name"
                 fi
@@ -565,10 +573,10 @@ generate_dry_run_report() {
         if [[ "$INCLUDE_CROSS_ACCOUNT" == "true" ]]; then
             echo "  Member accounts:"
 
-            # Save original credentials
-            local orig_access_key="$AWS_ACCESS_KEY_ID"
-            local orig_secret_key="$AWS_SECRET_ACCESS_KEY"
-            local orig_session_token="$AWS_SESSION_TOKEN"
+            # Save original credentials (may be unset)
+            local orig_access_key="${AWS_ACCESS_KEY_ID:-}"
+            local orig_secret_key="${AWS_SECRET_ACCESS_KEY:-}"
+            local orig_session_token="${AWS_SESSION_TOKEN:-}"
 
             for account_id in "${MEMBER_ACCOUNT_IDS[@]}"; do
                 local account_name
@@ -599,9 +607,13 @@ generate_dry_run_report() {
                     done
 
                     # Restore original credentials
-                    export AWS_ACCESS_KEY_ID="$orig_access_key"
-                    export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
-                    export AWS_SESSION_TOKEN="$orig_session_token"
+                    if [[ -n "$orig_access_key" ]]; then
+                        export AWS_ACCESS_KEY_ID="$orig_access_key"
+                        export AWS_SECRET_ACCESS_KEY="$orig_secret_key"
+                        export AWS_SESSION_TOKEN="$orig_session_token"
+                    else
+                        unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN 2>/dev/null || true
+                    fi
                 else
                     echo "      - Unable to access $account_name"
                 fi
