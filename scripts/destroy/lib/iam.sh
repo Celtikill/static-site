@@ -326,22 +326,29 @@ destroy_cross_account_iam_roles() {
         roles=$(AWS_ACCESS_KEY_ID="$access_key" \
                 AWS_SECRET_ACCESS_KEY="$secret_key" \
                 AWS_SESSION_TOKEN="$session_token" \
-                timeout 15 aws iam list-roles --query 'Roles[].{RoleName:RoleName,Arn:Arn}' --output json 2>/dev/null || echo "[]")
+                timeout 15 aws iam list-roles --query 'Roles[].RoleName' --output json 2>/dev/null || echo "[]")
 
         if [[ "$roles" == "null" ]] || [[ "$roles" == "[]" ]] || [[ -z "$roles" ]]; then
             log_info "No IAM roles found in $account_name"
             continue
         fi
 
+        # Debug: Show all roles found
+        local role_count
+        role_count=$(echo "$roles" | jq -r '. | length')
+        log_debug "Found $role_count total IAM roles in $account_name"
+        log_debug "Roles: $(echo "$roles" | jq -r '.[]' | tr '\n' ' ')"
+
         local destroyed=0
         local failed=0
 
-        echo "$roles" | jq -c '.[]' | while read -r role_info; do
-            local role_name role_arn_value
-            role_name=$(echo "$role_info" | jq -r '.RoleName')
-            role_arn_value=$(echo "$role_info" | jq -r '.Arn')
+        # Convert JSON array to bash array to avoid subshell issues
+        local role_list
+        role_list=$(echo "$roles" | jq -r '.[]' 2>/dev/null || true)
 
+        for role_name in $role_list; do
             if matches_project "$role_name"; then
+                log_debug "Role matches project patterns: $role_name"
                 if confirm_destruction "IAM Role ($account_name)" "$role_name"; then
                     log_action "Delete IAM role in $account_name: $role_name"
 
