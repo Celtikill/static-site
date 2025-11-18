@@ -28,10 +28,11 @@ provider "aws" {
   alias  = "staging"
   region = var.aws_region
 
-  # Use management account ID as fallback for single-account testing
+  # Use dev account ID as fallback for single-account testing
+  # OrganizationAccountAccessRole exists in member accounts, not management
   # The module with count = 0 won't actually use this provider
   assume_role {
-    role_arn = "arn:aws:iam::${local.staging_enabled ? local.staging_account_id : var.management_account_id}:role/OrganizationAccountAccessRole"
+    role_arn = "arn:aws:iam::${local.staging_enabled ? local.staging_account_id : local.dev_account_id}:role/OrganizationAccountAccessRole"
   }
 
   default_tags {
@@ -47,10 +48,11 @@ provider "aws" {
   alias  = "prod"
   region = var.aws_region
 
-  # Use management account ID as fallback for single-account testing
+  # Use dev account ID as fallback for single-account testing
+  # OrganizationAccountAccessRole exists in member accounts, not management
   # The module with count = 0 won't actually use this provider
   assume_role {
-    role_arn = "arn:aws:iam::${local.prod_enabled ? local.prod_account_id : var.management_account_id}:role/OrganizationAccountAccessRole"
+    role_arn = "arn:aws:iam::${local.prod_enabled ? local.prod_account_id : local.dev_account_id}:role/OrganizationAccountAccessRole"
   }
 
   default_tags {
