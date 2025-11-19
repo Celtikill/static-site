@@ -27,7 +27,7 @@ destroy_organizations_resources() {
 
     log_info "Processing AWS Organizations structure..."
 
-    # Step 1: Detach SCPs from OUs and accounts
+    # Step 1: Detach SCPs from OUs and accounts - ONLY project-related SCPs
     log_info "Detaching Service Control Policies..."
     local policies
     policies=$(aws organizations list-policies --filter SERVICE_CONTROL_POLICY --query 'Policies[?Name!=`FullAWSAccess`].Id' --output text 2>/dev/null || true)
@@ -35,6 +35,14 @@ destroy_organizations_resources() {
     for policy_id in $policies; do
         local policy_name
         policy_name=$(aws organizations describe-policy --policy-id "$policy_id" --query 'Policy.PolicySummary.Name' --output text 2>/dev/null || echo "unknown")
+
+        # SAFETY CHECK: Only process SCPs that match our project patterns
+        if ! matches_project "$policy_name"; then
+            log_debug "Skipping SCP '$policy_name' - does not match project patterns"
+            continue
+        fi
+
+        log_debug "Processing SCP '$policy_name' - matches project patterns"
 
         # Get all targets for this policy
         local targets
@@ -55,11 +63,17 @@ destroy_organizations_resources() {
         done
     done
 
-    # Step 2: Delete custom SCPs
+    # Step 2: Delete custom SCPs - ONLY project-related SCPs
     log_info "Deleting custom Service Control Policies..."
     for policy_id in $policies; do
         local policy_name
         policy_name=$(aws organizations describe-policy --policy-id "$policy_id" --query 'Policy.PolicySummary.Name' --output text 2>/dev/null || echo "unknown")
+
+        # SAFETY CHECK: Only delete SCPs that match our project patterns
+        if ! matches_project "$policy_name"; then
+            log_debug "Skipping SCP deletion for '$policy_name' - does not match project patterns"
+            continue
+        fi
 
         if confirm_destruction "Service Control Policy" "$policy_name"; then
             log_action "Delete SCP: $policy_name"
@@ -103,12 +117,12 @@ destroy_organizations_resources() {
         done
     fi
 
-    # Step 4: Delete OUs (bottom-up, children first)
+    # Step 4: Delete OUs (bottom-up, children first) - ONLY project-related OUs
     log_info "Deleting Organizational Units..."
     local root_id
     root_id=$(aws organizations list-roots --query 'Roots[0].Id' --output text 2>/dev/null)
 
-    # Function to recursively delete OUs
+    # Function to recursively delete OUs - WITH SAFETY FILTERING
     delete_ous_recursive() {
         local parent_id="$1"
 
@@ -117,13 +131,22 @@ destroy_organizations_resources() {
         child_ous=$(aws organizations list-organizational-units-for-parent --parent-id "$parent_id" --query 'OrganizationalUnits[].Id' --output text 2>/dev/null || true)
 
         for ou_id in $child_ous; do
+            # Get OU name BEFORE recursion to check if we should process it
+            local ou_name
+            ou_name=$(aws organizations describe-organizational-unit --organizational-unit-id "$ou_id" --query 'OrganizationalUnit.Name' --output text 2>/dev/null || echo "unknown")
+
+            # SAFETY CHECK: Only process OUs that match our project patterns
+            if ! matches_project "$ou_name"; then
+                log_debug "Skipping OU '$ou_name' - does not match project patterns"
+                continue
+            fi
+
+            log_debug "Processing OU '$ou_name' - matches project patterns"
+
             # Recursively delete children first
             delete_ous_recursive "$ou_id"
 
             # Now delete this OU
-            local ou_name
-            ou_name=$(aws organizations describe-organizational-unit --organizational-unit-id "$ou_id" --query 'OrganizationalUnit.Name' --output text 2>/dev/null || echo "unknown")
-
             if confirm_destruction "Organizational Unit" "$ou_name ($ou_id)"; then
                 log_action "Delete OU: $ou_name"
 
